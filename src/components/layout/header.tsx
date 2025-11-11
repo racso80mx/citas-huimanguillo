@@ -26,7 +26,7 @@ export function SiteHeader() {
             className={cn(
               'transition-colors',
               pathname === '/'
-                ? 'text-primary'
+                ? 'text-primary font-bold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -42,7 +42,7 @@ export function SiteHeader() {
             className={cn(
               'transition-colors',
               pathname === '/admin'
-                ? 'text-primary'
+                ? 'text-primary font-bold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
