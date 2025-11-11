@@ -71,7 +71,7 @@ export function BookingClient({ initialAvailability, initialAnnouncements }: Boo
                 />
               </div>
 
-               {initialAnnouncements && initialAnnouncements.length > 0 && (
+              {initialAnnouncements && initialAnnouncements.length > 0 && (
                 <Card className="shadow-lg">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-xl font-headline">

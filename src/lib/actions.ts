@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import {
   appointments,
-  announcements,
   dailySlotsPerConsultorio,
   getTotalDailySlots,
   addAppointment as saveData,
@@ -26,14 +25,14 @@ export async function getAvailability(year: number, month: number) {
   });
 
   const availability = [];
-  const TOTAL_DAILY_SLOTS = getTotalDailySlots();
-
+  
   for (
     let day = new Date(startDate);
     day <= endDate;
     day.setDate(day.getDate() + 1)
   ) {
     const dateString = day.toISOString().split('T')[0];
+    const TOTAL_DAILY_SLOTS = getTotalDailySlots();
     const bookedSlots = monthAppointments.filter(
       (app) => app.date.split('T')[0] === dateString
     ).length;
@@ -104,6 +103,7 @@ export async function getAnnouncements() {
 export async function updateAnnouncements(newAnnouncements: string[]) {
   updateDataAnnouncements(newAnnouncements);
   revalidatePath('/');
+  revalidatePath('/admin');
   return { success: true, message: 'Avisos actualizados con éxito.' };
 }
 
@@ -112,7 +112,11 @@ export async function getSlotsConfiguration() {
 }
 
 export async function updateSlotsConfiguration(newConfig: { [key: number]: number }) {
-    updateDataSlots(newConfig);
-    revalidatePath('/admin');
-    return { success: true, message: 'Configuración de cupos actualizada.' };
+    const success = updateDataSlots(newConfig);
+    if (success) {
+      revalidatePath('/admin');
+      revalidatePath('/');
+      return { success: true, message: 'Configuración de cupos actualizada.' };
+    }
+     return { success: false, message: 'No se pudo guardar la configuración.' };
 }

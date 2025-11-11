@@ -98,6 +98,7 @@ export const getAnnouncements = () => {
 
 export const updateAnnouncements = (newAnnouncements: string[]) => {
     announcements = newAnnouncements.slice(0, 3); // Max 3 announcements
+    return true;
 }
 
 export const getSlotsConfiguration = () => {
@@ -106,4 +107,5 @@ export const getSlotsConfiguration = () => {
 
 export const updateSlotsConfiguration = (newConfig: { [key: number]: number }) => {
     dailySlotsPerConsultorio = newConfig;
+    return true;
 }
