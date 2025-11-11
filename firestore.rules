@@ -1,0 +1,127 @@
+/**
+ * @file Firebase Security Rules for CitaMedicaFacil App
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for patient data,
+ * allows public read access to clinic data, and secures appointment data
+ * based on patient and clinic relationships. Data shape validation is relaxed
+ * for rapid prototyping.
+ *
+ * Data Structure:
+ * - /patients/{patientId}:  Patient data, accessible only by the owning user.
+ * - /clinics/{clinicId}: Clinic data, publicly readable.
+ * - /appointments/{appointmentId}: Appointment data, secured by patientId and clinicId.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed for the /patients collection.
+ * - Clinic data is publicly readable.
+ * - The rules rely on denormalized patientId and clinicId in the /appointments
+ *   collection for authorization, avoiding costly `get()` calls.
+ *
+ * Denormalization for Authorization:
+ * - The `appointments` collection denormalizes `patientId` and `clinicId` to enable
+ *   efficient and secure access control without requiring extra `get()` operations.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Secures patient data, ensuring only the owner can read and write.
+     * @path /patients/{patientId}
+     * @allow (create) - A user with UID 'user_abc' can create their own document at /patients/user_abc.
+     * @allow (get, update, delete) - A user with UID 'user_abc' can read, update, and delete their own document at /patients/user_abc.
+     * @deny (create) - A user with UID 'user_abc' cannot create a document at /patients/user_xyz.
+     * @deny (get, update, delete) - A user with UID 'user_abc' cannot read, update, and delete the document at /patients/user_xyz.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /patients/{patientId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+
+      // Allow the user to create their own document if the UID matches the document ID.
+      allow create: if isOwner(patientId)
+                   && request.resource.data.id == patientId;
+
+      // Allow read access only to the owner.
+      allow get: if isOwner(patientId);
+
+      // Allow updates only to the owner, and ensure the ID cannot be changed.
+      allow update: if isExistingOwner(patientId)
+                    && request.resource.data.id == resource.data.id;
+
+      // Allow deletion only to the owner.
+      allow delete: if isExistingOwner(patientId);
+
+      // Prevent listing of all patients.
+      allow list: if false;
+    }
+
+    /**
+     * @description Allows public read access to clinic data. Write access should be restricted to admins (not implemented in this example).
+     * @path /clinics/{clinicId}
+     * @allow (get, list) - Any user can read clinic data.
+     * @deny (create, update, delete) - All users are denied create, update, and delete operations.
+     * @principle Allows public read access while restricting write access.
+     */
+    match /clinics/{clinicId} {
+      // Allow public read access.
+      allow get, list: if true;
+
+      // Restrict write access (e.g., to admins only - not implemented here).
+      allow create, update, delete: if false; // TODO: Add admin role check for write access.
+    }
+
+    /**
+     * @description Secures appointment data, allowing access based on patient and clinic IDs.
+     * @path /appointments/{appointmentId}
+     * @allow (create) - Allows creation if the patientId and clinicId are valid.
+     * @allow (get, list) - Allows reading if the user is the patient or the clinic.
+     * @allow (update, delete) - Allows updates and deletes if the user is the patient.
+     * @deny (create, update, delete) - Denies operations if the user is not the patient or clinic.
+     * @principle Secures appointments based on relationships to patients and clinics.
+     */
+    match /appointments/{appointmentId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Function to check if the user is the patient associated with the appointment.
+      function isPatient(patientId) {
+        return isSignedIn() && request.auth.uid == patientId;
+      }
+
+      // Function to check if the user is associated with the clinic (not implemented).
+      function isClinic(clinicId) {
+        return false; // TODO: Implement clinic role check if needed.  Requires storing clinic admin information.
+      }
+
+      function isExistingPatient(patientId) {
+        return isPatient(patientId) && resource != null;
+      }
+
+      // Allow creation if the patientId matches the authenticated user's ID.
+      allow create: if isSignedIn()
+                   && request.resource.data.patientId == request.auth.uid;
+
+      // Allow read access if the user is the patient or associated with the clinic.
+      allow get: if isSignedIn()
+                && (isPatient(resource.data.patientId) || isClinic(resource.data.clinicId));
+      allow list: if isSignedIn()
+                && (isPatient(resource.data.patientId) || isClinic(resource.data.clinicId));
+
+      // Allow updates and deletes only if the user is the patient.
+      allow update: if isExistingPatient(resource.data.patientId);
+      allow delete: if isExistingPatient(resource.data.patientId);
+    }
+  }
+}
