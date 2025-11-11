@@ -58,7 +58,7 @@ export async function getAvailability(year: number, month: number) {
 }
 
 export async function bookAppointment(data: Omit<Appointment, 'id'>) {
-  const { date, curp, consultorio, municipio } = data;
+  const { date, curp, consultorio, estadoNacimiento } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
@@ -91,10 +91,15 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
   const newAppointment: Appointment = {
       ...data,
       id: uuidv4(),
-      colonia: municipio === 'Huimanguillo' ? data.colonia || 'No especificada' : 'NA'
+      municipio: estadoNacimiento === 'TABASCO' ? data.municipio : data.municipio || 'NA',
+      colonia: (estadoNacimiento === 'TABASCO' && data.municipio === 'Huimanguillo') ? data.colonia || 'No especificada' : data.colonia || 'NA'
   }
 
-  await saveData(newAppointment);
+  const docId = await saveData(newAppointment);
+
+  if (!docId) {
+     return { success: false, message: 'No se pudo guardar la cita en la base de datos.' };
+  }
 
   revalidatePath('/');
   revalidatePath('/admin');

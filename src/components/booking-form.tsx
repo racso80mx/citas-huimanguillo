@@ -51,12 +51,12 @@ const formSchema = z.object({
     .max(120, { message: 'La edad no es válida' }),
   estadoNacimiento: z.string().min(1, { message: 'El estado es requerido.' }),
   municipio: z.string().min(1, { message: 'El municipio es requerido.' }),
-  colonia: z.string().optional(),
+  colonia: z.string().min(1, { message: 'La colonia es requerida.' }),
   otraColonia: z.string().optional(),
   telefono: z.string().regex(/^\d{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' }),
 }).refine(data => {
-    // Only require colonia if municipio is Huimanguillo
-    if (data.municipio === 'Huimanguillo' && !data.colonia) {
+    // If state is Tabasco and municipio is Huimanguillo, colonia dropdown is required.
+    if (data.estadoNacimiento === 'TABASCO' && data.municipio === 'Huimanguillo' && !data.colonia) {
         return false;
     }
     return true;
@@ -64,7 +64,8 @@ const formSchema = z.object({
     message: 'La colonia es requerida para Huimanguillo.',
     path: ['colonia'],
 }).refine(data => {
-    if (data.colonia === 'Otra') {
+    // If 'Otra' is selected in colonia dropdown, 'otraColonia' input is required.
+    if (data.estadoNacimiento === 'TABASCO' && data.municipio === 'Huimanguillo' && data.colonia === 'Otra') {
         return !!data.otraColonia && data.otraColonia.length > 2;
     }
     return true;
@@ -72,6 +73,7 @@ const formSchema = z.object({
     message: 'El nombre de la nueva colonia es requerido.',
     path: ['otraColonia'],
 });
+
 
 type BookingFormProps = {
   selectedDate: Date | undefined;
@@ -326,8 +328,8 @@ export function BookingForm({
                 name="estadoNacimiento"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Estado de Nacimiento</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={!!parseCURP(form.getValues('curp'))?.estadoNacimiento}>
+                    <FormLabel>Estado de Residencia</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona tu estado" />
@@ -341,7 +343,7 @@ export function BookingForm({
                   </FormItem>
                 )}
               />
-              {watchEstado === 'TABASCO' && (
+              {watchEstado === 'TABASCO' ? (
                 <FormField
                   control={form.control}
                   name="municipio"
@@ -362,9 +364,23 @@ export function BookingForm({
                     </FormItem>
                   )}
                 />
-              )}
+              ) : watchEstado ? (
+                 <FormField
+                  control={form.control}
+                  name="municipio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Municipio</FormLabel>
+                       <FormControl>
+                        <Input placeholder="Escribe tu municipio" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : null}
             </div>
-             {watchMunicipio === 'Huimanguillo' && (
+             {watchEstado === 'TABASCO' && watchMunicipio === 'Huimanguillo' ? (
                 <FormField
                   control={form.control}
                   name="colonia"
@@ -385,8 +401,23 @@ export function BookingForm({
                     </FormItem>
                   )}
                 />
-             )}
-             {watchColonia === 'Otra' && (
+             ) : watchEstado ? (
+                <FormField
+                  control={form.control}
+                  name="colonia"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Colonia</FormLabel>
+                       <FormControl>
+                        <Input placeholder="Escribe tu colonia" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+             ) : null}
+
+             {watchEstado === 'TABASCO' && watchMunicipio === 'Huimanguillo' && watchColonia === 'Otra' && (
                  <FormField
                   control={form.control}
                   name="otraColonia"
