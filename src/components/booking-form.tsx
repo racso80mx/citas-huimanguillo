@@ -28,6 +28,7 @@ import { Card, CardContent } from './ui/card';
 import estados from '@/lib/data/estados.json';
 import municipios from '@/lib/data/municipios.json';
 import colonias from '@/lib/data/colonias.json';
+import { generateAppointmentPDF } from '@/lib/utils';
 
 const formSchema = z.object({
   curp: z
@@ -50,8 +51,8 @@ const formSchema = z.object({
     .min(0, { message: 'La edad no puede ser negativa.' })
     .max(120, { message: 'La edad no es válida' }),
   estadoNacimiento: z.string().min(1, { message: 'El estado es requerido.' }),
-  municipio: z.string().min(1, { message: 'El municipio es requerido.' }),
-  colonia: z.string().min(1, { message: 'La colonia es requerida.' }),
+  municipio: z.string().min(1, { message: 'El municipio es requerido.' }).regex(/^[a-zA-Z\sñÑ]+$/, "El municipio solo debe contener letras y la letra ñ."),
+  colonia: z.string().min(1, { message: 'La colonia es requerida.' }).regex(/^[a-zA-Z\sñÑ]+$/, "La colonia solo debe contener letras y la letra ñ."),
   otraColonia: z.string().optional(),
   telefono: z.string().regex(/^\d{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' }),
 }).refine(data => {
@@ -152,12 +153,19 @@ export function BookingForm({
         consultorio: selectedConsultorio
       });
 
-      if (result.success) {
+      if (result.success && result.appointmentId) {
         toast({
           title: '¡Cita Reservada!',
-          description: 'Tu cita ha sido agendada con éxito.',
+          description: 'Tu cita ha sido agendada con éxito. Se está generando tu recibo.',
           className: 'bg-accent text-accent-foreground',
         });
+        
+        generateAppointmentPDF({
+            ...finalData,
+            date: selectedDate.toISOString(),
+            consultorio: selectedConsultorio
+        });
+
         form.reset();
         onBookingSuccess();
       } else {

@@ -2,6 +2,9 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Appointment } from "./definitions";
 import * as xlsx from 'xlsx';
+import { jsPDF } from 'jspdf';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -50,4 +53,47 @@ export function downloadExcel(data: Appointment[], filename: string) {
 
 
   xlsx.writeFile(workbook, `${filename}.xlsx`);
+}
+
+
+export function generateAppointmentPDF(appointmentData: Omit<Appointment, 'id' | 'otraColonia'>) {
+    const doc = new jsPDF();
+    const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date } = appointmentData;
+
+    // Set font
+    doc.setFont('Helvetica');
+
+    // Add header
+    doc.setFontSize(22);
+    doc.text('Confirmación de Cita Médica', 20, 30);
+
+    // Add a line separator
+    doc.setLineWidth(0.5);
+    doc.line(20, 35, 190, 35);
+
+    // Patient Details
+    doc.setFontSize(16);
+    doc.text('Datos del Paciente:', 20, 50);
+    
+    doc.setFontSize(12);
+    doc.text(`Nombre: ${nombre} ${apellidoPaterno} ${apellidoMaterno}`, 20, 60);
+    doc.text(`CURP: ${curp}`, 20, 70);
+
+    // Appointment Details
+    doc.setFontSize(16);
+    doc.text('Detalles de la Cita:', 20, 90);
+
+    doc.setFontSize(12);
+    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+    doc.text(`Fecha: ${formattedDate}`, 20, 100);
+    doc.text(`Clínica: Núcleo Básico ${consultorio}`, 20, 110);
+    
+    // Add a footer note
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 140);
+    doc.text('Este es un comprobante de su cita, no es necesario imprimirlo.', 20, 145);
+
+    // Save the PDF
+    doc.save(`recibo_cita_${curp}.pdf`);
 }

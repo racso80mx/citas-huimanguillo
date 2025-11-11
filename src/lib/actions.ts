@@ -58,7 +58,7 @@ export async function getAvailability(year: number, month: number) {
 }
 
 export async function bookAppointment(data: Omit<Appointment, 'id'>) {
-  const { date, curp, consultorio, estadoNacimiento } = data;
+  const { date, curp, consultorio, estadoNacimiento, municipio } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
@@ -87,12 +87,14 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
         'Ya existe una cita agendada con esta CURP para el día seleccionado.',
     };
   }
+  
+  const newAppointmentId = uuidv4();
 
   const newAppointment: Appointment = {
       ...data,
-      id: uuidv4(),
-      municipio: estadoNacimiento === 'TABASCO' ? data.municipio : data.municipio || 'NA',
-      colonia: (estadoNacimiento === 'TABASCO' && data.municipio === 'Huimanguillo') ? data.colonia || 'No especificada' : data.colonia || 'NA'
+      id: newAppointmentId,
+      municipio: estadoNacimiento === 'TABASCO' ? municipio : data.municipio || 'NA',
+      colonia: (estadoNacimiento === 'TABASCO' && municipio === 'Huimanguillo') ? data.colonia : 'NA'
   }
 
   const docId = await saveData(newAppointment);
@@ -104,7 +106,7 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
   revalidatePath('/');
   revalidatePath('/admin');
 
-  return { success: true, message: 'Cita agendada con éxito.' };
+  return { success: true, message: 'Cita agendada con éxito.', appointmentId: docId };
 }
 
 export async function getAppointments() {
