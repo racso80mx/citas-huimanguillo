@@ -10,7 +10,7 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment } from './definitions';
 
@@ -23,7 +23,14 @@ const getDb = async () => {
   if (typeof window === 'undefined') {
     // Check if there's already a user
     if (!auth.currentUser) {
-      await signInAnonymously(auth);
+      try {
+        await signInAnonymously(auth);
+      } catch (error) {
+        console.error("Anonymous sign-in failed", error);
+        // Depending on the use case, you might want to throw the error
+        // or handle it gracefully. For a public-read site, we might
+        // want to proceed if rules allow, but here we'll log and continue.
+      }
     }
   }
 
@@ -33,16 +40,23 @@ const getDb = async () => {
 // ========== Appointments ==========
 
 export async function addAppointment(
-  appointment: Omit<Appointment, 'id'>
+  appointment: Appointment
 ): Promise<string> {
   const db = await getDb();
   const appointmentCollection = collection(db, 'appointments');
-  // Firestore will auto-generate an ID, so we don't pass one.
-  const docRef = await addDoc(appointmentCollection, {
+  // Firestore will auto-generate an ID if we use addDoc.
+  // The passed `appointment` object already has a client-generated UUID.
+  // We will use setDoc with a new doc ref to use our own ID.
+  const docRef = doc(appointmentCollection, appointment.id);
+  
+  // Convert date string to Firestore Timestamp before saving
+  const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
-  });
-  return docRef.id;
+  };
+
+  await setDoc(docRef, dataToSave);
+  return appointment.id;
 }
 
 export async function getAppointments(): Promise<Appointment[]> {
@@ -97,6 +111,7 @@ export async function getAnnouncements(): Promise<string[]> {
   const docRef = doc(db, 'settings', 'announcements');
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
+    // Make sure to handle the case where messages might be undefined
     return docSnap.data().messages || [];
   }
   return [
@@ -122,27 +137,33 @@ export async function updateAnnouncements(
 
 // ========== Slots Configuration ==========
 
-export async function getSlotsConfiguration(): Promise<{ [key: number]: number }> {
+export async function getSlotsConfiguration(): Promise<{ [key: string]: number }> {
   const db = await getDb();
   const docRef = doc(db, 'settings', 'slots');
   const docSnap = await getDoc(docRef);
 
   if (docSnap.exists()) {
-    return docSnap.data().config || {};
+     // Ensure the keys are strings, as they will be from the form.
+    const config = docSnap.data().config || {};
+    const stringKeyConfig: {[key: string]: number} = {};
+    for (const key in config) {
+        stringKeyConfig[String(key)] = config[key];
+    }
+    return stringKeyConfig;
   }
   // Default configuration if not set in Firestore
   return {
-    1: 5,
-    2: 5,
-    3: 5,
-    4: 5,
-    5: 5,
-    6: 5,
+    '1': 5,
+    '2': 5,
+    '3': 5,
+    '4': 5,
+    '5': 5,
+    '6': 5,
   };
 }
 
 export async function updateSlotsConfiguration(newConfig: {
-  [key: number]: number;
+  [key: string]: number;
 }): Promise<boolean> {
   try {
     const db = await getDb();
