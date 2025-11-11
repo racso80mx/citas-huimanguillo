@@ -170,7 +170,7 @@ export function BookingForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Consultorio (Núcleo Básico)</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
+                   <Select onValueChange={field.onChange} value={field.value?.toString()}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un consultorio" />

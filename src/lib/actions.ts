@@ -18,8 +18,10 @@ import type { Appointment } from './definitions';
 export async function getAvailability(year: number, month: number) {
   const startDate = new Date(year, month, 1);
   const endDate = new Date(year, month + 1, 0);
+  
+  const allAppointments = await getDataAppointments();
 
-  const monthAppointments = appointments.filter((app) => {
+  const monthAppointments = allAppointments.filter((app) => {
     const appDate = new Date(app.date);
     return appDate >= startDate && appDate <= endDate;
   });
@@ -52,12 +54,17 @@ export async function getAvailability(year: number, month: number) {
 export async function bookAppointment(data: Omit<Appointment, 'id'>) {
   const { date, curp, consultorio } = data;
   const dateString = new Date(date).toISOString().split('T')[0];
+  
+  const allAppointments = await getDataAppointments();
 
-  const appointmentsOnDate = appointments.filter(
+  const appointmentsOnDate = allAppointments.filter(
     (app) => app.date.split('T')[0] === dateString
   );
   
-  const slotsForConsultorio = dailySlotsPerConsultorio[consultorio] || 0;
+  // This should fetch the current config
+  const currentSlotsConfig = await getDataSlots();
+  const slotsForConsultorio = currentSlotsConfig[consultorio] || 0;
+  
   const appointmentsInConsultorio = appointmentsOnDate.filter(app => app.consultorio === consultorio);
 
   if (appointmentsInConsultorio.length >= slotsForConsultorio) {
