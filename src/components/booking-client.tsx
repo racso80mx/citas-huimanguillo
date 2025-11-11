@@ -101,23 +101,6 @@ export function BookingClient({
                   onMonthChange={handleMonthChange}
                   isLoading={isPending}
                 />
-                 {announcements && announcements.length > 0 && (
-                  <Card className="shadow-lg mt-8">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-xl font-headline">
-                        <Bell className="h-5 w-5 text-primary" />
-                        Avisos Importantes
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2 text-muted-foreground list-disc pl-5">
-                        {announcements.map((announcement, index) => (
-                          <li key={index}>{announcement}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
 
               {selectedDate && selectedDayAvailability && (
@@ -153,15 +136,34 @@ export function BookingClient({
               )}
             </div>
 
-            <div className="flex flex-col">
-              <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                3. Completa tus datos
-              </h3>
-              <BookingForm
-                selectedDate={selectedDate}
-                selectedConsultorio={selectedConsultorio}
-                onBookingSuccess={refreshData}
-              />
+            <div className="flex flex-col gap-8">
+              <div>
+                <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                  3. Completa tus datos
+                </h3>
+                <BookingForm
+                  selectedDate={selectedDate}
+                  selectedConsultorio={selectedConsultorio}
+                  onBookingSuccess={refreshData}
+                />
+              </div>
+              {announcements && announcements.length > 0 && (
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl font-headline">
+                      <Bell className="h-5 w-5 text-primary" />
+                      Avisos Importantes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-muted-foreground list-disc pl-5">
+                      {announcements.map((announcement, index) => (
+                        <li key={index}>{announcement}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </CardContent>

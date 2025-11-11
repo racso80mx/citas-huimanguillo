@@ -12,7 +12,9 @@ import {
   updateSlotsConfiguration as updateDataSlots,
 } from './data';
 import type { Appointment, DailyAvailability } from './definitions';
-import { startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
+
 
 export async function getAvailability(year: number, month: number) {
   const startDate = startOfMonth(new Date(year, month));
@@ -86,7 +88,12 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
     };
   }
 
-  await saveData(data);
+  const newAppointment: Appointment = {
+      ...data,
+      id: uuidv4()
+  }
+
+  await saveData(newAppointment);
 
   revalidatePath('/');
   revalidatePath('/admin');
