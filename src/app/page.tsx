@@ -1,5 +1,13 @@
 import { BookingClient } from '@/components/booking-client';
-import { getAvailability } from '@/lib/actions';
+import { getAvailability, getAnnouncements } from '@/lib/actions';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Bell } from 'lucide-react';
 
 export default async function HomePage() {
   const today = new Date();
@@ -7,6 +15,7 @@ export default async function HomePage() {
     today.getFullYear(),
     today.getMonth()
   );
+  const announcements = await getAnnouncements();
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -19,7 +28,11 @@ export default async function HomePage() {
           Tabasco. Selecciona un día y registra tus datos.
         </p>
       </div>
-      <BookingClient initialAvailability={availability} />
+
+      <BookingClient
+        initialAvailability={availability}
+        initialAnnouncements={announcements}
+      />
     </div>
   );
 }

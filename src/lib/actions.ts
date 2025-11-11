@@ -3,9 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import {
   appointments,
+  announcements,
   DAILY_SLOTS,
   addAppointment as saveData,
   getAppointments as getDataAppointments,
+  deleteAppointment as deleteDataAppointment,
+  getAnnouncements as getDataAnnouncements,
+  updateAnnouncements as updateDataAnnouncements,
 } from './data';
 import type { Appointment } from './definitions';
 
@@ -76,4 +80,21 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
 
 export async function getAppointments() {
     return getDataAppointments();
+}
+
+export async function deleteAppointment(id: string) {
+  deleteDataAppointment(id);
+  revalidatePath('/');
+  revalidatePath('/admin');
+  return { success: true, message: 'Cita eliminada con éxito.' };
+}
+
+export async function getAnnouncements() {
+  return getDataAnnouncements();
+}
+
+export async function updateAnnouncements(newAnnouncements: string[]) {
+  updateDataAnnouncements(newAnnouncements);
+  revalidatePath('/');
+  return { success: true, message: 'Avisos actualizados con éxito.' };
 }

@@ -1,31 +1,36 @@
-import { AppointmentList } from '@/components/appointment-list';
-import { getAppointments } from '@/lib/actions';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-} from '@/components/ui/card';
+'use client';
+import { useState, useEffect } from 'react';
+import { AdminDashboard } from '@/components/admin/admin-dashboard';
+import { LoginForm } from '@/components/admin/login-form';
 
-export default async function AdminPage() {
-  const appointments = await getAppointments();
+export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check session storage for authentication status
+    const sessionAuth = sessionStorage.getItem('adminAuthenticated');
+    if (sessionAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLoginSuccess = () => {
+    sessionStorage.setItem('adminAuthenticated', 'true');
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('adminAuthenticated');
+    setIsAuthenticated(false);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
-      <Card className="w-full max-w-6xl mx-auto shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold font-headline">
-            Reporte de Citas
-          </CardTitle>
-          <CardDescription>
-            Visualización de todas las citas agendadas.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AppointmentList appointments={appointments} />
-        </CardContent>
-      </Card>
+      {!isAuthenticated ? (
+        <LoginForm onLoginSuccess={handleLoginSuccess} />
+      ) : (
+        <AdminDashboard onLogout={handleLogout} />
+      )}
     </div>
   );
 }

@@ -57,10 +57,28 @@ for (let i = 0; i < DAILY_SLOTS; i++) {
 }
 
 
+export let announcements: string[] = [
+    "Recuerda traer tu cartilla de vacunación.",
+    "El uso de cubrebocas es opcional en las instalaciones.",
+];
+
+
 export const addAppointment = (appointment: Appointment) => {
   appointments.push(appointment);
 };
 
 export const getAppointments = () => {
     return appointments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+export const deleteAppointment = (id: string) => {
+    appointments = appointments.filter(app => app.id !== id);
+}
+
+export const getAnnouncements = () => {
+    return announcements;
+}
+
+export const updateAnnouncements = (newAnnouncements: string[]) => {
+    announcements = newAnnouncements.slice(0, 3); // Max 3 announcements
 }
