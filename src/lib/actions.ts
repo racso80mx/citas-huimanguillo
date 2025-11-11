@@ -58,7 +58,7 @@ export async function getAvailability(year: number, month: number) {
 }
 
 export async function bookAppointment(data: Omit<Appointment, 'id'>) {
-  const { date, curp, consultorio } = data;
+  const { date, curp, consultorio, municipio } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
@@ -90,7 +90,8 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
 
   const newAppointment: Appointment = {
       ...data,
-      id: uuidv4()
+      id: uuidv4(),
+      colonia: municipio === 'Huimanguillo' ? data.colonia || 'No especificada' : 'NA'
   }
 
   await saveData(newAppointment);
