@@ -67,6 +67,8 @@ export function BookingForm({
       nombre: '',
       apellidoPaterno: '',
       apellidoMaterno: '',
+      sexo: undefined,
+      edad: 0,
     },
   });
 
@@ -191,7 +193,6 @@ export function BookingForm({
                     <FormLabel>Sexo</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
                       value={field.value}
                       disabled={!!parseCURP(form.getValues('curp'))}
                     >
@@ -220,6 +221,7 @@ export function BookingForm({
                         type="number"
                         placeholder="Tu edad"
                         {...field}
+                        value={field.value || 0}
                         disabled={!!parseCURP(form.getValues('curp'))}
                       />
                     </FormControl>
