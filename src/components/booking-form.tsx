@@ -1,8 +1,8 @@
 'use client';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useTransition, useState } from 'react';
+import { useTransition, useState, useEffect } from 'react';
 import {
   Form,
   FormControl,
@@ -24,34 +24,46 @@ import { useToast } from '@/hooks/use-toast';
 import { bookAppointment } from '@/lib/actions';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import { Loader2 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
+import estados from '@/lib/data/estados.json';
+import municipios from '@/lib/data/municipios.json';
+import colonias from '@/lib/data/colonias.json';
+import { Combobox } from './ui/combobox';
 
 const formSchema = z.object({
+  consultorio: z.coerce.number().min(1, { message: 'Selecciona un consultorio.' }),
   curp: z
     .string()
     .min(18, { message: 'La CURP debe tener 18 caracteres.' })
     .max(18, { message: 'La CURP debe tener 18 caracteres.' })
-    .regex(/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/, {
+    .regex(/^[A-Z]{4}\d{6}[HM][A-Z]{2}[A-Z]{3}[A-Z0-9]\d$/, {
       message: 'Formato de CURP no válido.',
     }),
-  nombre: z.string().min(2, { message: 'El nombre es requerido.' }),
+  nombre: z.string().min(2, { message: 'El nombre es requerido.' }).regex(/^[a-zA-Z\s]+$/, "El nombre solo debe contener letras."),
   apellidoPaterno: z
     .string()
-    .min(2, { message: 'El apellido paterno es requerido.' }),
+    .min(2, { message: 'El apellido paterno es requerido.' }).regex(/^[a-zA-Z\s]+$/, "El apellido solo debe contener letras."),
   apellidoMaterno: z
     .string()
-    .min(2, { message: 'El apellido materno es requerido.' }),
+    .min(2, { message: 'El apellido materno es requerido.' }).regex(/^[a-zA-Z\s]+$/, "El apellido solo debe contener letras."),
   sexo: z.enum(['Hombre', 'Mujer'], { required_error: 'El sexo es requerido.' }),
   edad: z.coerce
     .number()
-    .min(1, { message: 'La edad debe ser mayor a 0.' })
+    .min(0, { message: 'La edad no puede ser negativa.' })
     .max(120, { message: 'La edad no es válida' }),
+  estadoNacimiento: z.string().min(1, { message: 'El estado es requerido.' }),
+  municipio: z.string().min(1, { message: 'El municipio es requerido.' }),
+  colonia: z.string().min(1, { message: 'La colonia es requerida.' }),
+  telefono: z.string().regex(/^\d{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' }),
 });
 
 type BookingFormProps = {
   selectedDate: Date | undefined;
   onBookingSuccess: () => void;
 };
+
+const coloniaOptions = colonias.map(c => ({label: c.nombre, value: c.nombre}));
+
 
 export function BookingForm({
   selectedDate,
@@ -69,8 +81,16 @@ export function BookingForm({
       apellidoMaterno: '',
       sexo: undefined,
       edad: 0,
+      consultorio: undefined,
+      estadoNacimiento: '',
+      municipio: '',
+      colonia: '',
+      telefono: '',
     },
   });
+
+  const watchEstado = form.watch('estadoNacimiento');
+  const watchMunicipio = form.watch('municipio');
 
   const handleCurpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curp = e.target.value.toUpperCase();
@@ -81,7 +101,10 @@ export function BookingForm({
       form.setValue('edad', calculateAge(parsed.birthDate), {
         shouldValidate: true,
       });
-      form.clearErrors(['sexo', 'edad']);
+      if(parsed.estadoNacimiento) {
+        form.setValue('estadoNacimiento', parsed.estadoNacimiento, { shouldValidate: true });
+      }
+      form.clearErrors(['sexo', 'edad', 'estadoNacimiento']);
     }
   };
 
@@ -126,6 +149,30 @@ export function BookingForm({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
+              name="consultorio"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Consultorio (Núcleo Básico)</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un consultorio" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6].map(c => (
+                        <SelectItem key={c} value={String(c)}>
+                          Núcleo Básico {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="curp"
               render={({ field }) => (
                 <FormItem>
@@ -157,7 +204,7 @@ export function BookingForm({
                   </FormItem>
                 )}
               />
-              <FormField
+               <FormField
                 control={form.control}
                 name="apellidoPaterno"
                 render={({ field }) => (
@@ -171,19 +218,19 @@ export function BookingForm({
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="apellidoMaterno"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Apellido Materno</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Tu apellido materno" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             <FormField
+                control={form.control}
+                name="apellidoMaterno"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Apellido Materno</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Tu apellido materno" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             <div className="grid sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -221,7 +268,7 @@ export function BookingForm({
                         type="number"
                         placeholder="Tu edad"
                         {...field}
-                        value={field.value || 0}
+                        value={field.value || ''}
                         disabled={!!parseCURP(form.getValues('curp'))}
                       />
                     </FormControl>
@@ -230,6 +277,89 @@ export function BookingForm({
                 )}
               />
             </div>
+             <FormField
+              control={form.control}
+              name="telefono"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Número Telefónico</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="Tu número a 10 dígitos" {...field} maxLength={10} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid sm:grid-cols-2 gap-4">
+               <FormField
+                control={form.control}
+                name="estadoNacimiento"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado de Nacimiento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!!parseCURP(form.getValues('curp'))?.estadoNacimiento}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona tu estado" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {estados.map(e => <SelectItem key={e.clave} value={e.nombre}>{e.nombre}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {watchEstado === 'TABASCO' && (
+                <FormField
+                  control={form.control}
+                  name="municipio"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Municipio</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona tu municipio" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {municipios.map(m => <SelectItem key={m.clave} value={m.nombre}>{m.nombre}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+             {watchMunicipio === 'Huimanguillo' && (
+                <FormField
+                  control={form.control}
+                  name="colonia"
+                  render={({ field }) => (
+                     <FormItem className="flex flex-col">
+                      <FormLabel>Colonia</FormLabel>
+                        <Controller
+                            control={form.control}
+                            name="colonia"
+                            render={({ field }) => (
+                                <Combobox
+                                    options={coloniaOptions}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Selecciona o escribe tu colonia"
+                                    searchPlaceholder='Busca o agrega una colonia...'
+                                    noResultsText='No se encontró la colonia.'
+                                />
+                            )}
+                        />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+             )}
             <Button
               type="submit"
               disabled={isPending || !selectedDate}

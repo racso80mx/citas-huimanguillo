@@ -8,6 +8,10 @@ export type Appointment = {
   apellidoMaterno: string;
   sexo: 'Hombre' | 'Mujer';
   edad: number;
+  estadoNacimiento: string;
+  municipio: string;
+  colonia: string;
+  telefono: string;
 };
 
 export type DailyAvailability = {
@@ -15,4 +19,18 @@ export type DailyAvailability = {
   totalSlots: number;
   bookedSlots: number;
   availableSlots: number;
+};
+
+export type Estado = {
+  clave: string;
+  nombre: string;
+};
+
+export type Municipio = {
+  clave: string;
+  nombre: string;
+};
+
+export type Colonia = {
+  nombre: string;
 };

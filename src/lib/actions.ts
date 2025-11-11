@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import {
   appointments,
   DAILY_SLOTS,
-  addAppointment,
+  addAppointment as saveData,
   getAppointments as getDataAppointments,
 } from './data';
 import type { Appointment } from './definitions';
@@ -41,33 +41,32 @@ export async function getAvailability(year: number, month: number) {
   return availability;
 }
 
-export async function bookAppointment(data: Omit<Appointment, 'id' | 'consultorio'>) {
-  const { date } = data;
+export async function bookAppointment(data: Omit<Appointment, 'id'>) {
+  const { date, curp } = data;
   const dateString = new Date(date).toISOString().split('T')[0];
 
-  const bookedSlots = appointments.filter(
+  const appointmentsOnDate = appointments.filter(
     (app) => app.date.split('T')[0] === dateString
-  ).length;
+  );
 
-  if (bookedSlots >= DAILY_SLOTS) {
+  if (appointmentsOnDate.length >= DAILY_SLOTS) {
     return { success: false, message: 'No hay citas disponibles para este día.' };
   }
   
-  const curpExists = appointments.some(
-    (app) => app.curp.toUpperCase() === data.curp.toUpperCase()
+  const curpExistsOnDate = appointmentsOnDate.some(
+    (app) => app.curp.toUpperCase() === curp.toUpperCase()
   );
 
-  if (curpExists) {
-     return { success: false, message: 'Ya existe una cita agendada con esta CURP.' };
+  if (curpExistsOnDate) {
+     return { success: false, message: 'Ya existe una cita agendada con esta CURP para el día seleccionado.' };
   }
 
   const newAppointment = {
     ...data,
     id: new Date().toISOString() + Math.random(),
-    consultorio: Math.floor(Math.random() * 5) + 1,
   };
 
-  addAppointment(newAppointment);
+  saveData(newAppointment);
   
   revalidatePath('/');
   revalidatePath('/admin');

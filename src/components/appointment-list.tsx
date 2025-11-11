@@ -35,8 +35,8 @@ export function AppointmentList({ appointments }: AppointmentListProps) {
             <TableHead className="w-[120px]">Fecha</TableHead>
             <TableHead>Paciente</TableHead>
             <TableHead className="hidden md:table-cell">CURP</TableHead>
-            <TableHead className="hidden lg:table-cell">Edad</TableHead>
-            <TableHead className="hidden lg:table-cell">Sexo</TableHead>
+            <TableHead className="hidden lg:table-cell">Teléfono</TableHead>
+            <TableHead className="hidden lg:table-cell">Dirección</TableHead>
             <TableHead className="text-right">Consultorio</TableHead>
           </TableRow>
         </TableHeader>
@@ -48,9 +48,9 @@ export function AppointmentList({ appointments }: AppointmentListProps) {
               </TableCell>
               <TableCell>{`${app.nombre} ${app.apellidoPaterno} ${app.apellidoMaterno}`}</TableCell>
               <TableCell className="hidden md:table-cell">{app.curp}</TableCell>
-              <TableCell className="hidden lg:table-cell">{app.edad}</TableCell>
-              <TableCell className="hidden lg:table-cell">{app.sexo}</TableCell>
-              <TableCell className="text-right">{app.consultorio}</TableCell>
+              <TableCell className="hidden lg:table-cell">{app.telefono}</TableCell>
+              <TableCell className="hidden lg:table-cell">{`${app.colonia}, ${app.municipio}, ${app.estadoNacimiento}`}</TableCell>
+              <TableCell className="text-right">Núcleo Básico {app.consultorio}</TableCell>
             </TableRow>
           ))}
         </TableBody>

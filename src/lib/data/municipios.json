@@ -1,0 +1,20 @@
+
+[
+    {"clave": "001", "nombre": "Balancán"},
+    {"clave": "002", "nombre": "Cárdenas"},
+    {"clave": "003", "nombre": "Centla"},
+    {"clave": "004", "nombre": "Centro"},
+    {"clave": "005", "nombre": "Comalcalco"},
+    {"clave": "006", "nombre": "Cunduacán"},
+    {"clave": "007", "nombre": "Emiliano Zapata"},
+    {"clave": "008", "nombre": "Huimanguillo"},
+    {"clave": "009", "nombre": "Jalapa"},
+    {"clave": "010", "nombre": "Jalpa de Méndez"},
+    {"clave": "011", "nombre": "Jonuta"},
+    {"clave": "012", "nombre": "Macuspana"},
+    {"clave": "013", "nombre": "Nacajuca"},
+    {"clave": "014", "nombre": "Paraíso"},
+    {"clave": "015", "nombre": "Tacotalpa"},
+    {"clave": "016", "nombre": "Teapa"},
+    {"clave": "017", "nombre": "Tenosique"}
+]

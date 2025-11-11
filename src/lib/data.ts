@@ -14,6 +14,10 @@ export let appointments: Appointment[] = [
         apellidoMaterno: 'Gomez',
         sexo: 'Hombre',
         edad: 23,
+        estadoNacimiento: 'TABASCO',
+        municipio: 'Centro',
+        colonia: 'Centro',
+        telefono: '9999999999',
     },
     {
         id: '2',
@@ -25,6 +29,10 @@ export let appointments: Appointment[] = [
         apellidoMaterno: 'Hernandez',
         sexo: 'Mujer',
         edad: 45,
+        estadoNacimiento: 'CHIAPAS',
+        municipio: 'N/A',
+        colonia: 'N/A',
+        telefono: '9999999998',
     }
 ];
 
@@ -40,7 +48,11 @@ for (let i = 0; i < DAILY_SLOTS; i++) {
         apellidoPaterno: `${i+1}`,
         apellidoMaterno: 'Demo',
         sexo: 'Hombre',
-        edad: 30
+        edad: 30,
+        estadoNacimiento: 'TABASCO',
+        municipio: 'Huimanguillo',
+        colonia: 'Centro',
+        telefono: '9999999997',
     });
 }
 
