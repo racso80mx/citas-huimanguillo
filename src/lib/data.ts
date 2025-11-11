@@ -1,5 +1,5 @@
 import type { Appointment } from './definitions';
-import { subDays } from 'date-fns';
+import { subDays, startOfDay } from 'date-fns';
 
 export let dailySlotsPerConsultorio: { [key: number]: number } = {
     1: 5,
@@ -9,8 +9,6 @@ export let dailySlotsPerConsultorio: { [key: number]: number } = {
     5: 5,
     6: 5,
 };
-
-export const getTotalDailySlots = () => Object.values(dailySlotsPerConsultorio).reduce((sum, slots) => sum + slots, 0);
 
 
 export let appointments: Appointment[] = [
@@ -47,29 +45,27 @@ export let appointments: Appointment[] = [
 ];
 
 // Fill one day to be fully booked for demonstration
-const fullDay = subDays(new Date(), 5);
-const totalSlotsForFullDay = getTotalDailySlots();
-for (let i = 0; i < totalSlotsForFullDay; i++) {
-    const consultorio = (i % 6) + 1;
-    const slotsForConsultorio = dailySlotsPerConsultorio[consultorio];
-    const numInConsultorio = appointments.filter(a => a.date.startsWith(fullDay.toISOString().split('T')[0]) && a.consultorio === consultorio).length;
-    
-    if (numInConsultorio < slotsForConsultorio) {
+const fullDay = startOfDay(subDays(new Date(), 5));
+const fullDayString = fullDay.toISOString().split('T')[0];
+
+const consultorios = Object.keys(dailySlotsPerConsultorio).map(Number);
+for(const consultorio of consultorios) {
+    for(let i=0; i<dailySlotsPerConsultorio[consultorio]; i++) {
         appointments.push({
-            id: `full-day-${i}`,
+             id: `full-day-${consultorio}-${i}`,
             date: fullDay.toISOString(),
             consultorio: consultorio,
-            curp: `XXXX${String(i).padStart(2,'0')}0101HXXXXX0${i%10}`,
+            curp: `XXXX${String(i).padStart(2,'0')}${consultorio}01HXXXXX${i%10}`,
             nombre: `Persona`,
             apellidoPaterno: `${i+1}`,
-            apellidoMaterno: 'Demo',
+            apellidoMaterno: `DemoC${consultorio}`,
             sexo: 'Hombre',
             edad: 30,
             estadoNacimiento: 'TABASCO',
             municipio: 'Huimanguillo',
             colonia: 'Centro',
             telefono: '9999999997',
-        });
+        })
     }
 }
 

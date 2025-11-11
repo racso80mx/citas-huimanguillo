@@ -28,10 +28,8 @@ import { Card, CardContent } from './ui/card';
 import estados from '@/lib/data/estados.json';
 import municipios from '@/lib/data/municipios.json';
 import colonias from '@/lib/data/colonias.json';
-import { Combobox } from './ui/combobox';
 
 const formSchema = z.object({
-  consultorio: z.coerce.number().min(1, { message: 'Selecciona un consultorio.' }),
   curp: z
     .string()
     .min(18, { message: 'La CURP debe tener 18 caracteres.' })
@@ -68,6 +66,7 @@ const formSchema = z.object({
 
 type BookingFormProps = {
   selectedDate: Date | undefined;
+  selectedConsultorio: number | undefined;
   onBookingSuccess: () => void;
 };
 
@@ -76,6 +75,7 @@ const coloniaOptions = colonias.map(c => ({label: c.nombre, value: c.nombre}));
 
 export function BookingForm({
   selectedDate,
+  selectedConsultorio,
   onBookingSuccess,
 }: BookingFormProps) {
   const { toast } = useToast();
@@ -90,7 +90,6 @@ export function BookingForm({
       apellidoMaterno: '',
       sexo: undefined,
       edad: 0,
-      consultorio: undefined,
       estadoNacimiento: '',
       municipio: '',
       colonia: '',
@@ -121,10 +120,10 @@ export function BookingForm({
   };
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    if (!selectedDate) {
+    if (!selectedDate || !selectedConsultorio) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona una fecha en el calendario.',
+        description: 'Por favor, selecciona una fecha y un consultorio.',
         variant: 'destructive',
       });
       return;
@@ -139,6 +138,7 @@ export function BookingForm({
       const result = await bookAppointment({
         ...finalData,
         date: selectedDate.toISOString(),
+        consultorio: selectedConsultorio
       });
 
       if (result.success) {
@@ -158,36 +158,28 @@ export function BookingForm({
       }
     });
   };
+  
+  useEffect(() => {
+    if (selectedDate && selectedConsultorio) {
+      form.reset();
+    }
+  }, [selectedDate, selectedConsultorio, form]);
+
+  if (!selectedDate || !selectedConsultorio) {
+    return (
+        <Card className='border-dashed'>
+            <CardContent className='p-6 text-center'>
+                <p className='text-muted-foreground'>Por favor, selecciona primero una fecha y un consultorio con citas disponibles.</p>
+            </CardContent>
+        </Card>
+    );
+  }
 
   return (
     <Card className="bg-transparent border-none shadow-none">
       <CardContent className='p-0'>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="consultorio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Consultorio (Núcleo Básico)</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value?.toString()}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un consultorio" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {[1, 2, 3, 4, 5, 6].map(c => (
-                        <SelectItem key={c} value={String(c)}>
-                          Núcleo Básico {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="curp"
@@ -390,15 +382,12 @@ export function BookingForm({
              )}
             <Button
               type="submit"
-              disabled={isPending || !selectedDate}
+              disabled={isPending}
               className="w-full text-lg py-6"
             >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isPending ? 'Reservando...' : 'Confirmar Cita'}
             </Button>
-            {!selectedDate && (
-                <p className='text-sm text-center text-destructive'>Por favor, primero selecciona un día en el calendario.</p>
-            )}
           </form>
         </Form>
       </CardContent>

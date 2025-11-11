@@ -28,13 +28,6 @@ export function AvailabilityCalendar({
   today.setHours(0, 0, 0, 0);
   disabledDays.push({ before: today });
 
-  const selectedDayInfo = selectedDate
-    ? availability.find(
-        (d) =>
-          d.date === format(selectedDate, 'yyyy-MM-dd')
-      )
-    : null;
-
   const modifiers = {
     available: (date: Date) => {
       const dateString = format(date, 'yyyy-MM-dd');
@@ -48,6 +41,12 @@ export function AvailabilityCalendar({
       color: 'hsl(var(--accent-foreground))',
       backgroundColor: 'hsl(var(--accent))',
     },
+    selected: {
+        ring: '2px',
+        ringColor: 'hsl(var(--primary))',
+        ringOffset: '2px',
+        ringOffsetColor: 'hsl(var(--background))',
+    }
   };
 
   return (
@@ -70,24 +69,9 @@ export function AvailabilityCalendar({
           </div>
         )}
       </div>
-      {selectedDate && (
-        <div className="text-center font-medium text-foreground bg-secondary p-3 rounded-md w-full">
-          {selectedDayInfo && selectedDayInfo.availableSlots > 0 ? (
-            <p className='text-green-700'>
-              ¡Hay {selectedDayInfo.availableSlots} citas disponibles para el{' '}
-              {format(selectedDate, 'PPP', { locale: es })}!
-            </p>
-          ) : (
-            <p className='text-destructive-foreground/70'>
-              No hay citas disponibles para el{' '}
-              {format(selectedDate, 'PPP', { locale: es })}.
-            </p>
-          )}
-        </div>
-      )}
        {!selectedDate && (
         <div className="text-center font-medium text-muted-foreground p-3 rounded-md w-full">
-          <p>Selecciona una fecha para ver la disponibilidad.</p>
+          <p>Selecciona una fecha para ver la disponibilidad por consultorio.</p>
         </div>
       )}
     </div>

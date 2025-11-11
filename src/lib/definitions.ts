@@ -17,9 +17,8 @@ export type Appointment = {
 
 export type DailyAvailability = {
   date: string; // YYYY-MM-DD
-  totalSlots: number;
-  bookedSlots: number;
   availableSlots: number;
+  availabilityByConsultorio: { [key: number]: number };
 };
 
 export type Estado = {
