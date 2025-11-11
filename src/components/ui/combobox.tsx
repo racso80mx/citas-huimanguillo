@@ -31,6 +31,7 @@ type ComboboxProps = {
   placeholder?: string;
   searchPlaceholder?: string;
   noResultsText?: string;
+  allowCustomValue?: boolean;
 }
 
 export function Combobox({
@@ -39,27 +40,38 @@ export function Combobox({
   onChange,
   placeholder = "Select an option",
   searchPlaceholder = "Search...",
-  noResultsText = "No results found."
+  noResultsText = "No results found.",
+  allowCustomValue = true,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState(value || "");
 
   React.useEffect(() => {
-    setInputValue(value);
-  }, [value]);
+    const matchingOption = options.find(option => option.value.toLowerCase() === value.toLowerCase());
+    setInputValue(matchingOption?.label || value);
+  }, [value, options]);
 
   const handleSelect = (currentValue: string) => {
     const newValue = currentValue === value ? "" : currentValue;
-    onChange(newValue);
-    setInputValue(newValue);
+    const matchingOption = options.find(option => option.value.toLowerCase() === newValue.toLowerCase());
+    onChange(matchingOption?.value || newValue);
     setOpen(false)
   }
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const manualInput = e.target.value;
       setInputValue(manualInput);
-      onChange(manualInput);
   }
+
+  const handleInputBlur = () => {
+    // If custom values are allowed, update the form with the current input value
+    if (allowCustomValue) {
+      const matchingOption = options.find(option => option.label.toLowerCase() === inputValue.toLowerCase());
+      onChange(matchingOption?.value || inputValue);
+    }
+  }
+  
+  const filteredOptions = options.filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase()));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -78,25 +90,26 @@ export function Combobox({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command shouldFilter={false}>
-          <CommandInput 
-            placeholder={searchPlaceholder}
-            onInput={handleInputChange}
-            value={inputValue}
-          />
-          <CommandEmpty
-             onSelect={() => handleSelect(inputValue)}
-          >
-            <div
-                className="py-2 px-4 text-sm cursor-pointer"
-                onClick={() => handleSelect(inputValue)}
-             >
-                Agregar y seleccionar: "{inputValue}"
-            </div>
-          </CommandEmpty>
+          <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
+            <input
+                placeholder={searchPlaceholder}
+                onInput={handleInputChange}
+                onBlur={handleInputBlur}
+                value={inputValue}
+                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
           <CommandList>
+            {filteredOptions.length === 0 && allowCustomValue && inputValue ? (
+                 <CommandItem
+                    value={inputValue}
+                    onSelect={handleSelect}
+                 >
+                    Agregar y seleccionar: "{inputValue}"
+                </CommandItem>
+            ) : <CommandEmpty>{noResultsText}</CommandEmpty>}
             <CommandGroup>
-              {options
-                .filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase()))
+              {filteredOptions
                 .map((option) => (
                 <CommandItem
                   key={option.value}

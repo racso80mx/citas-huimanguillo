@@ -11,6 +11,7 @@ export type Appointment = {
   estadoNacimiento: string;
   municipio: string;
   colonia: string;
+  otraColonia?: string;
   telefono: string;
 };
 

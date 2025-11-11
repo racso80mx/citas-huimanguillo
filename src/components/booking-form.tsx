@@ -54,7 +54,16 @@ const formSchema = z.object({
   estadoNacimiento: z.string().min(1, { message: 'El estado es requerido.' }),
   municipio: z.string().min(1, { message: 'El municipio es requerido.' }),
   colonia: z.string().min(1, { message: 'La colonia es requerida.' }),
+  otraColonia: z.string().optional(),
   telefono: z.string().regex(/^\d{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' }),
+}).refine(data => {
+    if (data.colonia === 'Otra') {
+        return !!data.otraColonia && data.otraColonia.length > 2;
+    }
+    return true;
+}, {
+    message: 'El nombre de la nueva colonia es requerido.',
+    path: ['otraColonia'],
 });
 
 type BookingFormProps = {
@@ -85,12 +94,15 @@ export function BookingForm({
       estadoNacimiento: '',
       municipio: '',
       colonia: '',
+      otraColonia: '',
       telefono: '',
     },
   });
 
   const watchEstado = form.watch('estadoNacimiento');
   const watchMunicipio = form.watch('municipio');
+  const watchColonia = form.watch('colonia');
+
 
   const handleCurpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curp = e.target.value.toUpperCase();
@@ -119,8 +131,13 @@ export function BookingForm({
     }
 
     startTransition(async () => {
+      const finalData = { ...data };
+      if (finalData.colonia === 'Otra') {
+          finalData.colonia = finalData.otraColonia || 'No especificada';
+      }
+
       const result = await bookAppointment({
-        ...data,
+        ...finalData,
         date: selectedDate.toISOString(),
       });
 
@@ -341,20 +358,31 @@ export function BookingForm({
                   render={({ field }) => (
                      <FormItem className="flex flex-col">
                       <FormLabel>Colonia</FormLabel>
-                        <Controller
-                            control={form.control}
-                            name="colonia"
-                            render={({ field }) => (
-                                <Combobox
-                                    options={coloniaOptions}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Selecciona o escribe tu colonia"
-                                    searchPlaceholder='Busca o agrega una colonia...'
-                                    noResultsText='No se encontró la colonia.'
-                                />
-                            )}
-                        />
+                       <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona tu colonia" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {coloniaOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+             )}
+             {watchColonia === 'Otra' && (
+                 <FormField
+                  control={form.control}
+                  name="otraColonia"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre de la nueva colonia</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Escribe el nombre de la colonia" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
