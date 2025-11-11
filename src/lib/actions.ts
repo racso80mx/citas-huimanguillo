@@ -2,10 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  appointments,
-  dailySlotsPerConsultorio,
   addAppointment as saveData,
   getAppointments as getDataAppointments,
+  getAppointmentsByDate,
   deleteAppointment as deleteDataAppointment,
   getAnnouncements as getDataAnnouncements,
   updateAnnouncements as updateDataAnnouncements,
@@ -13,29 +12,22 @@ import {
   updateSlotsConfiguration as updateDataSlots,
 } from './data';
 import type { Appointment, DailyAvailability } from './definitions';
-import { getISODay } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 
 export async function getAvailability(year: number, month: number) {
-  const startDate = new Date(Date.UTC(year, month, 1));
-  const endDate = new Date(Date.UTC(year, month + 1, 0));
+  const startDate = startOfMonth(new Date(year, month));
+  const endDate = endOfMonth(new Date(year, month));
 
   const allAppointments = await getDataAppointments();
   const currentSlotsConfig = await getDataSlots();
 
-  const monthAppointments = allAppointments.filter((app) => {
-    const appDate = new Date(app.date);
-    return appDate >= startDate && appDate <= endDate;
-  });
-
   const availability: DailyAvailability[] = [];
 
-  for (
-    let day = new Date(startDate);
-    day <= endDate;
-    day.setDate(day.getDate() + 1)
-  ) {
+  const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+
+  for (const day of daysInMonth) {
     const dateString = day.toISOString().split('T')[0];
-    const appointmentsOnDate = monthAppointments.filter(
+    const appointmentsOnDate = allAppointments.filter(
       (app) => app.date.split('T')[0] === dateString
     );
 
@@ -65,13 +57,8 @@ export async function getAvailability(year: number, month: number) {
 
 export async function bookAppointment(data: Omit<Appointment, 'id'>) {
   const { date, curp, consultorio } = data;
-  const dateString = new Date(date).toISOString().split('T')[0];
-
-  const allAppointments = await getDataAppointments();
-
-  const appointmentsOnDate = allAppointments.filter(
-    (app) => app.date.split('T')[0] === dateString
-  );
+  
+  const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
   const currentSlotsConfig = await getDataSlots();
   const slotsForConsultorio = currentSlotsConfig[consultorio] || 0;
@@ -99,12 +86,7 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
     };
   }
 
-  const newAppointment = {
-    ...data,
-    id: new Date().toISOString() + Math.random(),
-  };
-
-  saveData(newAppointment);
+  await saveData(data);
 
   revalidatePath('/');
   revalidatePath('/admin');
@@ -113,35 +95,35 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
 }
 
 export async function getAppointments() {
-  return getDataAppointments();
+  return await getDataAppointments();
 }
 
 export async function deleteAppointment(id: string) {
-  deleteDataAppointment(id);
+  await deleteDataAppointment(id);
   revalidatePath('/');
   revalidatePath('/admin');
   return { success: true, message: 'Cita eliminada con éxito.' };
 }
 
 export async function getAnnouncements() {
-  return getDataAnnouncements();
+  return await getDataAnnouncements();
 }
 
 export async function updateAnnouncements(newAnnouncements: string[]) {
-  updateDataAnnouncements(newAnnouncements);
+  await updateDataAnnouncements(newAnnouncements);
   revalidatePath('/');
   revalidatePath('/admin');
   return { success: true, message: 'Avisos actualizados con éxito.' };
 }
 
 export async function getSlotsConfiguration() {
-  return getDataSlots();
+  return await getDataSlots();
 }
 
 export async function updateSlotsConfiguration(newConfig: {
   [key: number]: number;
 }) {
-  const success = updateDataSlots(newConfig);
+  const success = await updateDataSlots(newConfig);
   if (success) {
     revalidatePath('/admin');
     revalidatePath('/');

@@ -11,11 +11,12 @@ import { Bell } from 'lucide-react';
 
 export default async function HomePage() {
   const today = new Date();
-  const availability = await getAvailability(
+  // Fetch initial data on the server
+  const initialAvailability = await getAvailability(
     today.getFullYear(),
     today.getMonth()
   );
-  const announcements = await getAnnouncements();
+  const initialAnnouncements = await getAnnouncements();
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -30,8 +31,8 @@ export default async function HomePage() {
       </div>
 
       <BookingClient
-        initialAvailability={availability}
-        initialAnnouncements={announcements}
+        initialAvailability={initialAvailability}
+        initialAnnouncements={initialAnnouncements}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 'use client';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useTransition, useState, useEffect } from 'react';
+import { useTransition, useEffect } from 'react';
 import {
   Form,
   FormControl,
@@ -159,10 +159,21 @@ export function BookingForm({
     });
   };
   
+  // Reset the form when the selected date or clinic changes
   useEffect(() => {
-    if (selectedDate && selectedConsultorio) {
-      form.reset();
-    }
+    form.reset({
+      curp: '',
+      nombre: '',
+      apellidoPaterno: '',
+      apellidoMaterno: '',
+      sexo: undefined,
+      edad: 0,
+      estadoNacimiento: '',
+      municipio: '',
+      colonia: '',
+      otraColonia: '',
+      telefono: '',
+    });
   }, [selectedDate, selectedConsultorio, form]);
 
   if (!selectedDate || !selectedConsultorio) {

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useTransition, useMemo } from 'react';
+import React, { useState, useTransition, useMemo, useEffect } from 'react';
 import { BookingForm } from '@/components/booking-form';
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import {
@@ -10,7 +10,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability } from '@/lib/definitions';
-import { getAvailability } from '@/lib/actions';
+import { getAvailability, getAnnouncements } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
@@ -31,6 +31,8 @@ export function BookingClient({
   >();
   const [availability, setAvailability] =
     useState<DailyAvailability[]>(initialAvailability);
+  const [announcements, setAnnouncements] =
+    useState<string[]>(initialAnnouncements);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -46,10 +48,17 @@ export function BookingClient({
     });
   };
 
-  const refreshAvailability = () => {
-    handleMonthChange(currentMonth);
-    setSelectedDate(undefined);
-    setSelectedConsultorio(undefined);
+  const refreshData = () => {
+    startTransition(async () => {
+      const [newAvailability, newAnnouncements] = await Promise.all([
+        getAvailability(currentMonth.getFullYear(), currentMonth.getMonth()),
+        getAnnouncements(),
+      ]);
+      setAvailability(newAvailability);
+      setAnnouncements(newAnnouncements);
+      setSelectedDate(undefined);
+      setSelectedConsultorio(undefined);
+    });
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -92,6 +101,23 @@ export function BookingClient({
                   onMonthChange={handleMonthChange}
                   isLoading={isPending}
                 />
+                 {announcements && announcements.length > 0 && (
+                  <Card className="shadow-lg mt-8">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-xl font-headline">
+                        <Bell className="h-5 w-5 text-primary" />
+                        Avisos Importantes
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 text-muted-foreground list-disc pl-5">
+                        {announcements.map((announcement, index) => (
+                          <li key={index}>{announcement}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {selectedDate && selectedDayAvailability && (
@@ -134,25 +160,8 @@ export function BookingClient({
               <BookingForm
                 selectedDate={selectedDate}
                 selectedConsultorio={selectedConsultorio}
-                onBookingSuccess={refreshAvailability}
+                onBookingSuccess={refreshData}
               />
-               {initialAnnouncements && initialAnnouncements.length > 0 && (
-                <Card className="shadow-lg mt-8">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-xl font-headline">
-                      <Bell className="h-5 w-5 text-primary" />
-                      Avisos Importantes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 text-muted-foreground list-disc pl-5">
-                      {initialAnnouncements.map((announcement, index) => (
-                        <li key={index}>{announcement}</li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </div>
         </CardContent>
