@@ -38,12 +38,12 @@ export function AnnouncementsManager() {
   };
 
   const addAnnouncement = () => {
-    if (announcements.length < 3) {
+    if (announcements.length < 4) {
       setAnnouncements([...announcements, '']);
     } else {
       toast({
         title: 'Límite alcanzado',
-        description: 'Puedes agregar un máximo de 3 avisos.',
+        description: 'Puedes agregar un máximo de 4 avisos.',
         variant: 'destructive',
       });
     }
@@ -100,7 +100,7 @@ export function AnnouncementsManager() {
       <CardHeader>
         <CardTitle className='flex items-center gap-2'><Megaphone /> Gestionar Avisos</CardTitle>
         <CardDescription>
-          Publica mensajes que se mostrarán en la página de reservas. (Máximo 3)
+          Publica mensajes que se mostrarán en la página de reservas. (Máximo 4)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,7 +120,7 @@ export function AnnouncementsManager() {
             </Button>
           </div>
         ))}
-        {announcements.length < 3 && (
+        {announcements.length < 4 && (
           <Button
             variant="outline"
             className="w-full"

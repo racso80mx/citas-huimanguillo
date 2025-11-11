@@ -97,7 +97,7 @@ export const getAnnouncements = () => {
 }
 
 export const updateAnnouncements = (newAnnouncements: string[]) => {
-    announcements = newAnnouncements.slice(0, 3); // Max 3 announcements
+    announcements = newAnnouncements.slice(0, 4); // Max 4 announcements
     return true;
 }
 
