@@ -4,8 +4,6 @@ import type { Appointment } from '@/lib/definitions';
 import {
   getAppointments,
   deleteAppointment,
-  getAnnouncements,
-  updateAnnouncements,
 } from '@/lib/actions';
 import {
   Card,
@@ -13,7 +11,6 @@ import {
   CardTitle,
   CardContent,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppointmentList } from '../appointment-list';
@@ -21,7 +18,6 @@ import {
   LogOut,
   Download,
   Loader2,
-  Trash2,
   Calendar as CalendarIcon,
 } from 'lucide-react';
 import {
@@ -44,17 +40,7 @@ import { cn, downloadExcel } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { SlotsManager } from './slots-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -188,7 +174,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </CardHeader>
       </Card>
 
-      <AnnouncementsManager />
+      <div className="grid md:grid-cols-2 gap-8">
+        <AnnouncementsManager />
+        <SlotsManager />
+      </div>
+
 
       <Card className="w-full max-w-7xl mx-auto shadow-lg">
         <CardHeader>

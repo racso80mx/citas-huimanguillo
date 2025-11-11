@@ -4,12 +4,15 @@ import { revalidatePath } from 'next/cache';
 import {
   appointments,
   announcements,
-  DAILY_SLOTS,
+  dailySlotsPerConsultorio,
+  getTotalDailySlots,
   addAppointment as saveData,
   getAppointments as getDataAppointments,
   deleteAppointment as deleteDataAppointment,
   getAnnouncements as getDataAnnouncements,
   updateAnnouncements as updateDataAnnouncements,
+  getSlotsConfiguration as getDataSlots,
+  updateSlotsConfiguration as updateDataSlots,
 } from './data';
 import type { Appointment } from './definitions';
 
@@ -23,6 +26,8 @@ export async function getAvailability(year: number, month: number) {
   });
 
   const availability = [];
+  const TOTAL_DAILY_SLOTS = getTotalDailySlots();
+
   for (
     let day = new Date(startDate);
     day <= endDate;
@@ -32,11 +37,11 @@ export async function getAvailability(year: number, month: number) {
     const bookedSlots = monthAppointments.filter(
       (app) => app.date.split('T')[0] === dateString
     ).length;
-    const availableSlots = DAILY_SLOTS - bookedSlots;
+    const availableSlots = TOTAL_DAILY_SLOTS - bookedSlots;
 
     availability.push({
       date: dateString,
-      totalSlots: DAILY_SLOTS,
+      totalSlots: TOTAL_DAILY_SLOTS,
       bookedSlots: bookedSlots,
       availableSlots: availableSlots > 0 ? availableSlots : 0,
     });
@@ -46,15 +51,18 @@ export async function getAvailability(year: number, month: number) {
 }
 
 export async function bookAppointment(data: Omit<Appointment, 'id'>) {
-  const { date, curp } = data;
+  const { date, curp, consultorio } = data;
   const dateString = new Date(date).toISOString().split('T')[0];
 
   const appointmentsOnDate = appointments.filter(
     (app) => app.date.split('T')[0] === dateString
   );
+  
+  const slotsForConsultorio = dailySlotsPerConsultorio[consultorio] || 0;
+  const appointmentsInConsultorio = appointmentsOnDate.filter(app => app.consultorio === consultorio);
 
-  if (appointmentsOnDate.length >= DAILY_SLOTS) {
-    return { success: false, message: 'No hay citas disponibles para este día.' };
+  if (appointmentsInConsultorio.length >= slotsForConsultorio) {
+    return { success: false, message: `No hay citas disponibles para el consultorio ${consultorio} en este día.` };
   }
   
   const curpExistsOnDate = appointmentsOnDate.some(
@@ -97,4 +105,14 @@ export async function updateAnnouncements(newAnnouncements: string[]) {
   updateDataAnnouncements(newAnnouncements);
   revalidatePath('/');
   return { success: true, message: 'Avisos actualizados con éxito.' };
+}
+
+export async function getSlotsConfiguration() {
+    return getDataSlots();
+}
+
+export async function updateSlotsConfiguration(newConfig: { [key: number]: number }) {
+    updateDataSlots(newConfig);
+    revalidatePath('/admin');
+    return { success: true, message: 'Configuración de cupos actualizada.' };
 }
