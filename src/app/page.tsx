@@ -15,13 +15,15 @@ export default async function HomePage() {
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <div className="text-center mb-8 flex flex-col items-center">
-        <Image
-          src={logoBase64}
-          alt="Logo Hospital Huimanguillo"
-          width={80}
-          height={26}
-          className="mb-4 rounded-md"
-        />
+        <div className="text-primary mb-4">
+          <Image
+            src={logoBase64}
+            alt="Logo Hospital Huimanguillo"
+            width={80}
+            height={26}
+            className="rounded-md"
+          />
+        </div>
         <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground">
           Agenda tu Cita Médica
         </h1>
