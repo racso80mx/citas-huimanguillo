@@ -51,9 +51,11 @@ const formSchema = z.object({
     .min(0, { message: 'La edad no puede ser negativa.' })
     .max(120, { message: 'La edad no es válida' }),
   estadoNacimiento: z.string().min(1, { message: 'El estado es requerido.' }),
-  municipio: z.string().min(1, { message: 'El municipio es requerido.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "El municipio solo debe contener letras, ñ y acentos."),
-  colonia: z.string().min(1, { message: 'La colonia es requerida.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "La colonia solo debe contener letras, ñ y acentos."),
-  otraColonia: z.string().optional(),
+  municipio: z.string().min(1, { message: 'El municipio es requerido.' }).regex(/^[a-zA-Z0-9\sñÑáéíóúÁÉÍÓÚ]+$/, "El municipio solo debe contener letras, números, ñ y acentos."),
+  colonia: z.string().min(1, { message: 'La colonia es requerida.' }).regex(/^[a-zA-Z0-9\sñÑáéíóúÁÉÍÓÚ]+$/, "La colonia solo debe contener letras, números, ñ y acentos."),
+  otraColonia: z.string().optional().refine((val) => !val || /^[a-zA-Z0-9\sñÑáéíóúÁÉÍÓÚ]+$/.test(val), {
+    message: "La nueva colonia solo debe contener letras, números, ñ y acentos.",
+  }),
   telefono: z.string().regex(/^\d{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' }),
 }).refine(data => {
     // If state is Tabasco and municipio is Huimanguillo, colonia dropdown is required.
