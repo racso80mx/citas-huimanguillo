@@ -38,21 +38,21 @@ const formSchema = z.object({
     .regex(/^[A-Z]{4}\d{6}[HM][A-Z]{2}[A-Z]{3}[A-Z0-9]\d$/, {
       message: 'Formato de CURP no válido.',
     }),
-  nombre: z.string().min(2, { message: 'El nombre es requerido.' }).regex(/^[a-zA-Z\sñÑ]+$/, "El nombre solo debe contener letras y la letra ñ."),
+  nombre: z.string().min(2, { message: 'El nombre es requerido.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "El nombre solo debe contener letras, ñ y acentos."),
   apellidoPaterno: z
     .string()
-    .min(2, { message: 'El apellido paterno es requerido.' }).regex(/^[a-zA-Z\sñÑ]+$/, "El apellido solo debe contener letras y la letra ñ."),
+    .min(2, { message: 'El apellido paterno es requerido.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "El apellido solo debe contener letras, ñ y acentos."),
   apellidoMaterno: z
     .string()
-    .min(2, { message: 'El apellido materno es requerido.' }).regex(/^[a-zA-Z\sñÑ]+$/, "El apellido solo debe contener letras y la letra ñ."),
+    .min(2, { message: 'El apellido materno es requerido.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "El apellido solo debe contener letras, ñ y acentos."),
   sexo: z.enum(['Hombre', 'Mujer'], { required_error: 'El sexo es requerido.' }),
   edad: z.coerce
     .number()
     .min(0, { message: 'La edad no puede ser negativa.' })
     .max(120, { message: 'La edad no es válida' }),
   estadoNacimiento: z.string().min(1, { message: 'El estado es requerido.' }),
-  municipio: z.string().min(1, { message: 'El municipio es requerido.' }).regex(/^[a-zA-Z\sñÑ]+$/, "El municipio solo debe contener letras y la letra ñ."),
-  colonia: z.string().min(1, { message: 'La colonia es requerida.' }).regex(/^[a-zA-Z\sñÑ]+$/, "La colonia solo debe contener letras y la letra ñ."),
+  municipio: z.string().min(1, { message: 'El municipio es requerido.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "El municipio solo debe contener letras, ñ y acentos."),
+  colonia: z.string().min(1, { message: 'La colonia es requerida.' }).regex(/^[a-zA-Z\sñÑáéíóúÁÉÍÓÚ]+$/, "La colonia solo debe contener letras, ñ y acentos."),
   otraColonia: z.string().optional(),
   telefono: z.string().regex(/^\d{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' }),
 }).refine(data => {
