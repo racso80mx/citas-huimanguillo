@@ -20,7 +20,7 @@ export function SiteHeader() {
             alt="Logo Hospital Huimanguillo"
             width={40}
             height={40}
-            className="rounded-full"
+            className="rounded-md"
           />
           <span className="font-bold font-headline sm:inline-block">
             CitaMedicaFacil

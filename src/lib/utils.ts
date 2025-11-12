@@ -62,14 +62,14 @@ export function generateAppointmentPDF(appointmentData: Omit<Appointment, 'id' |
     const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date } = appointmentData;
 
     // Add logo
-    doc.addImage(logoBase64, 'PNG', 15, 15, 30, 30);
+    doc.addImage(logoBase64, 'SVG', 15, 15, 40, 13);
 
     // Set font
     doc.setFont('Helvetica');
 
     // Add header
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 55, 30);
+    doc.text('Confirmación de Cita Médica', 65, 30);
 
     // Add a line separator
     doc.setLineWidth(0.5);
