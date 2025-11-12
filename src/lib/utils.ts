@@ -61,15 +61,16 @@ export function generateAppointmentPDF(appointmentData: Omit<Appointment, 'id' |
     const doc = new jsPDF();
     const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date } = appointmentData;
 
-    // Add logo
-    doc.addImage(logoBase64, 'SVG', 15, 15, 40, 13);
-
     // Set font
     doc.setFont('Helvetica');
 
     // Add header
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 65, 30);
+    doc.text('Confirmación de Cita Médica', 20, 30);
+    
+    doc.setFontSize(10);
+    doc.text('Hospital General de Huimanguillo', 20, 38)
+
 
     // Add a line separator
     doc.setLineWidth(0.5);
