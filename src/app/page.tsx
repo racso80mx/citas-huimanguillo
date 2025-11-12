@@ -1,13 +1,7 @@
 import { BookingClient } from '@/components/booking-client';
 import { getAvailability, getAnnouncements } from '@/lib/actions';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Bell } from 'lucide-react';
+import Image from 'next/image';
+import { logoBase64 } from '@/lib/logo-data';
 
 export default async function HomePage() {
   const today = new Date();
@@ -20,7 +14,14 @@ export default async function HomePage() {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 flex flex-col items-center">
+        <Image
+          src={logoBase64}
+          alt="Logo Hospital Huimanguillo"
+          width={80}
+          height={26}
+          className="mb-4 rounded-md"
+        />
         <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground">
           Agenda tu Cita Médica
         </h1>

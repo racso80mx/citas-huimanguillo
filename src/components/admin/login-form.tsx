@@ -23,6 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
+import { logoBase64 } from '@/lib/logo-data';
 
 const formSchema = z.object({
   username: z.string().min(1, { message: 'El usuario es requerido.' }),
@@ -73,7 +75,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <Card className="w-full max-w-sm shadow-2xl">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center items-center">
+          <Image
+            src={logoBase64}
+            alt="Logo Hospital Huimanguillo"
+            width={80}
+            height={26}
+            className="mb-4 rounded-md"
+          />
           <CardTitle className="text-2xl font-bold font-headline">
             Acceso de Administrador
           </CardTitle>
