@@ -5,6 +5,7 @@ import * as xlsx from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { logoBase64 } from "./logo-data";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -60,39 +61,42 @@ export function generateAppointmentPDF(appointmentData: Omit<Appointment, 'id' |
     const doc = new jsPDF();
     const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date } = appointmentData;
 
+    // Add logo
+    doc.addImage(logoBase64, 'PNG', 15, 15, 30, 30);
+
     // Set font
     doc.setFont('Helvetica');
 
     // Add header
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 20, 30);
+    doc.text('Confirmación de Cita Médica', 55, 30);
 
     // Add a line separator
     doc.setLineWidth(0.5);
-    doc.line(20, 35, 190, 35);
+    doc.line(20, 50, 190, 50);
 
     // Patient Details
     doc.setFontSize(16);
-    doc.text('Datos del Paciente:', 20, 50);
+    doc.text('Datos del Paciente:', 20, 65);
     
     doc.setFontSize(12);
-    doc.text(`Nombre: ${nombre} ${apellidoPaterno} ${apellidoMaterno}`, 20, 60);
-    doc.text(`CURP: ${curp}`, 20, 70);
+    doc.text(`Nombre: ${nombre} ${apellidoPaterno} ${apellidoMaterno}`, 20, 75);
+    doc.text(`CURP: ${curp}`, 20, 85);
 
     // Appointment Details
     doc.setFontSize(16);
-    doc.text('Detalles de la Cita:', 20, 90);
+    doc.text('Detalles de la Cita:', 20, 105);
 
     doc.setFontSize(12);
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, 100);
-    doc.text(`Clínica: Núcleo Básico ${consultorio}`, 20, 110);
+    doc.text(`Fecha: ${formattedDate}`, 20, 115);
+    doc.text(`Clínica: Núcleo Básico ${consultorio}`, 20, 125);
     
     // Add a footer note
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 140);
-    doc.text('Este es un comprobante de su cita, no es necesario imprimirlo.', 20, 145);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 150);
+    doc.text('Este es un comprobante de su cita, no es necesario imprimirlo.', 20, 155);
 
     // Save the PDF
     doc.save(`recibo_cita_${curp}.pdf`);
