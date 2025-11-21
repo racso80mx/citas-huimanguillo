@@ -88,7 +88,6 @@ type BookingFormProps = {
 
 const coloniaOptions = colonias.map(c => ({label: c.nombre, value: c.nombre}));
 
-
 export function BookingForm({
   selectedDate,
   selectedConsultorio,
@@ -119,6 +118,21 @@ export function BookingForm({
   const watchMunicipio = form.watch('municipio');
   const watchColonia = form.watch('colonia');
 
+  useEffect(() => {
+    form.reset({
+      curp: '',
+      nombre: '',
+      apellidoPaterno: '',
+      apellidoMaterno: '',
+      sexo: undefined,
+      edad: 0,
+      estadoNacimiento: '',
+      municipio: '',
+      colonia: '',
+      otraColonia: '',
+      telefono: '',
+    });
+  }, [selectedDate, selectedConsultorio, selectedTime, form]);
 
   const handleCurpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curp = e.target.value.toUpperCase();
@@ -168,7 +182,6 @@ export function BookingForm({
         
         const appointmentDetails = await (await fetch(`/api/getAppointment?id=${result.appointmentId}`)).json();
 
-
         if (appointmentDetails) {
             generateAppointmentPDF(appointmentDetails);
         }
@@ -187,23 +200,7 @@ export function BookingForm({
       }
     });
   };
-
-  useEffect(() => {
-    form.reset({
-      curp: '',
-      nombre: '',
-      apellidoPaterno: '',
-      apellidoMaterno: '',
-      sexo: undefined,
-      edad: 0,
-      estadoNacimiento: '',
-      municipio: '',
-      colonia: '',
-      otraColonia: '',
-      telefono: '',
-    });
-  }, [selectedDate, selectedConsultorio, selectedTime, form]);
-
+  
   if (!selectedDate || !selectedConsultorio || !selectedTime) {
     return (
         <Card className='border-dashed'>
