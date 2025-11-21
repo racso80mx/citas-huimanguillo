@@ -187,3 +187,5 @@ export async function updateSlotsConfiguration(newConfig: {
     return false;
   }
 }
+
+    

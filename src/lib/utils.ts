@@ -59,7 +59,8 @@ export function generateAppointmentPDF(appointmentData: Appointment) {
     const doc = new jsPDF();
     const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date, time, appointmentNumber } = appointmentData;
 
-    doc.addImage(logoBase64, 'PNG', 15, 15, 30, 30);
+    // No logo for now to prevent crashes
+    // doc.addImage(logoBase64, 'PNG', 15, 15, 30, 30);
 
     // Set font
     doc.setFont('Helvetica');
@@ -112,3 +113,5 @@ export function generateAppointmentPDF(appointmentData: Appointment) {
     // Save the PDF
     doc.save(`recibo_cita_${curp}.pdf`);
 }
+
+    

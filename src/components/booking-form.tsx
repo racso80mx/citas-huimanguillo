@@ -172,7 +172,9 @@ export function BookingForm({
         const appointmentDetails = await (await fetch(`/api/getAppointment?id=${result.appointmentId}`)).json();
 
 
-        generateAppointmentPDF(appointmentDetails);
+        if (appointmentDetails) {
+            generateAppointmentPDF(appointmentDetails);
+        }
 
         form.reset();
         onBookingSuccess();
