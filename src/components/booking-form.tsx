@@ -99,6 +99,12 @@ export function BookingForm({
       apellidoPaterno: '',
       apellidoMaterno: '',
       telefono: '',
+      sexo: undefined, // Initialize select
+      edad: undefined, // Initialize number input
+      estadoNacimiento: '', // Initialize combobox
+      municipio: '', // Initialize select
+      colonia: '', // Initialize select
+      otraColonia: '', // Initialize text input
     },
   });
 
@@ -269,7 +275,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Edad</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="Derivado de CURP" {...field} disabled value={field.value || ''} />
+                        <Input type="number" placeholder="Derivado de CURP" {...field} disabled value={field.value || ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -352,7 +358,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Especifica tu colonia</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nombre de tu colonia" {...field} />
+                        <Input placeholder="Nombre de tu colonia" {...field} value={field.value ?? ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
