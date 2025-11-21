@@ -64,7 +64,7 @@ export async function getAvailability(year: number, month: number): Promise<Dail
 
 
 export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmentNumber'>) {
-  const { date, time, curp, consultorio, estadoNacimiento, municipio } = data;
+  const { date, time, curp, consultorio, estadoNacimiento, municipio, colonia, otraColonia } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
@@ -110,12 +110,14 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
   const consecutive = appointmentsInConsultorio.length + 1;
   const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${consultorio}-${consecutive}`;
 
+  const finalColonia = colonia === 'Otra' ? otraColonia : colonia;
+
   const newAppointment: Appointment = {
       ...data,
       id: newAppointmentId,
       appointmentNumber,
-      municipio: estadoNacimiento === 'TABASCO' ? municipio : data.municipio || 'NA',
-      colonia: (estadoNacimiento === 'TABASCO' && municipio === 'Huimanguillo') ? data.colonia : 'NA'
+      municipio: estadoNacimiento === 'TABASCO' ? municipio : 'NA',
+      colonia: (estadoNacimiento === 'TABASCO' && municipio === 'Huimanguillo') ? finalColonia : 'NA'
   }
 
   const docId = await saveData(newAppointment);
@@ -127,7 +129,7 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
   revalidatePath('/');
   revalidatePath('/admin');
 
-  return { success: true, message: 'Cita agendada con éxito.', appointmentId: docId };
+  return { success: true, message: 'Cita agendada con éxito.', appointmentId: docId, appointmentNumber };
 }
 
 export async function getAppointments() {
