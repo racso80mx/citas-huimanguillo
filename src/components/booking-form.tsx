@@ -118,7 +118,6 @@ export function BookingForm({
   const watchMunicipio = form.watch('municipio');
   const watchColonia = form.watch('colonia');
 
-  // Reset form when selection is cleared
   useEffect(() => {
     if (!selectedDate || !selectedConsultorio || !selectedTime) {
       form.reset({
@@ -415,7 +414,8 @@ export function BookingForm({
                       </Select>
                       <FormMessage />
                     </FormItem>
-                  )}
+                   )
+                  }
                 />
              ) : watchEstado ? (
                 <FormField
