@@ -48,13 +48,13 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete }: App
         </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[120px]">Fecha</TableHead>
+            <TableHead>No. Cita</TableHead>
+            <TableHead className="w-[120px]">Fecha / Hora</TableHead>
             <TableHead>Paciente</TableHead>
             <TableHead>CURP</TableHead>
             <TableHead className="hidden md:table-cell">Sexo</TableHead>
             <TableHead className="hidden md:table-cell">Edad</TableHead>
             <TableHead className="hidden lg:table-cell">Teléfono</TableHead>
-            <TableHead className="hidden lg:table-cell">Dirección</TableHead>
             <TableHead>Consultorio</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
@@ -62,15 +62,16 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete }: App
         <TableBody>
           {appointments.map((app) => (
             <TableRow key={app.id}>
+              <TableCell className="font-mono">{app.appointmentNumber}</TableCell>
               <TableCell className="font-medium">
-                {format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}
+                {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
+                <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
               <TableCell>{`${app.nombre} ${app.apellidoPaterno} ${app.apellidoMaterno}`}</TableCell>
               <TableCell>{app.curp}</TableCell>
               <TableCell className="hidden md:table-cell">{app.sexo}</TableCell>
               <TableCell className="hidden md:table-cell">{app.edad}</TableCell>
               <TableCell className="hidden lg:table-cell">{app.telefono}</TableCell>
-              <TableCell className="hidden lg:table-cell">{`${app.colonia}, ${app.municipio}`}</TableCell>
               <TableCell>Núcleo Básico {app.consultorio}</TableCell>
                {isAdmin && (
                 <TableCell className="text-right">
@@ -86,7 +87,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete }: App
                         <AlertDialogDescription>
                           Esta acción no se puede deshacer. Se eliminará permanentemente la cita de
                           <span className='font-bold'>{` ${app.nombre} ${app.apellidoPaterno} `}</span>
-                           y el espacio quedará libre.
+                           ({app.appointmentNumber}) y el espacio quedará libre.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

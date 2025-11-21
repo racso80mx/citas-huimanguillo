@@ -29,6 +29,7 @@ import estados from '@/lib/data/estados.json';
 import municipios from '@/lib/data/municipios.json';
 import colonias from '@/lib/data/colonias.json';
 import { generateAppointmentPDF } from '@/lib/utils';
+import type { Appointment } from '@/lib/definitions';
 
 const formSchema = z.object({
   curp: z
@@ -81,6 +82,7 @@ const formSchema = z.object({
 type BookingFormProps = {
   selectedDate: Date | undefined;
   selectedConsultorio: number | undefined;
+  selectedTime: string | undefined;
   onBookingSuccess: () => void;
 };
 
@@ -90,6 +92,7 @@ const coloniaOptions = colonias.map(c => ({label: c.nombre, value: c.nombre}));
 export function BookingForm({
   selectedDate,
   selectedConsultorio,
+  selectedTime,
   onBookingSuccess,
 }: BookingFormProps) {
   const { toast } = useToast();
@@ -134,10 +137,10 @@ export function BookingForm({
   };
 
   const onSubmit = (data: z.infer<typeof formSchema>) => {
-    if (!selectedDate || !selectedConsultorio) {
+    if (!selectedDate || !selectedConsultorio || !selectedTime) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona una fecha y un consultorio.',
+        description: 'Por favor, selecciona una fecha, consultorio y hora.',
         variant: 'destructive',
       });
       return;
@@ -152,7 +155,8 @@ export function BookingForm({
       const result = await bookAppointment({
         ...finalData,
         date: selectedDate.toISOString(),
-        consultorio: selectedConsultorio
+        time: selectedTime,
+        consultorio: selectedConsultorio,
       });
 
       if (result.success && result.appointmentId) {
@@ -162,11 +166,13 @@ export function BookingForm({
           className: 'bg-accent text-accent-foreground',
         });
         
-        generateAppointmentPDF({
-            ...finalData,
-            date: selectedDate.toISOString(),
-            consultorio: selectedConsultorio
-        });
+        // This is a bit of a hack, but we need the appointmentNumber which is generated on the server
+        // We'll reconstruct it on the client for the PDF. A better solution would be to get it from the server action response.
+        const tempAppointment = await bookAppointment({ ...finalData, date: selectedDate.toISOString(), time: selectedTime, consultorio: selectedConsultorio });
+        const appointmentDetails = await (await fetch(`/api/getAppointment?id=${result.appointmentId}`)).json();
+
+
+        generateAppointmentPDF(appointmentDetails);
 
         form.reset();
         onBookingSuccess();
@@ -176,6 +182,10 @@ export function BookingForm({
           description: result.message,
           variant: 'destructive',
         });
+        // If the error is about a taken timeslot, we should refresh data to show the user
+        if (result.message?.includes('horario')) {
+          onBookingSuccess();
+        }
       }
     });
   };
@@ -195,13 +205,13 @@ export function BookingForm({
       otraColonia: '',
       telefono: '',
     });
-  }, [selectedDate, selectedConsultorio, form]);
+  }, [selectedDate, selectedConsultorio, selectedTime, form]);
 
-  if (!selectedDate || !selectedConsultorio) {
+  if (!selectedDate || !selectedConsultorio || !selectedTime) {
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>
-                <p className='text-muted-foreground'>Por favor, selecciona primero una fecha y un consultorio con citas disponibles.</p>
+                <p className='text-muted-foreground'>Por favor, selecciona primero una fecha, consultorio y hora disponibles.</p>
             </CardContent>
         </Card>
     );
@@ -363,7 +373,7 @@ export function BookingForm({
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecciona tu municipio" />
-                          </SelectTrigger>
+                          </Trigger>
                         </FormControl>
                         <SelectContent>
                           {municipios.map(m => <SelectItem key={m.clave} value={m.nombre}>{m.nombre}</SelectItem>)}
@@ -400,7 +410,7 @@ export function BookingForm({
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecciona tu colonia" />
-                          </SelectTrigger>
+                          </Trigger>
                         </FormControl>
                         <SelectContent>
                           {coloniaOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
@@ -455,5 +465,3 @@ export function BookingForm({
     </Card>
   );
 }
-
-    

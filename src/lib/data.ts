@@ -76,6 +76,19 @@ export async function getAppointments(): Promise<Appointment[]> {
   );
 }
 
+export async function getAppointmentById(id: string): Promise<Appointment | null> {
+    const db = await getDb();
+    const docRef = doc(db, 'appointments', id);
+    const docSnap = await getDoc(docRef);
+
+    if(docSnap.exists()) {
+        const data = docSnap.data();
+        const date = (data.date as Timestamp).toDate().toISOString();
+        return { ...data, id: docSnap.id, date } as Appointment;
+    }
+    return null;
+}
+
 export async function getAppointmentsByDate(
   date: Date
 ): Promise<Appointment[]> {
@@ -153,12 +166,12 @@ export async function getSlotsConfiguration(): Promise<{ [key: string]: number }
   }
   // Default configuration if not set in Firestore
   return {
-    '1': 5,
-    '2': 5,
-    '3': 5,
-    '4': 5,
-    '5': 5,
-    '6': 5,
+    '1': 15,
+    '2': 15,
+    '3': 15,
+    '4': 15,
+    '5': 15,
+    '6': 15,
   };
 }
 

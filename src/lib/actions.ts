@@ -16,7 +16,7 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
 
-export async function getAvailability(year: number, month: number) {
+export async function getAvailability(year: number, month: number): Promise<DailyAvailability[]> {
   const startDate = startOfMonth(new Date(year, month));
   const endDate = endOfMonth(new Date(year, month));
 
@@ -35,32 +35,50 @@ export async function getAvailability(year: number, month: number) {
 
     let totalAvailableSlots = 0;
     const availabilityByConsultorio: { [key: number]: number } = {};
+    const takenTimesByConsultorio: { [key: number]: string[] } = {};
 
     for (const consultorioId in currentSlotsConfig) {
       const id = parseInt(consultorioId);
       const maxSlots = currentSlotsConfig[id] || 0;
-      const bookedSlots = appointmentsOnDate.filter(
+      const bookedAppointments = appointmentsOnDate.filter(
         (app) => app.consultorio === id
-      ).length;
-      const available = Math.max(0, maxSlots - bookedSlots);
+      );
+      
+      const available = Math.max(0, maxSlots - bookedAppointments.length);
       availabilityByConsultorio[id] = available;
       totalAvailableSlots += available;
+
+      takenTimesByConsultorio[id] = bookedAppointments.map(app => app.time);
     }
 
     availability.push({
       date: dateString,
       availableSlots: totalAvailableSlots,
       availabilityByConsultorio: availabilityByConsultorio,
+      takenTimesByConsultorio,
     });
   }
 
   return availability;
 }
 
-export async function bookAppointment(data: Omit<Appointment, 'id'>) {
-  const { date, curp, consultorio, estadoNacimiento, municipio } = data;
+
+export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmentNumber'>) {
+  const { date, time, curp, consultorio, estadoNacimiento, municipio } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
+
+  // Check if the specific time slot is already taken
+  const isTimeSlotTaken = appointmentsOnDate.some(
+    app => app.consultorio === consultorio && app.time === time
+  );
+
+  if (isTimeSlotTaken) {
+    return {
+      success: false,
+      message: `El horario de ${time} ya no está disponible. Por favor, selecciona otro.`,
+    };
+  }
 
   const currentSlotsConfig = await getDataSlots();
   const slotsForConsultorio = currentSlotsConfig[consultorio] || 0;
@@ -89,10 +107,13 @@ export async function bookAppointment(data: Omit<Appointment, 'id'>) {
   }
   
   const newAppointmentId = uuidv4();
+  const consecutive = appointmentsInConsultorio.length + 1;
+  const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${consultorio}-${consecutive}`;
 
   const newAppointment: Appointment = {
       ...data,
       id: newAppointmentId,
+      appointmentNumber,
       municipio: estadoNacimiento === 'TABASCO' ? municipio : data.municipio || 'NA',
       colonia: (estadoNacimiento === 'TABASCO' && municipio === 'Huimanguillo') ? data.colonia : 'NA'
   }
@@ -138,6 +159,13 @@ export async function getSlotsConfiguration() {
 export async function updateSlotsConfiguration(newConfig: {
   [key: number]: number;
 }) {
+  // Ensure no value is greater than 15
+  for(const key in newConfig) {
+      if(newConfig[key] > 15) {
+          return { success: false, message: 'El número máximo de cupos por consultorio no puede ser mayor a 15.' };
+      }
+  }
+
   const success = await updateDataSlots(newConfig);
   if (success) {
     revalidatePath('/admin');

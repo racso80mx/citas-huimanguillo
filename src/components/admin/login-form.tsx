@@ -78,11 +78,11 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
         <CardHeader className="text-center items-center">
           <div className="text-primary mb-4">
             <Image
-              src={logoBase64}
-              alt="Logo Hospital Huimanguillo"
-              width={80}
-              height={26}
-              className="rounded-md"
+                src={logoBase64}
+                alt="Logo Hospital Huimanguillo"
+                width={80}
+                height={80}
+                className="rounded-md"
             />
           </div>
           <CardTitle className="text-2xl font-bold font-headline">

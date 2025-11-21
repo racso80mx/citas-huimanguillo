@@ -12,7 +12,7 @@ import {
 import type { DailyAvailability } from '@/lib/definitions';
 import { getAvailability, getAnnouncements } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, UserCheck } from 'lucide-react';
+import { Bell, UserCheck, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -20,6 +20,18 @@ type BookingClientProps = {
   initialAvailability: DailyAvailability[];
   initialAnnouncements: string[];
 };
+
+function generateTimeSlots(): string[] {
+  const slots = [];
+  for (let hour = 8; hour < 13; hour++) {
+    slots.push(`${String(hour).padStart(2, '0')}:00`);
+    slots.push(`${String(hour).padStart(2, '0')}:20`);
+    slots.push(`${String(hour).padStart(2, '0')}:40`);
+  }
+  return slots;
+}
+const ALL_TIME_SLOTS = generateTimeSlots();
+
 
 export function BookingClient({
   initialAvailability,
@@ -29,6 +41,7 @@ export function BookingClient({
   const [selectedConsultorio, setSelectedConsultorio] = useState<
     number | undefined
   >();
+  const [selectedTime, setSelectedTime] = useState<string | undefined>();
   const [availability, setAvailability] =
     useState<DailyAvailability[]>(initialAvailability);
   const [announcements, setAnnouncements] =
@@ -58,6 +71,7 @@ export function BookingClient({
       setAnnouncements(newAnnouncements);
       setSelectedDate(undefined);
       setSelectedConsultorio(undefined);
+      setSelectedTime(undefined);
     });
   };
 
@@ -76,13 +90,26 @@ export function BookingClient({
     }
     setSelectedDate(date);
     setSelectedConsultorio(undefined); // Reset clinic selection when date changes
+    setSelectedTime(undefined); // Reset time selection
   };
+
+  const handleConsultorioSelect = (id: number) => {
+    setSelectedConsultorio(id);
+    setSelectedTime(undefined); // Reset time selection when clinic changes
+  }
 
   const selectedDayAvailability = useMemo(() => {
     if (!selectedDate) return null;
     const dateString = format(selectedDate, 'yyyy-MM-dd');
     return availability.find((d) => d.date === dateString) || null;
   }, [selectedDate, availability]);
+
+  const availableTimeSlots = useMemo(() => {
+    if (!selectedDayAvailability || !selectedConsultorio) return [];
+    const takenTimes = selectedDayAvailability.takenTimesByConsultorio[selectedConsultorio] || [];
+    return ALL_TIME_SLOTS.filter(slot => !takenTimes.includes(slot));
+  }, [selectedDayAvailability, selectedConsultorio]);
+
 
   return (
     <>
@@ -121,7 +148,7 @@ export function BookingClient({
                              const id = parseInt(consultorioId);
                              return (
                                 <button key={id}
-                                 onClick={() => setSelectedConsultorio(id)}
+                                 onClick={() => handleConsultorioSelect(id)}
                                  disabled={slots === 0}
                                  className={`w-full p-3 border rounded-md text-left transition-colors flex justify-between items-center ${selectedConsultorio === id ? 'bg-primary text-primary-foreground ring-2 ring-ring ring-offset-2' : 'bg-background hover:bg-accent'} disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed`}
                                 >
@@ -134,16 +161,43 @@ export function BookingClient({
                    </Card>
                 </div>
               )}
+                 {selectedConsultorio && (
+                <div>
+                  <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                    3. Selecciona una hora
+                  </h3>
+                   <Card className="bg-card">
+                    <CardHeader>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                           <Clock className="h-5 w-5 text-primary" />
+                           Horarios para Núcleo Básico {selectedConsultorio}
+                        </CardTitle>
+                        <CardDescription>Selecciona un horario disponible.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-3 gap-2">
+                       {availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (
+                           <button key={time}
+                           onClick={() => setSelectedTime(time)}
+                           className={`w-full p-2 border rounded-md text-center transition-colors ${selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
+                           >
+                               {time}
+                           </button>
+                       )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles.</p>}
+                    </CardContent>
+                   </Card>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-8">
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                  3. Completa tus datos
+                  4. Completa tus datos
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
                   selectedConsultorio={selectedConsultorio}
+                  selectedTime={selectedTime}
                   onBookingSuccess={refreshData}
                 />
               </div>

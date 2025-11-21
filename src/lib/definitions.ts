@@ -1,6 +1,7 @@
 export type Appointment = {
   id: string;
   date: string; // Using ISO string for serializability
+  time: string; // HH:mm format
   consultorio: number;
   curp: string;
   nombre: string;
@@ -13,12 +14,14 @@ export type Appointment = {
   colonia: string;
   otraColonia?: string;
   telefono: string;
+  appointmentNumber: string;
 };
 
 export type DailyAvailability = {
   date: string; // YYYY-MM-DD
   availableSlots: number;
   availabilityByConsultorio: { [key: number]: number };
+  takenTimesByConsultorio: { [key: number]: string[] };
 };
 
 export type Estado = {

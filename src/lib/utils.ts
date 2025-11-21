@@ -3,7 +3,7 @@ import { twMerge } from "tailwind-merge"
 import { Appointment } from "./definitions";
 import * as xlsx from 'xlsx';
 import { jsPDF } from 'jspdf';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { logoBase64 } from "./logo-data";
 
@@ -15,29 +15,27 @@ export function cn(...inputs: ClassValue[]) {
 export function downloadExcel(data: Appointment[], filename: string) {
   const worksheetData = data.map(
     ({
+      appointmentNumber,
+      date,
+      time,
       nombre,
       apellidoPaterno,
       apellidoMaterno,
       curp,
       sexo,
       edad,
-      estadoNacimiento,
-      municipio,
-      colonia,
       consultorio,
-      date,
       telefono,
     }) => ({
-      'Nombre Completo': `${nombre} ${apellidoPaterno} ${apellidoMaterno}`,
-      CURP: curp,
-      Sexo: sexo,
-      Edad: edad,
-      'Estado Nacimiento': estadoNacimiento,
-      Municipio: municipio,
-      Colonia: colonia,
-      Clínica: `Núcleo Básico ${consultorio}`,
-      'Fecha de Cita': new Date(date).toLocaleDateString('es-MX'),
-      Teléfono: telefono,
+      'No. Cita': appointmentNumber,
+      'Fecha': format(parseISO(date), 'dd/MM/yyyy'),
+      'Hora': time,
+      'Paciente': `${nombre} ${apellidoPaterno} ${apellidoMaterno}`,
+      'CURP': curp,
+      'Sexo': sexo,
+      'Edad': edad,
+      'Consultorio': `Núcleo Básico ${consultorio}`,
+      'Teléfono': telefono,
     })
   );
 
@@ -48,7 +46,7 @@ export function downloadExcel(data: Appointment[], filename: string) {
   // Auto-size columns
   const cols = Object.keys(worksheetData[0] || {});
   const colWidths = cols.map(col => ({
-      wch: Math.max(...worksheetData.map(row => (row[col as keyof typeof row] ?? '').toString().length), col.length)
+      wch: Math.max(...worksheetData.map(row => (row[col as keyof typeof row] ?? '').toString().length), col.length) + 1
   }));
   worksheet['!cols'] = colWidths;
 
@@ -57,47 +55,59 @@ export function downloadExcel(data: Appointment[], filename: string) {
 }
 
 
-export function generateAppointmentPDF(appointmentData: Omit<Appointment, 'id' | 'otraColonia'>) {
+export function generateAppointmentPDF(appointmentData: Appointment) {
     const doc = new jsPDF();
-    const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date } = appointmentData;
+    const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date, time, appointmentNumber } = appointmentData;
+
+    doc.addImage(logoBase64, 'PNG', 15, 15, 30, 30);
 
     // Set font
     doc.setFont('Helvetica');
 
     // Add header
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 20, 30);
+    doc.text('Confirmación de Cita Médica', 55, 25);
     
     doc.setFontSize(10);
-    doc.text('Hospital General de Huimanguillo', 20, 38)
+    doc.text('Hospital General de Huimanguillo', 55, 33)
+
+    doc.setFontSize(14);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Folio: ${appointmentNumber}`, 20, 50);
 
 
     // Add a line separator
     doc.setLineWidth(0.5);
-    doc.line(20, 50, 190, 50);
+    doc.line(20, 55, 190, 55);
 
     // Patient Details
     doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
     doc.text('Datos del Paciente:', 20, 65);
     
     doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
     doc.text(`Nombre: ${nombre} ${apellidoPaterno} ${apellidoMaterno}`, 20, 75);
     doc.text(`CURP: ${curp}`, 20, 85);
 
     // Appointment Details
     doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
     doc.text('Detalles de la Cita:', 20, 105);
 
     doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
     doc.text(`Fecha: ${formattedDate}`, 20, 115);
-    doc.text(`Clínica: Núcleo Básico ${consultorio}`, 20, 125);
+    doc.text(`Hora: ${time} hrs`, 20, 125);
+    doc.text(`Clínica: Núcleo Básico ${consultorio}`, 20, 135);
     
     // Add a footer note
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 150);
-    doc.text('Este es un comprobante de su cita, no es necesario imprimirlo.', 20, 155);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 160);
+    doc.text('Este es un comprobante de su cita, no es necesario imprimirlo.', 20, 165);
+    doc.text('Puede mostrar este PDF desde su teléfono.', 20, 170);
 
     // Save the PDF
     doc.save(`recibo_cita_${curp}.pdf`);

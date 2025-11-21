@@ -36,9 +36,12 @@ export function SlotsManager() {
     const numValue = parseInt(value, 10);
     if (isNaN(numValue) && value !== '') return;
     
+    // Clamp the value between 0 and 15
+    const clampedValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(15, numValue));
+    
     setSlotsConfig(prev => ({
         ...prev,
-        [consultorio]: isNaN(numValue) ? 0 : numValue,
+        [consultorio]: clampedValue,
     }));
   };
   
@@ -54,7 +57,7 @@ export function SlotsManager() {
       } else {
         toast({
           title: 'Error',
-          description: 'No se pudo guardar la configuración.',
+          description: result.message || 'No se pudo guardar la configuración.',
           variant: 'destructive',
         });
       }
@@ -67,7 +70,7 @@ export function SlotsManager() {
         <CardHeader>
           <CardTitle>Configurar Cupos por Clínica</CardTitle>
           <CardDescription>
-            Define el máximo de citas diarias para cada núcleo básico.
+            Define el máximo de citas diarias para cada núcleo básico (máx. 15).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center h-24">
@@ -82,11 +85,11 @@ export function SlotsManager() {
       <CardHeader>
         <CardTitle className='flex items-center gap-2'><Settings /> Configurar Cupos por Clínica</CardTitle>
         <CardDescription>
-          Define el máximo de citas diarias para cada núcleo básico.
+          Define el máximo de citas diarias para cada núcleo básico (máx. 15).
         </CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {Object.keys(slotsConfig).map(key => {
+        {Object.keys(slotsConfig).sort((a,b) => parseInt(a) - parseInt(b)).map(key => {
             const consultorio = parseInt(key, 10);
             return (
                  <div key={consultorio} className="space-y-2">
@@ -95,6 +98,7 @@ export function SlotsManager() {
                         id={`slots-${consultorio}`}
                         type="number"
                         min="0"
+                        max="15"
                         value={slotsConfig[consultorio] || ''}
                         onChange={(e) => handleSlotChange(consultorio, e.target.value)}
                         placeholder="0"
