@@ -114,7 +114,7 @@ export function BookingForm({
       telefono: '',
     },
   });
-
+  
   const watchEstado = form.watch('estadoNacimiento');
   const watchMunicipio = form.watch('municipio');
   const watchColonia = form.watch('colonia');
@@ -187,8 +187,7 @@ export function BookingForm({
       }
     });
   };
-  
-  // Reset the form when the selected date or clinic changes
+
   useEffect(() => {
     form.reset({
       curp: '',
