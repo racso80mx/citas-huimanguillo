@@ -2,7 +2,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useTransition, useEffect } from 'react';
+import { useTransition } from 'react';
 import {
   Form,
   FormControl,
@@ -117,22 +117,6 @@ export function BookingForm({
   const watchEstado = form.watch('estadoNacimiento');
   const watchMunicipio = form.watch('municipio');
   const watchColonia = form.watch('colonia');
-
-  useEffect(() => {
-    form.reset({
-      curp: '',
-      nombre: '',
-      apellidoPaterno: '',
-      apellidoMaterno: '',
-      sexo: undefined,
-      edad: 0,
-      estadoNacimiento: '',
-      municipio: '',
-      colonia: '',
-      otraColonia: '',
-      telefono: '',
-    });
-  }, [selectedDate, selectedConsultorio, selectedTime, form]);
 
   const handleCurpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curp = e.target.value.toUpperCase();
