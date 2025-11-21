@@ -168,7 +168,6 @@ export function BookingForm({
         
         // This is a bit of a hack, but we need the appointmentNumber which is generated on the server
         // We'll reconstruct it on the client for the PDF. A better solution would be to get it from the server action response.
-        const tempAppointment = await bookAppointment({ ...finalData, date: selectedDate.toISOString(), time: selectedTime, consultorio: selectedConsultorio });
         const appointmentDetails = await (await fetch(`/api/getAppointment?id=${result.appointmentId}`)).json();
 
 

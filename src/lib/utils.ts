@@ -5,7 +5,6 @@ import * as xlsx from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { logoBase64 } from "./logo-data";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -58,9 +57,6 @@ export function downloadExcel(data: Appointment[], filename: string) {
 export function generateAppointmentPDF(appointmentData: Appointment) {
     const doc = new jsPDF();
     const { nombre, apellidoPaterno, apellidoMaterno, curp, consultorio, date, time, appointmentNumber } = appointmentData;
-
-    // No logo for now to prevent crashes
-    // doc.addImage(logoBase64, 'PNG', 15, 15, 30, 30);
 
     // Set font
     doc.setFont('Helvetica');
