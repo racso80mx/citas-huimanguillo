@@ -118,6 +118,25 @@ export function BookingForm({
   const watchMunicipio = form.watch('municipio');
   const watchColonia = form.watch('colonia');
 
+  // Reset form when selection is cleared
+  useEffect(() => {
+    if (!selectedDate || !selectedConsultorio || !selectedTime) {
+      form.reset({
+        curp: '',
+        nombre: '',
+        apellidoPaterno: '',
+        apellidoMaterno: '',
+        sexo: undefined,
+        edad: 0,
+        estadoNacimiento: '',
+        municipio: '',
+        colonia: '',
+        otraColonia: '',
+        telefono: '',
+      });
+    }
+  }, [selectedDate, selectedConsultorio, selectedTime, form]);
+
   const handleCurpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curp = e.target.value.toUpperCase();
     form.setValue('curp', curp, { shouldValidate: curp.length === 18 });
