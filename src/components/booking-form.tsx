@@ -166,8 +166,6 @@ export function BookingForm({
           className: 'bg-accent text-accent-foreground',
         });
         
-        // This is a bit of a hack, but we need the appointmentNumber which is generated on the server
-        // We'll reconstruct it on the client for the PDF. A better solution would be to get it from the server action response.
         const appointmentDetails = await (await fetch(`/api/getAppointment?id=${result.appointmentId}`)).json();
 
 
@@ -183,7 +181,6 @@ export function BookingForm({
           description: result.message,
           variant: 'destructive',
         });
-        // If the error is about a taken timeslot, we should refresh data to show the user
         if (result.message?.includes('horario')) {
           onBookingSuccess();
         }
