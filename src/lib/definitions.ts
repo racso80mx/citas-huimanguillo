@@ -35,7 +35,9 @@ export type Municipio = {
 };
 
 export type Colonia = {
+  id: string;
   nombre: string;
+  nucleo: number;
 };
 
 export type WeekendBookingConfig = {

@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
 import { SlotsManager } from './slots-manager';
 import { WeekendBookingManager } from './weekend-booking-manager';
+import { ColoniasManager } from './colonias-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -165,7 +166,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               Panel de Administración
             </CardTitle>
             <CardDescription>
-              Visualiza y gestiona las citas agendadas.
+              Visualiza y gestiona las citas y configuraciones del sistema.
             </CardDescription>
           </div>
           <Button variant="outline" onClick={onLogout}>
@@ -175,10 +176,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </CardHeader>
       </Card>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <AnnouncementsManager />
-        <SlotsManager />
-        <WeekendBookingManager />
+      <div className="space-y-8">
+         <ColoniasManager />
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <AnnouncementsManager />
+            <SlotsManager />
+            <WeekendBookingManager />
+        </div>
       </div>
 
 

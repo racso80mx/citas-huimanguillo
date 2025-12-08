@@ -30,8 +30,8 @@ export default async function HomePage() {
           Agenda tu Cita Médica
         </h1>
         <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">
-          Un servicio simple y rápido para la comunidad de Huimanguillo,
-          Tabasco. Selecciona un día y registra tus datos.
+          Un servicio simple y rápido para la comunidad de Huimanguillo.
+          Selecciona un día, tu colonia, un horario y registra tus datos.
         </p>
       </div>
 

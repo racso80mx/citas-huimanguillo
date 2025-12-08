@@ -27,8 +27,6 @@ import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
-import municipios from '@/lib/data/municipios.json';
-import colonias from '@/lib/data/colonias.json';
 import { Combobox } from './ui/combobox';
 import { generateAppointmentPDF } from '@/lib/utils';
 import type { Appointment } from '@/lib/definitions';
@@ -44,33 +42,6 @@ const formSchema = z.object({
   sexo: z.enum(['Hombre', 'Mujer']),
   edad: z.number().min(0, 'La edad no puede ser negativa.'),
   estadoNacimiento: z.string().min(1, 'El estado es requerido.'),
-  municipio: z.string().optional(),
-  colonia: z.string().optional(),
-  otraColonia: z.string().optional(),
-}).refine(data => {
-    if (data.estadoNacimiento === 'TABASCO') {
-        return !!data.municipio;
-    }
-    return true;
-}, {
-    message: "El municipio es requerido para residentes de Tabasco.",
-    path: ['municipio'],
-}).refine(data => {
-    if (data.estadoNacimiento === 'TABASCO' && data.municipio === 'Huimanguillo') {
-        return !!data.colonia;
-    }
-    return true;
-}, {
-    message: "La colonia es requerida para residentes de Huimanguillo.",
-    path: ['colonia'],
-}).refine(data => {
-    if (data.colonia === 'Otra') {
-        return !!data.otraColonia && data.otraColonia.length > 2;
-    }
-    return true;
-}, {
-    message: "Por favor, especifica la colonia.",
-    path: ['otraColonia'],
 });
 
 type BookingFormValues = z.infer<typeof formSchema>;
@@ -78,6 +49,7 @@ type BookingFormValues = z.infer<typeof formSchema>;
 type BookingFormProps = {
   selectedDate: Date | undefined;
   selectedConsultorio: number | undefined;
+  selectedColoniaName: string | undefined;
   selectedTime: string | undefined;
   onBookingSuccess: () => void;
 };
@@ -85,6 +57,7 @@ type BookingFormProps = {
 export function BookingForm({
   selectedDate,
   selectedConsultorio,
+  selectedColoniaName,
   selectedTime,
   onBookingSuccess,
 }: BookingFormProps) {
@@ -99,19 +72,13 @@ export function BookingForm({
       apellidoPaterno: '',
       apellidoMaterno: '',
       telefono: '',
-      sexo: undefined, // Initialize select
-      edad: undefined, // Initialize number input
-      estadoNacimiento: '', // Initialize combobox
-      municipio: '', // Initialize select
-      colonia: '', // Initialize select
-      otraColonia: '', // Initialize text input
+      sexo: undefined,
+      edad: undefined,
+      estadoNacimiento: '',
     },
   });
 
   const curp = form.watch('curp');
-  const estadoNacimiento = form.watch('estadoNacimiento');
-  const municipio = form.watch('municipio');
-  const colonia = form.watch('colonia');
 
   useEffect(() => {
     if (curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
@@ -125,10 +92,10 @@ export function BookingForm({
   }, [curp, form]);
 
   const onSubmit = (data: BookingFormValues) => {
-    if (!selectedDate || !selectedConsultorio || !selectedTime) {
+    if (!selectedDate || !selectedConsultorio || !selectedTime || !selectedColoniaName) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona una fecha, consultorio y hora.',
+        description: 'Por favor, selecciona una fecha, colonia y hora.',
         variant: 'destructive',
       });
       return;
@@ -140,6 +107,8 @@ export function BookingForm({
           date: selectedDate.toISOString(),
           time: selectedTime,
           consultorio: selectedConsultorio,
+          colonia: selectedColoniaName, // Pass colonia name
+          municipio: 'Huimanguillo', // Assuming this is always the case now
       });
 
       if (result.success && result.appointmentId) {
@@ -156,6 +125,8 @@ export function BookingForm({
           date: selectedDate.toISOString(),
           time: selectedTime,
           consultorio: selectedConsultorio,
+          colonia: selectedColoniaName,
+          municipio: 'Huimanguillo',
           appointmentNumber: result.appointmentNumber,
         } as Appointment;
         generateAppointmentPDF(completeAppointmentData);
@@ -176,7 +147,7 @@ export function BookingForm({
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>
-                <p className='text-muted-foreground'>Por favor, selecciona primero una fecha, consultorio y hora disponibles.</p>
+                <p className='text-muted-foreground'>Por favor, selecciona primero una fecha, colonia y hora disponibles.</p>
             </CardContent>
         </Card>
     );
@@ -301,70 +272,7 @@ export function BookingForm({
                 </FormItem>
               )}
             />
-            {estadoNacimiento === 'TABASCO' && (
-               <FormField
-                  control={form.control}
-                  name="municipio"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Municipio</FormLabel>
-                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona tu municipio" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {municipios.map(m => (
-                              <SelectItem key={m.clave} value={m.nombre}>{m.nombre}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            )}
 
-            {estadoNacimiento === 'TABASCO' && municipio === 'Huimanguillo' && (
-                <FormField
-                  control={form.control}
-                  name="colonia"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Colonia</FormLabel>
-                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona tu colonia" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                           {colonias.map(c => (
-                              <SelectItem key={c.nombre} value={c.nombre}>{c.nombre}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            )}
-            {colonia === 'Otra' && (
-                 <FormField
-                  control={form.control}
-                  name="otraColonia"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Especifica tu colonia</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nombre de tu colonia" {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-            )}
             <FormField
               control={form.control}
               name="telefono"

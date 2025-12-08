@@ -12,8 +12,10 @@ import {
   updateSlotsConfiguration as updateDataSlots,
   getWeekendBookingConfig as getDataWeekendBooking,
   updateWeekendBookingConfig as updateDataWeekendBooking,
+  getColonias as getDataColonias,
+  updateColonias as updateDataColonias,
 } from './data';
-import type { Appointment, DailyAvailability, WeekendBookingConfig } from './definitions';
+import type { Appointment, DailyAvailability, WeekendBookingConfig, Colonia } from './definitions';
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSaturday, isSunday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -81,7 +83,7 @@ export async function getAvailability(year: number, month: number): Promise<Dail
 
 
 export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmentNumber'>) {
-  const { date, time, curp, consultorio, estadoNacimiento, municipio, colonia, otraColonia } = data;
+  const { date, time, curp, consultorio } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
@@ -126,15 +128,11 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
   const newAppointmentId = uuidv4();
   const consecutive = appointmentsInConsultorio.length + 1;
   const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${consultorio}-${consecutive}`;
-
-  const finalColonia = colonia === 'Otra' ? otraColonia : colonia;
-
+  
   const newAppointment: Appointment = {
       ...data,
       id: newAppointmentId,
       appointmentNumber,
-      municipio: estadoNacimiento === 'TABASCO' ? municipio : 'NA',
-      colonia: (estadoNacimiento === 'TABASCO' && municipio === 'Huimanguillo') ? finalColonia : 'NA'
   }
 
   const docId = await saveData(newAppointment);
@@ -206,4 +204,18 @@ export async function updateWeekendBooking(config: WeekendBookingConfig) {
         return { success: true, message: "Configuración de fin de semana actualizada."}
     }
     return { success: false, message: "No se pudo guardar la configuración."}
+}
+
+export async function getColonias() {
+    return await getDataColonias();
+}
+
+export async function updateColonias(colonias: Colonia[]) {
+    const success = await updateDataColonias(colonias);
+    if(success) {
+        revalidatePath('/admin');
+        revalidatePath('/');
+        return { success: true, message: "Colonias actualizadas con éxito." }
+    }
+    return { success: false, message: "No se pudo guardar la configuración de colonias." }
 }

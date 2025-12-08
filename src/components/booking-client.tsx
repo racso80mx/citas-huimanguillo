@@ -9,12 +9,19 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability } from '@/lib/definitions';
-import { getAvailability, getAnnouncements } from '@/lib/actions';
+import type { DailyAvailability, Colonia } from '@/lib/definitions';
+import { getAvailability, getAnnouncements, getColonias } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, UserCheck, Clock } from 'lucide-react';
+import { Bell, UserCheck, Clock, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type BookingClientProps = {
   initialAvailability: DailyAvailability[];
@@ -38,17 +45,24 @@ export function BookingClient({
   initialAnnouncements,
 }: BookingClientProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [selectedConsultorio, setSelectedConsultorio] = useState<
-    number | undefined
-  >();
+  const [selectedColonia, setSelectedColonia] = useState<Colonia | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
-  const [availability, setAvailability] =
-    useState<DailyAvailability[]>(initialAvailability);
-  const [announcements, setAnnouncements] =
-    useState<string[]>(initialAnnouncements);
+
+  const [availability, setAvailability] = useState<DailyAvailability[]>(initialAvailability);
+  const [announcements, setAnnouncements] = useState<string[]>(initialAnnouncements);
+  const [colonias, setColonias] = useState<Colonia[]>([]);
+  
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchInitialData() {
+      const coloniasData = await getColonias();
+      setColonias(coloniasData);
+    }
+    fetchInitialData();
+  }, [])
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
@@ -63,14 +77,16 @@ export function BookingClient({
 
   const refreshData = () => {
     startTransition(async () => {
-      const [newAvailability, newAnnouncements] = await Promise.all([
+      const [newAvailability, newAnnouncements, newColonias] = await Promise.all([
         getAvailability(currentMonth.getFullYear(), currentMonth.getMonth()),
         getAnnouncements(),
+        getColonias(),
       ]);
       setAvailability(newAvailability);
       setAnnouncements(newAnnouncements);
+      setColonias(newColonias);
       setSelectedDate(undefined);
-      setSelectedConsultorio(undefined);
+      setSelectedColonia(undefined);
       setSelectedTime(undefined);
     });
   };
@@ -89,14 +105,16 @@ export function BookingClient({
       }
     }
     setSelectedDate(date);
-    setSelectedConsultorio(undefined); // Reset clinic selection when date changes
-    setSelectedTime(undefined); // Reset time selection
+    setSelectedColonia(undefined); // Reset selection
+    setSelectedTime(undefined); // Reset selection
   };
 
-  const handleConsultorioSelect = (id: number) => {
-    setSelectedConsultorio(id);
-    setSelectedTime(undefined); // Reset time selection when clinic changes
+  const handleColoniaSelect = (coloniaId: string) => {
+      const colonia = colonias.find(c => c.id === coloniaId);
+      setSelectedColonia(colonia);
+      setSelectedTime(undefined); // Reset time when colonia changes
   }
+
 
   const selectedDayAvailability = useMemo(() => {
     if (!selectedDate) return null;
@@ -105,10 +123,11 @@ export function BookingClient({
   }, [selectedDate, availability]);
 
   const availableTimeSlots = useMemo(() => {
-    if (!selectedDayAvailability || !selectedConsultorio) return [];
-    const takenTimes = selectedDayAvailability.takenTimesByConsultorio[selectedConsultorio] || [];
+    if (!selectedDayAvailability || !selectedColonia) return [];
+    const consultorio = selectedColonia.nucleo;
+    const takenTimes = selectedDayAvailability.takenTimesByConsultorio[consultorio] || [];
     return ALL_TIME_SLOTS.filter(slot => !takenTimes.includes(slot));
-  }, [selectedDayAvailability, selectedConsultorio]);
+  }, [selectedDayAvailability, selectedColonia]);
 
 
   return (
@@ -133,35 +152,45 @@ export function BookingClient({
               {selectedDate && selectedDayAvailability && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                    2. Selecciona un consultorio
+                    2. Selecciona tu colonia
                   </h3>
                    <Card className="bg-card">
                     <CardHeader>
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <UserCheck className="h-5 w-5 text-primary" />
-                            Disponibilidad para el {format(selectedDate, 'PPP', { locale: es })}
+                            <MapPin className="h-5 w-5 text-primary" />
+                            Colonias con citas para el {format(selectedDate, 'PPP', { locale: es })}
                         </CardTitle>
-                        <CardDescription>Selecciona un núcleo básico con citas disponibles.</CardDescription>
+                        <CardDescription>Al seleccionar tu colonia, se te asignará el núcleo básico correspondiente.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                         {Object.entries(selectedDayAvailability.availabilityByConsultorio).map(([consultorioId, slots]) => {
-                             const id = parseInt(consultorioId);
-                             return (
-                                <button key={id}
-                                 onClick={() => handleConsultorioSelect(id)}
-                                 disabled={slots === 0}
-                                 className={`w-full p-3 border rounded-md text-left transition-colors flex justify-between items-center ${selectedConsultorio === id ? 'bg-primary text-primary-foreground ring-2 ring-ring ring-offset-2' : 'bg-background hover:bg-accent'} disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed`}
-                                >
-                                 <span>Núcleo Básico {id}</span>
-                                 <span className={`font-bold ${selectedConsultorio === id ? 'text-primary-foreground' : slots > 0 ? 'text-green-600' : 'text-destructive'}`}>{slots} citas disponibles</span>
-                                </button>
-                             )
-                         })}
+                         <Select onValueChange={handleColoniaSelect} value={selectedColonia?.id}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona tu colonia..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {colonias.map(colonia => {
+                                    const consultorioId = colonia.nucleo;
+                                    const slots = selectedDayAvailability.availabilityByConsultorio[consultorioId] ?? 0;
+                                    const isDisabled = slots === 0;
+
+                                    return (
+                                        <SelectItem key={colonia.id} value={colonia.id} disabled={isDisabled}>
+                                            <div className="flex justify-between w-full">
+                                                <span>{colonia.nombre} (Núcleo {consultorioId})</span>
+                                                <span className={`font-bold ml-4 ${isDisabled ? 'text-destructive' : 'text-green-600'}`}>
+                                                    {slots} citas
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    )
+                                })}
+                            </SelectContent>
+                         </Select>
                     </CardContent>
                    </Card>
                 </div>
               )}
-                 {selectedConsultorio && (
+                 {selectedColonia && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
                     3. Selecciona una hora
@@ -170,7 +199,7 @@ export function BookingClient({
                     <CardHeader>
                         <CardTitle className="text-xl flex items-center gap-2">
                            <Clock className="h-5 w-5 text-primary" />
-                           Horarios para Núcleo Básico {selectedConsultorio}
+                           Horarios para Núcleo Básico {selectedColonia.nucleo}
                         </CardTitle>
                         <CardDescription>Selecciona un horario disponible.</CardDescription>
                     </CardHeader>
@@ -182,7 +211,7 @@ export function BookingClient({
                            >
                                {time}
                            </button>
-                       )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles.</p>}
+                       )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles en esta colonia para la fecha seleccionada.</p>}
                     </CardContent>
                    </Card>
                 </div>
@@ -196,7 +225,8 @@ export function BookingClient({
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
-                  selectedConsultorio={selectedConsultorio}
+                  selectedConsultorio={selectedColonia?.nucleo}
+                  selectedColoniaName={selectedColonia?.nombre}
                   selectedTime={selectedTime}
                   onBookingSuccess={refreshData}
                 />

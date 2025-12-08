@@ -88,7 +88,7 @@ export function SlotsManager() {
           Define el máximo de citas diarias para cada núcleo básico (máx. 15).
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {Object.keys(slotsConfig).sort((a,b) => parseInt(a) - parseInt(b)).map(key => {
             const consultorio = parseInt(key, 10);
             return (

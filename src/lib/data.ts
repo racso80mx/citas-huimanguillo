@@ -9,10 +9,11 @@ import {
   query,
   where,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment } from './definitions';
+import type { Appointment, Colonia } from './definitions';
 
 // This function must be called to get the firestore instance
 const getDb = async () => {
@@ -166,12 +167,8 @@ export async function getSlotsConfiguration(): Promise<{ [key: string]: number }
   }
   // Default configuration if not set in Firestore
   return {
-    '1': 15,
-    '2': 15,
-    '3': 15,
-    '4': 15,
-    '5': 15,
-    '6': 15,
+    '1': 15, '2': 15, '3': 15, '4': 15,
+    '5': 15, '6': 15, '7': 15, '8': 15,
   };
 }
 
@@ -210,4 +207,47 @@ export async function updateWeekendBookingConfig(config: { enabled: boolean }): 
     return false;
   }
 }
-    
+
+// ========== Colonias Configuration ==========
+
+export async function getColonias(): Promise<Colonia[]> {
+  const db = await getDb();
+  const snapshot = await getDocs(collection(db, 'colonias'));
+  if (snapshot.empty) {
+    return [
+      { id: 'centro-id', nombre: 'Centro', nucleo: 1 },
+      { id: 'pueblo-nuevo-id', nombre: 'Pueblo Nuevo', nucleo: 1 },
+    ];
+  }
+  return snapshot.docs.map(doc => ({...doc.data(), id: doc.id } as Colonia)).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
+    const db = await getDb();
+    const batch = writeBatch(db);
+    const collectionRef = collection(db, 'colonias');
+
+    // To handle deletions, we first get all existing docs
+    const existingDocsSnapshot = await getDocs(collectionRef);
+    const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
+
+    colonias.forEach(colonia => {
+        const { id, ...data } = colonia;
+        const docRef = doc(collectionRef, id);
+        batch.set(docRef, data);
+        existingIds.delete(id); // Remove from deletion set
+    });
+
+    // Any remaining IDs in existingIds were deleted by the user
+    existingIds.forEach(idToDelete => {
+        batch.delete(doc(collectionRef, idToDelete));
+    });
+
+    try {
+        await batch.commit();
+        return true;
+    } catch (error) {
+        console.error("Error updating colonias: ", error);
+        return false;
+    }
+}
