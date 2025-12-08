@@ -78,18 +78,29 @@ export async function addAppointment(
 export async function getAppointments(): Promise<Appointment[]> {
   const db = await getDb();
   const appointmentCollection = collection(db, 'appointments');
-  const snapshot = await getDocs(appointmentCollection);
+  
+  try {
+    const snapshot = await getDocs(appointmentCollection);
+    const appointments = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      // Convert Firestore Timestamp back to ISO string for consistency
+      const date = (data.date as Timestamp).toDate().toISOString();
+      return { ...data, id: doc.id, date } as Appointment;
+    });
 
-  const appointments = snapshot.docs.map((doc) => {
-    const data = doc.data();
-    // Convert Firestore Timestamp back to ISO string for consistency
-    const date = (data.date as Timestamp).toDate().toISOString();
-    return { ...data, id: doc.id, date } as Appointment;
-  });
-
-  return appointments.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+    return appointments.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  } catch (error) {
+     errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: appointmentCollection.path,
+        operation: 'list',
+      })
+    )
+    throw error;
+  }
 }
 
 export async function getAppointmentById(id: string): Promise<Appointment | null> {
