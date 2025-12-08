@@ -12,7 +12,8 @@ import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWeekendBooking, updateWeekendBooking } from '@/lib/actions';
+import { updateWeekendBooking } from '@/lib/actions';
+import { getWeekendBookingConfig } from '@/lib/data';
 import { Loader2, CalendarX, CalendarCheck } from 'lucide-react';
 import type { WeekendBookingConfig } from '@/lib/definitions';
 
@@ -25,7 +26,7 @@ export function WeekendBookingManager() {
   useEffect(() => {
     const fetchConfig = async () => {
       setIsLoading(true);
-      const data = await getWeekendBooking();
+      const data = await getWeekendBookingConfig();
       setConfig(data);
       setIsLoading(false);
     };
