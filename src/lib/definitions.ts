@@ -37,3 +37,7 @@ export type Municipio = {
 export type Colonia = {
   nombre: string;
 };
+
+export type WeekendBookingConfig = {
+    enabled: boolean;
+}

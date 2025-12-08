@@ -19,8 +19,7 @@
         "edad": { "type": "number" },
         "estadoNacimiento": { "type": "string" },
         "municipio": { "type": "string" },
-        "colonia": { "type": "string" },
-        "telefono": { "type": "string" }
+        "colonia": { "type": "string" }
       },
       "required": ["id", "date", "time", "appointmentNumber", "consultorio", "curp", "nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "edad", "estadoNacimiento", "municipio", "colonia", "telefono"]
     },
@@ -51,6 +50,19 @@
             }
         },
         "required": ["config"]
+    },
+    "WeekendBookingConfig": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "WeekendBookingConfig",
+        "type": "object",
+        "description": "Configuration for enabling or disabling weekend bookings.",
+        "properties": {
+            "enabled": {
+                "type": "boolean",
+                "description": "Whether booking on Saturdays and Sundays is allowed."
+            }
+        },
+        "required": ["enabled"]
     }
   },
   "auth": {
@@ -83,6 +95,14 @@
             "entityName": "SlotsConfig",
             "schema": { "$ref": "#/entities/SlotsConfig" },
             "description": "Stores the configuration for appointment slots. Publicly readable, admin-only for writes."
+        }
+      },
+      {
+        "path": "/settings/weekendBooking",
+        "definition": {
+          "entityName": "WeekendBookingConfig",
+          "schema": { "$ref": "#/entities/WeekendBookingConfig" },
+          "description": "Stores the configuration for weekend appointment booking. Publicly readable, admin-only for writes."
         }
       }
     ]

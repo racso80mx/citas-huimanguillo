@@ -188,4 +188,26 @@ export async function updateSlotsConfiguration(newConfig: {
   }
 }
 
+// ========== Weekend Booking Configuration ==========
+
+export async function getWeekendBookingConfig(): Promise<{ enabled: boolean }> {
+  const db = await getDb();
+  const docRef = doc(db, 'settings', 'weekendBooking');
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return (docSnap.data() as { enabled: boolean }) || { enabled: false };
+  }
+  return { enabled: false }; // Default to disabled
+}
+
+export async function updateWeekendBookingConfig(config: { enabled: boolean }): Promise<boolean> {
+  try {
+    const db = await getDb();
+    await setDoc(doc(db, 'settings', 'weekendBooking'), config);
+    return true;
+  } catch (error) {
+    console.error('Error updating weekend booking config: ', error);
+    return false;
+  }
+}
     

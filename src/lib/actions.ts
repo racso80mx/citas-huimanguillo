@@ -10,9 +10,11 @@ import {
   updateAnnouncements as updateDataAnnouncements,
   getSlotsConfiguration as getDataSlots,
   updateSlotsConfiguration as updateDataSlots,
+  getWeekendBookingConfig as getDataWeekendBooking,
+  updateWeekendBookingConfig as updateDataWeekendBooking,
 } from './data';
-import type { Appointment, DailyAvailability } from './definitions';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format } from 'date-fns';
+import type { Appointment, DailyAvailability, WeekendBookingConfig } from './definitions';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSaturday, isSunday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -20,14 +22,29 @@ export async function getAvailability(year: number, month: number): Promise<Dail
   const startDate = startOfMonth(new Date(year, month));
   const endDate = endOfMonth(new Date(year, month));
 
-  const allAppointments = await getDataAppointments();
-  const currentSlotsConfig = await getDataSlots();
+  const [allAppointments, currentSlotsConfig, weekendConfig] = await Promise.all([
+    getDataAppointments(),
+    getDataSlots(),
+    getDataWeekendBooking(),
+  ]);
 
   const availability: DailyAvailability[] = [];
 
   const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
   for (const day of daysInMonth) {
+    const isWeekend = isSaturday(day) || isSunday(day);
+    if (isWeekend && !weekendConfig.enabled) {
+      availability.push({
+        date: day.toISOString().split('T')[0],
+        availableSlots: 0,
+        availabilityByConsultorio: {},
+        takenTimesByConsultorio: {},
+      });
+      continue;
+    }
+
+
     const dateString = day.toISOString().split('T')[0];
     const appointmentsOnDate = allAppointments.filter(
       (app) => app.date.split('T')[0] === dateString
@@ -175,4 +192,18 @@ export async function updateSlotsConfiguration(newConfig: {
     return { success: true, message: 'Configuración de cupos actualizada.' };
   }
   return { success: false, message: 'No se pudo guardar la configuración.' };
+}
+
+export async function getWeekendBooking(): Promise<WeekendBookingConfig> {
+    return await getDataWeekendBooking();
+}
+
+export async function updateWeekendBooking(config: WeekendBookingConfig) {
+    const success = await updateDataWeekendBooking(config);
+    if(success) {
+        revalidatePath('/admin');
+        revalidatePath('/');
+        return { success: true, message: "Configuración de fin de semana actualizada."}
+    }
+    return { success: false, message: "No se pudo guardar la configuración."}
 }

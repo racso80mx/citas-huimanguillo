@@ -41,6 +41,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
 import { SlotsManager } from './slots-manager';
+import { WeekendBookingManager } from './weekend-booking-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -174,9 +175,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </CardHeader>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
         <AnnouncementsManager />
         <SlotsManager />
+        <WeekendBookingManager />
       </div>
 
 
