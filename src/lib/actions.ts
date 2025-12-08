@@ -32,20 +32,6 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
     };
   }
 
-  // This check is now mostly redundant because UI should prevent this, but it's good server-side validation
-  // const currentSlotsConfig = await getDataSlots();
-  // const slotsForConsultorio = currentSlotsConfig[consultorio] || 0;
-  // const appointmentsInConsultorio = appointmentsOnDate.filter(
-  //   (app) => app.consultorio === consultorio
-  // );
-  // if (appointmentsInConsultorio.length >= slotsForConsultorio) {
-  //   return {
-  //     success: false,
-  //     message: `No hay citas disponibles para el consultorio ${consultorio} en este día.`,
-  //   };
-  // }
-
-
   const curpExistsOnDate = appointmentsOnDate.some(
     (app) => app.curp.toUpperCase() === curp.toUpperCase()
   );
@@ -89,10 +75,20 @@ export async function getAppointments() {
 }
 
 export async function deleteAppointment(id: string) {
-  await deleteDataAppointment(id);
-  revalidatePath('/');
-  revalidatePath('/admin');
-  return { success: true, message: 'Cita eliminada con éxito.' };
+  try {
+    await deleteDataAppointment(id);
+    revalidatePath('/');
+    revalidatePath('/admin');
+    return { success: true, message: 'Cita eliminada con éxito.' };
+  } catch (error) {
+    // The call to deleteDataAppointment is wrapped in a try/catch block.
+    // If an error (like a permission error) is thrown from data.ts,
+    // it will be caught here and we can return a failure message.
+    return {
+      success: false,
+      message: 'Error al eliminar la cita. Verifica los permisos.',
+    };
+  }
 }
 
 export async function updateAnnouncements(newAnnouncements: string[]) {
