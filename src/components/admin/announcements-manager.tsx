@@ -12,7 +12,8 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { getAnnouncements, updateAnnouncements } from '@/lib/actions';
+import { updateAnnouncements } from '@/lib/actions';
+import { getAnnouncements } from '@/lib/data';
 import { Loader2, Trash2, PlusCircle, Megaphone } from 'lucide-react';
 
 export function AnnouncementsManager() {

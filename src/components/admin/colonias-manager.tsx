@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { getColonias, updateColonias } from '@/lib/actions';
+import { updateColonias } from '@/lib/actions';
+import { getColonias } from '@/lib/data';
 import { Loader2, Trash2, PlusCircle, MapPin, Save } from 'lucide-react';
 import type { Colonia } from '@/lib/definitions';
 
@@ -163,7 +164,7 @@ export function ColoniasManager() {
           </Button>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleSave} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
+        <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (

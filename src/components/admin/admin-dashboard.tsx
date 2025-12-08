@@ -1,10 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment } from '@/lib/definitions';
-import {
-  getAppointments,
-  deleteAppointment,
-} from '@/lib/actions';
+import { deleteAppointment } from '@/lib/actions';
+import { getAppointments } from '@/lib/data';
 import {
   Card,
   CardHeader,
