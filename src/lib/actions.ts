@@ -20,66 +20,11 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSaturday, isSund
 import { v4 as uuidv4 } from 'uuid';
 
 
-export async function getAvailability(year: number, month: number): Promise<DailyAvailability[]> {
-  const startDate = startOfMonth(new Date(year, month));
-  const endDate = endOfMonth(new Date(year, month));
-
-  const [allAppointments, currentSlotsConfig, weekendConfig] = await Promise.all([
-    getDataAppointments(),
-    getDataSlots(),
-    getDataWeekendBooking(),
-  ]);
-
-  const availability: DailyAvailability[] = [];
-
-  const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
-
-  for (const day of daysInMonth) {
-    const isWeekend = isSaturday(day) || isSunday(day);
-    if (isWeekend && !weekendConfig.enabled) {
-      availability.push({
-        date: day.toISOString().split('T')[0],
-        availableSlots: 0,
-        availabilityByConsultorio: {},
-        takenTimesByConsultorio: {},
-      });
-      continue;
-    }
-
-
-    const dateString = day.toISOString().split('T')[0];
-    const appointmentsOnDate = allAppointments.filter(
-      (app) => app.date.split('T')[0] === dateString
-    );
-
-    let totalAvailableSlots = 0;
-    const availabilityByConsultorio: { [key: number]: number } = {};
-    const takenTimesByConsultorio: { [key: number]: string[] } = {};
-
-    for (const consultorioId in currentSlotsConfig) {
-      const id = parseInt(consultorioId);
-      const maxSlots = currentSlotsConfig[id] || 0;
-      const bookedAppointments = appointmentsOnDate.filter(
-        (app) => app.consultorio === id
-      );
-      
-      const available = Math.max(0, maxSlots - bookedAppointments.length);
-      availabilityByConsultorio[id] = available;
-      totalAvailableSlots += available;
-
-      takenTimesByConsultorio[id] = bookedAppointments.map(app => app.time);
-    }
-
-    availability.push({
-      date: dateString,
-      availableSlots: totalAvailableSlots,
-      availabilityByConsultorio: availabilityByConsultorio,
-      takenTimesByConsultorio,
-    });
-  }
-
-  return availability;
-}
+// This function is being moved to the client component `booking-client.tsx`
+// as it depends on client-side data fetching.
+// export async function getAvailability(year: number, month: number): Promise<DailyAvailability[]> {
+//   ...
+// }
 
 
 export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmentNumber'>) {

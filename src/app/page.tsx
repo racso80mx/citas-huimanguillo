@@ -1,19 +1,8 @@
 import { BookingClient } from '@/components/booking-client';
-import { getAvailability, getAnnouncements } from '@/lib/actions';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 
-export const dynamic = 'force-dynamic';
-
-export default async function HomePage() {
-  const today = new Date();
-  // Fetch initial data on the server
-  const initialAvailability = await getAvailability(
-    today.getFullYear(),
-    today.getMonth()
-  );
-  const initialAnnouncements = await getAnnouncements();
-
+export default function HomePage() {
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <div className="text-center mb-8 flex flex-col items-center">
@@ -35,10 +24,7 @@ export default async function HomePage() {
         </p>
       </div>
 
-      <BookingClient
-        initialAvailability={initialAvailability}
-        initialAnnouncements={initialAnnouncements}
-      />
+      <BookingClient />
     </div>
   );
 }

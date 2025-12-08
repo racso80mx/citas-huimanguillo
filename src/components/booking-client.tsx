@@ -10,10 +10,12 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia } from '@/lib/definitions';
-import { getAvailability, getAnnouncements, getColonias } from '@/lib/actions';
+import { getAnnouncements, getColonias } from '@/lib/actions';
+import { getAppointments, getSlotsConfiguration, getWeekendBookingConfig } from '@/lib/data';
+
 import { useToast } from '@/hooks/use-toast';
 import { Bell, UserCheck, Clock, MapPin } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Select,
@@ -23,10 +25,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type BookingClientProps = {
-  initialAvailability: DailyAvailability[];
-  initialAnnouncements: string[];
-};
+
+type BookingClientProps = {};
 
 function generateTimeSlots(): string[] {
   const slots = [];
@@ -40,26 +40,89 @@ function generateTimeSlots(): string[] {
 const ALL_TIME_SLOTS = generateTimeSlots();
 
 
-export function BookingClient({
-  initialAvailability,
-  initialAnnouncements,
-}: BookingClientProps) {
+export function BookingClient({}: BookingClientProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedColonia, setSelectedColonia] = useState<Colonia | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
 
-  const [availability, setAvailability] = useState<DailyAvailability[]>(initialAvailability);
-  const [announcements, setAnnouncements] = useState<string[]>(initialAnnouncements);
+  const [availability, setAvailability] = useState<DailyAvailability[]>([]);
+  const [announcements, setAnnouncements] = useState<string[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
+  const fetchAvailability = async (year: number, month: number) => {
+      const startDate = startOfMonth(new Date(year, month));
+      const endDate = endOfMonth(new Date(year, month));
+
+      const [allAppointments, currentSlotsConfig, weekendConfig] = await Promise.all([
+        getAppointments(),
+        getSlotsConfiguration(),
+        getWeekendBookingConfig(),
+      ]);
+
+      const availabilityResult: DailyAvailability[] = [];
+      const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+
+      for (const day of daysInMonth) {
+        const isWeekend = isSaturday(day) || isSunday(day);
+        if (isWeekend && !weekendConfig.enabled) {
+          availabilityResult.push({
+            date: day.toISOString().split('T')[0],
+            availableSlots: 0,
+            availabilityByConsultorio: {},
+            takenTimesByConsultorio: {},
+          });
+          continue;
+        }
+
+        const dateString = day.toISOString().split('T')[0];
+        const appointmentsOnDate = allAppointments.filter(
+          (app) => app.date.split('T')[0] === dateString
+        );
+
+        let totalAvailableSlots = 0;
+        const availabilityByConsultorio: { [key: number]: number } = {};
+        const takenTimesByConsultorio: { [key: number]: string[] } = {};
+
+        for (const consultorioId in currentSlotsConfig) {
+          const id = parseInt(consultorioId);
+          const maxSlots = currentSlotsConfig[id] || 0;
+          const bookedAppointments = appointmentsOnDate.filter(
+            (app) => app.consultorio === id
+          );
+          
+          const available = Math.max(0, maxSlots - bookedAppointments.length);
+          availabilityByConsultorio[id] = available;
+          totalAvailableSlots += available;
+
+          takenTimesByConsultorio[id] = bookedAppointments.map(app => app.time);
+        }
+
+        availabilityResult.push({
+          date: dateString,
+          availableSlots: totalAvailableSlots,
+          availabilityByConsultorio: availabilityByConsultorio,
+          takenTimesByConsultorio,
+        });
+      }
+      setAvailability(availabilityResult);
+  }
+
   useEffect(() => {
     async function fetchInitialData() {
-      const coloniasData = await getColonias();
-      setColonias(coloniasData);
+        startTransition(async () => {
+            const today = new Date();
+            const [announcementsData, coloniasData] = await Promise.all([
+                getAnnouncements(),
+                getColonias(),
+            ]);
+            setAnnouncements(announcementsData);
+            setColonias(coloniasData);
+            await fetchAvailability(today.getFullYear(), today.getMonth());
+        });
     }
     fetchInitialData();
   }, [])
@@ -67,22 +130,20 @@ export function BookingClient({
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
     startTransition(async () => {
-      const newAvailability = await getAvailability(
+      await fetchAvailability(
         month.getFullYear(),
         month.getMonth()
       );
-      setAvailability(newAvailability);
     });
   };
 
   const refreshData = () => {
     startTransition(async () => {
-      const [newAvailability, newAnnouncements, newColonias] = await Promise.all([
-        getAvailability(currentMonth.getFullYear(), currentMonth.getMonth()),
+      const [newAnnouncements, newColonias] = await Promise.all([
         getAnnouncements(),
         getColonias(),
       ]);
-      setAvailability(newAvailability);
+      await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
       setAnnouncements(newAnnouncements);
       setColonias(newColonias);
       setSelectedDate(undefined);

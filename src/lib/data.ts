@@ -1,3 +1,4 @@
+'use client';
 import {
   collection,
   doc,
@@ -14,6 +15,8 @@ import {
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment, Colonia } from './definitions';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 // This function must be called to get the firestore instance
 const getDb = async () => {
@@ -56,7 +59,19 @@ export async function addAppointment(
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
-  await setDoc(docRef, dataToSave);
+  await setDoc(docRef, dataToSave).catch(error => {
+     errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'create',
+        requestResourceData: dataToSave,
+      })
+    )
+    // Re-throw the original error if you need to handle it further up the chain
+    throw error;
+  });
+
   return appointment.id;
 }
 
@@ -115,7 +130,17 @@ export async function getAppointmentsByDate(
 
 export async function deleteAppointment(id: string): Promise<void> {
   const db = await getDb();
-  await deleteDoc(doc(db, 'appointments', id));
+  const docRef = doc(db, 'appointments', id);
+  await deleteDoc(docRef).catch(error => {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'delete',
+      })
+    );
+    throw error;
+  });
 }
 
 // ========== Announcements ==========
@@ -137,16 +162,22 @@ export async function getAnnouncements(): Promise<string[]> {
 export async function updateAnnouncements(
   newAnnouncements: string[]
 ): Promise<boolean> {
-  try {
     const db = await getDb();
-    await setDoc(doc(db, 'settings', 'announcements'), {
-      messages: newAnnouncements.slice(0, 4),
+    const docRef = doc(db, 'settings', 'announcements');
+    const data = { messages: newAnnouncements.slice(0, 4) };
+    
+    await setDoc(docRef, data).catch(error => {
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'write',
+            requestResourceData: data,
+          })
+        );
+        throw error;
     });
     return true;
-  } catch (error) {
-    console.error('Error updating announcements: ', error);
-    return false;
-  }
 }
 
 // ========== Slots Configuration ==========
@@ -175,14 +206,23 @@ export async function getSlotsConfiguration(): Promise<{ [key: string]: number }
 export async function updateSlotsConfiguration(newConfig: {
   [key: string]: number;
 }): Promise<boolean> {
-  try {
     const db = await getDb();
-    await setDoc(doc(db, 'settings', 'slots'), { config: newConfig });
+    const docRef = doc(db, 'settings', 'slots');
+    const data = { config: newConfig };
+
+    await setDoc(docRef, data).catch(error => {
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'write',
+            requestResourceData: data,
+          })
+        );
+        throw error;
+    });
+
     return true;
-  } catch (error) {
-    console.error('Error updating slots config: ', error);
-    return false;
-  }
 }
 
 // ========== Weekend Booking Configuration ==========
@@ -198,14 +238,22 @@ export async function getWeekendBookingConfig(): Promise<{ enabled: boolean }> {
 }
 
 export async function updateWeekendBookingConfig(config: { enabled: boolean }): Promise<boolean> {
-  try {
     const db = await getDb();
-    await setDoc(doc(db, 'settings', 'weekendBooking'), config);
+    const docRef = doc(db, 'settings', 'weekendBooking');
+    
+    await setDoc(docRef, config).catch(error => {
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'write',
+            requestResourceData: config,
+          })
+        );
+        throw error;
+    });
+    
     return true;
-  } catch (error) {
-    console.error('Error updating weekend booking config: ', error);
-    return false;
-  }
 }
 
 // ========== Colonias Configuration ==========
@@ -227,7 +275,6 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
     const batch = writeBatch(db);
     const collectionRef = collection(db, 'colonias');
 
-    // To handle deletions, we first get all existing docs
     const existingDocsSnapshot = await getDocs(collectionRef);
     const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
 
@@ -235,19 +282,23 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
         const { id, ...data } = colonia;
         const docRef = doc(collectionRef, id);
         batch.set(docRef, data);
-        existingIds.delete(id); // Remove from deletion set
+        existingIds.delete(id);
     });
 
-    // Any remaining IDs in existingIds were deleted by the user
     existingIds.forEach(idToDelete => {
         batch.delete(doc(collectionRef, idToDelete));
     });
 
-    try {
-        await batch.commit();
-        return true;
-    } catch (error) {
-        console.error("Error updating colonias: ", error);
-        return false;
-    }
+    await batch.commit().catch(error => {
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: collectionRef.path, // The error is on the batch commit, relates to the collection
+            operation: 'write', // Batch can contain set, update, delete
+            requestResourceData: {info: 'Batch operation on colonias collection.'}
+          })
+        );
+        throw error;
+    });
+    return true;
 }
