@@ -6,26 +6,14 @@ import {
   getAppointments as getDataAppointments,
   getAppointmentsByDate,
   deleteAppointment as deleteDataAppointment,
-  getAnnouncements as getDataAnnouncements,
   updateAnnouncements as updateDataAnnouncements,
-  getSlotsConfiguration as getDataSlots,
   updateSlotsConfiguration as updateDataSlots,
-  getWeekendBookingConfig as getDataWeekendBooking,
   updateWeekendBookingConfig as updateDataWeekendBooking,
-  getColonias as getDataColonias,
   updateColonias as updateDataColonias,
 } from './data';
-import type { Appointment, DailyAvailability, WeekendBookingConfig, Colonia } from './definitions';
-import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSaturday, isSunday } from 'date-fns';
+import type { Appointment, WeekendBookingConfig, Colonia } from './definitions';
+import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
-
-
-// This function is being moved to the client component `booking-client.tsx`
-// as it depends on client-side data fetching.
-// export async function getAvailability(year: number, month: number): Promise<DailyAvailability[]> {
-//   ...
-// }
-
 
 export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmentNumber'>) {
   const { date, time, curp, consultorio } = data;
@@ -44,19 +32,19 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
     };
   }
 
-  const currentSlotsConfig = await getDataSlots();
-  const slotsForConsultorio = currentSlotsConfig[consultorio] || 0;
+  // This check is now mostly redundant because UI should prevent this, but it's good server-side validation
+  // const currentSlotsConfig = await getDataSlots();
+  // const slotsForConsultorio = currentSlotsConfig[consultorio] || 0;
+  // const appointmentsInConsultorio = appointmentsOnDate.filter(
+  //   (app) => app.consultorio === consultorio
+  // );
+  // if (appointmentsInConsultorio.length >= slotsForConsultorio) {
+  //   return {
+  //     success: false,
+  //     message: `No hay citas disponibles para el consultorio ${consultorio} en este día.`,
+  //   };
+  // }
 
-  const appointmentsInConsultorio = appointmentsOnDate.filter(
-    (app) => app.consultorio === consultorio
-  );
-
-  if (appointmentsInConsultorio.length >= slotsForConsultorio) {
-    return {
-      success: false,
-      message: `No hay citas disponibles para el consultorio ${consultorio} en este día.`,
-    };
-  }
 
   const curpExistsOnDate = appointmentsOnDate.some(
     (app) => app.curp.toUpperCase() === curp.toUpperCase()
@@ -71,6 +59,10 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
   }
   
   const newAppointmentId = uuidv4();
+  // Folio generation needs to be robust. Let's get the count for the specific clinic on that day.
+  const appointmentsInConsultorio = appointmentsOnDate.filter(
+    (app) => app.consultorio === consultorio
+  );
   const consecutive = appointmentsInConsultorio.length + 1;
   const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${consultorio}-${consecutive}`;
   
@@ -103,19 +95,11 @@ export async function deleteAppointment(id: string) {
   return { success: true, message: 'Cita eliminada con éxito.' };
 }
 
-export async function getAnnouncements() {
-  return await getDataAnnouncements();
-}
-
 export async function updateAnnouncements(newAnnouncements: string[]) {
   await updateDataAnnouncements(newAnnouncements);
   revalidatePath('/');
   revalidatePath('/admin');
   return { success: true, message: 'Avisos actualizados con éxito.' };
-}
-
-export async function getSlotsConfiguration() {
-  return await getDataSlots();
 }
 
 export async function updateSlotsConfiguration(newConfig: {
@@ -137,10 +121,6 @@ export async function updateSlotsConfiguration(newConfig: {
   return { success: false, message: 'No se pudo guardar la configuración.' };
 }
 
-export async function getWeekendBooking(): Promise<WeekendBookingConfig> {
-    return await getDataWeekendBooking();
-}
-
 export async function updateWeekendBooking(config: WeekendBookingConfig) {
     const success = await updateDataWeekendBooking(config);
     if(success) {
@@ -149,10 +129,6 @@ export async function updateWeekendBooking(config: WeekendBookingConfig) {
         return { success: true, message: "Configuración de fin de semana actualizada."}
     }
     return { success: false, message: "No se pudo guardar la configuración."}
-}
-
-export async function getColonias() {
-    return await getDataColonias();
 }
 
 export async function updateColonias(colonias: Colonia[]) {

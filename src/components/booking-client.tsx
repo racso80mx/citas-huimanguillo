@@ -10,8 +10,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia } from '@/lib/definitions';
-import { getAnnouncements, getColonias } from '@/lib/actions';
-import { getAppointments, getSlotsConfiguration, getWeekendBookingConfig } from '@/lib/data';
+import { getAnnouncements, getColonias, getAppointments, getSlotsConfiguration, getWeekendBookingConfig } from '@/lib/data';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, UserCheck, Clock, MapPin } from 'lucide-react';
