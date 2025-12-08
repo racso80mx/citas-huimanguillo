@@ -73,7 +73,7 @@ export function AnnouncementsManager() {
       } else {
         toast({
           title: 'Error',
-          description: 'No se pudieron guardar los avisos.',
+          description: result.message || 'No se pudieron guardar los avisos.',
           variant: 'destructive',
         });
       }

@@ -112,17 +112,26 @@ export default function HomePage() {
     async function fetchInitialData() {
         startTransition(async () => {
             const today = new Date();
-            const [announcementsData, coloniasData] = await Promise.all([
-                getAnnouncements(),
-                getColonias(),
-            ]);
-            setAnnouncements(announcementsData);
-            setColonias(coloniasData);
-            await fetchAvailability(today.getFullYear(), today.getMonth());
+            try {
+                const [announcementsData, coloniasData] = await Promise.all([
+                    getAnnouncements(),
+                    getColonias(),
+                ]);
+                setAnnouncements(announcementsData);
+                setColonias(coloniasData);
+                await fetchAvailability(today.getFullYear(), today.getMonth());
+            } catch (error) {
+                console.error("Failed to fetch initial data:", error);
+                toast({
+                    title: "Error de Carga",
+                    description: "No se pudieron cargar los datos iniciales. Por favor, recarga la página.",
+                    variant: "destructive",
+                });
+            }
         });
     }
     fetchInitialData();
-  }, [])
+  }, []);
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
@@ -136,16 +145,25 @@ export default function HomePage() {
 
   const refreshData = () => {
     startTransition(async () => {
-      const [newAnnouncements, newColonias] = await Promise.all([
-        getAnnouncements(),
-        getColonias(),
-      ]);
-      await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
-      setAnnouncements(newAnnouncements);
-      setColonias(newColonias);
-      setSelectedDate(undefined);
-      setSelectedColonia(undefined);
-      setSelectedTime(undefined);
+      try {
+        const [newAnnouncements, newColonias] = await Promise.all([
+            getAnnouncements(),
+            getColonias(),
+        ]);
+        await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+        setAnnouncements(newAnnouncements);
+        setColonias(newColonias);
+        setSelectedDate(undefined);
+        setSelectedColonia(undefined);
+        setSelectedTime(undefined);
+      } catch (error) {
+          console.error("Failed to refresh data:", error);
+           toast({
+              title: "Error al Refrescar",
+              description: "No se pudieron actualizar los datos.",
+              variant: "destructive",
+          });
+      }
     });
   };
 

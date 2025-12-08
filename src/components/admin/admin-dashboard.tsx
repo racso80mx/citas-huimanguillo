@@ -148,7 +148,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       } else {
         toast({
           title: 'Error',
-          description: 'No se pudo eliminar la cita.',
+          description: result.message || 'No se pudo eliminar la cita.',
           variant: 'destructive',
         });
       }
