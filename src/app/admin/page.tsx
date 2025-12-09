@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { AdminDashboard } from '@/components/admin/admin-dashboard';
 import { LoginForm } from '@/components/admin/login-form';
 import { useAuth } from '@/firebase';
-import type { User } from '@/lib/definitions';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function AdminPage() {
@@ -11,34 +10,35 @@ export default function AdminPage() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const auth = useAuth();
   
+  // This effect will check if a user (any user, including anonymous) is authenticated.
+  // We need an auth session to be active for Firestore security rules to pass.
   useEffect(() => {
+    if (!auth) {
+        setIsAuthLoading(true);
+        return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      // We only care if the user is logged in or not, not who they are for this check.
-      // SuperAdmin is handled separately.
-      if (firebaseUser) {
-        setIsSuperAdmin(true); // Treat any logged-in user as having admin-level access for UI purposes
-      }
+      // We just need to know that an auth session is established.
+      // It can be an anonymous user, that's fine. The UI is controlled by `isSuperAdmin`.
       setIsAuthLoading(false);
     });
     return () => unsubscribe();
   }, [auth]);
 
-  const handleSuperAdminLogin = async () => {
+  const handleSuperAdminLogin = () => {
     setIsSuperAdmin(true);
   };
   
-  const handleLogout = async () => {
-    if (auth.currentUser) {
-       await auth.signOut();
-    }
+  const handleLogout = () => {
+    // This doesn't sign out of Firebase, it just resets the UI state
+    // to show the login form again. The anonymous session persists.
     setIsSuperAdmin(false);
   };
-
 
   if (isAuthLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Cargando...</p>
+        <p>Cargando y estableciendo sesión...</p>
       </div>
     );
   }

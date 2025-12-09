@@ -51,6 +51,7 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsPending(true);
 
+    // Hardcoded check for the SuperAdmin user
     if (data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
         onSuperAdminLogin();
         toast({
@@ -61,7 +62,7 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
         return;
     }
     
-    // Only SuperAdmin can log in via this form now. Reports page has its own logic.
+    // For any other case, it's incorrect.
     toast({
         title: 'Credenciales Incorrectas',
         description: 'Usuario o contraseña no válidos.',

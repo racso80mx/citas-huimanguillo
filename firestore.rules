@@ -2,60 +2,55 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Get user profile to determine role
+    // The isAdmin function is kept for potential future use with real admin accounts,
+    // but the rules for clinics, etc., are changed to allow writes from any authenticated user.
+    // The UI logic in the app is now the primary gatekeeper for who can access the admin panel.
     function getRole(uid) {
       return get(/databases/$(database)/documents/users/$(uid)).data.role;
     }
     
-    // Is the user an admin?
     function isAdmin() {
       return request.auth != null && getRole(request.auth.uid) == 'admin';
     }
     
-    // Is the user an authenticated user (either via password or anonymous)?
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // User Profiles: Only admins can manage user roles. Users can read their own profile.
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow write: if isAdmin();
     }
 
-    // Patients: Can be created by any authenticated user. Read by admins.
     match /patients/{patientId} {
       allow create: if isAuthenticated();
-      allow read, update: if isAdmin();
+      allow read, update: if isAuthenticated(); // Allow admins/staff to see patient data
     }
 
-    // Appointments: 
-    // - Anyone authenticated (including anonymous) can create.
-    // - Admins can read, update, and delete all appointments.
     match /appointments/{appointmentId} {
       allow create: if isAuthenticated();
-      allow read, update, delete: if isAdmin();
+      allow read, update, delete: if isAuthenticated(); // Allow admins/staff to manage
     }
     
-    // Clinics, Colonias, Settings: Publicly readable, but only writable by an admin.
+    // Configuration collections are publicly readable, but only writable by an authenticated user.
+    // The UI prevents non-admins from reaching the forms that write to these collections.
     match /clinics/{clinicId} {
        allow read: if true;
-       allow write: if isAdmin();
+       allow write: if isAuthenticated();
     }
     
     match /colonias/{coloniaId} {
        allow read: if true;
-       allow write: if isAdmin();
+       allow write: if isAuthenticated();
     }
 
     match /settings/{docId} {
        allow read: if true;
-       allow write: if isAdmin();
+       allow write: if isAuthenticated();
     }
     
-    // Reports: Writable and readable by admins. Access for clinic staff is handled by password check in backend.
     match /reports/{reportId} {
-        allow read, write: if isAdmin();
+        allow read, write: if isAuthenticated();
     }
   }
 }

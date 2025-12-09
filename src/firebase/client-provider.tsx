@@ -20,7 +20,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       // If no user is signed in (e.g., initial load or after a sign-out),
       // sign in anonymously. This ensures that security rules requiring
-      // `request.auth != null` can pass for public actions like booking.
+      // `request.auth != null` can pass for public actions.
       if (!user) {
         signInAnonymously(auth).catch(error => {
             console.error("Anonymous sign-in failed:", error);
