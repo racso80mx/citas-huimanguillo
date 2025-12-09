@@ -12,10 +12,11 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia, Clinic } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 import { getAnnouncements, getColonias, getAppointments, getClinics } from '@/lib/data';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Clock, MapPin } from 'lucide-react';
+import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -25,11 +26,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+
 
 export default function HomePage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedColoniaId, setSelectedColoniaId] = useState<string | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
+  const [patientType, setPatientType] = useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = useState<DailyAvailability[]>([]);
   const [announcements, setAnnouncements] = useState<string[]>([]);
@@ -39,6 +52,9 @@ export default function HomePage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+
+  // Dummy form for the patient type select
+  const form = useForm();
 
   const generateTimeSlots = (clinic: Clinic | undefined): string[] => {
     if (!clinic) return [];
@@ -128,6 +144,7 @@ export default function HomePage() {
         });
     }
     fetchInitialData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleMonthChange = (month: Date) => {
@@ -153,6 +170,7 @@ export default function HomePage() {
         setSelectedDate(undefined);
         setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
+        setPatientType(PatientType.General);
       } catch (error) {
           console.error("Failed to refresh data:", error);
            toast({
@@ -180,11 +198,28 @@ export default function HomePage() {
     setSelectedDate(date);
     setSelectedColoniaId(undefined);
     setSelectedTime(undefined);
+    setPatientType(PatientType.General);
   };
 
   const handleColoniaSelect = (coloniaId: string) => {
       setSelectedColoniaId(coloniaId);
       setSelectedTime(undefined);
+  }
+
+  const handleTimeSelect = (time: string) => {
+    const priorityPatients = [PatientType.Cronico, PatientType.Embarazada, PatientType.TerceraEdad];
+    const slotIndex = allTimeSlots.indexOf(time);
+
+    if (priorityPatients.includes(patientType) && slotIndex >= 5) {
+        toast({ title: "Horario no prioritario", description: "Los pacientes prioritarios deben seleccionar uno de los primeros 5 horarios.", variant: "destructive"});
+        return;
+    }
+
+    if (patientType === PatientType.General && slotIndex < 5) {
+        toast({ title: "Horario prioritario", description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del sexto horario.", variant: "destructive"});
+        return;
+    }
+    setSelectedTime(time);
   }
 
   const selectedColonia = useMemo(() => {
@@ -289,46 +324,93 @@ export default function HomePage() {
                    </Card>
                 </div>
               )}
-                 {selectedClinic && (
-                <div>
-                  <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                    3. Selecciona una hora
-                  </h3>
-                   <Card className="bg-card">
-                    <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                           <Clock className="h-5 w-5 text-primary" />
-                           Horarios para {selectedClinic.name}
-                        </CardTitle>
-                        <CardDescription>Selecciona un horario disponible.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-3 gap-2">
-                       {availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (
-                           <button key={time}
-                           onClick={() => setSelectedTime(time)}
-                           className={`w-full p-2 border rounded-md text-center transition-colors ${selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
-                           >
-                               {time}
-                           </button>
-                       )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles en esta colonia para la fecha seleccionada.</p>}
-                    </CardContent>
-                   </Card>
-                </div>
-              )}
+                {selectedClinic && (
+                    <>
+                        <div>
+                            <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                                3. Indica tu tipo de paciente
+                            </h3>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-xl flex items-center gap-2">
+                                        <UserCheck className="h-5 w-5 text-primary" />
+                                        Tipo de Paciente
+                                    </CardTitle>
+                                    <CardDescription>Esto nos ayuda a asignarte un horario preferencial si es necesario.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                     <Form {...form}>
+                                        <form>
+                                             <FormField
+                                                control={form.control}
+                                                name="patientType"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                    <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                                        <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Selecciona un tipo" />
+                                                        </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                        <SelectItem value={PatientType.General}>General</SelectItem>
+                                                        <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                                        <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                                        <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormDescription className='pt-2'>
+                                                        Pacientes prioritarios (crónico, embarazada, 3ra edad) deben elegir los primeros 5 horarios.
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                                />
+                                        </form>
+                                     </Form>
+                                </CardContent>
+                            </Card>
+                        </div>
+                         <div>
+                            <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                                4. Selecciona una hora
+                            </h3>
+                            <Card className="bg-card">
+                                <CardHeader>
+                                    <CardTitle className="text-xl flex items-center gap-2">
+                                    <Clock className="h-5 w-5 text-primary" />
+                                    Horarios para {selectedClinic.name}
+                                    </CardTitle>
+                                    <CardDescription>Selecciona un horario disponible.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="grid grid-cols-3 gap-2">
+                                {availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (
+                                    <button key={time}
+                                    onClick={() => handleTimeSelect(time)}
+                                    className={`w-full p-2 border rounded-md text-center transition-colors ${selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
+                                    >
+                                        {time}
+                                    </button>
+                                )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles en esta colonia para la fecha seleccionada.</p>}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </>
+                )}
             </div>
 
             <div className="flex flex-col gap-8">
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                  4. Completa tus datos
+                  5. Completa tus datos
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
                   selectedClinic={selectedClinic}
                   selectedColoniaName={selectedColonia?.name}
                   selectedTime={selectedTime}
+                  patientType={patientType}
                   onBookingSuccess={refreshData}
-                  allTimeSlots={allTimeSlots}
                 />
               </div>
               {announcements && announcements.length > 0 && (

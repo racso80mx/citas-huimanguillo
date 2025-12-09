@@ -42,7 +42,6 @@ const formSchema = z.object({
   sex: z.enum(['Hombre', 'Mujer']),
   age: z.number().min(0, 'La edad no puede ser negativa.'),
   birthState: z.string().min(1, 'El estado es requerido.'),
-  patientType: z.nativeEnum(PatientType),
 });
 
 type BookingFormValues = z.infer<typeof formSchema>;
@@ -52,7 +51,7 @@ type BookingFormProps = {
   selectedClinic: Clinic | undefined;
   selectedColoniaName: string | undefined;
   selectedTime: string | undefined;
-  allTimeSlots: string[];
+  patientType: PatientType;
   onBookingSuccess: () => void;
 };
 
@@ -61,7 +60,7 @@ export function BookingForm({
   selectedClinic,
   selectedColoniaName,
   selectedTime,
-  allTimeSlots,
+  patientType,
   onBookingSuccess,
 }: BookingFormProps) {
   const { toast } = useToast();
@@ -77,12 +76,10 @@ export function BookingForm({
       sex: undefined,
       age: undefined,
       birthState: '',
-      patientType: PatientType.General,
     },
   });
 
   const curp = form.watch('curp');
-  const patientType = form.watch('patientType');
 
   useEffect(() => {
     if (curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
@@ -95,30 +92,6 @@ export function BookingForm({
     }
   }, [curp, form]);
 
-  useEffect(() => {
-    const priorityPatients = [PatientType.Cronico, PatientType.Embarazada, PatientType.TerceraEdad];
-    if (priorityPatients.includes(patientType) && selectedTime) {
-        const slotIndex = allTimeSlots.indexOf(selectedTime);
-        if (slotIndex >= 5) {
-            toast({
-                title: "Horario no prioritario",
-                description: "Los pacientes prioritarios deben seleccionar uno de los primeros 5 horarios.",
-                variant: "destructive"
-            });
-        }
-    }
-    if (patientType === PatientType.General && selectedTime) {
-        const slotIndex = allTimeSlots.indexOf(selectedTime);
-        if (slotIndex < 5) {
-            toast({
-                title: "Horario prioritario",
-                description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del sexto horario.",
-                variant: "destructive"
-            });
-        }
-    }
-
-  }, [patientType, selectedTime, allTimeSlots, toast])
 
   const onSubmit = (data: BookingFormValues) => {
     if (!selectedDate || !selectedClinic || !selectedTime || !selectedColoniaName) {
@@ -128,19 +101,6 @@ export function BookingForm({
         variant: 'destructive',
       });
       return;
-    }
-
-    const priorityPatients = [PatientType.Cronico, PatientType.Embarazada, PatientType.TerceraEdad];
-    const slotIndex = allTimeSlots.indexOf(selectedTime);
-
-    if (priorityPatients.includes(data.patientType) && slotIndex >= 5) {
-        toast({ title: "Horario no prioritario", description: "Los pacientes prioritarios deben seleccionar uno de los primeros 5 horarios.", variant: "destructive"});
-        return;
-    }
-
-    if (data.patientType === PatientType.General && slotIndex < 5) {
-        toast({ title: "Horario prioritario", description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del sexto horario.", variant: "destructive"});
-        return;
     }
 
     startTransition(async () => {
@@ -159,7 +119,7 @@ export function BookingForm({
           date: selectedDate.toISOString(),
           time: selectedTime,
           clinicId: selectedClinic.id,
-          patientType: data.patientType,
+          patientType: patientType,
       });
 
       if (result.success && result.appointment) {
@@ -187,7 +147,7 @@ export function BookingForm({
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>
-                <p className='text-muted-foreground'>Por favor, selecciona primero una fecha, colonia y hora disponibles.</p>
+                <p className='text-muted-foreground'>Por favor, completa todos los pasos anteriores.</p>
             </CardContent>
         </Card>
     );
@@ -313,32 +273,6 @@ export function BookingForm({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="patientType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo de Paciente</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un tipo" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={PatientType.General}>General</SelectItem>
-                      <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
-                      <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
-                      <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
-                    </SelectContent>
-                  </Select>
-                   <FormDescription>
-                    Pacientes prioritarios (crónico, embarazada, 3ra edad) deben elegir los primeros 5 horarios.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <Button
               type="submit"
               disabled={isPending}
