@@ -11,10 +11,9 @@ import {
   where,
   Timestamp,
   updateDoc,
-  writeBatch,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
+import type { Appointment, Clinic, Colonia } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -79,11 +78,8 @@ export async function saveAppointment(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { patient, ...appointmentData } = appointment;
-
   const dataToSave = {
-    ...appointmentData,
+    ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
@@ -133,33 +129,17 @@ export async function updateAppointmentStatus(
 export async function getAppointments(): Promise<Appointment[]> {
     const appointments = await getCollection<any>('appointments');
     
-    const enrichedAppointmentsPromises = appointments
-        .filter(app => !!app.patientId)
-        .map(async (app) => {
-            try {
-                const patient = await getDocument<Patient>('patients', app.patientId);
-                if (!patient) return null;
-
-                return {
-                    ...app,
-                    date: (app.date as Timestamp).toDate().toISOString(),
-                    patient: { ...patient },
-                };
-            } catch (error) {
-                console.error(`Failed to enrich appointment ${app.id} for patient ${app.patientId}:`, error);
-                return null;
-            }
-        });
-
-    const settledAppointments = await Promise.all(enrichedAppointmentsPromises);
-    
-    return settledAppointments
-        .filter((app): app is Appointment => app !== null)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // No need to enrich appointments here anymore, patient data is denormalized
+    return appointments
+        .map((app: any) => ({
+            ...app,
+            date: (app.date as Timestamp).toDate().toISOString(),
+        }))
+        .sort((a: Appointment, b: Appointment) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 
-export async function getAppointmentsByDate(date: Date): Promise<any[]> {
+export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> {
   const db = getDb();
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
@@ -174,65 +154,16 @@ export async function getAppointmentsByDate(date: Date): Promise<any[]> {
 
   try {
     const snapshot = await getDocs(q);
-    // Return raw appointment data without enriching it
     return snapshot.docs.map((doc) => {
       const data = doc.data();
       return { 
           ...data, 
           id: doc.id, 
           date: (data.date as Timestamp).toDate().toISOString() 
-      };
+      } as Appointment;
     });
   } catch(error) {
      handleFirestoreError(error, { path: 'appointments', operation: 'list' });
      return [];
-  }
-}
-
-// ========== Patients ==========
-export const findPatientByCURP = async (curp: string): Promise<Patient | null> => {
-    const db = getDb();
-    const q = query(collection(db, 'patients'), where('curp', '==', curp.toUpperCase()));
-    try {
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-            return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as Patient;
-        }
-        return null;
-    } catch (error) {
-        handleFirestoreError(error, { path: 'patients', operation: 'list' });
-        return null;
-    }
-}
-
-export const savePatient = async(patient: Patient): Promise<string> => {
-    const db = getDb();
-    const docRef = doc(db, 'patients', patient.id);
-    try {
-      await setDoc(docRef, patient, { merge: true });
-      return patient.id;
-    } catch(error) {
-      handleFirestoreError(error, { path: docRef.path, operation: 'write', requestResourceData: patient });
-      throw error; // Rethrow to be caught by the calling function
-    }
-}
-
-// ========== Config data from Firestore for Admin panel ==========
-
-export async function getClinics(): Promise<Clinic[]> {
-    return getCollection<Clinic>('clinics');
-};
-
-export async function getColonias(): Promise<Colonia[]> {
-    return getCollection<Colonia>('colonias');
-}
-
-export const getAnnouncements = async (): Promise<string[]> => {
-  try {
-      const settings = await getDocument<{ messages?: string[] }>('settings', 'announcements');
-      return settings?.messages || [];
-  } catch (error) {
-      console.error("Failed to get announcements from Firestore, returning empty. Error:", error);
-      return [];
   }
 }

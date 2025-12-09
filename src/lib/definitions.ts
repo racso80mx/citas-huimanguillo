@@ -30,7 +30,7 @@ export enum PatientType {
 export type Appointment = {
   id: string; // UUID
   appointmentNumber: string;
-  patientId: string;
+  patientId: string; // This will now be the patient's CURP or a generated ID
   clinicId: string;
   date: string; // ISO string for serializability
   time: string; // HH:mm format

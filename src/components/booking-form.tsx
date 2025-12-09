@@ -24,9 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
   getAppointmentsByDate,
-  savePatient,
   saveAppointment,
-  getDocument,
 } from '@/lib/data-client';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -108,10 +106,9 @@ export function BookingForm({
   ) => {
     if (!selectedDate || !selectedClinic || !selectedTime) return { success: false, message: "Datos de la cita incompletos."};
 
-    const { curp, ...patientData } = bookingData;
-
     try {
       const appointmentsOnDate = await getAppointmentsByDate(selectedDate);
+      
       const isTimeSlotTaken = appointmentsOnDate.some(
         (app) => app.clinicId === selectedClinic.id && app.time === selectedTime
       );
@@ -122,18 +119,10 @@ export function BookingForm({
           message: `El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`,
         };
       }
-
-      // Fetch patients for the appointments on the selected date to check for CURP duplicates
-      const patientIds = appointmentsOnDate.map(app => app.patientId).filter(Boolean);
-      const patientDocs = await Promise.all(
-        patientIds.map(id => getDocument<Patient>('patients', id))
+      
+      const curpExistsOnDate = appointmentsOnDate.some(
+        (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
       );
-      const patientsOnDate = patientDocs.filter((p): p is Patient => p !== null);
-
-      const curpExistsOnDate = patientsOnDate.some(
-        (p) => p.curp.toUpperCase() === curp.toUpperCase()
-      );
-
 
       if (curpExistsOnDate) {
         return {
@@ -143,20 +132,24 @@ export function BookingForm({
       }
       
       const patientId = uuidv4();
-      const patientToSave: Patient = {
-          id: patientId,
-          curp: curp.toUpperCase(),
-          ...patientData,
+      
+      const patientToSave: Omit<Patient, 'id'> = {
+          curp: bookingData.curp.toUpperCase(),
+          name: bookingData.name,
+          paternalLastName: bookingData.paternalLastName,
+          maternalLastName: bookingData.maternalLastName,
+          sex: bookingData.sex,
+          age: bookingData.age,
+          birthState: bookingData.birthState,
+          phoneNumber: bookingData.phoneNumber
       };
-
-      await savePatient(patientToSave);
 
       const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
 
       const newAppointment: Appointment = {
         id: uuidv4(),
         appointmentNumber,
-        patientId: patientToSave.id,
+        patientId: patientId, // Using a new UUID for the patient relation
         clinicId: selectedClinic.id,
         date: selectedDate.toISOString(),
         time: selectedTime,
