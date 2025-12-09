@@ -136,6 +136,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   useEffect(() => {
     if (allAppointments.length > 0) {
       applyFilters(allAppointments);
+    } else {
+      setFilteredAppointments([]);
     }
   }, [activeFilter, dateRange, allAppointments, applyFilters]);
 
@@ -175,7 +177,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         title: 'Cita Eliminada',
         description: 'La cita ha sido eliminada y el cupo liberado.',
       });
-      fetchData(); // Refresca los datos
+      fetchData(); // Refresca los datos para asegurar consistencia
     } catch (error) {
       toast({
         title: 'Error',
