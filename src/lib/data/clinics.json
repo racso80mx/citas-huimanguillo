@@ -1,12 +1,12 @@
 [
-    {
-        "id": "NB1",
-        "name": "Núcleo Básico 1",
-        "doctorName": "Dr. Ejemplo",
-        "password": "123",
-        "dailySlots": 15,
-        "startTime": "08:00",
-        "endTime": "13:00",
-        "weekendBookingEnabled": false
-    }
+  {
+    "id": "NB1",
+    "name": "Núcleo Básico 1",
+    "doctorName": "Dr. Ejemplo",
+    "password": "1234",
+    "dailySlots": 15,
+    "startTime": "08:00",
+    "endTime": "13:00",
+    "weekendBookingEnabled": false
+  }
 ]

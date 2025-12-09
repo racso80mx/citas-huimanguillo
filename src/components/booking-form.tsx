@@ -26,6 +26,7 @@ import {
   getAppointmentsByDate,
   savePatient,
   saveAppointment,
+  getDocument,
 } from '@/lib/data-client';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
@@ -122,16 +123,15 @@ export function BookingForm({
         };
       }
 
-      // We need to fetch the patient for each appointment to check the CURP.
-      // This is less efficient but necessary with the current data model.
+      // Fetch patients for the appointments on the selected date to check for CURP duplicates
       const patientIds = appointmentsOnDate.map(app => app.patientId).filter(Boolean);
       const patientDocs = await Promise.all(
-          patientIds.map(id => getDoc(doc(getDb(), 'patients', id)))
+        patientIds.map(id => getDocument<Patient>('patients', id))
       );
-      const patientsOnDate = patientDocs.map(doc => doc.data() as Patient);
+      const patientsOnDate = patientDocs.filter((p): p is Patient => p !== null);
 
       const curpExistsOnDate = patientsOnDate.some(
-        (p) => p && p.curp.toUpperCase() === curp.toUpperCase()
+        (p) => p.curp.toUpperCase() === curp.toUpperCase()
       );
 
 

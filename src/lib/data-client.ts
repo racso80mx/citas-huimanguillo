@@ -52,7 +52,7 @@ const getCollection = async <T>(collectionName: string): Promise<T[]> => {
     }
 };
 
-const getDocument = async <T>(collectionName: string, docId: string): Promise<T | null> => {
+export const getDocument = async <T>(collectionName: string, docId: string): Promise<T | null> => {
     const db = getDb();
     if (!docId) {
         console.warn(`getDocument called with undefined or null docId for collection ${collectionName}`);
