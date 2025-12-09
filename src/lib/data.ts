@@ -1,3 +1,5 @@
+'use server';
+
 import {
   collection,
   doc,
@@ -24,7 +26,7 @@ const getDb = () => {
 };
 
 const handleFirestoreError = (error: any, context: { path: string, operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write', requestResourceData?: any }) => {
-    console.error(`Firestore Error [${context.operation}] at '${context.path}':`, error);
+    // No log to console, the listener will handle it.
     const permissionError = new FirestorePermissionError({
         path: context.path,
         operation: context.operation,
@@ -200,6 +202,8 @@ export const getUserByUID = async (uid: string): Promise<User | null> => {
     try {
         return await getDocument<User>('users', uid);
     } catch (error) {
+        // This function is called on the client, so we don't want to throw a server error.
+        // The getDocument will emit a permission error to the listener.
         console.error("Could not fetch user profile for UID:", uid, error);
         return null;
     }
