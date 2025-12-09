@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import type { Appointment, Clinic, Colonia } from '@/lib/definitions';
-import { deleteAppointment, getClinics, getColonias } from '@/lib/actions';
+import { deleteAppointment } from '@/lib/actions';
 import { getAppointments } from '@/lib/data-client';
+import { getClinics, getColonias } from '@/lib/data';
 import {
   Card,
   CardHeader,
