@@ -1,13 +1,11 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
+import { deleteAppointment as deleteDataAppointment } from './data-client';
 import {
-  deleteAppointment as deleteDataAppointment,
-} from './data-client';
-import { 
-  verifyClinicPassword as dataVerifyClinicPassword, 
-  updateClinics as dataUpdateClinics, 
-  updateColonias as dataUpdateColonias, 
+  verifyClinicPassword as dataVerifyClinicPassword,
+  updateClinics as dataUpdateClinics,
+  updateColonias as dataUpdateColonias,
   updateAnnouncements as dataUpdateAnnouncements,
   getClinics as dataGetClinics,
   getColonias as dataGetColonias,
@@ -17,14 +15,16 @@ import type { Clinic, Colonia } from './definitions';
 import { initializeFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
-
 export async function deleteAppointment(id: string) {
   try {
     await deleteDataAppointment(id);
     revalidateTag('appointments');
     return { success: true, message: 'Cita eliminada con éxito.' };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al eliminar la cita.';
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Error desconocido al eliminar la cita.';
     return {
       success: false,
       message: errorMessage,
@@ -40,31 +40,31 @@ export async function verifyClinicPassword(
   if (result.isValid) {
     return { success: true };
   }
-  return { success: false, message: result.error || "Contraseña incorrecta." };
+  return { success: false, message: result.error || 'Contraseña incorrecta.' };
 }
 
 export async function updateClinics(clinics: Clinic[]) {
-    const result = await dataUpdateClinics(clinics);
-    if (result.success) {
-        revalidateTag('clinics');
-    }
-    return result;
+  const result = await dataUpdateClinics(clinics);
+  if (result.success) {
+    revalidateTag('clinics');
+  }
+  return result;
 }
 
 export async function updateColonias(colonias: Colonia[]) {
-    const result = await dataUpdateColonias(colonias);
-    if (result.success) {
-        revalidateTag('colonias');
-    }
-    return result;
+  const result = await dataUpdateColonias(colonias);
+  if (result.success) {
+    revalidateTag('colonias');
+  }
+  return result;
 }
 
 export async function updateAnnouncements(announcements: string[]) {
-    const result = await dataUpdateAnnouncements(announcements);
-    if (result.success) {
-        revalidateTag('announcements');
-    }
-    return result;
+  const result = await dataUpdateAnnouncements(announcements);
+  if (result.success) {
+    revalidateTag('announcements');
+  }
+  return result;
 }
 
 export async function updateAppointmentStatus(
@@ -72,20 +72,26 @@ export async function updateAppointmentStatus(
   status: 'Atendida' | 'Cancelada'
 ): Promise<{ success: boolean; message: string }> {
   try {
-    // This now runs on the server, so it should have the correct permissions
-    // if the environment is set up correctly for server-side SDK initialization.
+    // This now runs on the server and initializes its own Firebase instance
+    // ensuring it has the correct server-side permissions.
     const { firestore } = initializeFirebase();
     const docRef = doc(firestore, 'appointments', appointmentId);
     await updateDoc(docRef, { status });
-    revalidateTag('appointments');
+    revalidateTag('appointments'); // Revalidates the data cache for appointments
     return { success: true, message: 'Estado de la cita actualizado.' };
   } catch (error) {
-    console.error("Server Action Error: updateAppointmentStatus failed", error);
-    const errorMessage = error instanceof Error ? error.message : 'No se pudo actualizar el estado.';
-    return { success: false, message: errorMessage };
+    console.error('Server Action Error: updateAppointmentStatus failed', error);
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'No se pudo actualizar el estado.';
+    // Provide a more generic error message to the client for security.
+    return {
+      success: false,
+      message: 'Ocurrió un error en el servidor. No se pudo actualizar el estado.',
+    };
   }
 }
-
 
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {
@@ -97,5 +103,5 @@ export async function getColonias() {
 }
 
 export async function getAnnouncements() {
-    return await dataGetAnnouncements();
+  return await dataGetAnnouncements();
 }
