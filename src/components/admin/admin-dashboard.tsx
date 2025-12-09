@@ -120,7 +120,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               return appDate >= rangeStart && appDate <= rangeEnd;
             };
           } else {
-            // If range is not complete, show nothing
             setFilteredAppointments([]);
             return;
           }
@@ -140,10 +139,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     [activeFilter, dateRange, allAppointments]
   );
 
-  // Re-apply filters when dependencies change
   useEffect(() => {
     applyFilters();
-  }, [activeFilter, dateRange, allAppointments, applyFilters]);
+  }, [applyFilters]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
@@ -316,3 +314,5 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     </div>
   );
 }
+
+    
