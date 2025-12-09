@@ -3,7 +3,6 @@
 import { revalidateTag } from 'next/cache';
 import {
   deleteAppointment as deleteDataAppointment,
-  updateAppointmentStatus as updateDataAppointmentStatus,
 } from './data-client';
 import { 
   verifyClinicPassword as dataVerifyClinicPassword, 
@@ -15,6 +14,8 @@ import {
   getAnnouncements as dataGetAnnouncements,
 } from './data';
 import type { Clinic, Colonia } from './definitions';
+import { initializeFirebase } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 
 export async function deleteAppointment(id: string) {
@@ -69,13 +70,18 @@ export async function updateAnnouncements(announcements: string[]) {
 export async function updateAppointmentStatus(
   appointmentId: string,
   status: 'Atendida' | 'Cancelada'
-) {
-  const success = await updateDataAppointmentStatus(appointmentId, status);
-  if (success) {
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const { firestore } = initializeFirebase();
+    const docRef = doc(firestore, 'appointments', appointmentId);
+    await updateDoc(docRef, { status });
     revalidateTag('appointments');
     return { success: true, message: 'Estado de la cita actualizado.' };
+  } catch (error) {
+    console.error("Server Action Error: updateAppointmentStatus failed", error);
+    const errorMessage = error instanceof Error ? error.message : 'No se pudo actualizar el estado.';
+    return { success: false, message: errorMessage };
   }
-  return { success: false, message: 'No se pudo actualizar el estado.' };
 }
 
 

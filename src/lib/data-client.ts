@@ -106,25 +106,6 @@ export async function deleteAppointment(id: string): Promise<void> {
   }
 }
 
-export async function updateAppointmentStatus(
-  appointmentId: string,
-  status: 'Atendida' | 'Cancelada'
-): Promise<boolean> {
-  const db = getDb();
-  const docRef = doc(db, 'appointments', appointmentId);
-  try {
-    await updateDoc(docRef, { status });
-    return true;
-  } catch (error) {
-    handleFirestoreError(error, {
-      path: docRef.path,
-      operation: 'update',
-      requestResourceData: { status },
-    });
-    return false;
-  }
-}
-
 export async function getAppointments(): Promise<Appointment[]> {
     const db = getDb();
     const collectionRef = collection(db, 'appointments');
@@ -159,7 +140,8 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
       return { 
           ...data, 
           id: doc.id, 
-          date: (data.date as Timestamp).toDate().toISOString() 
+          date: (data.date as Timestamp).toDate().toISOString(),
+          patient: data.patient
       } as Appointment;
     });
   } catch(error) {
@@ -189,7 +171,8 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
       return { 
           ...data, 
           id: doc.id, 
-          date: (data.date as Timestamp).toDate().toISOString() 
+          date: (data.date as Timestamp).toDate().toISOString(),
+          patient: data.patient
       } as Appointment;
     });
     return appointments;

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useCallback } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
 import { getAppointmentsForClinic } from '@/lib/data-client';
 import { updateAppointmentStatus } from '@/lib/actions';
@@ -57,7 +57,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
-  const fetchData = () => {
+  const fetchData = useCallback(() => {
     startTransition(async () => {
       try {
         const appointments = await getAppointmentsForClinic(clinic.id);
@@ -67,19 +67,10 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
           toast({ title: "Error", description: "No se pudieron cargar los datos de las citas.", variant: "destructive"});
       }
     });
-  };
+  },[clinic.id, toast]);
 
-  useEffect(() => {
-    fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  useEffect(() => {
-    applyFilters();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allAppointments, activeFilter, dateRange]);
-
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let dateFiltered: Appointment[] = [];
     const now = new Date();
 
@@ -110,7 +101,15 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
     }
     setFilteredAppointments(dateFiltered.sort((a, b) => a.time.localeCompare(b.time)));
-  };
+  },[allAppointments, activeFilter, dateRange]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
   
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -126,7 +125,6 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
             const updateAppointments = (prev: Appointment[]) => 
                 prev.map(app => app.id === appointmentId ? { ...app, status } : app);
             setAllAppointments(updateAppointments);
-            setFilteredAppointments(updateAppointments);
         } else {
             toast({ title: "Error", description: result.message || "No se pudo actualizar el estado de la cita.", variant: "destructive"});
         }
