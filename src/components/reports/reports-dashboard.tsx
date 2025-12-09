@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
-import { getAppointments, updateAppointmentStatus } from '@/lib/data-client';
+import { getAppointmentsForClinic, updateAppointmentStatus } from '@/lib/data-client';
 import {
   Card,
   CardHeader,
@@ -59,9 +59,8 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const fetchData = () => {
     startTransition(async () => {
       try {
-        const appointments = await getAppointments();
-        const clinicAppointments = appointments.filter(app => app.clinicId === clinic.id);
-        setAllAppointments(clinicAppointments);
+        const appointments = await getAppointmentsForClinic(clinic.id);
+        setAllAppointments(appointments);
       } catch (error) {
           console.error("Error fetching data for reports dashboard", error);
           toast({ title: "Error", description: "No se pudieron cargar los datos de las citas.", variant: "destructive"});
@@ -122,7 +121,11 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         const success = await updateAppointmentStatus(appointmentId, status);
         if (success) {
             toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
-            fetchData(); // Refresh data to reflect changes
+            // Optimistic UI update
+            const updateAppointments = (prev: Appointment[]) => 
+                prev.map(app => app.id === appointmentId ? { ...app, status } : app);
+            setAllAppointments(updateAppointments);
+            setFilteredAppointments(updateAppointments);
         } else {
             toast({ title: "Error", description: "No se pudo actualizar el estado de la cita.", variant: "destructive"});
         }

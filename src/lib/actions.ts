@@ -3,7 +3,6 @@
 import { revalidateTag } from 'next/cache';
 import {
   deleteAppointment as deleteDataAppointment,
-  updateAppointmentStatus as updateDataAppointmentStatus,
 } from './data-client';
 import { 
   verifyClinicPassword as dataVerifyClinicPassword, 

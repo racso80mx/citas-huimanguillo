@@ -39,7 +39,7 @@ const handleFirestoreError = (
   throw permissionError;
 };
 
-const getCollection = async <T>(collectionName: string): Promise<T[]> => {
+export const getCollection = async <T>(collectionName: string): Promise<T[]> => {
     const db = getDb();
     const collectionRef = collection(db, collectionName);
     try {
@@ -125,18 +125,36 @@ export async function updateAppointmentStatus(
   }
 }
 
-
 export async function getAppointments(): Promise<Appointment[]> {
     const appointments = await getCollection<any>('appointments');
-    
-    // No need to enrich appointments here anymore, patient data is denormalized
-    return appointments
-        .map((app: any) => ({
-            ...app,
-            date: (app.date as Timestamp).toDate().toISOString(),
-        }))
-        .sort((a: Appointment, b: Appointment) => new Date(b.date).getTime() - new Date(a.date).getTime());
-};
+    return appointments.map((app: any) => ({
+        ...app,
+        date: (app.date as Timestamp).toDate().toISOString(),
+    }));
+}
+
+export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
+  const db = getDb();
+  const q = query(
+    collection(db, 'appointments'),
+    where('clinicId', '==', clinicId)
+  );
+
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return { 
+          ...data, 
+          id: doc.id, 
+          date: (data.date as Timestamp).toDate().toISOString() 
+      } as Appointment;
+    });
+  } catch(error) {
+     handleFirestoreError(error, { path: 'appointments', operation: 'list' });
+     return [];
+  }
+}
 
 
 export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> {
@@ -154,7 +172,7 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
 
   try {
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => {
+    const appointments = snapshot.docs.map((doc) => {
       const data = doc.data();
       return { 
           ...data, 
@@ -162,6 +180,7 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
           date: (data.date as Timestamp).toDate().toISOString() 
       } as Appointment;
     });
+    return appointments;
   } catch(error) {
      handleFirestoreError(error, { path: 'appointments', operation: 'list' });
      return [];
