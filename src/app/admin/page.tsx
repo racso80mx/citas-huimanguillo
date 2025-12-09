@@ -14,12 +14,12 @@ export default function AdminPage() {
   // We need an auth session to be active for Firestore security rules to pass.
   useEffect(() => {
     if (!auth) {
+        // If auth service is not ready, we keep loading.
         setIsAuthLoading(true);
         return;
     }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      // We just need to know that an auth session is established.
-      // It can be an anonymous user, that's fine. The UI is controlled by `isSuperAdmin`.
+      // As soon as we know there's a user (even anonymous), we can proceed.
       setIsAuthLoading(false);
     });
     return () => unsubscribe();
