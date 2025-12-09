@@ -11,6 +11,7 @@ import {
   where,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
@@ -98,6 +99,36 @@ export async function saveAppointment(
     return null;
   }
 }
+
+export async function deleteAppointment(id: string): Promise<void> {
+  const db = getDb();
+  const docRef = doc(db, 'appointments', id);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, { path: docRef.path, operation: 'delete' });
+  }
+}
+
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: 'Atendida' | 'Cancelada'
+): Promise<boolean> {
+  const db = getDb();
+  const docRef = doc(db, 'appointments', appointmentId);
+  try {
+    await updateDoc(docRef, { status });
+    return true;
+  } catch (error) {
+    handleFirestoreError(error, {
+      path: docRef.path,
+      operation: 'update',
+      requestResourceData: { status },
+    });
+    return false;
+  }
+}
+
 
 export async function getAppointments(): Promise<Appointment[]> {
     const appointments = await getCollection<any>('appointments');
