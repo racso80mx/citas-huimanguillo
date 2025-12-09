@@ -78,6 +78,7 @@ export async function saveAppointment(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
 
+  // CRITICAL FIX: Ensure the date is a Firestore Timestamp before saving.
   const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
@@ -113,11 +114,11 @@ export async function getAppointments(): Promise<Appointment[]> {
         const snapshot = await getDocs(collectionRef);
         return snapshot.docs.map(doc => {
             const data = doc.data();
-            return { 
-                ...data, 
+            return {
+                ...data,
                 id: doc.id,
-                date: (data.date as Timestamp).toDate().toISOString(),
-                patient: data.patient, // Ensure nested object is included
+                date: (data.date as Timestamp).toDate().toISOString(), // Always convert Timestamp to ISO string for client
+                patient: data.patient,
             } as Appointment;
         });
     } catch (error) {
@@ -125,6 +126,7 @@ export async function getAppointments(): Promise<Appointment[]> {
         return [];
     }
 }
+
 
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
   const db = getDb();
@@ -137,9 +139,9 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => {
       const data = doc.data();
-      return { 
-          ...data, 
-          id: doc.id, 
+      return {
+          ...data,
+          id: doc.id,
           date: (data.date as Timestamp).toDate().toISOString(),
           patient: data.patient
       } as Appointment;
@@ -168,9 +170,9 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
     const snapshot = await getDocs(q);
     const appointments = snapshot.docs.map((doc) => {
       const data = doc.data();
-      return { 
-          ...data, 
-          id: doc.id, 
+      return {
+          ...data,
+          id: doc.id,
           date: (data.date as Timestamp).toDate().toISOString(),
           patient: data.patient
       } as Appointment;
@@ -188,16 +190,20 @@ export async function updateAppointmentStatus(
 ): Promise<{ success: boolean; message?: string }> {
   const db = getDb();
   const docRef = doc(db, 'appointments', appointmentId);
-  try {
-    await updateDoc(docRef, { status });
-    return { success: true, message: 'Estado de la cita actualizado.' };
-  } catch (error) {
-    handleFirestoreError(error, {
-      path: docRef.path,
-      operation: 'update',
-      requestResourceData: { status },
+  
+  // Use a simple .catch block for error handling. 
+  // The global error emitter will be triggered by handleFirestoreError if it's a permission issue.
+  return updateDoc(docRef, { status })
+    .then(() => {
+      return { success: true, message: 'Estado de la cita actualizado.' };
+    })
+    .catch((error) => {
+      handleFirestoreError(error, {
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: { status },
+      });
+      // This part might not be reached if handleFirestoreError throws, but it's good for type safety.
+      return { success: false, message: 'No se pudo actualizar el estado.' };
     });
-    // This part might not be reached if handleFirestoreError throws, but it's good for type safety.
-    return { success: false, message: 'No se pudo actualizar el estado.' };
-  }
 }

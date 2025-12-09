@@ -68,6 +68,9 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     });
   },[clinic.id, toast]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const appointmentsToDisplay = useMemo(() => {
     if (!allAppointments || allAppointments.length === 0) {
@@ -111,6 +114,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
               return appDate >= rangeStart && appDate <= rangeEnd;
           };
         } else {
+            // Default to today if range is not fully selected
             const todayStart = startOfDay(now);
             const todayEnd = endOfDay(now);
             filterFn = app => {
@@ -130,9 +134,6 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     return allAppointments.filter(filterFn).sort((a, b) => a.time.localeCompare(b.time));
   },[allAppointments, activeFilter, dateRange]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
   
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -141,22 +142,12 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(async () => {
-        const originalAppointments = [...allAppointments];
-        
-        // Optimistic UI update
-        setAllAppointments(prev => 
-            prev.map(app => app.id === appointmentId ? { ...app, status } : app)
-        );
-
         const result = await updateAppointmentStatus(appointmentId, status);
         
         if (result.success) {
             toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
-            // Optionally re-fetch to confirm, but optimistic is often enough
-            fetchData();
+            fetchData(); // Re-fetch data to show the change immediately
         } else {
-            // Revert optimistic update on failure
-            setAllAppointments(originalAppointments);
             toast({ title: "Error", description: result.message || "No se pudo actualizar el estado de la cita.", variant: "destructive"});
         }
       })
