@@ -88,58 +88,62 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   const applyFilters = useCallback(
     (appointmentsToFilter: Appointment[]) => {
-      let filtered: Appointment[] = [];
-      const now = new Date();
-
-      if (activeFilter === 'today') {
-        const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
-        filtered = appointmentsToFilter.filter((app) => {
-          const appDate = parseISO(app.date);
-          return appDate >= todayStart && appDate <= todayEnd;
-        });
-      } else if (activeFilter === 'week') {
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        filtered = appointmentsToFilter.filter((app) => {
-          const appDate = parseISO(app.date);
-          return appDate >= weekStart && appDate <= weekEnd;
-        });
-      } else if (activeFilter === 'month') {
-        const monthStart = startOfMonth(now);
-        const monthEnd = endOfMonth(now);
-        filtered = appointmentsToFilter.filter((app) => {
-          const appDate = parseISO(app.date);
-          return appDate >= monthStart && appDate <= monthEnd;
-        });
-      } else if (activeFilter === 'range' && dateRange?.from && dateRange?.to) {
-        const rangeStart = startOfDay(dateRange.from);
-        const rangeEnd = endOfDay(dateRange.to);
-        filtered = appointmentsToFilter.filter((app) => {
-          const appDate = parseISO(app.date);
-          return appDate >= rangeStart && appDate <= rangeEnd;
-        });
-      } else {
-        // Default to today if range is not fully selected or on initial load
-        const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
-        filtered = appointmentsToFilter.filter((app) => {
-          const appDate = parseISO(app.date);
-          return appDate >= todayStart && appDate <= todayEnd;
-        });
+      if (!appointmentsToFilter) {
+        setFilteredAppointments([]);
+        return;
       }
-      setFilteredAppointments(filtered);
+      const now = new Date();
+      let filterFn: (app: Appointment) => boolean;
+
+      switch (activeFilter) {
+        case 'week':
+          const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+          const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+          filterFn = (app) => {
+            const appDate = parseISO(app.date);
+            return appDate >= weekStart && appDate <= weekEnd;
+          };
+          break;
+        case 'month':
+          const monthStart = startOfMonth(now);
+          const monthEnd = endOfMonth(now);
+          filterFn = (app) => {
+            const appDate = parseISO(app.date);
+            return appDate >= monthStart && appDate <= monthEnd;
+          };
+          break;
+        case 'range':
+          if (dateRange?.from && dateRange?.to) {
+            const rangeStart = startOfDay(dateRange.from);
+            const rangeEnd = endOfDay(dateRange.to);
+            filterFn = (app) => {
+              const appDate = parseISO(app.date);
+              return appDate >= rangeStart && appDate <= rangeEnd;
+            };
+          } else {
+            // If range is not complete, show nothing
+            setFilteredAppointments([]);
+            return;
+          }
+          break;
+        case 'today':
+        default:
+          const todayStart = startOfDay(now);
+          const todayEnd = endOfDay(now);
+          filterFn = (app) => {
+            const appDate = parseISO(app.date);
+            return appDate >= todayStart && appDate <= todayEnd;
+          };
+          break;
+      }
+      setFilteredAppointments(appointmentsToFilter.filter(filterFn));
     },
     [activeFilter, dateRange]
   );
 
   // Re-apply filters when dependencies change
   useEffect(() => {
-    if (allAppointments.length > 0) {
-      applyFilters(allAppointments);
-    } else {
-      setFilteredAppointments([]);
-    }
+    applyFilters(allAppointments);
   }, [activeFilter, dateRange, allAppointments, applyFilters]);
 
   const handleSetDateRange = (range: DateRange | undefined) => {
