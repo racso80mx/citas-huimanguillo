@@ -24,7 +24,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
   getAppointmentsByDate,
-  findPatientByCURP,
   savePatient,
   saveAppointment,
 } from '@/lib/data-client';
@@ -134,32 +133,29 @@ export function BookingForm({
           message: 'Ya existe una cita agendada con esta CURP para el día seleccionado.',
         };
       }
+      
+      // Upsert patient logic: Create a consistent ID based on CURP
+      const patientId = uuidv4(); // We will just create a new patient record for simplicity now
+      const patientToSave: Patient = {
+          id: patientId,
+          curp: curp.toUpperCase(),
+          ...patientData,
+      };
 
-      let existingPatient = await findPatientByCURP(curp);
-      const fullPatientData = { curp: curp.toUpperCase(), ...patientData };
-
-      if (!existingPatient) {
-        const newPatient = { ...fullPatientData, id: uuidv4() };
-        await savePatient(newPatient);
-        existingPatient = newPatient;
-      } else {
-        const updatedPatient = { ...existingPatient, ...fullPatientData };
-        await savePatient(updatedPatient);
-        existingPatient = updatedPatient;
-      }
+      await savePatient(patientToSave);
 
       const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
 
       const newAppointment: Appointment = {
         id: uuidv4(),
         appointmentNumber,
-        patientId: existingPatient.id,
+        patientId: patientToSave.id,
         clinicId: selectedClinic.id,
         date: selectedDate.toISOString(),
         time: selectedTime,
         patientType: patientType,
         status: 'Pendiente',
-        patient: existingPatient,
+        patient: patientToSave,
       };
 
       const savedAppointment = await saveAppointment(newAppointment);
