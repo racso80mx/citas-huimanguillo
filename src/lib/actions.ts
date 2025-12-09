@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import { deleteAppointment as deleteDataAppointment } from './data-client';
+import { deleteAppointment as deleteDataAppointment, updateAppointmentStatus as updateDataAppointmentStatus } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
   updateClinics as dataUpdateClinics,
@@ -12,8 +12,7 @@ import {
   getAnnouncements as dataGetAnnouncements,
 } from './data';
 import type { Clinic, Colonia } from './definitions';
-import { getAdminApp } from '@/firebase/server-config';
-import { getFirestore, doc, updateDoc } from 'firebase/firestore';
+
 
 export async function deleteAppointment(id: string) {
   try {
@@ -70,14 +69,9 @@ export async function updateAnnouncements(announcements: string[]) {
 export async function updateAppointmentStatus(
   appointmentId: string,
   status: 'Atendida' | 'Cancelada'
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message?: string }> {
   try {
-    const adminApp = getAdminApp();
-    const firestore = getFirestore(adminApp);
-    const docRef = doc(firestore, 'appointments', appointmentId);
-
-    await updateDoc(docRef, { status });
-
+    await updateDataAppointmentStatus(appointmentId, status);
     revalidateTag('appointments');
     return { success: true, message: 'Estado de la cita actualizado.' };
   } catch (error) {

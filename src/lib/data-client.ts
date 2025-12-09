@@ -106,6 +106,17 @@ export async function deleteAppointment(id: string): Promise<void> {
   }
 }
 
+export async function updateAppointmentStatus(appointmentId: string, status: 'Atendida' | 'Cancelada'): Promise<void> {
+    const db = getDb();
+    const docRef = doc(db, 'appointments', appointmentId);
+    try {
+        await updateDoc(docRef, { status: status });
+    } catch (error) {
+         handleFirestoreError(error, { path: docRef.path, operation: 'update', requestResourceData: { status } });
+    }
+}
+
+
 export async function getAppointments(): Promise<Appointment[]> {
     const db = getDb();
     const collectionRef = collection(db, 'appointments');
