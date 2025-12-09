@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { AdminDashboard } from '@/components/admin/admin-dashboard';
 import { LoginForm } from '@/components/admin/login-form';
-import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { getUserByUID } from '@/lib/data';
 import type { User } from '@/lib/definitions';
@@ -41,17 +41,7 @@ export default function AdminPage() {
   
   const handleSuperAdminLogin = async (credentials: {email: string, pass: string}) => {
     if (credentials.email === 'SuperAdmin' && credentials.pass === 'Hu1m4ngu1ll0') {
-        try {
-            await signInWithEmailAndPassword(auth, 'admin@citamedica.com', 'AdminPass123!');
-            setIsSuperAdmin(true); 
-        } catch (error) {
-            console.error("SuperAdmin shadow login failed:", error);
-            toast({
-                title: "Error de inicio de sesión de administrador",
-                description: "No se pudieron obtener los permisos de administrador. Verifica la cuenta de administrador preconfigurada.",
-                variant: "destructive",
-            });
-        }
+        setIsSuperAdmin(true); 
     }
   }
 
