@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     match /patients/{patientId} {
-      allow create: if isAuthenticated();
+      allow create: if true;
       allow read, update: if isAuthenticated(); // Allow admins/staff to see patient data
     }
 
