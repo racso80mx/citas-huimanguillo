@@ -11,6 +11,8 @@ import {
   where,
   Timestamp,
   writeBatch,
+  CollectionReference,
+  DocumentReference,
 } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
@@ -106,14 +108,25 @@ export async function getAppointments(): Promise<Appointment[]> {
 export async function getAppointmentById(id: string): Promise<Appointment | null> {
     const db = await getDb();
     const docRef = doc(db, 'appointments', id);
-    const docSnap = await getDoc(docRef);
+    try {
+      const docSnap = await getDoc(docRef);
 
-    if(docSnap.exists()) {
-        const data = docSnap.data();
-        const date = (data.date as Timestamp).toDate().toISOString();
-        return { ...data, id: docSnap.id, date } as Appointment;
+      if(docSnap.exists()) {
+          const data = docSnap.data();
+          const date = (data.date as Timestamp).toDate().toISOString();
+          return { ...data, id: docSnap.id, date } as Appointment;
+      }
+      return null;
+    } catch(error) {
+       errorEmitter.emit(
+        'permission-error',
+        new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'get',
+        })
+      )
+      throw error;
     }
-    return null;
 }
 
 export async function getAppointmentsByDate(
@@ -131,12 +144,23 @@ export async function getAppointmentsByDate(
     where('date', '<=', Timestamp.fromDate(endOfDay))
   );
 
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    const date = (data.date as Timestamp).toDate().toISOString();
-    return { ...data, id: doc.id, date } as Appointment;
-  });
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const date = (data.date as Timestamp).toDate().toISOString();
+      return { ...data, id: doc.id, date } as Appointment;
+    });
+  } catch(error) {
+     errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: 'appointments', // Path of the collection
+        operation: 'list',
+      })
+    )
+    throw error;
+  }
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
@@ -159,15 +183,26 @@ export async function deleteAppointment(id: string): Promise<void> {
 export async function getAnnouncements(): Promise<string[]> {
   const db = await getDb();
   const docRef = doc(db, 'settings', 'announcements');
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    // Make sure to handle the case where messages might be undefined
-    return docSnap.data().messages || [];
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      // Make sure to handle the case where messages might be undefined
+      return docSnap.data().messages || [];
+    }
+    return [
+      'Recuerda traer tu cartilla de vacunación.',
+      'El uso de cubrebocas es opcional en las instalaciones.',
+    ]; // Default if not set
+  } catch(error) {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'get',
+      })
+    )
+    throw error;
   }
-  return [
-    'Recuerda traer tu cartilla de vacunación.',
-    'El uso de cubrebocas es opcional en las instalaciones.',
-  ]; // Default if not set
 }
 
 export async function updateAnnouncements(
@@ -196,22 +231,33 @@ export async function updateAnnouncements(
 export async function getSlotsConfiguration(): Promise<{ [key: string]: number }> {
   const db = await getDb();
   const docRef = doc(db, 'settings', 'slots');
-  const docSnap = await getDoc(docRef);
+  try {
+    const docSnap = await getDoc(docRef);
 
-  if (docSnap.exists()) {
-     // Ensure the keys are strings, as they will be from the form.
-    const config = docSnap.data().config || {};
-    const stringKeyConfig: {[key: string]: number} = {};
-    for (const key in config) {
-        stringKeyConfig[String(key)] = config[key];
+    if (docSnap.exists()) {
+      // Ensure the keys are strings, as they will be from the form.
+      const config = docSnap.data().config || {};
+      const stringKeyConfig: {[key: string]: number} = {};
+      for (const key in config) {
+          stringKeyConfig[String(key)] = config[key];
+      }
+      return stringKeyConfig;
     }
-    return stringKeyConfig;
+    // Default configuration if not set in Firestore
+    return {
+      '1': 15, '2': 15, '3': 15, '4': 15,
+      '5': 15, '6': 15, '7': 15, '8': 15,
+    };
+  } catch(error) {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'get',
+      })
+    )
+    throw error;
   }
-  // Default configuration if not set in Firestore
-  return {
-    '1': 15, '2': 15, '3': 15, '4': 15,
-    '5': 15, '6': 15, '7': 15, '8': 15,
-  };
 }
 
 export async function updateSlotsConfiguration(newConfig: {
@@ -241,11 +287,22 @@ export async function updateSlotsConfiguration(newConfig: {
 export async function getWeekendBookingConfig(): Promise<{ enabled: boolean }> {
   const db = await getDb();
   const docRef = doc(db, 'settings', 'weekendBooking');
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return (docSnap.data() as { enabled: boolean }) || { enabled: false };
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return (docSnap.data() as { enabled: boolean }) || { enabled: false };
+    }
+    return { enabled: false }; // Default to disabled
+  } catch (error) {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'get',
+      })
+    )
+    throw error;
   }
-  return { enabled: false }; // Default to disabled
 }
 
 export async function updateWeekendBookingConfig(config: { enabled: boolean }): Promise<boolean> {
@@ -271,14 +328,26 @@ export async function updateWeekendBookingConfig(config: { enabled: boolean }): 
 
 export async function getColonias(): Promise<Colonia[]> {
   const db = await getDb();
-  const snapshot = await getDocs(collection(db, 'colonias'));
-  if (snapshot.empty) {
-    return [
-      { id: 'centro-id', nombre: 'Centro', nucleo: 1 },
-      { id: 'pueblo-nuevo-id', nombre: 'Pueblo Nuevo', nucleo: 1 },
-    ];
+  const collectionRef = collection(db, 'colonias');
+  try {
+    const snapshot = await getDocs(collectionRef);
+    if (snapshot.empty) {
+      return [
+        { id: 'centro-id', nombre: 'Centro', nucleo: 1 },
+        { id: 'pueblo-nuevo-id', nombre: 'Pueblo Nuevo', nucleo: 1 },
+      ];
+    }
+    return snapshot.docs.map(doc => ({...doc.data(), id: doc.id } as Colonia)).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  } catch(error) {
+    errorEmitter.emit(
+      'permission-error',
+      new FirestorePermissionError({
+        path: collectionRef.path,
+        operation: 'list',
+      })
+    )
+    throw error;
   }
-  return snapshot.docs.map(doc => ({...doc.data(), id: doc.id } as Colonia)).sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
 export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
