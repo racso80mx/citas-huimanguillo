@@ -1,7 +1,10 @@
-'use client'
+'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
-import { getAppointmentsForClinic, updateAppointmentStatus } from '@/lib/data-client';
+import {
+  getAppointmentsForClinic,
+  updateAppointmentStatus,
+} from '@/lib/data-client';
 import {
   Card,
   CardHeader,
@@ -10,7 +13,15 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, Calendar as CalendarIcon, Check, X, Clock } from 'lucide-react';
+import {
+  LogOut,
+  Loader2,
+  Calendar as CalendarIcon,
+  Check,
+  X,
+  Clock,
+  Download,
+} from 'lucide-react';
 import {
   startOfDay,
   endOfDay,
@@ -28,7 +39,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, downloadExcel } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -49,24 +60,27 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 
 export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  
-  const [isPending, startTransition] = useTransition();
-  const [isStatusPending, setIsStatusPending] = useState(false);
+  const [isDataLoading, startDataTransition] = useTransition();
+  const [isStatusChanging, setIsStatusChanging] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   const fetchData = useCallback(() => {
-    startTransition(async () => {
+    startDataTransition(async () => {
       try {
         const appointments = await getAppointmentsForClinic(clinic.id);
         setAllAppointments(appointments);
       } catch (error) {
-          console.error("Error fetching data for reports dashboard", error);
-          toast({ title: "Error", description: "No se pudieron cargar los datos de las citas.", variant: "destructive"});
+        console.error('Error fetching data for reports dashboard', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudieron cargar los datos de las citas.',
+          variant: 'destructive',
+        });
       }
     });
-  },[clinic.id, toast]);
+  }, [clinic.id, toast]);
 
   useEffect(() => {
     fetchData();
@@ -74,82 +88,74 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const appointmentsToDisplay = useMemo(() => {
     if (!allAppointments || allAppointments.length === 0) {
-        return [];
+      return [];
     }
-    
+
     let filterFn: (app: Appointment) => boolean;
     const now = new Date();
 
     switch (activeFilter) {
-      case 'today':
-        const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
-        filterFn = app => {
-            const appDate = parseISO(app.date);
-            return appDate >= todayStart && appDate <= todayEnd;
-        };
-        break;
       case 'week':
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        filterFn = app => {
-            const appDate = parseISO(app.date);
-            return appDate >= weekStart && appDate <= weekEnd;
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return appDate >= weekStart && appDate <= weekEnd;
         };
         break;
       case 'month':
         const monthStart = startOfMonth(now);
         const monthEnd = endOfMonth(now);
-        filterFn = app => {
-            const appDate = parseISO(app.date);
-            return appDate >= monthStart && appDate <= monthEnd;
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return appDate >= monthStart && appDate <= monthEnd;
         };
         break;
       case 'range':
         if (dateRange?.from && dateRange.to) {
           const rangeStart = startOfDay(dateRange.from);
           const rangeEnd = endOfDay(dateRange.to);
-          filterFn = app => {
-              const appDate = parseISO(app.date);
-              return appDate >= rangeStart && appDate <= rangeEnd;
+          filterFn = (app) => {
+            const appDate = parseISO(app.date);
+            return appDate >= rangeStart && appDate <= rangeEnd;
           };
         } else {
-            // Default to today if range is not fully selected
-            const todayStart = startOfDay(now);
-            const todayEnd = endOfDay(now);
-            filterFn = app => {
-                const appDate = parseISO(app.date);
-                return appDate >= todayStart && appDate <= todayEnd;
-            };
+          return [];
         }
         break;
+      case 'today':
       default:
-        const defaultStart = startOfDay(now);
-        const defaultEnd = endOfDay(now);
-        filterFn = app => {
-            const appDate = parseISO(app.date);
-            return appDate >= defaultStart && appDate <= defaultEnd;
+        const todayStart = startOfDay(now);
+        const todayEnd = endOfDay(now);
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return appDate >= todayStart && appDate <= todayEnd;
         };
+        break;
     }
-    return allAppointments.filter(filterFn).sort((a, b) => a.time.localeCompare(b.time));
-  },[allAppointments, activeFilter, dateRange]);
+    return allAppointments
+      .filter(filterFn)
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [allAppointments, activeFilter, dateRange]);
 
-  
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
     setActiveFilter('range');
-  }
+  };
 
-  const handleStatusChange = async (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
-    setIsStatusPending(true);
-    toast({ title: 'Actualizando estado...', description: 'Por favor espera.' });
+  const handleStatusChange = async (
+    appointmentId: string,
+    status: 'Atendida' | 'Cancelada'
+  ) => {
+    setIsStatusChanging(true);
     try {
       await updateAppointmentStatus(appointmentId, status);
       toast({
         title: 'Éxito',
         description: 'El estado de la cita ha sido actualizado.',
       });
-      fetchData(); // Refetch data to show the update
+      // Refetch data to show the update immediately after success
+      fetchData();
     } catch (error) {
       console.error('Failed to update status:', error);
       toast({
@@ -158,15 +164,37 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         variant: 'destructive',
       });
     } finally {
-        setIsStatusPending(false);
+      setIsStatusChanging(false);
     }
   };
 
+  const handleDownload = () => {
+    if (appointmentsToDisplay.length === 0) {
+      toast({
+        title: 'No hay datos',
+        description: 'No hay citas para descargar en el filtro actual.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // Enrich data for download without mutating state
+    const enrichedData = appointmentsToDisplay.map((app) => ({
+      ...app,
+      clinicName: clinic.name,
+      coloniaName: 'N/A', // Colonia info is not available here
+    }));
+    downloadExcel(enrichedData, `reporte_${clinic.name}_${activeFilter}`);
+  };
 
-  const statusCounts = appointmentsToDisplay.reduce((acc, app) => {
-      acc[app.status] = (acc[app.status] || 0) + 1;
-      return acc;
-  }, {} as Record<string, number>);
+  const statusCounts = useMemo(() => {
+    return appointmentsToDisplay.reduce(
+      (acc, app) => {
+        acc[app.status] = (acc[app.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [appointmentsToDisplay]);
 
   return (
     <div className="space-y-8 container mx-auto px-4 py-8 md:py-12">
@@ -177,7 +205,8 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
               Reportes de Citas: {clinic.name}
             </CardTitle>
             <CardDescription>
-              Bienvenido, Dr. {clinic.doctorName}. Visualiza y gestiona las citas.
+              Bienvenido, Dr. {clinic.doctorName}. Visualiza y gestiona las
+              citas.
             </CardDescription>
           </div>
           <Button variant="outline" onClick={onLogout}>
@@ -187,37 +216,41 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         </CardHeader>
       </Card>
 
-
       <div className="grid md:grid-cols-3 gap-4">
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{statusCounts['Pendiente'] || 0}</div>
-            </CardContent>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statusCounts['Pendiente'] || 0}
+            </div>
+          </CardContent>
         </Card>
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Atendidas</CardTitle>
-                <Check className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{statusCounts['Atendida'] || 0}</div>
-            </CardContent>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Atendidas</CardTitle>
+            <Check className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statusCounts['Atendida'] || 0}
+            </div>
+          </CardContent>
         </Card>
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Canceladas</CardTitle>
-                <X className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{statusCounts['Cancelada'] || 0}</div>
-            </CardContent>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Canceladas</CardTitle>
+            <X className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {statusCounts['Cancelada'] || 0}
+            </div>
+          </CardContent>
         </Card>
       </div>
-
 
       <Card className="w-full max-w-7xl mx-auto shadow-lg">
         <CardHeader>
@@ -273,61 +306,94 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                 />
               </PopoverContent>
             </Popover>
+            <Button
+              onClick={handleDownload}
+              variant="secondary"
+              className="ml-auto"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Descargar Excel
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {isPending ? (
+          {isDataLoading ? (
             <div className="flex justify-center items-center h-40">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-4 text-muted-foreground">Cargando citas...</span>
+              <span className="ml-4 text-muted-foreground">
+                Cargando citas...
+              </span>
             </div>
           ) : (
             <>
               {appointmentsToDisplay.length > 0 ? (
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Fecha</TableHead>
-                            <TableHead>Folio</TableHead>
-                            <TableHead>Paciente</TableHead>
-                            <TableHead>Hora</TableHead>
-                            <TableHead>Teléfono</TableHead>
-                            <TableHead>Tipo Paciente</TableHead>
-                            <TableHead>Estado</TableHead>
-                            <TableHead className='text-right'>Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {appointmentsToDisplay.map(app => (
-                            <TableRow key={app.id} className={isStatusPending ? 'opacity-50' : ''}>
-                                <TableCell>{format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                <TableCell>{app.appointmentNumber}</TableCell>
-                                <TableCell>{app.patient.name} {app.patient.paternalLastName}</TableCell>
-                                <TableCell>{app.time}</TableCell>
-                                <TableCell>{app.patient.phoneNumber}</TableCell>
-                                <TableCell>{app.patientType}</TableCell>
-                                <TableCell>
-                                  <span className={cn(
-                                    'px-2 py-1 rounded-full text-xs font-medium',
-                                    app.status === 'Pendiente' && 'bg-yellow-100 text-yellow-800',
-                                    app.status === 'Atendida' && 'bg-green-100 text-green-800',
-                                    app.status === 'Cancelada' && 'bg-red-100 text-red-800'
-                                  )}>
-                                    {app.status}
-                                  </span>
-                                </TableCell>
-                                <TableCell className='text-right'>
-                                    <Button size="sm" variant="outline" onClick={() => handleStatusChange(app.id, 'Atendida')} disabled={app.status !== 'Pendiente' || isStatusPending}>
-                                        <Check className='mr-2 h-4 w-4 text-green-600'/> Atendida
-                                    </Button>
-                                     <Button size="sm" variant="destructive" className='ml-2' onClick={() => handleStatusChange(app.id, 'Cancelada')} disabled={app.status !== 'Pendiente' || isStatusPending}>
-                                        <X className='mr-2 h-4 w-4'/> Cancelar
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                 </Table>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Folio</TableHead>
+                      <TableHead>Paciente</TableHead>
+                      <TableHead>Hora</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>Tipo Paciente</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {appointmentsToDisplay.map((app) => (
+                      <TableRow key={app.id}>
+                        <TableCell>
+                          {format(parseISO(app.date), 'dd/MM/yyyy', {
+                            locale: es,
+                          })}
+                        </TableCell>
+                        <TableCell>{app.appointmentNumber}</TableCell>
+                        <TableCell>
+                          {app.patient.name} {app.patient.paternalLastName}
+                        </TableCell>
+                        <TableCell>{app.time}</TableCell>
+                        <TableCell>{app.patient.phoneNumber}</TableCell>
+                        <TableCell>{app.patientType}</TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              'px-2 py-1 rounded-full text-xs font-medium',
+                              app.status === 'Pendiente' &&
+                                'bg-yellow-100 text-yellow-800',
+                              app.status === 'Atendida' &&
+                                'bg-green-100 text-green-800',
+                              app.status === 'Cancelada' &&
+                                'bg-red-100 text-red-800'
+                            )}
+                          >
+                            {app.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                           <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStatusChange(app.id, 'Atendida')}
+                            disabled={app.status !== 'Pendiente' || isStatusChanging}
+                          >
+                            {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4 text-green-600" />}
+                            Atendida
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleStatusChange(app.id, 'Cancelada')}
+                            disabled={app.status !== 'Pendiente' || isStatusChanging}
+                          >
+                             {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                            Cancelar
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
                 <div className="text-center py-10 text-muted-foreground">
                   No hay citas para mostrar con los filtros seleccionados.

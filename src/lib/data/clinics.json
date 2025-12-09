@@ -28,5 +28,15 @@
     "startTime": "08:00",
     "endTime": "13:00",
     "weekendBookingEnabled": false
+  },
+  {
+    "id": "5fc4b85d-7954-440b-bb64-372a90e5d9b3",
+    "name": "Nucleo Basico 5",
+    "doctorName": "Dr. Marcos Morales Carrillo",
+    "password": "123456",
+    "dailySlots": 10,
+    "startTime": "08:00",
+    "endTime": "14:00",
+    "weekendBookingEnabled": false
   }
 ]

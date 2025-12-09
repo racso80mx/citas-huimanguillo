@@ -13,5 +13,10 @@
     "id": "567ee96d-1874-4fd4-b81b-c284a7d344db",
     "name": "Colonia 2",
     "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898"
+  },
+  {
+    "id": "6e2ef1a5-9a48-4d0d-90b0-08c8333648d9",
+    "name": "Col. Centro",
+    "clinicId": "5fc4b85d-7954-440b-bb64-372a90e5d9b3"
   }
 ]

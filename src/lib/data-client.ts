@@ -14,8 +14,6 @@ import {
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment } from './definitions';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const getDb = () => {
   const { firestore } = initializeFirebase();
@@ -61,6 +59,7 @@ export async function saveAppointment(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
 
+  // Convert date string back to Firestore Timestamp before saving
   const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
@@ -93,11 +92,12 @@ export async function getAppointments(): Promise<Appointment[]> {
         const snapshot = await getDocs(collectionRef);
         return snapshot.docs.map(doc => {
             const data = doc.data();
+            // Ensure patient data is present and date is stringified
             return {
                 ...data,
                 id: doc.id,
-                date: (data.date as Timestamp).toDate().toISOString(), // Always convert Timestamp to ISO string for client
-                patient: data.patient,
+                date: (data.date as Timestamp).toDate().toISOString(),
+                patient: data.patient || null,
             } as Appointment;
         });
     } catch (error) {
@@ -169,5 +169,7 @@ export async function updateAppointmentStatus(
 ): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'appointments', appointmentId);
+  // This will now throw an error if it fails, which will be caught
+  // by the try/catch block in the component calling it.
   await updateDoc(docRef, { status });
 }
