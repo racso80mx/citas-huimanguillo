@@ -22,7 +22,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { bookAppointment } from '@/lib/actions';
+import {
+  getAppointmentsByDate,
+  findPatientByCURP,
+  savePatient,
+  saveAppointment,
+} from '@/lib/data';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -31,6 +36,7 @@ import { Combobox } from './ui/combobox';
 import { generateAppointmentPDF } from '@/lib/utils';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
+import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -97,6 +103,91 @@ export function BookingForm({
   }, [curp, form]);
 
 
+  const bookAppointment = async (
+    bookingData: BookingFormValues,
+  ) => {
+    if (!selectedDate || !selectedClinic || !selectedTime) return { success: false, message: "Datos de la cita incompletos."};
+
+    const { curp, ...patientData } = bookingData;
+
+    try {
+      const appointmentsOnDate = await getAppointmentsByDate(selectedDate);
+      const isTimeSlotTaken = appointmentsOnDate.some(
+        (app) => app.clinicId === selectedClinic.id && app.time === selectedTime
+      );
+
+      if (isTimeSlotTaken) {
+        return {
+          success: false,
+          message: `El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`,
+        };
+      }
+
+      const curpExistsOnDate = appointmentsOnDate.some(
+        (app) =>
+          app.patient && app.patient.curp.toUpperCase() === curp.toUpperCase()
+      );
+
+      if (curpExistsOnDate) {
+        return {
+          success: false,
+          message: 'Ya existe una cita agendada con esta CURP para el día seleccionado.',
+        };
+      }
+
+      let existingPatient = await findPatientByCURP(curp);
+      const fullPatientData = { curp: curp.toUpperCase(), ...patientData };
+
+      if (!existingPatient) {
+        const newPatient = { ...fullPatientData, id: uuidv4() };
+        await savePatient(newPatient);
+        existingPatient = newPatient;
+      } else {
+        const updatedPatient = { ...existingPatient, ...fullPatientData };
+        await savePatient(updatedPatient);
+        existingPatient = updatedPatient;
+      }
+
+      const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
+
+      const newAppointment: Appointment = {
+        id: uuidv4(),
+        appointmentNumber,
+        patientId: existingPatient.id,
+        clinicId: selectedClinic.id,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        patientType: patientType,
+        status: 'Pendiente',
+        patient: existingPatient,
+      };
+
+      const savedAppointment = await saveAppointment(newAppointment);
+
+      if (!savedAppointment) {
+        return {
+          success: false,
+          message: 'No se pudo guardar la cita en la base de datos.',
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Cita agendada con éxito.',
+        appointment: savedAppointment,
+      };
+
+    } catch (error) {
+        console.error("Error booking appointment", error);
+        const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
+        if (errorMessage.includes("insufficient permissions")) {
+            return { success: false, message: "Error de permisos. Asegúrate de que la sesión esté activa."};
+        }
+        return { success: false, message: `Error al agendar la cita: ${errorMessage}`};
+    }
+  }
+
+
   const onSubmit = (data: BookingFormValues) => {
     if (!selectedDate || !selectedClinic || !selectedTime || !selectedColoniaName) {
       toast({
@@ -108,24 +199,7 @@ export function BookingForm({
     }
 
     startTransition(async () => {
-      const patientData: Omit<Patient, 'id'> = {
-        curp: data.curp.toUpperCase(),
-        name: data.name,
-        paternalLastName: data.paternalLastName,
-        maternalLastName: data.maternalLastName,
-        phoneNumber: data.phoneNumber,
-        sex: data.sex,
-        age: data.age,
-        birthState: data.birthState,
-      };
-
-      const result = await bookAppointment({
-          patient: patientData,
-          date: selectedDate.toISOString(),
-          time: selectedTime,
-          clinicId: selectedClinic.id,
-          patientType: patientType,
-      });
+      const result = await bookAppointment(data);
 
       if (result.success && result.appointment) {
         toast({
