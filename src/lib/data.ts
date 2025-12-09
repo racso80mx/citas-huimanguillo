@@ -19,6 +19,8 @@ import { initializeFirebase } from '@/firebase';
 import type { Appointment, Colonia } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 // This function must be called to get the firestore instance
 const getDb = async () => {
@@ -332,10 +334,21 @@ export async function getColonias(): Promise<Colonia[]> {
   try {
     const snapshot = await getDocs(collectionRef);
     if (snapshot.empty) {
-      return [
+      // Default data if collection is empty
+      const defaultColonias = [
         { id: 'centro-id', nombre: 'Centro', nucleo: 1 },
         { id: 'pueblo-nuevo-id', nombre: 'Pueblo Nuevo', nucleo: 1 },
       ];
+      // Optional: You could write these defaults to Firestore here
+      // This would only run once when the collection is first accessed and found empty.
+      const batch = writeBatch(db);
+      defaultColonias.forEach(col => {
+        const docRef = doc(db, 'colonias', col.id);
+        batch.set(docRef, { nombre: col.nombre, nucleo: col.nucleo });
+      });
+      await batch.commit();
+
+      return defaultColonias;
     }
     return snapshot.docs.map(doc => ({...doc.data(), id: doc.id } as Colonia)).sort((a, b) => a.nombre.localeCompare(b.nombre));
   } catch(error) {
@@ -355,16 +368,29 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
     const batch = writeBatch(db);
     const collectionRef = collection(db, 'colonias');
 
-    const existingDocsSnapshot = await getDocs(collectionRef);
+    // Get a list of documents currently in the collection
+    const existingDocsSnapshot = await getDocs(collectionRef).catch(error => {
+        // If we can't even read the collection, that's a permission error
+        errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: collectionRef.path,
+                operation: 'list',
+            })
+        );
+        throw error;
+    });
     const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
 
+    // Batch set/update operations for the provided colonias
     colonias.forEach(colonia => {
         const { id, ...data } = colonia;
-        const docRef = doc(collectionRef, id);
+        const docRef = doc(collectionRef, id); // Use the existing ID
         batch.set(docRef, data);
-        existingIds.delete(id);
+        existingIds.delete(id); // Remove from the set of IDs to be deleted
     });
 
+    // Batch delete operations for colonias that were removed in the UI
     existingIds.forEach(idToDelete => {
         batch.delete(doc(collectionRef, idToDelete));
     });
@@ -375,10 +401,12 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
           new FirestorePermissionError({
             path: collectionRef.path, // The error is on the batch commit, relates to the collection
             operation: 'write', // Batch can contain set, update, delete
-            requestResourceData: {info: 'Batch operation on colonias collection.'}
+            requestResourceData: {info: 'Batch operation on colonias collection.', data: colonias}
           })
         );
         throw error;
     });
     return true;
 }
+
+    
