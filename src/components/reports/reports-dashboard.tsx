@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useTransition } from 'react';
-import type { Appointment, User, Clinic } from '@/lib/definitions';
-import { getAppointments, getClinics } from '@/lib/data';
+import type { Appointment, Clinic } from '@/lib/definitions';
+import { getAppointments } from '@/lib/data';
 import { updateAppointmentStatus } from '@/lib/actions';
 import {
   Card,
@@ -32,13 +32,6 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -48,18 +41,16 @@ import {
 } from '@/components/ui/table';
 
 type ReportsDashboardProps = {
-  user: User;
+  clinic: Clinic;
   onLogout: () => void;
 };
 
 type FilterType = 'today' | 'week' | 'month' | 'range';
 
-export function ReportsDashboard({ user, onLogout }: ReportsDashboardProps) {
+export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
-  const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [selectedClinicId, setSelectedClinicId] = useState<string | undefined>(user.clinicId);
-
+  
   const [isPending, startTransition] = useTransition();
   const [isStatusPending, startStatusTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
@@ -69,19 +60,9 @@ export function ReportsDashboard({ user, onLogout }: ReportsDashboardProps) {
   const fetchData = () => {
     startTransition(async () => {
       try {
-        const [appointments, clinicsData] = await Promise.all([getAppointments(), getClinics()]);
-        setAllAppointments(appointments);
-        setClinics(clinicsData);
-
-        // Set the initial selected clinic
-        if (user.role === 'doctor' && user.clinicId) {
-          setSelectedClinicId(user.clinicId);
-        } else if (user.role === 'admin' && clinicsData.length > 0) {
-          // Admin defaults to the first clinic in the list if none is selected
-          if(!selectedClinicId){
-            setSelectedClinicId(clinicsData[0].id);
-          }
-        }
+        const appointments = await getAppointments();
+        const clinicAppointments = appointments.filter(app => app.clinicId === clinic.id);
+        setAllAppointments(clinicAppointments);
       } catch (error) {
           console.error("Error fetching data for reports dashboard", error);
           toast({ title: "Error", description: "No se pudieron cargar los datos de las citas.", variant: "destructive"});
@@ -97,44 +78,37 @@ export function ReportsDashboard({ user, onLogout }: ReportsDashboardProps) {
   useEffect(() => {
     applyFilters();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allAppointments, activeFilter, dateRange, selectedClinicId]);
+  }, [allAppointments, activeFilter, dateRange]);
 
   const applyFilters = () => {
-    let clinicFiltered = allAppointments;
-
-    if (selectedClinicId) {
-       clinicFiltered = allAppointments.filter(app => app.clinicId === selectedClinicId);
-    }
-    
     let dateFiltered: Appointment[] = [];
     const now = new Date();
 
     switch (activeFilter) {
       case 'today':
-        dateFiltered = clinicFiltered.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
+        dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
         break;
       case 'week':
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        dateFiltered = clinicFiltered.filter(app => parseISO(app.date) >= weekStart && parseISO(app.date) <= weekEnd);
+        dateFiltered = allAppointments.filter(app => parseISO(app.date) >= weekStart && parseISO(app.date) <= weekEnd);
         break;
       case 'month':
         const monthStart = startOfMonth(now);
         const monthEnd = endOfMonth(now);
-        dateFiltered = clinicFiltered.filter(app => parseISO(app.date) >= monthStart && parseISO(app.date) <= monthEnd);
+        dateFiltered = allAppointments.filter(app => parseISO(app.date) >= monthStart && parseISO(app.date) <= monthEnd);
         break;
       case 'range':
         if (dateRange?.from && dateRange.to) {
           const rangeStart = startOfDay(dateRange.from);
           const rangeEnd = endOfDay(dateRange.to);
-          dateFiltered = clinicFiltered.filter(app => parseISO(app.date) >= rangeStart && parseISO(app.date) <= rangeEnd);
+          dateFiltered = allAppointments.filter(app => parseISO(app.date) >= rangeStart && parseISO(app.date) <= rangeEnd);
         } else {
-          // If range is not complete, default to today's view for the selected clinic
-          dateFiltered = clinicFiltered.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
+          dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
         }
         break;
       default:
-        dateFiltered = clinicFiltered.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
+        dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
     }
     setFilteredAppointments(dateFiltered.sort((a, b) => a.time.localeCompare(b.time)));
   };
@@ -162,15 +136,15 @@ export function ReportsDashboard({ user, onLogout }: ReportsDashboardProps) {
   }, {} as Record<string, number>);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 container mx-auto px-4 py-8 md:py-12">
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-3xl font-bold font-headline">
-              Reportes de Citas
+              Reportes de Citas: {clinic.name}
             </CardTitle>
             <CardDescription>
-              Bienvenido, {user.name}. Visualiza y gestiona las citas.
+              Bienvenido, Dr. {clinic.doctorName}. Visualiza y gestiona las citas.
             </CardDescription>
           </div>
           <Button variant="outline" onClick={onLogout}>
@@ -180,23 +154,6 @@ export function ReportsDashboard({ user, onLogout }: ReportsDashboardProps) {
         </CardHeader>
       </Card>
 
-      {user.role === 'admin' && (
-          <Card>
-              <CardHeader>
-                  <CardTitle>Seleccionar Núcleo Básico</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <Select onValueChange={setSelectedClinicId} value={selectedClinicId}>
-                      <SelectTrigger className='w-full md:w-[300px]'>
-                          <SelectValue placeholder="Selecciona un núcleo..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
-              </CardContent>
-          </Card>
-      )}
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card>

@@ -11,6 +11,7 @@ import {
   findPatientByCURP,
   savePatient,
   updateAppointmentStatus as updateDataAppointmentStatus,
+  verifyClinicPassword as dataVerifyClinicPassword
 } from './data';
 import type { Appointment, Clinic, Colonia, Patient, PatientType } from './definitions';
 import { format } from 'date-fns';
@@ -147,4 +148,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'At
     return { success: false, message: "No se pudo actualizar el estado." }
 }
 
-    
+export async function verifyClinicPassword(clinicId: string, passwordAttempt: string) {
+    const isValid = await dataVerifyClinicPassword(clinicId, passwordAttempt);
+    return { success: isValid };
+}

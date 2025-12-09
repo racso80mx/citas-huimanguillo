@@ -254,6 +254,7 @@ export const getClinics = cache(async(): Promise<Clinic[]> => {
                 id: 'NB1',
                 name: 'Núcleo Básico 1',
                 doctorName: 'Dr. Ejemplo',
+                password: '123',
                 dailySlots: 15,
                 startTime: '08:00',
                 endTime: '13:00',
@@ -267,6 +268,7 @@ export const getClinics = cache(async(): Promise<Clinic[]> => {
             id: 'NB1',
             name: 'Núcleo Básico 1',
             doctorName: 'Dr. Ejemplo',
+            password: '123',
             dailySlots: 15,
             startTime: '08:00',
             endTime: '13:00',
@@ -357,6 +359,20 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
             operation: 'write',
             requestResourceData: { info: 'Batch operation on colonias collection.', data: colonias }
         });
+        return false;
+    }
+}
+
+// ========== Reports Auth ==========
+export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<boolean> {
+    try {
+        const clinic = await getDocument<Clinic>('clinics', clinicId);
+        if (clinic && clinic.password === passwordAttempt) {
+            return true;
+        }
+        return false;
+    } catch(error) {
+        console.error("Error verifying clinic password", error);
         return false;
     }
 }

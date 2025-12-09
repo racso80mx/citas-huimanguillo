@@ -25,24 +25,21 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
-import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 const formSchema = z.object({
-  email: z.string().min(1, { message: 'El correo electrónico o usuario es requerido.' }),
+  email: z.string().min(1, { message: 'El usuario es requerido.' }),
   password: z.string().min(1, { message: 'La contraseña es requerida.' }),
 });
 
 type LoginFormProps = {
     onSuperAdminLogin?: (credentials: {email: string, pass: string}) => void;
-    isReportsPage?: boolean;
+    isReportsPage?: boolean; // This prop is no longer used but kept for safety
 }
 
 export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFormProps) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const auth = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -65,39 +62,13 @@ export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFor
         return;
     }
     
-    // For reports page, only doctor/admin firebase users can login.
-    // For admin page, only SuperAdmin can login. Other firebase users are not handled here.
-    if (!isReportsPage) {
-        toast({
-            title: 'Credenciales Incorrectas',
-            description: 'Solo el SuperAdmin puede acceder a este panel.',
-            variant: 'destructive',
-        });
-        setIsPending(false);
-        return;
-    }
-    
-    try {
-        await setPersistence(auth, browserLocalPersistence);
-        await signInWithEmailAndPassword(auth, data.email, data.password);
-        toast({
-            title: 'Inicio de Sesión Exitoso',
-            description: 'Bienvenido al panel de reportes.',
-        });
-        // The onAuthStateChanged listener in the parent page will handle the UI change.
-    } catch (error: any) {
-        let description = 'Ocurrió un error inesperado.';
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            description = 'Usuario o contraseña incorrectos.';
-        }
-        toast({
-            title: 'Error de Autenticación',
-            description,
-            variant: 'destructive',
-        });
-    } finally {
-        setIsPending(false);
-    }
+    // Only SuperAdmin can log in via this form now. Reports page has its own logic.
+    toast({
+        title: 'Credenciales Incorrectas',
+        description: 'Usuario o contraseña no válidos.',
+        variant: 'destructive',
+    });
+    setIsPending(false);
   };
 
   return (
@@ -114,7 +85,7 @@ export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFor
             />
           </div>
           <CardTitle className="text-2xl font-bold font-headline">
-            {isReportsPage ? 'Acceso a Reportes' : 'Acceso de Personal'}
+            Acceso de Administrador
           </CardTitle>
           <CardDescription>
             Ingresa tus credenciales para continuar
@@ -128,12 +99,12 @@ export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFor
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usuario o Correo Electrónico</FormLabel>
+                    <FormLabel>Usuario</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={ isReportsPage ? "tu@correo.com" : "SuperAdmin"}
+                        placeholder="SuperAdmin"
                         {...field}
-                        autoComplete="email"
+                        autoComplete="username"
                       />
                     </FormControl>
                     <FormMessage />

@@ -53,12 +53,13 @@
             "id": { "type": "string" },
             "name": { "type": "string" },
             "doctorName": { "type": "string" },
+            "password": { "type": "string" },
             "dailySlots": { "type": "number" },
             "startTime": { "type": "string" },
             "endTime": { "type": "string" },
             "weekendBookingEnabled": { "type": "boolean" }
         },
-        "required": ["id", "name", "doctorName", "dailySlots", "startTime", "endTime"]
+        "required": ["id", "name", "doctorName", "password", "dailySlots", "startTime", "endTime"]
     },
     "Colonia": {
         "title": "Colonia",

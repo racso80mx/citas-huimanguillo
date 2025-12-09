@@ -14,7 +14,7 @@ import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getClinics } from '@/lib/data';
 import { updateClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -23,6 +23,7 @@ export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,12 +51,17 @@ export function ClinicsManager() {
       prev.map(c => (c.id === id ? { ...c, [field]: value } : c))
     );
   };
+  
+  const toggleShowPassword = (id: string) => {
+    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const addClinic = () => {
     const newClinic: Clinic = { 
         id: uuidv4(), 
         name: '', 
         doctorName: '', 
+        password: '',
         dailySlots: 15,
         startTime: '08:00',
         endTime: '13:00',
@@ -69,11 +75,11 @@ export function ClinicsManager() {
   };
 
   const handleSave = () => {
-    const validClinics = clinics.filter(c => c.name.trim() !== '' && c.doctorName.trim() !== '');
+    const validClinics = clinics.filter(c => c.name.trim() !== '' && c.doctorName.trim() !== '' && c.password.trim() !== '');
     if (validClinics.length !== clinics.length) {
         toast({
             title: 'Campos Requeridos',
-            description: 'El nombre del núcleo y del doctor no pueden estar vacíos.',
+            description: 'El nombre del núcleo, del doctor y la contraseña no pueden estar vacíos.',
             variant: 'destructive',
         });
         return;
@@ -152,6 +158,31 @@ export function ClinicsManager() {
                     onChange={(e) => handleClinicChange(clinic.id, 'doctorName', e.target.value)}
                     placeholder="Ej. Dr. Juan Pérez"
                     />
+                </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor={`password-${clinic.id}`}>Contraseña</Label>
+                <div className="relative">
+                    <Input
+                        id={`password-${clinic.id}`}
+                        type={showPasswords[clinic.id] ? 'text' : 'password'}
+                        value={clinic.password}
+                        onChange={(e) => handleClinicChange(clinic.id, 'password', e.target.value)}
+                        placeholder="Contraseña para reportes"
+                    />
+                     <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3"
+                        onClick={() => toggleShowPassword(clinic.id)}
+                      >
+                        {showPasswords[clinic.id] ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
                 </div>
             </div>
              <div className='grid sm:grid-cols-3 gap-4'>

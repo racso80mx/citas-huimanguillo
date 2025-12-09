@@ -1,3 +1,6 @@
+'use client';
+import { z } from 'zod';
+
 export type User = {
   id: string; // Firebase UID
   email: string;
@@ -36,15 +39,18 @@ export type Appointment = {
   patient: Omit<Patient, 'id'>; // Denormalized for easy display
 };
 
-export type Clinic = {
-  id: string; // UUID, e.g. "NB1"
-  name: string; // e.g. "Núcleo Básico 1"
-  doctorName: string;
-  dailySlots: number;
-  startTime: string; // HH:mm
-  endTime: string; // HH:mm
-  weekendBookingEnabled: boolean;
-};
+export const ClinicSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "El nombre es requerido."),
+  doctorName: z.string().min(1, "El nombre del doctor es requerido."),
+  password: z.string().min(1, "La contraseña es requerida."),
+  dailySlots: z.number().min(1, "Debe haber al menos 1 cita."),
+  startTime: z.string(),
+  endTime: z.string(),
+  weekendBookingEnabled: z.boolean(),
+});
+
+export type Clinic = z.infer<typeof ClinicSchema>;
 
 export type Colonia = {
   id: string; // UUID
