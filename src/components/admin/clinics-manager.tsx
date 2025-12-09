@@ -89,9 +89,6 @@ export function ClinicsManager() {
     }
 
     startSavingTransition(async () => {
-      // The `updateClinics` action now writes to the static JSON file.
-      // Firestore updates for the admin panel should happen via a client-side call.
-      // For now, we rely on the server action to update the JSON.
       const result = await updateClinics(validClinics);
       if (result.success) {
         toast({

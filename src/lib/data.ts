@@ -2,17 +2,28 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-
-// Import static data
-import clinicsData from './data/clinics.json';
-import coloniasData from './data/colonias.json';
-import announcementsData from './data/announcements.json';
 import type { Clinic, Colonia } from './definitions';
 
 // =======================
 // JSON File Operations
 // =======================
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
+
+async function readJsonFile<T>(filename: string, defaultValue: T): Promise<T> {
+  try {
+    const filePath = dataFilePath(filename);
+    const fileContent = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(fileContent);
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      // File doesn't exist, return default value
+      return defaultValue;
+    }
+    console.error(`Failed to read static file ${filename}`, error);
+    // In case of other errors, return the default value to avoid crashing
+    return defaultValue;
+  }
+}
 
 async function writeJsonFile(filename: string, data: any): Promise<void> {
     try {
@@ -28,31 +39,30 @@ async function writeJsonFile(filename: string, data: any): Promise<void> {
 // ========== Announcements ==========
 
 export const getAnnouncements = async (): Promise<string[]> => {
-  // Read from static JSON file
-  return announcementsData.messages;
+  const data = await readJsonFile<{ messages: string[] }>('announcements.json', { messages: [] });
+  return data.messages;
 };
 
+// This function is now a Server Action called from the admin panel.
 export const updateAnnouncements = async (
   newAnnouncements: string[]
 ): Promise<{ success: boolean; message?: string }> => {
   const data = { messages: newAnnouncements.slice(0, 4) };
-  // Write to static file (for next server start)
   await writeJsonFile('announcements.json', data);
-  // Also write to Firestore or other persistent storage if needed, but the primary source for the app is now the JSON
   return { success: true };
 };
 
 // ========== Clinics Configuration ==========
 
 export async function getClinics(): Promise<Clinic[]> {
-  // Read from static JSON file
-  return clinicsData as Clinic[];
+  const clinics = await readJsonFile<Clinic[]>('clinics.json', []);
+  return clinics;
 }
 
+// This function is now a Server Action called from the admin panel.
 export async function updateClinics(
   clinics: Clinic[]
 ): Promise<{ success: boolean; message?: string }> {
-  // Write to static file (for next server start)
   await writeJsonFile('clinics.json', clinics);
   return { success: true };
 }
@@ -60,14 +70,14 @@ export async function updateClinics(
 // ========== Colonias Configuration ==========
 
 export async function getColonias(): Promise<Colonia[]> {
-  // Read from static JSON file
-  return coloniasData as Colonia[];
+  const colonias = await readJsonFile<Colonia[]>('colonias.json', []);
+  return colonias;
 }
 
+// This function is now a Server Action called from the admin panel.
 export async function updateColonias(
   colonias: Colonia[]
 ): Promise<{ success: boolean; message?: string }> {
-    // Write to static file
     await writeJsonFile('colonias.json', colonias);
     return { success: true };
 }
