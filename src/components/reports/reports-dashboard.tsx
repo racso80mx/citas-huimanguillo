@@ -118,14 +118,20 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(async () => {
+        
+        // Optimistic UI update
+        const originalAppointments = allAppointments;
+        const updateAppointments = (prev: Appointment[]) => 
+            prev.map(app => app.id === appointmentId ? { ...app, status } : app);
+        setAllAppointments(updateAppointments);
+
         const result = await updateAppointmentStatus(appointmentId, status);
+        
         if (result.success) {
             toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
-            // Optimistic UI update
-            const updateAppointments = (prev: Appointment[]) => 
-                prev.map(app => app.id === appointmentId ? { ...app, status } : app);
-            setAllAppointments(updateAppointments);
         } else {
+            // Revert optimistic update on failure
+            setAllAppointments(originalAppointments);
             toast({ title: "Error", description: result.message || "No se pudo actualizar el estado de la cita.", variant: "destructive"});
         }
       })

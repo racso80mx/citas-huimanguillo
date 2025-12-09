@@ -72,6 +72,8 @@ export async function updateAppointmentStatus(
   status: 'Atendida' | 'Cancelada'
 ): Promise<{ success: boolean; message: string }> {
   try {
+    // This now runs on the server, so it should have the correct permissions
+    // if the environment is set up correctly for server-side SDK initialization.
     const { firestore } = initializeFirebase();
     const docRef = doc(firestore, 'appointments', appointmentId);
     await updateDoc(docRef, { status });
