@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia } from '@/lib/definitions';
 import { deleteAppointment } from '@/lib/actions';
 import { getAppointments } from '@/lib/data-client';
@@ -51,9 +51,6 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  const [filteredAppointments, setFilteredAppointments] = useState<
-    Appointment[]
-  >([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
 
@@ -86,62 +83,55 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     fetchData();
   }, [fetchData]);
 
-  const applyFilters = useCallback(() => {
-      if (!allAppointments || !Array.isArray(allAppointments)) {
-        setFilteredAppointments([]);
-        return;
-      }
-      const now = new Date();
-      let filterFn: (app: Appointment) => boolean;
+  const appointmentsToDisplay = useMemo(() => {
+    if (!allAppointments || allAppointments.length === 0) {
+      return [];
+    }
 
-      switch (activeFilter) {
-        case 'week':
-          const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-          const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-          filterFn = (app) => {
-            const appDate = parseISO(app.date);
-            return appDate >= weekStart && appDate <= weekEnd;
-          };
-          break;
-        case 'month':
-          const monthStart = startOfMonth(now);
-          const monthEnd = endOfMonth(now);
-          filterFn = (app) => {
-            const appDate = parseISO(app.date);
-            return appDate >= monthStart && appDate <= monthEnd;
-          };
-          break;
-        case 'range':
-          if (dateRange?.from && dateRange?.to) {
-            const rangeStart = startOfDay(dateRange.from);
-            const rangeEnd = endOfDay(dateRange.to);
-            filterFn = (app) => {
-              const appDate = parseISO(app.date);
-              return appDate >= rangeStart && appDate <= rangeEnd;
-            };
-          } else {
-            setFilteredAppointments([]);
-            return;
-          }
-          break;
-        case 'today':
-        default:
-          const todayStart = startOfDay(now);
-          const todayEnd = endOfDay(now);
-          filterFn = (app) => {
-            const appDate = parseISO(app.date);
-            return appDate >= todayStart && appDate <= todayEnd;
-          };
-          break;
-      }
-      setFilteredAppointments(allAppointments.filter(filterFn));
-    },
-    [activeFilter, dateRange, allAppointments]
-  );
+    const now = new Date();
+    let filterFn: (app: Appointment) => boolean;
 
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
+    switch (activeFilter) {
+      case 'week':
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return appDate >= weekStart && appDate <= weekEnd;
+        };
+        break;
+      case 'month':
+        const monthStart = startOfMonth(now);
+        const monthEnd = endOfMonth(now);
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return appDate >= monthStart && appDate <= monthEnd;
+        };
+        break;
+      case 'range':
+        if (dateRange?.from && dateRange?.to) {
+          const rangeStart = startOfDay(dateRange.from);
+          const rangeEnd = endOfDay(dateRange.to);
+          filterFn = (app) => {
+            const appDate = parseISO(app.date);
+            return appDate >= rangeStart && appDate <= rangeEnd;
+          };
+        } else {
+          return []; // No range selected, show nothing
+        }
+        break;
+      case 'today':
+      default:
+        const todayStart = startOfDay(now);
+        const todayEnd = endOfDay(now);
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return appDate >= todayStart && appDate <= todayEnd;
+        };
+        break;
+    }
+    return allAppointments.filter(filterFn);
+  }, [activeFilter, dateRange, allAppointments]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
@@ -150,7 +140,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleDownload = () => {
-    if (filteredAppointments.length === 0) {
+    if (appointmentsToDisplay.length === 0) {
       toast({
         title: 'No hay datos para descargar',
         description: 'No hay citas en el filtro actual para exportar.',
@@ -159,7 +149,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return;
     }
 
-    const enrichedAppointments = filteredAppointments.map((app) => {
+    const enrichedAppointments = appointmentsToDisplay.map((app) => {
       const clinic = clinics.find((c) => c.id === app.clinicId);
       // This is a simplification; in a real app, you might need to find the colonia based on patient ID or another logic
       const patientColonia = colonias.find((c) => c.clinicId === app.clinicId); // Example logic
@@ -303,7 +293,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </div>
           ) : (
             <AppointmentList
-              appointments={filteredAppointments}
+              appointments={appointmentsToDisplay}
               onDelete={handleDelete}
               isAdmin
               clinics={clinics}
@@ -314,5 +304,3 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     </div>
   );
 }
-
-    
