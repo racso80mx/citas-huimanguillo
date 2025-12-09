@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
 import { getAppointmentsForClinic } from '@/lib/data-client';
 import { updateAppointmentStatus } from '@/lib/actions';
@@ -50,7 +50,6 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 
 export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   
   const [isPending, startTransition] = useTransition();
   const [isStatusPending, startStatusTransition] = useTransition();
@@ -71,75 +70,70 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   },[clinic.id, toast]);
 
 
-  const applyFilters = useCallback(() => {
-    if (!allAppointments || !Array.isArray(allAppointments)) {
-        setFilteredAppointments([]);
-        return;
+  const appointmentsToDisplay = useMemo(() => {
+    if (!allAppointments || allAppointments.length === 0) {
+        return [];
     }
     
-    let dateFiltered: Appointment[] = [];
+    let filterFn: (app: Appointment) => boolean;
     const now = new Date();
 
     switch (activeFilter) {
       case 'today':
         const todayStart = startOfDay(now);
         const todayEnd = endOfDay(now);
-        dateFiltered = allAppointments.filter(app => {
+        filterFn = app => {
             const appDate = parseISO(app.date);
             return appDate >= todayStart && appDate <= todayEnd;
-        });
+        };
         break;
       case 'week':
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        dateFiltered = allAppointments.filter(app => {
+        filterFn = app => {
             const appDate = parseISO(app.date);
             return appDate >= weekStart && appDate <= weekEnd;
-        });
+        };
         break;
       case 'month':
         const monthStart = startOfMonth(now);
         const monthEnd = endOfMonth(now);
-        dateFiltered = allAppointments.filter(app => {
+        filterFn = app => {
             const appDate = parseISO(app.date);
             return appDate >= monthStart && appDate <= monthEnd;
-        });
+        };
         break;
       case 'range':
         if (dateRange?.from && dateRange.to) {
           const rangeStart = startOfDay(dateRange.from);
           const rangeEnd = endOfDay(dateRange.to);
-          dateFiltered = allAppointments.filter(app => {
+          filterFn = app => {
               const appDate = parseISO(app.date);
               return appDate >= rangeStart && appDate <= rangeEnd;
-          });
+          };
         } else {
             const todayStart = startOfDay(now);
             const todayEnd = endOfDay(now);
-            dateFiltered = allAppointments.filter(app => {
+            filterFn = app => {
                 const appDate = parseISO(app.date);
                 return appDate >= todayStart && appDate <= todayEnd;
-            });
+            };
         }
         break;
       default:
         const defaultStart = startOfDay(now);
         const defaultEnd = endOfDay(now);
-        dateFiltered = allAppointments.filter(app => {
+        filterFn = app => {
             const appDate = parseISO(app.date);
             return appDate >= defaultStart && appDate <= defaultEnd;
-        });
+        };
     }
-    setFilteredAppointments(dateFiltered.sort((a, b) => a.time.localeCompare(b.time)));
+    return allAppointments.filter(filterFn).sort((a, b) => a.time.localeCompare(b.time));
   },[allAppointments, activeFilter, dateRange]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [allAppointments, activeFilter, dateRange, applyFilters]);
   
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -159,6 +153,8 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         
         if (result.success) {
             toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
+            // Optionally re-fetch to confirm, but optimistic is often enough
+            fetchData();
         } else {
             // Revert optimistic update on failure
             setAllAppointments(originalAppointments);
@@ -167,7 +163,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
       })
   }
 
-  const statusCounts = filteredAppointments.reduce((acc, app) => {
+  const statusCounts = appointmentsToDisplay.reduce((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
       return acc;
   }, {} as Record<string, number>);
@@ -287,7 +283,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
             </div>
           ) : (
             <>
-              {filteredAppointments.length > 0 ? (
+              {appointmentsToDisplay.length > 0 ? (
                  <Table>
                     <TableHeader>
                         <TableRow>
@@ -302,7 +298,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredAppointments.map(app => (
+                        {appointmentsToDisplay.map(app => (
                             <TableRow key={app.id} className={isStatusPending && app.status !== 'Pendiente' ? 'opacity-50' : ''}>
                                 <TableCell>{format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                 <TableCell>{app.appointmentNumber}</TableCell>

@@ -13,7 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment, Clinic, Colonia, Patient } from './definitions';
+import type { Appointment } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -105,17 +105,6 @@ export async function deleteAppointment(id: string): Promise<void> {
     handleFirestoreError(error, { path: docRef.path, operation: 'delete' });
   }
 }
-
-export async function updateAppointmentStatus(appointmentId: string, status: 'Atendida' | 'Cancelada'): Promise<void> {
-    const db = getDb();
-    const docRef = doc(db, 'appointments', appointmentId);
-    try {
-        await updateDoc(docRef, { status: status });
-    } catch (error) {
-         handleFirestoreError(error, { path: docRef.path, operation: 'update', requestResourceData: { status } });
-    }
-}
-
 
 export async function getAppointments(): Promise<Appointment[]> {
     const db = getDb();
