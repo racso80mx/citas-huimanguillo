@@ -3,6 +3,7 @@
 import { revalidateTag } from 'next/cache';
 import {
   deleteAppointment as deleteDataAppointment,
+  updateAppointmentStatus as updateDataAppointmentStatus,
 } from './data-client';
 import { 
   verifyClinicPassword as dataVerifyClinicPassword, 
@@ -64,6 +65,19 @@ export async function updateAnnouncements(announcements: string[]) {
     }
     return result;
 }
+
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: 'Atendida' | 'Cancelada'
+) {
+  const success = await updateDataAppointmentStatus(appointmentId, status);
+  if (success) {
+    revalidateTag('appointments');
+    return { success: true, message: 'Estado de la cita actualizado.' };
+  }
+  return { success: false, message: 'No se pudo actualizar el estado.' };
+}
+
 
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {

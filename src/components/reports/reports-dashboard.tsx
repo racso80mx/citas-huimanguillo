@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
-import { getAppointmentsForClinic, updateAppointmentStatus } from '@/lib/data-client';
+import { getAppointmentsForClinic } from '@/lib/data-client';
+import { updateAppointmentStatus } from '@/lib/actions';
 import {
   Card,
   CardHeader,
@@ -118,8 +119,8 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(async () => {
-        const success = await updateAppointmentStatus(appointmentId, status);
-        if (success) {
+        const result = await updateAppointmentStatus(appointmentId, status);
+        if (result.success) {
             toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
             // Optimistic UI update
             const updateAppointments = (prev: Appointment[]) => 
@@ -127,7 +128,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
             setAllAppointments(updateAppointments);
             setFilteredAppointments(updateAppointments);
         } else {
-            toast({ title: "Error", description: "No se pudo actualizar el estado de la cita.", variant: "destructive"});
+            toast({ title: "Error", description: result.message || "No se pudo actualizar el estado de la cita.", variant: "destructive"});
         }
       })
   }
