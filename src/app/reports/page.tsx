@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { getUserByUID, User } from '@/lib/data';
 import { LoginForm } from '@/components/admin/login-form';
@@ -44,7 +44,7 @@ export default function ReportsPage() {
       {user && (user.role === 'doctor' || user.role === 'admin') ? (
         <ReportsDashboard user={user} onLogout={handleLogout} />
       ) : (
-        <LoginForm />
+        <LoginForm isReportsPage={true} />
       )}
     </div>
   );

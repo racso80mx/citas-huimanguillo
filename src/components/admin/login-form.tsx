@@ -35,9 +35,10 @@ const formSchema = z.object({
 
 type LoginFormProps = {
     onSuperAdminLogin?: (credentials: {email: string, pass: string}) => void;
+    isReportsPage?: boolean;
 }
 
-export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
+export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFormProps) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -54,26 +55,34 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsPending(true);
 
-    // Hardcoded SuperAdmin check
-    if (data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
-      if (onSuperAdminLogin) {
+    if (onSuperAdminLogin && data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
         onSuperAdminLogin({email: data.email, pass: data.password});
         toast({
             title: 'Inicio de Sesión Exitoso',
             description: 'Bienvenido, Super Administrador.',
         });
-      }
-      setIsPending(false);
-      return;
+        setIsPending(false);
+        return;
     }
     
-    // Fallback to Firebase Auth for other users (doctors)
+    // For reports page, only doctor/admin firebase users can login.
+    // For admin page, only SuperAdmin can login. Other firebase users are not handled here.
+    if (!isReportsPage) {
+        toast({
+            title: 'Credenciales Incorrectas',
+            description: 'Solo el SuperAdmin puede acceder a este panel.',
+            variant: 'destructive',
+        });
+        setIsPending(false);
+        return;
+    }
+    
     try {
         await setPersistence(auth, browserLocalPersistence);
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({
             title: 'Inicio de Sesión Exitoso',
-            description: 'Bienvenido al panel.',
+            description: 'Bienvenido al panel de reportes.',
         });
         // The onAuthStateChanged listener in the parent page will handle the UI change.
     } catch (error: any) {
@@ -105,7 +114,7 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
             />
           </div>
           <CardTitle className="text-2xl font-bold font-headline">
-            Acceso de Personal
+            {isReportsPage ? 'Acceso a Reportes' : 'Acceso de Personal'}
           </CardTitle>
           <CardDescription>
             Ingresa tus credenciales para continuar
@@ -122,7 +131,7 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
                     <FormLabel>Usuario o Correo Electrónico</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="SuperAdmin o tu@correo.com"
+                        placeholder={ isReportsPage ? "tu@correo.com" : "SuperAdmin"}
                         {...field}
                         autoComplete="email"
                       />

@@ -64,7 +64,7 @@ export default function AdminPage() {
       {isAdmin ? (
         <AdminDashboard user={user} onLogout={handleLogout} />
       ) : (
-        <LoginForm onSuperAdminLogin={handleSuperAdminLogin}/>
+        <LoginForm onSuperAdminLogin={handleSuperAdminLogin} isReportsPage={false} />
       )}
     </div>
   );
