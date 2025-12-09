@@ -26,14 +26,18 @@ import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword, getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'El correo electrónico no es válido.' }),
-  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
+  email: z.string().min(1, { message: 'El correo electrónico o usuario es requerido.' }),
+  password: z.string().min(1, { message: 'La contraseña es requerida.' }),
 });
 
-export function LoginForm() {
+type LoginFormProps = {
+    onSuperAdminLogin?: (credentials: {email: string, pass: string}) => void;
+}
+
+export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -50,18 +54,32 @@ export function LoginForm() {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsPending(true);
 
+    // Hardcoded SuperAdmin check
+    if (data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
+      if (onSuperAdminLogin) {
+        onSuperAdminLogin({email: data.email, pass: data.password});
+        toast({
+            title: 'Inicio de Sesión Exitoso',
+            description: 'Bienvenido, Super Administrador.',
+        });
+      }
+      setIsPending(false);
+      return;
+    }
+    
+    // Fallback to Firebase Auth for other users (doctors)
     try {
         await setPersistence(auth, browserLocalPersistence);
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({
             title: 'Inicio de Sesión Exitoso',
-            description: 'Bienvenido al panel de administración.',
+            description: 'Bienvenido al panel.',
         });
-        // The onAuthStateChanged listener in AdminPage will handle the redirect.
+        // The onAuthStateChanged listener in the parent page will handle the UI change.
     } catch (error: any) {
         let description = 'Ocurrió un error inesperado.';
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            description = 'Correo electrónico o contraseña incorrectos.';
+            description = 'Usuario o contraseña incorrectos.';
         }
         toast({
             title: 'Error de Autenticación',
@@ -101,10 +119,10 @@ export function LoginForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Correo Electrónico</FormLabel>
+                    <FormLabel>Usuario o Correo Electrónico</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="tu@correo.com"
+                        placeholder="SuperAdmin o tu@correo.com"
                         {...field}
                         autoComplete="email"
                       />
