@@ -369,7 +369,10 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
 // ========== Reports Auth ==========
 export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{isValid: boolean, error?: string}> {
     try {
-        const clinic = await getDocument<Clinic>('clinics', clinicId);
+        // Use the cached getClinics function to avoid direct DB calls in this server action
+        const clinics = await getClinics();
+        const clinic = clinics.find(c => c.id === clinicId);
+        
         if (!clinic) {
             return { isValid: false, error: "El núcleo básico seleccionado no existe." };
         }
