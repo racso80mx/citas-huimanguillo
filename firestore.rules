@@ -1,56 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // The isAdmin function is kept for potential future use with real admin accounts,
-    // but the rules for clinics, etc., are changed to allow writes from any authenticated user.
-    // The UI logic in the app is now the primary gatekeeper for who can access the admin panel.
-    function getRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
-    }
-    
-    function isAdmin() {
-      return request.auth != null && getRole(request.auth.uid) == 'admin';
-    }
-    
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    match /patients/{patientId} {
-      allow create: if true;
-      allow read, update: if isAuthenticated(); // Allow admins/staff to see patient data
-    }
-
-    match /appointments/{appointmentId} {
-      allow create: if isAuthenticated();
-      allow read, update, delete: if isAuthenticated(); // Allow admins/staff to manage
-    }
-    
-    // Configuration collections are publicly readable, but only writable by an authenticated user.
-    // The UI prevents non-admins from reaching the forms that write to these collections.
-    match /clinics/{clinicId} {
-       allow read, list: if true;
-       allow write: if isAuthenticated();
-    }
-    
-    match /colonias/{coloniaId} {
-       allow read, list: if true;
-       allow write: if isAuthenticated();
-    }
-
-    match /settings/{docId} {
-       allow read: if true;
-       allow write: if isAuthenticated();
-    }
-    
-    match /reports/{reportId} {
-        allow read, write: if isAuthenticated();
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
