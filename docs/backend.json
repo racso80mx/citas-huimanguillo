@@ -40,10 +40,9 @@
         "clinicId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "time": { "type": "string" },
-        "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] },
-        "status": { "type": "string", "enum": ["Pendiente", "Atendida", "Cancelada"] }
+        "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType", "status"]
+      "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType"]
     },
     "Clinic": {
         "title": "Clinic",

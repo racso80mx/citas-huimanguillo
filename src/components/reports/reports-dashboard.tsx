@@ -3,7 +3,6 @@ import { useState, useEffect, useTransition, useCallback, useMemo } from 'react'
 import type { Appointment, Clinic } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
-  updateAppointmentStatus,
 } from '@/lib/data-client';
 import {
   Card,
@@ -17,10 +16,9 @@ import {
   LogOut,
   Loader2,
   Calendar as CalendarIcon,
-  Check,
-  X,
-  Clock,
   Download,
+  CalendarDays,
+  CalendarRange,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -30,6 +28,7 @@ import {
   startOfMonth,
   endOfMonth,
   parseISO,
+  isWithinInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
@@ -61,7 +60,6 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [isDataLoading, startDataTransition] = useTransition();
-  const [isStatusChanging, setIsStatusChanging] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
@@ -143,31 +141,6 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     setActiveFilter('range');
   };
 
-  const handleStatusChange = async (
-    appointmentId: string,
-    status: 'Atendida' | 'Cancelada'
-  ) => {
-    setIsStatusChanging(true);
-    try {
-      await updateAppointmentStatus(appointmentId, status);
-      toast({
-        title: 'Éxito',
-        description: 'El estado de la cita ha sido actualizado.',
-      });
-      // Refetch data to show the update immediately after success
-      fetchData();
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo actualizar el estado de la cita.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsStatusChanging(false);
-    }
-  };
-
   const handleDownload = () => {
     if (appointmentsToDisplay.length === 0) {
       toast({
@@ -186,15 +159,21 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     downloadExcel(enrichedData, `reporte_${clinic.name}_${activeFilter}`);
   };
 
-  const statusCounts = useMemo(() => {
-    return appointmentsToDisplay.reduce(
-      (acc, app) => {
-        acc[app.status] = (acc[app.status] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-  }, [appointmentsToDisplay]);
+  const summaryCounts = useMemo(() => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    return {
+      today: allAppointments.filter(app => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd })).length,
+      week: allAppointments.filter(app => isWithinInterval(parseISO(app.date), { start: weekStart, end: weekEnd })).length,
+      month: allAppointments.filter(app => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd })).length,
+    }
+  }, [allAppointments]);
 
   return (
     <div className="space-y-8 container mx-auto px-4 py-8 md:py-12">
@@ -219,34 +198,34 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
       <div className="grid md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Citas del Día</CardTitle>
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statusCounts['Pendiente'] || 0}
+              {summaryCounts.today}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Atendidas</CardTitle>
-            <Check className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">Citas de la Semana</CardTitle>
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statusCounts['Atendida'] || 0}
+              {summaryCounts.week}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Canceladas</CardTitle>
-            <X className="h-4 w-4 text-destructive" />
+            <CardTitle className="text-sm font-medium">Citas del Mes</CardTitle>
+            <CalendarRange className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statusCounts['Cancelada'] || 0}
+              {summaryCounts.month}
             </div>
           </CardContent>
         </Card>
@@ -336,8 +315,6 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                       <TableHead>Hora</TableHead>
                       <TableHead>Teléfono</TableHead>
                       <TableHead>Tipo Paciente</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -350,46 +327,11 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                         </TableCell>
                         <TableCell>{app.appointmentNumber}</TableCell>
                         <TableCell>
-                          {app.patient.name} {app.patient.paternalLastName}
+                          {app.patient?.name} {app.patient?.paternalLastName}
                         </TableCell>
                         <TableCell>{app.time}</TableCell>
-                        <TableCell>{app.patient.phoneNumber}</TableCell>
+                        <TableCell>{app.patient?.phoneNumber}</TableCell>
                         <TableCell>{app.patientType}</TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              'px-2 py-1 rounded-full text-xs font-medium',
-                              app.status === 'Pendiente' &&
-                                'bg-yellow-100 text-yellow-800',
-                              app.status === 'Atendida' &&
-                                'bg-green-100 text-green-800',
-                              app.status === 'Cancelada' &&
-                                'bg-red-100 text-red-800'
-                            )}
-                          >
-                            {app.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                           <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleStatusChange(app.id, 'Atendida')}
-                            disabled={app.status !== 'Pendiente' || isStatusChanging}
-                          >
-                            {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4 text-green-600" />}
-                            Atendida
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleStatusChange(app.id, 'Cancelada')}
-                            disabled={app.status !== 'Pendiente' || isStatusChanging}
-                          >
-                             {isStatusChanging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                            Cancelar
-                          </Button>
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

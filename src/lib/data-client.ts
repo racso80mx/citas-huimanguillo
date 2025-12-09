@@ -63,6 +63,8 @@ export async function saveAppointment(
   const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
+    // Ensure status is set on creation
+    status: 'Pendiente',
   };
 
   try {
@@ -161,15 +163,4 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
      console.error("Error getting appointments by date:", error);
      throw error;
   }
-}
-
-export async function updateAppointmentStatus(
-  appointmentId: string,
-  status: 'Atendida' | 'Cancelada'
-): Promise<void> {
-  const db = getDb();
-  const docRef = doc(db, 'appointments', appointmentId);
-  // This will now throw an error if it fails, which will be caught
-  // by the try/catch block in the component calling it.
-  await updateDoc(docRef, { status });
 }

@@ -35,7 +35,6 @@ export type Appointment = {
   date: string; // ISO string for serializability
   time: string; // HH:mm format
   patientType: PatientType;
-  status: 'Pendiente' | 'Atendida' | 'Cancelada';
   patient: Omit<Patient, 'id'>; // Denormalized for easy display
 };
 

@@ -60,7 +60,6 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             <TableHead>Teléfono</TableHead>
             <TableHead>Núcleo Básico</TableHead>
             <TableHead>Tipo</TableHead>
-            <TableHead>Estado</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
@@ -77,7 +76,6 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
               <TableCell>{getClinicName(app.clinicId)}</TableCell>
               <TableCell>{app.patientType}</TableCell>
-              <TableCell>{app.status}</TableCell>
                {isAdmin && (
                 <TableCell className="text-right">
                    <AlertDialog>

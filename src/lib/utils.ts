@@ -19,7 +19,6 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
       date,
       time,
       patient,
-      status,
       patientType,
       clinicName,
     }) => ({
@@ -31,7 +30,6 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
       'Teléfono': patient?.phoneNumber || 'N/A',
       'Núcleo': clinicName,
       'Tipo Paciente': patientType,
-      'Estado Cita': status,
     })
   );
 
