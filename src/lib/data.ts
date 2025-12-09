@@ -1,4 +1,5 @@
-'use server';
+// All functions in this file are now intended for client-side execution.
+// The 'use server' directive has been removed.
 
 import {
   collection,
@@ -18,7 +19,6 @@ import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { unstable_cache as cache, revalidateTag } from 'next/cache';
 
 const getDb = () => {
   const { firestore } = initializeFirebase();
@@ -31,8 +31,6 @@ const handleFirestoreError = (error: any, context: { path: string, operation: 'g
         operation: context.operation,
         requestResourceData: context.requestResourceData,
     });
-    // The listener in FirebaseErrorListener.tsx will catch this and show the overlay.
-    // The component that called the function will also see the thrown error.
     errorEmitter.emit('permission-error', permissionError);
     throw permissionError;
 }
@@ -103,7 +101,7 @@ export async function saveAppointment(appointment: Appointment): Promise<Appoint
   }
 }
 
-export const getAppointments = cache(async (): Promise<Appointment[]> => {
+export async function getAppointments(): Promise<Appointment[]> {
     const appointments = await getCollection<any>('appointments');
     
     const enrichedAppointmentsPromises = appointments
@@ -129,7 +127,7 @@ export const getAppointments = cache(async (): Promise<Appointment[]> => {
     return settledAppointments
         .filter((app): app is Appointment => app !== null)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-}, ['appointments'], { revalidate: 10 });
+};
 
 
 export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> {
@@ -193,17 +191,15 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'At
 }
 
 // ========== Users (For Auth) ==========
-export const getUsers = cache(async (): Promise<User[]> => {
+export async function getUsers(): Promise<User[]> {
     return getCollection<User>('users');
-}, ['users'], { revalidate: 10 });
+};
 
 
 export const getUserByUID = async (uid: string): Promise<User | null> => {
     try {
         return await getDocument<User>('users', uid);
     } catch (error) {
-        // This function is called on the client, so we don't want to throw a server error.
-        // The getDocument will emit a permission error to the listener.
         console.error("Could not fetch user profile for UID:", uid, error);
         return null;
     }
@@ -246,10 +242,6 @@ export const getAnnouncements = async (): Promise<string[]> => {
 export const updateAnnouncements = async (newAnnouncements: string[]): Promise<{success: boolean, message?: string}> => {
   try {
     const success = await setDocument('settings', 'announcements', { messages: newAnnouncements.slice(0, 4) });
-    if(success) {
-      revalidatePath('/');
-      revalidatePath('/admin');
-    }
     return { success };
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
@@ -258,7 +250,7 @@ export const updateAnnouncements = async (newAnnouncements: string[]): Promise<{
 
 // ========== Clinics Configuration ==========
 
-export const getClinics = cache(async(): Promise<Clinic[]> => {
+export async function getClinics(): Promise<Clinic[]> {
     try {
         const clinics = await getCollection<Clinic>('clinics');
         if (clinics.length === 0) {
@@ -287,7 +279,7 @@ export const getClinics = cache(async(): Promise<Clinic[]> => {
             weekendBookingEnabled: false,
         }];
     }
-}, ['clinics'], { revalidate: 10 });
+};
 
 
 export async function updateClinics(clinics: Clinic[]): Promise<{success: boolean, message?: string}> {
@@ -311,9 +303,6 @@ export async function updateClinics(clinics: Clinic[]): Promise<{success: boolea
       });
 
       await batch.commit();
-      revalidateTag('clinics');
-      revalidatePath('/admin');
-      revalidatePath('/');
       return { success: true };
     } catch(error) {
         handleFirestoreError(error, { path: 'clinics', operation: 'write', requestResourceData: clinics});
@@ -324,7 +313,7 @@ export async function updateClinics(clinics: Clinic[]): Promise<{success: boolea
 
 // ========== Colonias Configuration ==========
 
-export const getColonias = cache(async (): Promise<Colonia[]> => {
+export async function getColonias(): Promise<Colonia[]> {
   try {
       const colonias = await getCollection<Colonia>('colonias');
       if (colonias.length === 0) {
@@ -341,7 +330,7 @@ export const getColonias = cache(async (): Promise<Colonia[]> => {
         { id: 'pueblo-nuevo-id', name: 'Pueblo Nuevo', clinicId: 'NB1' },
       ];
   }
-}, ['colonias'], { revalidate: 10 });
+};
 
 export async function updateColonias(colonias: Colonia[]): Promise<{success: boolean, message?: string}> {
     const db = getDb();
@@ -349,27 +338,21 @@ export async function updateColonias(colonias: Colonia[]): Promise<{success: boo
     const collectionRef = collection(db, 'colonias');
 
     try {
-        // Get all existing documents to determine which ones to delete.
         const existingDocsSnapshot = await getDocs(collectionRef);
         const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
 
-        // Set (create or overwrite) the documents from the input array.
         colonias.forEach(colonia => {
             const { id, ...data } = colonia;
             const docRef = doc(collectionRef, id);
             batch.set(docRef, data);
-            existingIds.delete(id); // Remove from the set of IDs to delete.
+            existingIds.delete(id);
         });
 
-        // Delete any documents that were not in the input array.
         existingIds.forEach(idToDelete => {
             batch.delete(doc(collectionRef, idToDelete));
         });
 
         await batch.commit();
-        revalidateTag('colonias');
-        revalidatePath('/admin');
-        revalidatePath('/');
         return { success: true };
     } catch (error) {
         handleFirestoreError(error, {

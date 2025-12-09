@@ -50,7 +50,8 @@ export function ColoniasManager() {
 
   useEffect(() => {
     fetchData();
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleColoniaChange = (id: string, field: 'name' | 'clinicId', value: string) => {
     setColonias(prev =>

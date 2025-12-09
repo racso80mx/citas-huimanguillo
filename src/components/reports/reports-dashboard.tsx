@@ -118,7 +118,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     setActiveFilter('range');
   }
 
-  const handleStatusChange = async (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
+  const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(async () => {
         const result = await updateAppointmentStatus(appointmentId, status);
         if (result.success) {

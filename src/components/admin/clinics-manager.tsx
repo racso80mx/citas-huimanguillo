@@ -44,7 +44,8 @@ export function ClinicsManager() {
 
   useEffect(() => {
     fetchClinics();
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleClinicChange = (id: string, field: keyof Omit<Clinic, 'id'>, value: string | number | boolean) => {
     setClinics(prev =>

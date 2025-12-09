@@ -69,7 +69,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           setAllAppointments(appointments);
           setClinics(clinicsData);
           setColonias(coloniasData);
-          applyFilters(appointments); // Apply initial filters right after fetching
+          // applyFilters is called inside useEffect, so no need to call it here
       } catch (error) {
           console.error("Error fetching admin dashboard data:", error);
           toast({
@@ -167,23 +167,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     downloadExcel(enrichedAppointments, `citas_${activeFilter}`);
   };
 
-  const handleDelete = (id: string) => {
-    startTransition(async () => {
-      const result = await deleteAppointment(id);
-      if (result.success) {
-        toast({
-          title: 'Cita Eliminada',
-          description: 'La cita ha sido eliminada y el cupo liberado.',
-        });
-        fetchData(); // Refresca los datos
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message || 'No se pudo eliminar la cita.',
-          variant: 'destructive',
-        });
-      }
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAppointment(id);
+       toast({
+        title: 'Cita Eliminada',
+        description: 'La cita ha sido eliminada y el cupo liberado.',
+      });
+      fetchData(); // Refresca los datos
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la cita.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
