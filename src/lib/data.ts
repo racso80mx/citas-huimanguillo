@@ -81,14 +81,18 @@ export async function saveAppointment(appointment: Appointment): Promise<Appoint
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
   
+  // Don't save the full patient object in the appointment document, only the ID.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { patient, ...appointmentData } = appointment;
+
   const dataToSave = {
-    ...appointment,
+    ...appointmentData,
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
   try {
     await setDoc(docRef, dataToSave);
-    return appointment;
+    return appointment; // Return the full object with patient data for immediate use
   } catch(error) {
     handleFirestoreError(error, { path: docRef.path, operation: 'create', requestResourceData: dataToSave });
     return null;
@@ -97,10 +101,19 @@ export async function saveAppointment(appointment: Appointment): Promise<Appoint
 
 export const getAppointments = cache(async (): Promise<Appointment[]> => {
     const appointments = await getCollection<any>('appointments');
-    return appointments.map(app => ({
-      ...app,
-      date: (app.date as Timestamp).toDate().toISOString(),
-    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const enrichedAppointments = await Promise.all(
+        appointments.map(async (app) => {
+            const patient = await getDocument<Patient>('patients', app.patientId);
+            return {
+                ...app,
+                date: (app.date as Timestamp).toDate().toISOString(),
+                patient: patient ? { ...patient } : null,
+            };
+        })
+    );
+    return enrichedAppointments
+        .filter(app => app.patient !== null) // Filter out appointments with no patient
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }, ['appointments'], { revalidate: 10 });
 
 
@@ -119,10 +132,21 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
 
   try {
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => {
+    const appointments = snapshot.docs.map((doc) => {
       const data = doc.data();
       return { ...data, id: doc.id, date: (data.date as Timestamp).toDate().toISOString() } as Appointment;
     });
+
+    // Enrich with patient data
+    const enrichedAppointments = await Promise.all(
+        appointments.map(async (app) => {
+            const patient = await getDocument<Patient>('patients', app.patientId);
+            return { ...app, patient: patient ? { ...patient } : null };
+        })
+    );
+
+    return enrichedAppointments.filter(app => app.patient !== null) as Appointment[];
+
   } catch(error) {
      handleFirestoreError(error, { path: 'appointments', operation: 'list' });
      return [];
@@ -165,13 +189,13 @@ export const getUserByUID = async (uid: string): Promise<User | null> => {
 };
 
 // ========== Patients ==========
-export const findPatientByCURP = async (curp: string): Promise<string | null> => {
+export const findPatientByCURP = async (curp: string): Promise<Patient | null> => {
     const db = getDb();
     const q = query(collection(db, 'patients'), where('curp', '==', curp.toUpperCase()));
     try {
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-            return snapshot.docs[0].id;
+            return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as Patient;
         }
         return null;
     } catch (error) {

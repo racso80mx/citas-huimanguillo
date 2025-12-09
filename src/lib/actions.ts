@@ -43,7 +43,7 @@ export async function bookAppointment(data: BookAppointmentArgs) {
 
   // Check if CURP already has an appointment on this date
   const curpExistsOnDate = appointmentsOnDate.some(
-    (app) => app.patient.curp.toUpperCase() === patient.curp.toUpperCase()
+    (app) => app.patient && app.patient.curp.toUpperCase() === patient.curp.toUpperCase()
   );
 
   if (curpExistsOnDate) {
@@ -55,9 +55,11 @@ export async function bookAppointment(data: BookAppointmentArgs) {
   }
   
   // Find or create patient
-  let patientId = await findPatientByCURP(patient.curp);
-  if (!patientId) {
-      patientId = await savePatient({ ...patient, id: uuidv4()});
+  let existingPatient = await findPatientByCURP(patient.curp);
+  if (!existingPatient) {
+      const newPatient = { ...patient, id: uuidv4()};
+      await savePatient(newPatient);
+      existingPatient = newPatient;
   }
 
   // Create appointment number
@@ -70,13 +72,13 @@ export async function bookAppointment(data: BookAppointmentArgs) {
   const newAppointment: Appointment = {
       id: uuidv4(),
       appointmentNumber,
-      patientId,
+      patientId: existingPatient.id,
       clinicId,
       date,
       time,
       patientType: data.patientType,
       status: 'Pendiente',
-      patient, // Embed patient data for convenience
+      patient: existingPatient, // Embed patient data for convenience
   }
 
   const savedAppointment = await saveAppointment(newAppointment);
