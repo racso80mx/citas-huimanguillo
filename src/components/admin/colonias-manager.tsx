@@ -35,12 +35,22 @@ export function ColoniasManager() {
   useEffect(() => {
     const fetchColonias = async () => {
       setIsLoading(true);
-      const data = await getColonias();
-      setColonias(data);
-      setIsLoading(false);
+      try {
+        const data = await getColonias();
+        setColonias(data);
+      } catch (error) {
+        console.error("Failed to fetch colonias:", error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar las colonias. Por favor, recarga la página.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchColonias();
-  }, []);
+  }, [toast]);
 
   const handleColoniaChange = (id: string, field: 'nombre' | 'nucleo', value: string | number) => {
     setColonias(prev =>
@@ -77,8 +87,12 @@ export function ColoniasManager() {
           className: 'bg-accent text-accent-foreground',
         });
         // Refetch to ensure sync with DB state
-        const data = await getColonias();
-        setColonias(data);
+        try {
+            const data = await getColonias();
+            setColonias(data);
+        } catch (error) {
+            console.error("Failed to refetch colonias after save:", error);
+        }
       } else {
         toast({
           title: 'Error',
