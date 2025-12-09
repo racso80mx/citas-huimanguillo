@@ -118,12 +118,12 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(async () => {
+        const originalAppointments = [...allAppointments];
         
         // Optimistic UI update
-        const originalAppointments = allAppointments;
-        const updateAppointments = (prev: Appointment[]) => 
-            prev.map(app => app.id === appointmentId ? { ...app, status } : app);
-        setAllAppointments(updateAppointments);
+        setAllAppointments(prev => 
+            prev.map(app => app.id === appointmentId ? { ...app, status } : app)
+        );
 
         const result = await updateAppointmentStatus(appointmentId, status);
         
@@ -271,7 +271,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                     </TableHeader>
                     <TableBody>
                         {filteredAppointments.map(app => (
-                            <TableRow key={app.id} className={isStatusPending ? 'opacity-50' : ''}>
+                            <TableRow key={app.id} className={isStatusPending && app.status !== 'Pendiente' ? 'opacity-50' : ''}>
                                 <TableCell>{app.appointmentNumber}</TableCell>
                                 <TableCell>{app.patient.name} {app.patient.paternalLastName}</TableCell>
                                 <TableCell>{app.time}</TableCell>

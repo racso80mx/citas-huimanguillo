@@ -87,8 +87,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   }, [fetchData]);
 
   const applyFilters = useCallback(
-    (appointmentsToFilter: Appointment[]) => {
-      if (!appointmentsToFilter) {
+    () => {
+      if (!allAppointments) {
         setFilteredAppointments([]);
         return;
       }
@@ -136,14 +136,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           };
           break;
       }
-      setFilteredAppointments(appointmentsToFilter.filter(filterFn));
+      setFilteredAppointments(allAppointments.filter(filterFn));
     },
-    [activeFilter, dateRange]
+    [activeFilter, dateRange, allAppointments]
   );
 
   // Re-apply filters when dependencies change
   useEffect(() => {
-    applyFilters(allAppointments);
+    applyFilters();
   }, [activeFilter, dateRange, allAppointments, applyFilters]);
 
   const handleSetDateRange = (range: DateRange | undefined) => {
