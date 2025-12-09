@@ -150,6 +150,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return;
     }
 
+    // Create a safe, enriched copy for download without mutating the original data
     const enrichedAppointments = dataToDownload.map((app) => {
       const clinic = clinics.find((c) => c.id === app.clinicId);
       // This is a simplification; in a real app, you might need to find the colonia based on patient ID or another logic
@@ -157,7 +158,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return {
         ...app,
         clinicName: clinic?.name || 'N/A',
-        coloniaName: patientColonia?.name || 'N/A',
+        coloniaName: patientColonia?.name || 'N/A', // This property is not standard on Appointment
       };
     });
 
