@@ -78,7 +78,6 @@ export async function saveAppointment(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
 
-  // CRITICAL FIX: Ensure the date is a Firestore Timestamp before saving.
   const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
@@ -192,6 +191,7 @@ export function updateAppointmentStatus(
   const docRef = doc(db, 'appointments', appointmentId);
 
   updateDoc(docRef, { status }).catch((error) => {
+    // Let the global error handler catch and display the permission error
     handleFirestoreError(error, {
       path: docRef.path,
       operation: 'update',

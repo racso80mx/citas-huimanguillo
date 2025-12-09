@@ -142,10 +142,10 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(() => {
-        updateAppointmentStatus(appointmentId, status);
         toast({ title: "Actualizando estado...", description: "El cambio se reflejará en momentos."});
-        // Optimistically refetch data
-        setTimeout(fetchData, 1000); 
+        updateAppointmentStatus(appointmentId, status);
+        // Optimistically refetch data after a short delay to allow Firestore to process
+        setTimeout(fetchData, 1500); 
       })
   }
 
