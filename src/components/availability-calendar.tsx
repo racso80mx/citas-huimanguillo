@@ -1,7 +1,7 @@
 'use client';
 import { Calendar } from '@/components/ui/calendar';
 import type { DailyAvailability } from '@/lib/definitions';
-import { format, parseISO, startOfToday } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
 import React, { useMemo } from 'react';
@@ -21,18 +21,11 @@ export function AvailabilityCalendar({
   onMonthChange,
   isLoading,
 }: AvailabilityCalendarProps) {
-
   const disabledDays = useMemo(() => {
-    // This is safe from hydration errors because startOfToday() will be the same
-    // on the server and client for a given day.
-    const today = startOfToday();
-    const days = availability
+    return availability
       .filter((d) => d.availableSlots === 0)
       .map((d) => parseISO(d.date));
-      
-    return [{ before: today }, ...days];
   }, [availability]);
-
 
   const modifiers = {
     available: (date: Date) => {
@@ -64,7 +57,7 @@ export function AvailabilityCalendar({
           selected={selectedDate}
           onSelect={onDateSelect}
           onMonthChange={onMonthChange}
-          disabled={disabledDays}
+          disabled={[{ before: new Date() }, ...disabledDays]}
           modifiers={modifiers}
           modifiersStyles={modifiersStyles}
           className="p-0"
@@ -83,3 +76,5 @@ export function AvailabilityCalendar({
     </div>
   );
 }
+
+    

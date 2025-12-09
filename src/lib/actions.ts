@@ -74,7 +74,7 @@ export async function bookAppointment(data: BookAppointmentArgs) {
       time,
       patientType: data.patientType,
       status: 'Pendiente',
-      patient: existingPatient, // Embed patient data for convenience
+      patient, // Embed patient data for convenience
   }
 
   const savedAppointment = await saveAppointment(newAppointment);
@@ -146,3 +146,5 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'At
     }
     return { success: false, message: "No se pudo actualizar el estado." }
 }
+
+    

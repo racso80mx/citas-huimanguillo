@@ -17,7 +17,7 @@ import { getAnnouncements, getColonias, getAppointments, getClinics } from '@/li
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Select,
@@ -184,9 +184,7 @@ export default function HomePage() {
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (date < today) {
+      if (date < startOfToday()) {
         toast({
           title: 'Fecha no válida',
           description: 'No puedes seleccionar una fecha en el pasado.',
@@ -324,7 +322,7 @@ export default function HomePage() {
                    </Card>
                 </div>
               )}
-                {selectedClinic && (
+                {selectedColoniaId && (
                     <>
                         <div>
                             <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
@@ -379,7 +377,7 @@ export default function HomePage() {
                                 <CardHeader>
                                     <CardTitle className="text-xl flex items-center gap-2">
                                     <Clock className="h-5 w-5 text-primary" />
-                                    Horarios para {selectedClinic.name}
+                                    Horarios para {selectedClinic?.name}
                                     </CardTitle>
                                     <CardDescription>Selecciona un horario disponible.</CardDescription>
                                 </CardHeader>
@@ -437,3 +435,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
