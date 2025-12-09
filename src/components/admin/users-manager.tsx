@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { getUsers, getClinics, updateUsers } from '@/lib/data';
+import { getUsers, getClinics } from '@/lib/data';
+import { updateUsers } from '@/lib/actions';
 import { Loader2, Trash2, PlusCircle, Users, Save, Eye, EyeOff } from 'lucide-react';
 import type { User, Clinic } from '@/lib/definitions';
 import {
@@ -39,7 +40,7 @@ const userSchema = z.object({
   name: z.string().min(2, 'El nombre es requerido.'),
   role: z.enum(['admin', 'doctor']),
   clinicId: z.string().optional(),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.').optional(),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.').optional().or(z.literal('')),
 });
 
 const formSchema = z.object({
@@ -174,6 +175,7 @@ export function UsersManager() {
                                     type={showPasswords[field.name] ? 'text' : 'password'}
                                     placeholder="Dejar en blanco para no cambiar"
                                     {...field}
+                                    value={field.value ?? ''}
                                 />
                                </FormControl>
                                <Button

@@ -12,8 +12,15 @@ import {
   savePatient,
   updateAppointmentStatus as updateDataAppointmentStatus,
   verifyClinicPassword as dataVerifyClinicPassword,
-  updateUsers as updateDataUsers,
+  getUsers as dataGetUsers,
 } from './data';
+import {
+  getAuth as getAdminAuth,
+  UserRecord,
+} from 'firebase-admin/auth';
+import { initializeAdminApp } from '@/firebase/admin-config';
+import { collection, doc, writeBatch } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, Patient, PatientType, User } from './definitions';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -155,10 +162,57 @@ export async function verifyClinicPassword(clinicId: string, passwordAttempt: st
 }
 
 export async function updateUsers(users: (User & { password?: string })[]) {
-    const result = await updateDataUsers(users);
-    if(result.success) {
-        revalidatePath('/admin');
-        return { success: true, message: "Usuarios actualizados con éxito." }
+    const getAdminSdk = () => {
+        const adminApp = initializeAdminApp();
+        return {
+            auth: getAdminAuth(adminApp),
+        }
     }
-    return { success: false, message: result.message || "No se pudo guardar la configuración de usuarios." }
+    
+    const adminAuth = getAdminSdk().auth;
+    const { firestore: db } = initializeFirebase();
+    const batch = writeBatch(db);
+
+    try {
+        for (const userData of users) {
+            const { id, email, name, role, clinicId, password } = userData;
+            let uid = id;
+
+            // Is it a new user? (check for temporary ID format)
+            if (id.startsWith('new-')) {
+                let userRecord: UserRecord;
+                try {
+                    if (!password) {
+                        throw new Error(`La contraseña es requerida para el nuevo usuario: ${email}`);
+                    }
+                    userRecord = await adminAuth.createUser({ email, password, displayName: name });
+                    uid = userRecord.uid;
+                } catch (error: any) {
+                    if (error.code === 'auth/email-already-exists') {
+                        userRecord = await adminAuth.getUserByEmail(email);
+                        uid = userRecord.uid;
+                    } else {
+                        throw error;
+                    }
+                }
+            } else if (password) {
+                // If password is provided for an existing user, update it.
+                await adminAuth.updateUser(uid, { password });
+            }
+
+            // Prepare Firestore document
+            const userDocRef = doc(db, 'users', uid);
+            const userDocData: Omit<User, 'id'> = { email, name, role };
+            if (role === 'doctor' && clinicId) {
+                userDocData.clinicId = clinicId;
+            }
+            batch.set(userDocRef, userDocData);
+        }
+
+        await batch.commit();
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating users:", error);
+        return { success: false, message: error.message };
+    }
 }

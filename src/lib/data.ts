@@ -1,4 +1,3 @@
-'use server';
 import {
   collection,
   doc,
@@ -13,12 +12,6 @@ import {
   WriteBatch,
   updateDoc,
 } from 'firebase/firestore';
-import {
-  getAuth as getAdminAuth,
-  UserRecord,
-  ListUsersResult,
-} from 'firebase-admin/auth';
-import { initializeAdminApp } from '@/firebase/admin-config';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -29,13 +22,6 @@ const getDb = () => {
   const { firestore } = initializeFirebase();
   return firestore;
 };
-
-const getAdminSdk = () => {
-  const adminApp = initializeAdminApp();
-  return {
-    auth: getAdminAuth(adminApp),
-  }
-}
 
 const handleFirestoreError = (error: any, context: { path: string, operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write', requestResourceData?: any }) => {
     console.error(`Firestore Error [${context.operation}] at '${context.path}':`, error);
@@ -98,7 +84,6 @@ export async function saveAppointment(appointment: Appointment): Promise<Appoint
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
   
-  // Don't save the full patient object in the appointment document, only the ID.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { patient, ...appointmentData } = appointment;
 
@@ -109,7 +94,7 @@ export async function saveAppointment(appointment: Appointment): Promise<Appoint
 
   try {
     await setDoc(docRef, dataToSave);
-    return appointment; // Return the full object with patient data for immediate use
+    return appointment; 
   } catch(error) {
     handleFirestoreError(error, { path: docRef.path, operation: 'create', requestResourceData: dataToSave });
     return null;
@@ -120,11 +105,11 @@ export const getAppointments = cache(async (): Promise<Appointment[]> => {
     const appointments = await getCollection<any>('appointments');
     
     const enrichedAppointmentsPromises = appointments
-        .filter(app => !!app.patientId) // Ensure patientId exists
+        .filter(app => !!app.patientId)
         .map(async (app) => {
             try {
                 const patient = await getDocument<Patient>('patients', app.patientId);
-                if (!patient) return null; // Skip if patient not found
+                if (!patient) return null;
 
                 return {
                     ...app,
@@ -133,14 +118,14 @@ export const getAppointments = cache(async (): Promise<Appointment[]> => {
                 };
             } catch (error) {
                 console.error(`Failed to enrich appointment ${app.id} for patient ${app.patientId}:`, error);
-                return null; // Skip this appointment on error
+                return null;
             }
         });
 
     const settledAppointments = await Promise.all(enrichedAppointmentsPromises);
     
     return settledAppointments
-        .filter((app): app is Appointment => app !== null) // Filter out nulls
+        .filter((app): app is Appointment => app !== null)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }, ['appointments'], { revalidate: 10 });
 
@@ -165,7 +150,6 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
       return { ...data, id: doc.id, date: (data.date as Timestamp).toDate().toISOString() } as Appointment;
     });
 
-    // Enrich with patient data
     const enrichedAppointments = await Promise.all(
         appointments
             .filter(app => !!app.patientId)
@@ -216,60 +200,10 @@ export const getUserByUID = async (uid: string): Promise<User | null> => {
     try {
         return await getDocument<User>('users', uid);
     } catch (error) {
-        // This is a special case. If fetching the user profile fails, we don't want to
-        // throw a permission error that locks the UI. We just return null.
-        // A user not having a profile is a possible state.
         console.error("Could not fetch user profile for UID:", uid, error);
         return null;
     }
 };
-
-export async function updateUsers(users: (User & { password?: string })[]) {
-    const adminAuth = getAdminSdk().auth;
-    const db = getDb();
-    const batch = writeBatch(db);
-
-    try {
-        for (const userData of users) {
-            const { id, email, name, role, clinicId, password } = userData;
-            let uid = id;
-
-            // Is it a new user? (check for temporary ID format)
-            if (id.startsWith('new-')) {
-                let userRecord: UserRecord;
-                try {
-                    userRecord = await adminAuth.createUser({ email, password, displayName: name });
-                    uid = userRecord.uid;
-                } catch (error: any) {
-                    if (error.code === 'auth/email-already-exists') {
-                        userRecord = await adminAuth.getUserByEmail(email);
-                        uid = userRecord.uid;
-                    } else {
-                        throw error;
-                    }
-                }
-            } else if (password) {
-                // If password is provided for an existing user, update it.
-                await adminAuth.updateUser(uid, { password });
-            }
-
-            // Prepare Firestore document
-            const userDocRef = doc(db, 'users', uid);
-            const userDocData: User = { id: uid, email, name, role };
-            if (role === 'doctor' && clinicId) {
-                userDocData.clinicId = clinicId;
-            }
-            batch.set(userDocRef, userDocData);
-        }
-
-        await batch.commit();
-        return { success: true };
-    } catch (error: any) {
-        console.error("Error updating users:", error);
-        return { success: false, message: error.message };
-    }
-}
-
 
 // ========== Patients ==========
 export const findPatientByCURP = async (curp: string): Promise<Patient | null> => {

@@ -4,7 +4,8 @@ import { AdminDashboard } from '@/components/admin/admin-dashboard';
 import { LoginForm } from '@/components/admin/login-form';
 import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '@/firebase';
-import { getUserByUID, User } from '@/lib/data';
+import { getUserByUID } from '@/lib/data';
+import type { User } from '@/lib/definitions';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminPage() {
@@ -41,12 +42,8 @@ export default function AdminPage() {
   const handleSuperAdminLogin = async (credentials: {email: string, pass: string}) => {
     if (credentials.email === 'SuperAdmin' && credentials.pass === 'Hu1m4ngu1ll0') {
         try {
-            // Attempt to sign in with a pre-configured admin account to get permissions.
-            // Replace with your actual admin credentials stored securely.
-            // This is a simplified approach for this context.
-            // A more secure approach would use a custom token system.
             await signInWithEmailAndPassword(auth, 'admin@citamedica.com', 'AdminPass123!');
-            setIsSuperAdmin(true); // Keep this to differentiate the login method if needed
+            setIsSuperAdmin(true); 
         } catch (error) {
             console.error("SuperAdmin shadow login failed:", error);
             toast({
@@ -66,15 +63,15 @@ export default function AdminPage() {
     );
   }
   
-  const isAdmin = user && user.role === 'admin';
+  const isAdmin = (user && user.role === 'admin') || isSuperAdmin;
 
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       {isAdmin ? (
-        <AdminDashboard user={user} onLogout={handleLogout} />
+        <AdminDashboard user={user || {id: 'superadmin', name: 'SuperAdmin', email: '', role: 'admin'}} onLogout={handleLogout} />
       ) : (
-        <LoginForm onSuperAdminLogin={handleSuperAdminLogin} isReportsPage={false} />
+        <LoginForm onSuperAdminLogin={handleSuperAdminLogin} />
       )}
     </div>
   );
