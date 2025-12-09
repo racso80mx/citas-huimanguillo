@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment, User, Clinic, Colonia } from '@/lib/definitions';
-import { deleteAppointment } from '@/lib/actions';
-import { getAppointments, getClinics, getColonias } from '@/lib/data-client';
+import { deleteAppointment, getClinics, getColonias } from '@/lib/actions';
+import { getAppointments } from '@/lib/data-client';
 import {
   Card,
   CardHeader,
@@ -62,12 +62,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const fetchData = () => {
     startTransition(async () => {
       try {
-          const [appointments, clinicsData, coloniasData] = await Promise.all([
+          const [appointmentsData, clinicsData, coloniasData] = await Promise.all([
               getAppointments(),
               getClinics(),
               getColonias()
           ]);
-          setAllAppointments(appointments);
+          setAllAppointments(appointmentsData);
           setClinics(clinicsData);
           setColonias(coloniasData);
       } catch (error) {

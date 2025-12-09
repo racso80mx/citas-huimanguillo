@@ -12,8 +12,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateClinics } from '@/lib/actions';
-import { getClinics as getClinicsClient } from '@/lib/data-client';
+import { updateClinics, getClinics } from '@/lib/actions';
 import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { Label } from '../ui/label';
@@ -30,7 +29,7 @@ export function ClinicsManager() {
   const fetchClinics = async () => {
       setIsLoading(true);
       try {
-        const data = await getClinicsClient();
+        const data = await getClinics();
         setClinics(data);
       } catch (error) {
         console.error("Failed to fetch clinics:", error);

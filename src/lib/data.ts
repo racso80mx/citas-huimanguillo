@@ -25,13 +25,15 @@ async function readJsonFile<T>(filename: string, defaultValue: T): Promise<T> {
   }
 }
 
-async function writeJsonFile(filename: string, data: any): Promise<void> {
+async function writeJsonFile(filename: string, data: any): Promise<{success: boolean, message?: string}> {
     try {
         console.warn(`Writing to static file ${filename}. A server restart is required for changes to take effect in the booking UI.`);
         await fs.writeFile(dataFilePath(filename), JSON.stringify(data, null, 2), 'utf-8');
-    } catch (e) {
+        return { success: true };
+    } catch (e: any) {
         console.error(`Failed to write to static file ${filename}`, e);
         // This is a dev-time convenience, so we don't throw an error in production
+        return { success: false, message: `Failed to write to static file ${filename}: ${e.message}` };
     }
 }
 
@@ -43,13 +45,12 @@ export const getAnnouncements = async (): Promise<string[]> => {
   return data.messages;
 };
 
-// This function is now a Server Action called from the admin panel.
+// This function is a Server Action called from the admin panel.
 export const updateAnnouncements = async (
   newAnnouncements: string[]
 ): Promise<{ success: boolean; message?: string }> => {
   const data = { messages: newAnnouncements.slice(0, 4) };
-  await writeJsonFile('announcements.json', data);
-  return { success: true };
+  return await writeJsonFile('announcements.json', data);
 };
 
 // ========== Clinics Configuration ==========
@@ -59,12 +60,11 @@ export async function getClinics(): Promise<Clinic[]> {
   return clinics;
 }
 
-// This function is now a Server Action called from the admin panel.
+// This function is a Server Action called from the admin panel.
 export async function updateClinics(
   clinics: Clinic[]
 ): Promise<{ success: boolean; message?: string }> {
-  await writeJsonFile('clinics.json', clinics);
-  return { success: true };
+  return await writeJsonFile('clinics.json', clinics);
 }
 
 // ========== Colonias Configuration ==========
@@ -74,12 +74,11 @@ export async function getColonias(): Promise<Colonia[]> {
   return colonias;
 }
 
-// This function is now a Server Action called from the admin panel.
+// This function is a Server Action called from the admin panel.
 export async function updateColonias(
   colonias: Colonia[]
 ): Promise<{ success: boolean; message?: string }> {
-    await writeJsonFile('colonias.json', colonias);
-    return { success: true };
+    return await writeJsonFile('colonias.json', colonias);
 }
 
 // ========== Reports Auth ==========

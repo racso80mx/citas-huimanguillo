@@ -19,8 +19,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { updateColonias } from '@/lib/actions';
-import { getColonias as getColoniasClient, getClinics as getClinicsClient } from '@/lib/data-client';
+import { updateColonias, getColonias, getClinics } from '@/lib/actions';
 import { Loader2, Trash2, PlusCircle, MapPin, Save } from 'lucide-react';
 import type { Colonia, Clinic } from '@/lib/definitions';
 
@@ -34,7 +33,7 @@ export function ColoniasManager() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [coloniasData, clinicsData] = await Promise.all([getColoniasClient(), getClinicsClient()]);
+      const [coloniasData, clinicsData] = await Promise.all([getColonias(), getClinics()]);
       setColonias(coloniasData);
       setClinics(clinicsData);
     } catch (error) {

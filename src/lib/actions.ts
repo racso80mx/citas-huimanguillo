@@ -9,7 +9,10 @@ import {
   verifyClinicPassword as dataVerifyClinicPassword, 
   updateClinics as dataUpdateClinics, 
   updateColonias as dataUpdateColonias, 
-  updateAnnouncements as dataUpdateAnnouncements 
+  updateAnnouncements as dataUpdateAnnouncements,
+  getClinics as dataGetClinics,
+  getColonias as dataGetColonias,
+  getAnnouncements as dataGetAnnouncements,
 } from './data';
 import type { Clinic, Colonia } from './definitions';
 
@@ -54,8 +57,6 @@ export async function verifyClinicPassword(
 export async function updateClinics(clinics: Clinic[]) {
     const result = await dataUpdateClinics(clinics);
     if (result.success) {
-        // Revalidation is not needed for static files in this manner,
-        // but we'll leave the tag in case the data source changes back.
         revalidateTag('clinics');
     }
     return result;
@@ -75,4 +76,17 @@ export async function updateAnnouncements(announcements: string[]) {
         revalidateTag('announcements');
     }
     return result;
+}
+
+// Server actions to fetch static data for client components that can't be server components
+export async function getClinics() {
+  return await dataGetClinics();
+}
+
+export async function getColonias() {
+  return await dataGetColonias();
+}
+
+export async function getAnnouncements() {
+    return await dataGetAnnouncements();
 }

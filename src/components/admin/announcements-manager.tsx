@@ -12,8 +12,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateAnnouncements } from '@/lib/actions';
-import { getAnnouncements as getAnnouncementsClient } from '@/lib/data-client';
+import { updateAnnouncements, getAnnouncements } from '@/lib/actions';
 import { Loader2, Trash2, PlusCircle, Megaphone } from 'lucide-react';
 
 export function AnnouncementsManager() {
@@ -24,7 +23,7 @@ export function AnnouncementsManager() {
 
   const fetchAnnouncements = async () => {
       setIsLoading(true);
-      const data = await getAnnouncementsClient();
+      const data = await getAnnouncements();
       setAnnouncements(data);
       setIsLoading(false);
     };
