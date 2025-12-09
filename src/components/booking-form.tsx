@@ -303,7 +303,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Número Telefónico</FormLabel>
                       <FormControl>
-                        <Input type="tel" placeholder="Tu teléfono de 10 dígitos" {...field} />
+                        <Input type="tel" placeholder="Tu teléfono de 10 dígitos" {...field} maxLength={10} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
