@@ -24,9 +24,10 @@
         "maternalLastName": { "type": "string" },
         "sex": { "type": "string", "enum": ["Hombre", "Mujer"] },
         "age": { "type": "number" },
-        "birthState": { "type": "string" }
+        "birthState": { "type": "string" },
+        "phoneNumber": { "type": "string" }
       },
-      "required": ["id", "curp", "name", "paternalLastName", "maternalLastName"]
+      "required": ["id", "curp", "name", "paternalLastName", "maternalLastName", "phoneNumber"]
     },
     "Appointment": {
       "title": "Appointment",

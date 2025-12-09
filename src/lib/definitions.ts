@@ -17,6 +17,7 @@ export type Patient = {
   sex: 'Hombre' | 'Mujer';
   age: number;
   birthState: string;
+  phoneNumber: string;
 };
 
 export enum PatientType {

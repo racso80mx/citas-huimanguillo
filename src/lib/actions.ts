@@ -60,6 +60,11 @@ export async function bookAppointment(data: BookAppointmentArgs) {
       const newPatient = { ...patient, id: uuidv4()};
       await savePatient(newPatient);
       existingPatient = newPatient;
+  } else {
+    // If patient exists, update their info just in case (e.g. phone number)
+    const updatedPatient = { ...existingPatient, ...patient };
+    await savePatient(updatedPatient);
+    existingPatient = updatedPatient;
   }
 
   // Create appointment number
@@ -152,5 +157,5 @@ export async function verifyClinicPassword(clinicId: string, passwordAttempt: st
     if (result.isValid) {
         return { success: true };
     }
-    return { success: false, message: result.error };
+    return { success: false, message: result.message };
 }

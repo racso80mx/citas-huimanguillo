@@ -33,12 +33,15 @@ import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
+const phoneRegex = /^\d{10}$/;
+
 
 const formSchema = z.object({
   curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
   name: z.string().min(2, 'El nombre es requerido.'),
   paternalLastName: z.string().min(2, 'El apellido paterno es requerido.'),
   maternalLastName: z.string().min(2, 'El apellido materno es requerido.'),
+  phoneNumber: z.string().regex(phoneRegex, 'El número de teléfono debe tener 10 dígitos.'),
   sex: z.enum(['Hombre', 'Mujer']),
   age: z.number().min(0, 'La edad no puede ser negativa.'),
   birthState: z.string().min(1, 'El estado es requerido.'),
@@ -73,6 +76,7 @@ export function BookingForm({
       name: '',
       paternalLastName: '',
       maternalLastName: '',
+      phoneNumber: '',
       sex: undefined,
       age: undefined,
       birthState: '',
@@ -105,10 +109,11 @@ export function BookingForm({
 
     startTransition(async () => {
       const patientData: Omit<Patient, 'id'> = {
-        curp: data.curp,
+        curp: data.curp.toUpperCase(),
         name: data.name,
         paternalLastName: data.paternalLastName,
         maternalLastName: data.maternalLastName,
+        phoneNumber: data.phoneNumber,
         sex: data.sex,
         age: data.age,
         birthState: data.birthState,
@@ -217,6 +222,19 @@ export function BookingForm({
                 </FormItem>
               )}
             />
+             <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Número Telefónico</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="Tu teléfono de 10 dígitos" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <FormField
                   control={form.control}

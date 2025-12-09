@@ -28,6 +28,7 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
       'Hora': time,
       'Paciente': `${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`,
       'CURP': patient.curp,
+      'Teléfono': patient.phoneNumber,
       'Núcleo': clinicName,
       'Tipo Paciente': patientType,
       'Estado Cita': status,
@@ -83,26 +84,28 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.setFont('Helvetica', 'normal');
     doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
     doc.text(`CURP: ${patient.curp}`, 20, 85);
+    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
+
 
     // Appointment Details
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, 105);
+    doc.text('Detalles de la Cita:', 20, 115);
 
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, 115);
-    doc.text(`Hora: ${time} hrs`, 20, 125);
-    doc.text(`Clínica: ${clinicData.name}`, 20, 135);
-    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, 145);
+    doc.text(`Fecha: ${formattedDate}`, 20, 125);
+    doc.text(`Hora: ${time} hrs`, 20, 135);
+    doc.text(`Clínica: ${clinicData.name}`, 20, 145);
+    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, 155);
     
     // Add a footer note
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 170);
-    doc.text('Presentarse con identificación personal (INE).', 20, 175)
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, 180);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 180);
+    doc.text('Presentarse con identificación personal (INE).', 20, 185)
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, 190);
 
     // Save the PDF
     doc.save(`recibo_cita_${patient.curp}.pdf`);

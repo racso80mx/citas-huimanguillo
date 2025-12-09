@@ -57,6 +57,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             <TableHead className="w-[120px]">Fecha / Hora</TableHead>
             <TableHead>Paciente</TableHead>
             <TableHead>CURP</TableHead>
+            <TableHead>Teléfono</TableHead>
             <TableHead>Núcleo Básico</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Estado</TableHead>
@@ -73,6 +74,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
               </TableCell>
               <TableCell>{`${app.patient.name} ${app.patient.paternalLastName}`}</TableCell>
               <TableCell>{app.patient.curp}</TableCell>
+              <TableCell>{app.patient.phoneNumber}</TableCell>
               <TableCell>{getClinicName(app.clinicId)}</TableCell>
               <TableCell>{app.patientType}</TableCell>
               <TableCell>{app.status}</TableCell>
