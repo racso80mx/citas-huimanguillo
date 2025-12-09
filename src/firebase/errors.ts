@@ -8,14 +8,15 @@ type SecurityRuleContext = {
 
 interface FirebaseAuthToken {
   name: string | null;
+  picture?: string | null;
   email: string | null;
   email_verified: boolean;
   phone_number: string | null;
   sub: string;
   firebase: {
-    identities: Record<string, string[]>;
+    identities: Record<string, any>;
     sign_in_provider: string;
-    tenant: string | null;
+    tenant?: string | null;
   };
 }
 
@@ -42,9 +43,12 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   if (!currentUser) {
     return null;
   }
-
+  
+  // This constructs a simplified token. For full fidelity, you would decode
+  // the actual ID token, but this is sufficient for debugging rules.
   const token: FirebaseAuthToken = {
     name: currentUser.displayName,
+    picture: currentUser.photoURL,
     email: currentUser.email,
     email_verified: currentUser.emailVerified,
     phone_number: currentUser.phoneNumber,
@@ -55,7 +59,7 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
           acc[p.providerId] = [p.uid];
         }
         return acc;
-      }, {} as Record<string, string[]>),
+      }, {} as Record<string, any>),
       sign_in_provider: currentUser.providerData[0]?.providerId || 'custom',
       tenant: currentUser.tenantId,
     },
@@ -76,16 +80,14 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    // Safely attempt to get the current user. This may fail on the server
-    // if Firebase hasn't been initialized in the current scope.
-    const firebaseAuth = getAuth();
-    const currentUser = firebaseAuth.currentUser;
-    if (currentUser) {
-      authObject = buildAuthObject(currentUser);
-    }
-  } catch {
-    // This will catch errors if the Firebase app is not yet initialized.
-    // In this case, we'll proceed without auth information.
+    // This function can be called on the server, where getAuth() might not
+    // have been initialized in the current scope. We wrap it in a try-catch
+    // to prevent the error handler itself from throwing an error.
+    const auth = getAuth();
+    authObject = buildAuthObject(auth.currentUser);
+  } catch (e) {
+    // Firebase app not initialized in this context (e.g., server-side).
+    // Proceed without auth object.
   }
 
   return {
@@ -97,12 +99,12 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
 }
 
 /**
- * Builds the final, formatted error message for the LLM.
+ * Builds the final, formatted error message.
  * @param requestObject The simulated request object.
  * @returns A string containing the error message and the JSON payload.
  */
 function buildErrorMessage(requestObject: SecurityRuleRequest): string {
-  return `Missing or insufficient permissions: The following request was denied by Firestore Security Rules:
+  return `FirestoreError: Missing or insufficient permissions: The following request was denied by Firestore Security Rules:
 ${JSON.stringify(requestObject, null, 2)}`;
 }
 

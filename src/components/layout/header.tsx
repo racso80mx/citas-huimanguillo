@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LayoutGrid } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ export function SiteHeader() {
            <div className="text-primary">
             <Image
                 src={logoBase64}
-                alt="Logo Hospital Huimanguillo"
+                alt="Logo CitaMedicaFacil"
                 width={40}
                 height={40}
                 className="rounded-md"
@@ -43,6 +43,22 @@ export function SiteHeader() {
             <Link href="/">
               <Home className="h-4 w-4 mr-2" />
               Reservar Cita
+            </Link>
+          </Button>
+           <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className={cn(
+              'transition-colors',
+              pathname === '/reports'
+                ? 'text-primary font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Link href="/reports">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Reportes
             </Link>
           </Button>
           <Button

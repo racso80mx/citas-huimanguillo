@@ -7,7 +7,7 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { Appointment } from '@/lib/definitions';
+import type { Appointment, Clinic } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from './ui/button';
@@ -29,15 +29,20 @@ type AppointmentListProps = {
   appointments: Appointment[];
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
+  clinics: Clinic[];
 };
 
-export function AppointmentList({ appointments, isAdmin = false, onDelete }: AppointmentListProps) {
+export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics }: AppointmentListProps) {
   if (!appointments || appointments.length === 0) {
     return (
       <div className="text-center py-10">
         <p className="text-muted-foreground">No hay citas agendadas para el filtro seleccionado.</p>
       </div>
     );
+  }
+
+  const getClinicName = (clinicId: string) => {
+    return clinics.find(c => c.id === clinicId)?.name || clinicId;
   }
 
   return (
@@ -48,14 +53,13 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete }: App
         </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>No. Cita</TableHead>
+            <TableHead>Folio</TableHead>
             <TableHead className="w-[120px]">Fecha / Hora</TableHead>
             <TableHead>Paciente</TableHead>
             <TableHead>CURP</TableHead>
-            <TableHead className="hidden md:table-cell">Sexo</TableHead>
-            <TableHead className="hidden md:table-cell">Edad</TableHead>
-            <TableHead className="hidden lg:table-cell">Teléfono</TableHead>
-            <TableHead>Consultorio</TableHead>
+            <TableHead>Núcleo Básico</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Estado</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
@@ -67,12 +71,11 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete }: App
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
-              <TableCell>{`${app.nombre} ${app.apellidoPaterno} ${app.apellidoMaterno}`}</TableCell>
-              <TableCell>{app.curp}</TableCell>
-              <TableCell className="hidden md:table-cell">{app.sexo}</TableCell>
-              <TableCell className="hidden md:table-cell">{app.edad}</TableCell>
-              <TableCell className="hidden lg:table-cell">{app.telefono}</TableCell>
-              <TableCell>Núcleo Básico {app.consultorio}</TableCell>
+              <TableCell>{`${app.patient.name} ${app.patient.paternalLastName}`}</TableCell>
+              <TableCell>{app.patient.curp}</TableCell>
+              <TableCell>{getClinicName(app.clinicId)}</TableCell>
+              <TableCell>{app.patientType}</TableCell>
+              <TableCell>{app.status}</TableCell>
                {isAdmin && (
                 <TableCell className="text-right">
                    <AlertDialog>
@@ -86,7 +89,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete }: App
                         <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                         <AlertDialogDescription>
                           Esta acción no se puede deshacer. Se eliminará permanentemente la cita de
-                          <span className='font-bold'>{` ${app.nombre} ${app.apellidoPaterno} `}</span>
+                          <span className='font-bold'>{` ${app.patient.name} ${app.patient.paternalLastName} `}</span>
                            ({app.appointmentNumber}) y el espacio quedará libre.
                         </AlertDialogDescription>
                       </AlertDialogHeader>

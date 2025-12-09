@@ -1,80 +1,102 @@
 {
   "entities": {
+    "User": {
+      "title": "User",
+      "type": "object",
+      "description": "Represents an authenticated user with a specific role.",
+      "properties": {
+        "id": { "type": "string", "description": "Firebase Authentication UID." },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "doctor"] },
+        "clinicId": { "type": "string", "description": "ID of the clinic the doctor is assigned to. Only for 'doctor' role." }
+      },
+      "required": ["id", "email", "name", "role"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "type": "object",
+      "description": "Represents a patient in the system.",
+      "properties": {
+        "id": { "type": "string" },
+        "curp": { "type": "string" },
+        "name": { "type": "string" },
+        "paternalLastName": { "type": "string" },
+        "maternalLastName": { "type": "string" },
+        "sex": { "type": "string", "enum": ["Hombre", "Mujer"] },
+        "age": { "type": "number" },
+        "birthState": { "type": "string" }
+      },
+      "required": ["id", "curp", "name", "paternalLastName", "maternalLastName"]
+    },
     "Appointment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Appointment",
       "type": "object",
       "description": "Represents a scheduled appointment.",
       "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the appointment." },
-        "date": { "type": "string", "description": "The date of the appointment in ISO format." },
-        "time": { "type": "string", "description": "The time of the appointment in HH:mm format." },
-        "appointmentNumber": { "type": "string", "description": "Formatted appointment folio number." },
-        "consultorio": { "type": "number", "description": "The clinic ID number." },
-        "curp": { "type": "string", "description": "The patient's CURP." },
-        "nombre": { "type": "string", "description": "Patient's first name." },
-        "apellidoPaterno": { "type": "string", "description": "Patient's paternal last name." },
-        "apellidoMaterno": { "type": "string", "description": "Patient's maternal last name." },
-        "sexo": { "type": "string", "enum": ["Hombre", "Mujer"] },
-        "edad": { "type": "number" },
-        "estadoNacimiento": { "type": "string" },
-        "municipio": { "type": "string" },
-        "colonia": { "type": "string" }
+        "id": { "type": "string" },
+        "appointmentNumber": { "type": "string" },
+        "patientId": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "time": { "type": "string" },
+        "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] },
+        "status": { "type": "string", "enum": ["Pendiente", "Atendida", "Cancelada"] }
       },
-      "required": ["id", "date", "time", "appointmentNumber", "consultorio", "curp", "nombre", "apellidoPaterno", "apellidoMaterno", "sexo", "edad", "estadoNacimiento", "municipio", "colonia", "telefono"]
+      "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType", "status"]
+    },
+    "Clinic": {
+        "title": "Clinic",
+        "type": "object",
+        "description": "Represents a clinic (Núcleo Básico).",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "doctorName": { "type": "string" },
+            "dailySlots": { "type": "number" },
+            "startTime": { "type": "string" },
+            "endTime": { "type": "string" },
+            "weekendBookingEnabled": { "type": "boolean" }
+        },
+        "required": ["id", "name", "doctorName", "dailySlots", "startTime", "endTime"]
+    },
+    "Colonia": {
+        "title": "Colonia",
+        "type": "object",
+        "description": "Represents a neighborhood and its assigned clinic.",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "clinicId": { "type": "string" }
+        },
+        "required": ["id", "name", "clinicId"]
     },
     "Announcement": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Announcement",
       "type": "object",
       "description": "A single announcement message.",
       "properties": {
         "messages": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "A list of announcement strings."
+          "items": { "type": "string" }
         }
       },
       "required": ["messages"]
     },
-    "SlotsConfig": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "SlotsConfig",
+    "Report": {
+        "title": "Report",
         "type": "object",
-        "description": "Configuration for daily appointment slots per clinic.",
+        "description": "Daily summary report for a clinic.",
         "properties": {
-            "config": {
-                "type": "object",
-                "additionalProperties": { "type": "number" },
-                "description": "A map of consultorio ID to the number of slots."
-            }
+            "id": { "type": "string" },
+            "clinicId": { "type": "string" },
+            "date": { "type": "string", "format": "date" },
+            "totalAppointments": { "type": "number" },
+            "attended": { "type": "number" },
+            "pending": { "type": "number" },
+            "cancelled": { "type": "number" }
         },
-        "required": ["config"]
-    },
-    "WeekendBookingConfig": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "WeekendBookingConfig",
-        "type": "object",
-        "description": "Configuration for enabling or disabling weekend bookings.",
-        "properties": {
-            "enabled": {
-                "type": "boolean",
-                "description": "Whether booking on Saturdays and Sundays is allowed."
-            }
-        },
-        "required": ["enabled"]
-    },
-    "Colonia": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Colonia",
-        "type": "object",
-        "description": "Represents a neighborhood and its assigned clinic.",
-        "properties": {
-            "id": { "type": "string", "description": "Unique identifier for the colonia." },
-            "nombre": { "type": "string", "description": "The name of the colonia." },
-            "nucleo": { "type": "number", "description": "The assigned clinic ID (núcleo básico)." }
-        },
-        "required": ["id", "nombre", "nucleo"]
+        "required": ["id", "clinicId", "date", "totalAppointments"]
     }
   },
   "auth": {
@@ -86,43 +108,52 @@
   "firestore": {
     "structure": [
       {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": { "$ref": "#/entities/User" }
+        }
+      },
+      {
+        "path": "/patients/{patientId}",
+        "definition": {
+          "entityName": "Patient",
+          "schema": { "$ref": "#/entities/Patient" }
+        }
+      },
+      {
         "path": "/appointments/{appointmentId}",
         "definition": {
           "entityName": "Appointment",
-          "schema": { "$ref": "#/entities/Appointment" },
-          "description": "Stores all appointment data. Publicly writable for booking, but admin-only for reads/deletes."
+          "schema": { "$ref": "#/entities/Appointment" }
+        }
+      },
+      {
+        "path": "/clinics/{clinicId}",
+        "definition": {
+            "entityName": "Clinic",
+            "schema": { "$ref": "#/entities/Clinic" }
+        }
+      },
+      {
+        "path": "/colonias/{coloniaId}",
+        "definition": {
+          "entityName": "Colonia",
+          "schema": { "$ref": "#/entities/Colonia" }
+        }
+      },
+      {
+        "path": "/reports/{reportId}",
+        "definition": {
+          "entityName": "Report",
+          "schema": { "$ref": "#/entities/Report" }
         }
       },
       {
         "path": "/settings/announcements",
         "definition": {
           "entityName": "Announcement",
-          "schema": { "$ref": "#/entities/Announcement" },
-          "description": "Stores a list of important announcements. Publicly readable, admin-only for writes."
-        }
-      },
-      {
-        "path": "/settings/slots",
-        "definition": {
-            "entityName": "SlotsConfig",
-            "schema": { "$ref": "#/entities/SlotsConfig" },
-            "description": "Stores the configuration for appointment slots. Publicly readable, admin-only for writes."
-        }
-      },
-      {
-        "path": "/settings/weekendBooking",
-        "definition": {
-          "entityName": "WeekendBookingConfig",
-          "schema": { "$ref": "#/entities/WeekendBookingConfig" },
-          "description": "Stores the configuration for weekend appointment booking. Publicly readable, admin-only for writes."
-        }
-      },
-       {
-        "path": "/colonias/{coloniaId}",
-        "definition": {
-          "entityName": "Colonia",
-          "schema": { "$ref": "#/entities/Colonia" },
-          "description": "Stores colonia to clinic assignments. Publicly readable, admin-only for writes."
+          "schema": { "$ref": "#/entities/Announcement" }
         }
       }
     ]

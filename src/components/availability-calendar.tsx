@@ -1,7 +1,7 @@
 'use client';
 import { Calendar } from '@/components/ui/calendar';
 import type { DailyAvailability } from '@/lib/definitions';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
 import React, { useMemo } from 'react';
@@ -23,13 +23,14 @@ export function AvailabilityCalendar({
 }: AvailabilityCalendarProps) {
 
   const disabledDays = useMemo(() => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    // This is safe from hydration errors because startOfToday() will be the same
+    // on the server and client for a given day.
+    const today = startOfToday();
     const days = availability
       .filter((d) => d.availableSlots === 0)
       .map((d) => parseISO(d.date));
-    days.push({ before: today });
-    return days;
+      
+    return [{ before: today }, ...days];
   }, [availability]);
 
 
@@ -76,7 +77,7 @@ export function AvailabilityCalendar({
       </div>
        {!selectedDate && (
         <div className="text-center font-medium text-muted-foreground p-3 rounded-md w-full">
-          <p>Selecciona una fecha para ver la disponibilidad por consultorio.</p>
+          <p>Selecciona una fecha para ver la disponibilidad.</p>
         </div>
       )}
     </div>

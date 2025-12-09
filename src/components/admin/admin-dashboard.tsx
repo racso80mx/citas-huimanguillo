@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
-import type { Appointment } from '@/lib/definitions';
-import { deleteAppointment } from '@/lib/actions';
-import { getAppointments } from '@/lib/data';
+import type { Appointment, User, Clinic, Colonia } from '@/lib/definitions';
+import { deleteAppointment, getAppointments, getClinics, getColonias } from '@/lib/data';
 import {
   Card,
   CardHeader,
@@ -17,6 +16,7 @@ import {
   Download,
   Loader2,
   Calendar as CalendarIcon,
+  RefreshCw,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -38,21 +38,22 @@ import { cn, downloadExcel } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
-import { SlotsManager } from './slots-manager';
-import { WeekendBookingManager } from './weekend-booking-manager';
+import { ClinicsManager } from './clinics-manager';
 import { ColoniasManager } from './colonias-manager';
 
 type AdminDashboardProps = {
+  user: User;
   onLogout: () => void;
 };
 
 type FilterType = 'today' | 'week' | 'month' | 'range';
 
-export function AdminDashboard({ onLogout }: AdminDashboardProps) {
+export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  const [filteredAppointments, setFilteredAppointments] = useState<
-    Appointment[]
-  >([]);
+  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [colonias, setColonias] = useState<Colonia[]>([]);
+  
   const [isPending, startTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -60,48 +61,61 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   const fetchData = () => {
     startTransition(async () => {
-      const appointments = await getAppointments();
-      setAllAppointments(appointments);
+      try {
+          const [appointments, clinicsData, coloniasData] = await Promise.all([
+              getAppointments(),
+              getClinics(),
+              getColonias()
+          ]);
+          setAllAppointments(appointments);
+          setClinics(clinicsData);
+          setColonias(coloniasData);
+          applyFilters(appointments); // Apply initial filters right after fetching
+      } catch (error) {
+          console.error("Error fetching admin dashboard data:", error);
+          toast({
+              title: "Error de Carga",
+              description: "No se pudieron cargar todos los datos del panel. Por favor, recarga.",
+              variant: "destructive"
+          });
+      }
     });
   };
-
+  
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [allAppointments, activeFilter, dateRange]);
-
-  const applyFilters = () => {
+  const applyFilters = (appointmentsToFilter: Appointment[]) => {
     let filtered: Appointment[] = [];
     const now = new Date();
 
     if (activeFilter === 'today') {
       const todayStart = startOfDay(now);
       const todayEnd = endOfDay(now);
-      filtered = allAppointments.filter((app) => {
+      filtered = appointmentsToFilter.filter((app) => {
         const appDate = parseISO(app.date);
         return appDate >= todayStart && appDate <= todayEnd;
       });
     } else if (activeFilter === 'week') {
       const weekStart = startOfWeek(now, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-      filtered = allAppointments.filter((app) => {
+      filtered = appointmentsToFilter.filter((app) => {
         const appDate = parseISO(app.date);
         return appDate >= weekStart && appDate <= weekEnd;
       });
     } else if (activeFilter === 'month') {
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
-      filtered = allAppointments.filter((app) => {
+      filtered = appointmentsToFilter.filter((app) => {
         const appDate = parseISO(app.date);
         return appDate >= monthStart && appDate <= monthEnd;
       });
     } else if (activeFilter === 'range' && dateRange?.from && dateRange?.to) {
       const rangeStart = startOfDay(dateRange.from);
       const rangeEnd = endOfDay(dateRange.to);
-      filtered = allAppointments.filter((app) => {
+      filtered = appointmentsToFilter.filter((app) => {
         const appDate = parseISO(app.date);
         return appDate >= rangeStart && appDate <= rangeEnd;
       });
@@ -109,7 +123,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       // Default to today if range is not fully selected
       const todayStart = startOfDay(now);
       const todayEnd = endOfDay(now);
-      filtered = allAppointments.filter((app) => {
+      filtered = appointmentsToFilter.filter((app) => {
         const appDate = parseISO(app.date);
         return appDate >= todayStart && appDate <= todayEnd;
       });
@@ -117,11 +131,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setFilteredAppointments(filtered);
   };
   
+  // Re-apply filters when dependencies change
+  useEffect(() => {
+    applyFilters(allAppointments);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilter, dateRange, allAppointments]);
+
+
   const handleSetDateRange = (range: DateRange | undefined) => {
       setDateRange(range);
-      if(range?.from && range?.to) {
-        setActiveFilter('range');
-      }
+      setActiveFilter('range');
   }
 
   const handleDownload = () => {
@@ -133,7 +152,20 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
       return;
     }
-    downloadExcel(filteredAppointments, `citas_${activeFilter}`);
+    
+    // Enrich appointments with clinic and colonia names for download
+    const enrichedAppointments = filteredAppointments.map(app => {
+        const clinic = clinics.find(c => c.id === app.clinicId);
+        // This is a simplification; in a real app, you might need to find the colonia based on patient ID or another logic
+        const patientColonia = colonias.find(c => c.clinicId === app.clinicId); // Example logic
+        return {
+            ...app,
+            clinicName: clinic?.name || 'N/A',
+            coloniaName: patientColonia?.name || 'N/A',
+        }
+    });
+
+    downloadExcel(enrichedAppointments, `citas_${activeFilter}`);
   };
 
   const handleDelete = (id: string) => {
@@ -164,24 +196,28 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               Panel de Administración
             </CardTitle>
             <CardDescription>
-              Visualiza y gestiona las citas y configuraciones del sistema.
+              Bienvenido, {user.name}. Gestiona las citas y configuraciones.
             </CardDescription>
           </div>
-          <Button variant="outline" onClick={onLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
+           <div className='flex items-center gap-2'>
+             <Button variant="outline" onClick={fetchData} disabled={isPending}>
+               <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+                Recargar Datos
+             </Button>
+            <Button variant="outline" onClick={onLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Cerrar Sesión
+            </Button>
+           </div>
         </CardHeader>
       </Card>
 
       <div className="space-y-8">
-         <ColoniasManager />
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <AnnouncementsManager />
-            <SlotsManager />
-            <WeekendBookingManager />
+        <div className="grid lg:grid-cols-2 gap-8">
+            <ClinicsManager />
+            <ColoniasManager />
         </div>
+        <AnnouncementsManager />
       </div>
 
 
@@ -246,6 +282,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               onClick={handleDownload}
               variant="secondary"
               className="ml-auto"
+              disabled={isPending}
             >
               <Download className="mr-2 h-4 w-4" />
               Descargar Excel
@@ -263,6 +300,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               appointments={filteredAppointments}
               onDelete={handleDelete}
               isAdmin
+              clinics={clinics}
             />
           )}
         </CardContent>

@@ -5,136 +5,107 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  addDoc,
   deleteDoc,
   query,
   where,
   Timestamp,
   writeBatch,
-  CollectionReference,
-  DocumentReference,
+  WriteBatch,
+  updateDoc,
 } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment, Colonia } from './definitions';
+import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { format } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
+import { unstable_cache as cache } from 'next/cache';
 
-// This function must be called to get the firestore instance
-const getDb = async () => {
-  const { firestore, auth } = initializeFirebase();
-
-  // On the server, we need to be authenticated to read data, even if rules are public
-  // We'll use anonymous auth for this.
-  if (typeof window === 'undefined') {
-    // Check if there's already a user
-    if (!auth.currentUser) {
-      try {
-        await signInAnonymously(auth);
-      } catch (error) {
-        console.error("Anonymous sign-in failed", error);
-        // Depending on the use case, you might want to throw the error
-        // or handle it gracefully. For a public-read site, we might
-        // want to proceed if rules allow, but here we'll log and continue.
-      }
-    }
-  }
-
+const getDb = () => {
+  const { firestore } = initializeFirebase();
   return firestore;
 };
 
+const handleFirestoreError = (error: any, context: { path: string, operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write', requestResourceData?: any }) => {
+    console.error(`Firestore Error [${context.operation}] at '${context.path}':`, error);
+    const permissionError = new FirestorePermissionError({
+        path: context.path,
+        operation: context.operation,
+        requestResourceData: context.requestResourceData,
+    });
+    errorEmitter.emit('permission-error', permissionError);
+    // Re-throwing is important for server-side operations to fail explicitly.
+    throw permissionError;
+}
+
+const getCollection = async <T>(collectionName: string): Promise<T[]> => {
+    const db = getDb();
+    const collectionRef = collection(db, collectionName);
+    try {
+        const snapshot = await getDocs(collectionRef);
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
+    } catch (error) {
+        handleFirestoreError(error, { path: collectionName, operation: 'list' });
+        return []; // Should not be reached due to throw
+    }
+};
+
+const getDocument = async <T>(collectionName: string, docId: string): Promise<T | null> => {
+    const db = getDb();
+    const docRef = doc(db, collectionName, docId);
+    try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return { ...docSnap.data(), id: docSnap.id } as T;
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, { path: docRef.path, operation: 'get' });
+        return null; // Should not be reached due to throw
+    }
+}
+
+const setDocument = async (collectionName: string, id: string, data: any): Promise<boolean> => {
+    const db = getDb();
+    const docRef = doc(db, collectionName, id);
+    try {
+        await setDoc(docRef, data, { merge: true });
+        return true;
+    } catch(error) {
+        handleFirestoreError(error, { path: docRef.path, operation: 'write', requestResourceData: data });
+        return false;
+    }
+}
+
 // ========== Appointments ==========
 
-export async function addAppointment(
-  appointment: Appointment
-): Promise<string> {
-  const db = await getDb();
-  const appointmentCollection = collection(db, 'appointments');
-  // Firestore will auto-generate an ID if we use addDoc.
-  // The passed `appointment` object already has a client-generated UUID.
-  // We will use setDoc with a new doc ref to use our own ID.
-  const docRef = doc(appointmentCollection, appointment.id);
+export async function saveAppointment(appointment: Appointment): Promise<Appointment | null> {
+  const db = getDb();
+  const docRef = doc(db, 'appointments', appointment.id);
   
-  // Convert date string to Firestore Timestamp before saving
   const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
-  await setDoc(docRef, dataToSave).catch(error => {
-     errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'create',
-        requestResourceData: dataToSave,
-      })
-    )
-    // Re-throw the original error if you need to handle it further up the chain
-    throw error;
-  });
-
-  return appointment.id;
-}
-
-export async function getAppointments(): Promise<Appointment[]> {
-  const db = await getDb();
-  const appointmentCollection = collection(db, 'appointments');
-  
   try {
-    const snapshot = await getDocs(appointmentCollection);
-    const appointments = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      // Convert Firestore Timestamp back to ISO string for consistency
-      const date = (data.date as Timestamp).toDate().toISOString();
-      return { ...data, id: doc.id, date } as Appointment;
-    });
-
-    return appointments.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-  } catch (error) {
-     errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: appointmentCollection.path,
-        operation: 'list',
-      })
-    )
-    throw error;
+    await setDoc(docRef, dataToSave);
+    return appointment;
+  } catch(error) {
+    handleFirestoreError(error, { path: docRef.path, operation: 'create', requestResourceData: dataToSave });
+    return null;
   }
 }
 
-export async function getAppointmentById(id: string): Promise<Appointment | null> {
-    const db = await getDb();
-    const docRef = doc(db, 'appointments', id);
-    try {
-      const docSnap = await getDoc(docRef);
+export const getAppointments = cache(async (): Promise<Appointment[]> => {
+    const appointments = await getCollection<any>('appointments');
+    return appointments.map(app => ({
+      ...app,
+      date: (app.date as Timestamp).toDate().toISOString(),
+    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}, ['appointments'], { revalidate: 10 });
 
-      if(docSnap.exists()) {
-          const data = docSnap.data();
-          const date = (data.date as Timestamp).toDate().toISOString();
-          return { ...data, id: docSnap.id, date } as Appointment;
-      }
-      return null;
-    } catch(error) {
-       errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'get',
-        })
-      )
-      throw error;
-    }
-}
 
-export async function getAppointmentsByDate(
-  date: Date
-): Promise<Appointment[]> {
-  const db = await getDb();
+export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> {
+  const db = getDb();
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(date);
@@ -150,273 +121,200 @@ export async function getAppointmentsByDate(
     const snapshot = await getDocs(q);
     return snapshot.docs.map((doc) => {
       const data = doc.data();
-      const date = (data.date as Timestamp).toDate().toISOString();
-      return { ...data, id: doc.id, date } as Appointment;
+      return { ...data, id: doc.id, date: (data.date as Timestamp).toDate().toISOString() } as Appointment;
     });
   } catch(error) {
-     errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: 'appointments', // Path of the collection
-        operation: 'list',
-      })
-    )
-    throw error;
+     handleFirestoreError(error, { path: 'appointments', operation: 'list' });
+     return [];
   }
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
-  const db = await getDb();
+  const db = getDb();
   const docRef = doc(db, 'appointments', id);
-  await deleteDoc(docRef).catch(error => {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'delete',
-      })
-    );
-    throw error;
-  });
+  try {
+    await deleteDoc(docRef)
+  } catch (error) {
+    handleFirestoreError(error, { path: docRef.path, operation: 'delete' });
+  }
 }
+
+export async function updateAppointmentStatus(appointmentId: string, status: 'Atendida' | 'Cancelada'): Promise<boolean> {
+    const db = getDb();
+    const docRef = doc(db, 'appointments', appointmentId);
+    try {
+        await updateDoc(docRef, { status });
+        return true;
+    } catch(error) {
+        handleFirestoreError(error, { path: docRef.path, operation: 'update', requestResourceData: { status }});
+        return false;
+    }
+}
+
+// ========== Users (For Auth) ==========
+export const getUserByUID = async (uid: string): Promise<User | null> => {
+    try {
+        return await getDocument<User>('users', uid);
+    } catch (error) {
+        // This is a special case. If fetching the user profile fails, we don't want to
+        // throw a permission error that locks the UI. We just return null.
+        // A user not having a profile is a possible state.
+        console.error("Could not fetch user profile for UID:", uid, error);
+        return null;
+    }
+};
+
+// ========== Patients ==========
+export const findPatientByCURP = async (curp: string): Promise<string | null> => {
+    const db = getDb();
+    const q = query(collection(db, 'patients'), where('curp', '==', curp.toUpperCase()));
+    try {
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            return snapshot.docs[0].id;
+        }
+        return null;
+    } catch (error) {
+        handleFirestoreError(error, { path: 'patients', operation: 'list' });
+        return null;
+    }
+}
+
+export const savePatient = async(patient: Patient): Promise<string> => {
+    await setDocument('patients', patient.id, patient);
+    return patient.id;
+}
+
 
 // ========== Announcements ==========
 
-export async function getAnnouncements(): Promise<string[]> {
-  const db = await getDb();
-  const docRef = doc(db, 'settings', 'announcements');
+export const getAnnouncements = async (): Promise<string[]> => {
   try {
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      // Make sure to handle the case where messages might be undefined
-      return docSnap.data().messages || [];
-    }
-    return [
-      'Recuerda traer tu cartilla de vacunación.',
-      'El uso de cubrebocas es opcional en las instalaciones.',
-    ]; // Default if not set
-  } catch(error) {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'get',
-      })
-    )
-    throw error;
-  }
-}
-
-export async function updateAnnouncements(
-  newAnnouncements: string[]
-): Promise<boolean> {
-    const db = await getDb();
-    const docRef = doc(db, 'settings', 'announcements');
-    const data = { messages: newAnnouncements.slice(0, 4) };
-    
-    await setDoc(docRef, data).catch(error => {
-        errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'write',
-            requestResourceData: data,
-          })
-        );
-        throw error;
-    });
-    return true;
-}
-
-// ========== Slots Configuration ==========
-
-export async function getSlotsConfiguration(): Promise<{ [key: string]: number }> {
-  const db = await getDb();
-  const docRef = doc(db, 'settings', 'slots');
-  try {
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      // Ensure the keys are strings, as they will be from the form.
-      const config = docSnap.data().config || {};
-      const stringKeyConfig: {[key: string]: number} = {};
-      for (const key in config) {
-          stringKeyConfig[String(key)] = config[key];
-      }
-      return stringKeyConfig;
-    }
-    // Default configuration if not set in Firestore
-    return {
-      '1': 15, '2': 15, '3': 15, '4': 15,
-      '5': 15, '6': 15, '7': 15, '8': 15,
-    };
-  } catch(error) {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'get',
-      })
-    )
-    throw error;
-  }
-}
-
-export async function updateSlotsConfiguration(newConfig: {
-  [key: string]: number;
-}): Promise<boolean> {
-    const db = await getDb();
-    const docRef = doc(db, 'settings', 'slots');
-    const data = { config: newConfig };
-
-    await setDoc(docRef, data).catch(error => {
-        errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'write',
-            requestResourceData: data,
-          })
-        );
-        throw error;
-    });
-
-    return true;
-}
-
-// ========== Weekend Booking Configuration ==========
-
-export async function getWeekendBookingConfig(): Promise<{ enabled: boolean }> {
-  const db = await getDb();
-  const docRef = doc(db, 'settings', 'weekendBooking');
-  try {
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return (docSnap.data() as { enabled: boolean }) || { enabled: false };
-    }
-    return { enabled: false }; // Default to disabled
+      const settings = await getDocument<{ messages?: string[] }>('settings', 'announcements');
+      return settings?.messages || ['Recuerda traer tu cartilla de vacunación.', 'El uso de cubrebocas es opcional en las instalaciones.'];
   } catch (error) {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: docRef.path,
-        operation: 'get',
-      })
-    )
-    throw error;
+      console.error("Failed to get announcements, returning default. Error:", error);
+      return ['Recuerda traer tu cartilla de vacunación.', 'El uso de cubrebocas es opcional en las instalaciones.'];
   }
 }
 
-export async function updateWeekendBookingConfig(config: { enabled: boolean }): Promise<boolean> {
-    const db = await getDb();
-    const docRef = doc(db, 'settings', 'weekendBooking');
-    
-    await setDoc(docRef, config).catch(error => {
-        errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'write',
-            requestResourceData: config,
-          })
-        );
-        throw error;
-    });
-    
-    return true;
+export const updateAnnouncements = async (newAnnouncements: string[]): Promise<boolean> => {
+  return setDocument('settings', 'announcements', { messages: newAnnouncements.slice(0, 4) });
 }
+
+// ========== Clinics Configuration ==========
+
+export const getClinics = cache(async(): Promise<Clinic[]> => {
+    try {
+        const clinics = await getCollection<Clinic>('clinics');
+        if (clinics.length === 0) {
+            return [{
+                id: 'NB1',
+                name: 'Núcleo Básico 1',
+                doctorName: 'Dr. Ejemplo',
+                dailySlots: 15,
+                startTime: '08:00',
+                endTime: '13:00',
+                weekendBookingEnabled: false,
+            }];
+        }
+        return clinics.sort((a,b) => a.name.localeCompare(b.name));
+    } catch (error) {
+        console.error("Failed to get clinics, returning default. Error:", error);
+         return [{
+            id: 'NB1',
+            name: 'Núcleo Básico 1',
+            doctorName: 'Dr. Ejemplo',
+            dailySlots: 15,
+            startTime: '08:00',
+            endTime: '13:00',
+            weekendBookingEnabled: false,
+        }];
+    }
+}, ['clinics'], { revalidate: 10 });
+
+
+export async function updateClinics(clinics: Clinic[]): Promise<boolean> {
+    const db = getDb();
+    const batch = writeBatch(db);
+    const collectionRef = collection(db, 'clinics');
+    
+    try {
+      const existingDocsSnapshot = await getDocs(collectionRef);
+      const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
+
+      clinics.forEach(clinic => {
+          const { id, ...data } = clinic;
+          const docRef = doc(collectionRef, id);
+          batch.set(docRef, data);
+          existingIds.delete(id);
+      });
+
+      existingIds.forEach(idToDelete => {
+          batch.delete(doc(collectionRef, idToDelete));
+      });
+
+      await batch.commit();
+      return true;
+    } catch(error) {
+        handleFirestoreError(error, { path: collectionRef.path, operation: 'write', requestResourceData: clinics});
+        return false;
+    }
+}
+
 
 // ========== Colonias Configuration ==========
 
-export async function getColonias(): Promise<Colonia[]> {
-  const db = await getDb();
-  const collectionRef = collection(db, 'colonias');
+export const getColonias = cache(async (): Promise<Colonia[]> => {
   try {
-    const snapshot = await getDocs(collectionRef);
-    if (snapshot.empty) {
-      // Default data if collection is empty
-      const defaultColonias = [
-        { id: 'centro-id', nombre: 'Centro', nucleo: 1 },
-        { id: 'pueblo-nuevo-id', nombre: 'Pueblo Nuevo', nucleo: 1 },
+      const colonias = await getCollection<Colonia>('colonias');
+      if (colonias.length === 0) {
+          return [
+            { id: 'centro-id', name: 'Centro', clinicId: 'NB1' },
+            { id: 'pueblo-nuevo-id', name: 'Pueblo Nuevo', clinicId: 'NB1' },
+          ];
+      }
+      return colonias.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+      console.error("Failed to get colonias, returning defaults. Error:", error);
+      return [
+        { id: 'centro-id', name: 'Centro', clinicId: 'NB1' },
+        { id: 'pueblo-nuevo-id', name: 'Pueblo Nuevo', clinicId: 'NB1' },
       ];
-      // Optional: You could write these defaults to Firestore here
-      // This would only run once when the collection is first accessed and found empty.
-      const batch = writeBatch(db);
-      defaultColonias.forEach(col => {
-        const docRef = doc(db, 'colonias', col.id);
-        batch.set(docRef, { nombre: col.nombre, nucleo: col.nucleo });
-      });
-      await batch.commit().catch(error => {
-        // If the initial seeding fails, emit an error but still return defaults for UI
-         errorEmitter.emit(
-            'permission-error',
-            new FirestorePermissionError({
-                path: collectionRef.path,
-                operation: 'write',
-                requestResourceData: {info: "Batch write for default colonias failed."}
-            })
-        );
-      });
-
-      return defaultColonias;
-    }
-    return snapshot.docs.map(doc => ({...doc.data(), id: doc.id } as Colonia)).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  } catch(error) {
-    errorEmitter.emit(
-      'permission-error',
-      new FirestorePermissionError({
-        path: collectionRef.path,
-        operation: 'list',
-      })
-    )
-    throw error;
   }
-}
+}, ['colonias'], { revalidate: 10 });
 
 export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
-    const db = await getDb();
+    const db = getDb();
     const batch = writeBatch(db);
     const collectionRef = collection(db, 'colonias');
 
-    // Get a list of documents currently in the collection
-    const existingDocsSnapshot = await getDocs(collectionRef).catch(error => {
-        // If we can't even read the collection, that's a permission error that needs to be surfaced
-        errorEmitter.emit(
-            'permission-error',
-            new FirestorePermissionError({
-                path: collectionRef.path,
-                operation: 'list',
-            })
-        );
-        throw error;
-    });
-    const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
+    try {
+        // Get all existing documents to determine which ones to delete.
+        const existingDocsSnapshot = await getDocs(collectionRef);
+        const existingIds = new Set(existingDocsSnapshot.docs.map(d => d.id));
 
-    // Batch set/update operations for the provided colonias
-    colonias.forEach(colonia => {
-        const { id, ...data } = colonia;
-        const docRef = doc(collectionRef, id); // Use the existing ID
-        batch.set(docRef, data);
-        existingIds.delete(id); // Remove from the set of IDs to be deleted
-    });
+        // Set (create or overwrite) the documents from the input array.
+        colonias.forEach(colonia => {
+            const { id, ...data } = colonia;
+            const docRef = doc(collectionRef, id);
+            batch.set(docRef, data);
+            existingIds.delete(id); // Remove from the set of IDs to delete.
+        });
 
-    // Batch delete operations for colonias that were removed in the UI
-    existingIds.forEach(idToDelete => {
-        batch.delete(doc(collectionRef, idToDelete));
-    });
+        // Delete any documents that were not in the input array.
+        existingIds.forEach(idToDelete => {
+            batch.delete(doc(collectionRef, idToDelete));
+        });
 
-    await batch.commit().catch(error => {
-        errorEmitter.emit(
-          'permission-error',
-          new FirestorePermissionError({
-            path: collectionRef.path, // The error is on the batch commit, relates to the collection
-            operation: 'write', // Batch can contain set, update, delete
-            requestResourceData: {info: 'Batch operation on colonias collection.', data: colonias}
-          })
-        );
-        throw error;
-    });
-    return true;
+        await batch.commit();
+        return true;
+    } catch (error) {
+        handleFirestoreError(error, {
+            path: 'colonias',
+            operation: 'write',
+            requestResourceData: { info: 'Batch operation on colonias collection.', data: colonias }
+        });
+        return false;
+    }
 }
-
-    

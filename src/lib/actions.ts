@@ -2,27 +2,36 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  addAppointment as saveData,
-  getAppointments as getDataAppointments,
+  saveAppointment,
   getAppointmentsByDate,
   deleteAppointment as deleteDataAppointment,
   updateAnnouncements as updateDataAnnouncements,
-  updateSlotsConfiguration as updateDataSlots,
-  updateWeekendBookingConfig as updateDataWeekendBooking,
+  updateClinics as updateDataClinics,
   updateColonias as updateDataColonias,
+  findPatientByCURP,
+  savePatient,
+  updateAppointmentStatus as updateDataAppointmentStatus,
 } from './data';
-import type { Appointment, WeekendBookingConfig, Colonia } from './definitions';
+import type { Appointment, Clinic, Colonia, Patient, PatientType } from './definitions';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
-export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmentNumber'>) {
-  const { date, time, curp, consultorio } = data;
+type BookAppointmentArgs = {
+    patient: Omit<Patient, 'id'>;
+    date: string;
+    time: string;
+    clinicId: string;
+    patientType: PatientType;
+}
+
+export async function bookAppointment(data: BookAppointmentArgs) {
+  const { date, time, patient, clinicId } = data;
   
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
-  // Check if the specific time slot is already taken
+  // Check if the specific time slot is already taken for the clinic
   const isTimeSlotTaken = appointmentsOnDate.some(
-    app => app.consultorio === consultorio && app.time === time
+    app => app.clinicId === clinicId && app.time === time
   );
 
   if (isTimeSlotTaken) {
@@ -32,8 +41,9 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
     };
   }
 
+  // Check if CURP already has an appointment on this date
   const curpExistsOnDate = appointmentsOnDate.some(
-    (app) => app.curp.toUpperCase() === curp.toUpperCase()
+    (app) => app.patient.curp.toUpperCase() === patient.curp.toUpperCase()
   );
 
   if (curpExistsOnDate) {
@@ -44,34 +54,42 @@ export async function bookAppointment(data: Omit<Appointment, 'id' | 'appointmen
     };
   }
   
-  const newAppointmentId = uuidv4();
-  // Folio generation needs to be robust. Let's get the count for the specific clinic on that day.
-  const appointmentsInConsultorio = appointmentsOnDate.filter(
-    (app) => app.consultorio === consultorio
-  );
-  const consecutive = appointmentsInConsultorio.length + 1;
-  const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${consultorio}-${consecutive}`;
-  
-  const newAppointment: Appointment = {
-      ...data,
-      id: newAppointmentId,
-      appointmentNumber,
+  // Find or create patient
+  let patientId = await findPatientByCURP(patient.curp);
+  if (!patientId) {
+      patientId = await savePatient({ ...patient, id: uuidv4()});
   }
 
-  const docId = await saveData(newAppointment);
+  // Create appointment number
+  const appointmentsInClinic = appointmentsOnDate.filter(
+    (app) => app.clinicId === clinicId
+  );
+  const consecutive = appointmentsInClinic.length + 1;
+  const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${clinicId.slice(0,4)}-${consecutive}`;
+  
+  const newAppointment: Appointment = {
+      id: uuidv4(),
+      appointmentNumber,
+      patientId,
+      clinicId,
+      date,
+      time,
+      patientType: data.patientType,
+      status: 'Pendiente',
+      patient, // Embed patient data for convenience
+  }
 
-  if (!docId) {
+  const savedAppointment = await saveAppointment(newAppointment);
+
+  if (!savedAppointment) {
      return { success: false, message: 'No se pudo guardar la cita en la base de datos.' };
   }
 
   revalidatePath('/');
   revalidatePath('/admin');
+  revalidatePath('/reports');
 
-  return { success: true, message: 'Cita agendada con éxito.', appointmentId: docId, appointmentNumber };
-}
-
-export async function getAppointments() {
-  return await getDataAppointments();
+  return { success: true, message: 'Cita agendada con éxito.', appointment: savedAppointment };
 }
 
 export async function deleteAppointment(id: string) {
@@ -79,52 +97,36 @@ export async function deleteAppointment(id: string) {
     await deleteDataAppointment(id);
     revalidatePath('/');
     revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, message: 'Cita eliminada con éxito.' };
   } catch (error) {
-    // The call to deleteDataAppointment is wrapped in a try/catch block.
-    // If an error (like a permission error) is thrown from data.ts,
-    // it will be caught here and we can return a failure message.
+    // The error is already handled and thrown by the data function,
+    // but we catch it here to return a user-friendly message.
     return {
       success: false,
-      message: 'Error al eliminar la cita. Verifica los permisos.',
+      message: 'Error al eliminar la cita. Verifica los permisos de seguridad en Firebase.',
     };
   }
 }
 
 export async function updateAnnouncements(newAnnouncements: string[]) {
-  await updateDataAnnouncements(newAnnouncements);
-  revalidatePath('/');
-  revalidatePath('/admin');
-  return { success: true, message: 'Avisos actualizados con éxito.' };
-}
-
-export async function updateSlotsConfiguration(newConfig: {
-  [key: number]: number;
-}) {
-  // Ensure no value is greater than 15
-  for(const key in newConfig) {
-      if(newConfig[key] > 15) {
-          return { success: false, message: 'El número máximo de cupos por consultorio no puede ser mayor a 15.' };
-      }
-  }
-
-  const success = await updateDataSlots(newConfig);
-  if (success) {
-    revalidatePath('/admin');
+  const result = await updateDataAnnouncements(newAnnouncements);
+  if (result) {
     revalidatePath('/');
-    return { success: true, message: 'Configuración de cupos actualizada.' };
+    revalidatePath('/admin');
+    return { success: true, message: 'Avisos actualizados con éxito.' };
   }
-  return { success: false, message: 'No se pudo guardar la configuración.' };
+  return { success: false, message: 'No se pudieron guardar los avisos.'};
 }
 
-export async function updateWeekendBooking(config: WeekendBookingConfig) {
-    const success = await updateDataWeekendBooking(config);
+export async function updateClinics(clinics: Clinic[]) {
+    const success = await updateDataClinics(clinics);
     if(success) {
         revalidatePath('/admin');
         revalidatePath('/');
-        return { success: true, message: "Configuración de fin de semana actualizada."}
+        return { success: true, message: "Núcleos actualizados con éxito." }
     }
-    return { success: false, message: "No se pudo guardar la configuración."}
+    return { success: false, message: "No se pudo guardar la configuración de núcleos." }
 }
 
 export async function updateColonias(colonias: Colonia[]) {
@@ -135,4 +137,14 @@ export async function updateColonias(colonias: Colonia[]) {
         return { success: true, message: "Colonias actualizadas con éxito." }
     }
     return { success: false, message: "No se pudo guardar la configuración de colonias." }
+}
+
+export async function updateAppointmentStatus(appointmentId: string, status: 'Atendida' | 'Cancelada') {
+    const success = await updateDataAppointmentStatus(appointmentId, status);
+     if(success) {
+        revalidatePath('/admin');
+        revalidatePath('/reports');
+        return { success: true, message: "Estado de la cita actualizado." }
+    }
+    return { success: false, message: "No se pudo actualizar el estado." }
 }

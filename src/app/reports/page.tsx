@@ -1,12 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { AdminDashboard } from '@/components/admin/admin-dashboard';
-import { LoginForm } from '@/components/admin/login-form';
-import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { initializeFirebase, useAuth } from '@/firebase';
-import { getUserByUID, User } from '@/lib/data';
 
-export default function AdminPage() {
+import { useState, useEffect } from 'react';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { useAuth } from '@/firebase';
+import { getUserByUID, User } from '@/lib/data';
+import { LoginForm } from '@/components/admin/login-form';
+import { ReportsDashboard } from '@/components/reports/reports-dashboard';
+
+export default function ReportsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const auth = useAuth();
@@ -14,7 +15,6 @@ export default function AdminPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Fetch user profile from Firestore
         const userProfile = await getUserByUID(firebaseUser.uid);
         setUser(userProfile);
       } else {
@@ -41,8 +41,8 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
-      {user && user.role === 'admin' ? (
-        <AdminDashboard user={user} onLogout={handleLogout} />
+      {user && (user.role === 'doctor' || user.role === 'admin') ? (
+        <ReportsDashboard user={user} onLogout={handleLogout} />
       ) : (
         <LoginForm />
       )}

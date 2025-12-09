@@ -53,12 +53,14 @@ function createEventEmitter<T extends Record<string, any>>() {
      * @param data The data payload that corresponds to the event's type.
      */
     emit<K extends keyof T>(eventName: K, data: T[K]) {
+      // This emitter can be called from the server or the client.
+      // If on the client, it will notify listeners.
+      // If on the server, it will just log the error. The error should also be re-thrown.
       if (typeof window === 'undefined') {
-        // On the server, we can't use the event emitter.
-        // We will throw the error directly.
         console.error("Firestore Permission Error (SERVER):", data.message);
         return;
       };
+
       if (!events[eventName]) {
         return;
       }

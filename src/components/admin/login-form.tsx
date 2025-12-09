@@ -25,51 +25,52 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword, getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 const formSchema = z.object({
-  username: z.string().min(1, { message: 'El usuario es requerido.' }),
-  password: z.string().min(1, { message: 'La contraseña es requerida.' }),
+  email: z.string().email({ message: 'El correo electrónico no es válido.' }),
+  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
 });
 
-type LoginFormProps = {
-  onLoginSuccess: () => void;
-};
-
-export function LoginForm({ onLoginSuccess }: LoginFormProps) {
+export function LoginForm() {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const auth = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      username: '',
+      email: '',
       password: '',
     },
   });
 
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsPending(true);
-    // Simulate API call
-    setTimeout(() => {
-      if (
-        data.username === 'CitasPrimerNivel' &&
-        data.password === 'Hu1m4ngu1ll0'
-      ) {
+
+    try {
+        await setPersistence(auth, browserLocalPersistence);
+        await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({
-          title: 'Inicio de Sesión Exitoso',
-          description: 'Bienvenido al panel de administración.',
+            title: 'Inicio de Sesión Exitoso',
+            description: 'Bienvenido al panel de administración.',
         });
-        onLoginSuccess();
-      } else {
+        // The onAuthStateChanged listener in AdminPage will handle the redirect.
+    } catch (error: any) {
+        let description = 'Ocurrió un error inesperado.';
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            description = 'Correo electrónico o contraseña incorrectos.';
+        }
         toast({
-          title: 'Error de Autenticación',
-          description: 'Usuario o contraseña incorrectos.',
-          variant: 'destructive',
+            title: 'Error de Autenticación',
+            description,
+            variant: 'destructive',
         });
-      }
-      setIsPending(false);
-    }, 500);
+    } finally {
+        setIsPending(false);
+    }
   };
 
   return (
@@ -79,14 +80,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <div className="text-primary mb-4">
             <Image
                 src={logoBase64}
-                alt="Logo Hospital Huimanguillo"
+                alt="Logo CitaMedicaFacil"
                 width={80}
                 height={80}
                 className="rounded-md"
             />
           </div>
           <CardTitle className="text-2xl font-bold font-headline">
-            Acceso de Administrador
+            Acceso de Personal
           </CardTitle>
           <CardDescription>
             Ingresa tus credenciales para continuar
@@ -97,15 +98,15 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <CardContent className="space-y-4">
               <FormField
                 control={form.control}
-                name="username"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usuario</FormLabel>
+                    <FormLabel>Correo Electrónico</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Tu usuario"
+                        placeholder="tu@correo.com"
                         {...field}
-                        autoComplete="username"
+                        autoComplete="email"
                       />
                     </FormControl>
                     <FormMessage />

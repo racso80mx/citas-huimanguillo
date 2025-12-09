@@ -29,36 +29,39 @@ import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from './ui/combobox';
 import { generateAppointmentPDF } from '@/lib/utils';
-import type { Appointment } from '@/lib/definitions';
+import type { Appointment, Clinic, Patient } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 
 const formSchema = z.object({
   curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
-  nombre: z.string().min(2, 'El nombre es requerido.'),
-  apellidoPaterno: z.string().min(2, 'El apellido paterno es requerido.'),
-  apellidoMaterno: z.string().min(2, 'El apellido materno es requerido.'),
-  telefono: z.string().length(10, 'El teléfono debe tener 10 dígitos.'),
-  sexo: z.enum(['Hombre', 'Mujer']),
-  edad: z.number().min(0, 'La edad no puede ser negativa.'),
-  estadoNacimiento: z.string().min(1, 'El estado es requerido.'),
+  name: z.string().min(2, 'El nombre es requerido.'),
+  paternalLastName: z.string().min(2, 'El apellido paterno es requerido.'),
+  maternalLastName: z.string().min(2, 'El apellido materno es requerido.'),
+  sex: z.enum(['Hombre', 'Mujer']),
+  age: z.number().min(0, 'La edad no puede ser negativa.'),
+  birthState: z.string().min(1, 'El estado es requerido.'),
+  patientType: z.nativeEnum(PatientType),
 });
 
 type BookingFormValues = z.infer<typeof formSchema>;
 
 type BookingFormProps = {
   selectedDate: Date | undefined;
-  selectedConsultorio: number | undefined;
+  selectedClinic: Clinic | undefined;
   selectedColoniaName: string | undefined;
   selectedTime: string | undefined;
+  allTimeSlots: string[];
   onBookingSuccess: () => void;
 };
 
 export function BookingForm({
   selectedDate,
-  selectedConsultorio,
+  selectedClinic,
   selectedColoniaName,
   selectedTime,
+  allTimeSlots,
   onBookingSuccess,
 }: BookingFormProps) {
   const { toast } = useToast();
@@ -68,31 +71,57 @@ export function BookingForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
       curp: '',
-      nombre: '',
-      apellidoPaterno: '',
-      apellidoMaterno: '',
-      telefono: '',
-      sexo: undefined,
-      edad: undefined,
-      estadoNacimiento: '',
+      name: '',
+      paternalLastName: '',
+      maternalLastName: '',
+      sex: undefined,
+      age: undefined,
+      birthState: '',
+      patientType: PatientType.General,
     },
   });
 
   const curp = form.watch('curp');
+  const patientType = form.watch('patientType');
 
   useEffect(() => {
     if (curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
       const data = parseCURP(curp.toUpperCase());
       if (data) {
-        form.setValue('sexo', data.sex as 'Hombre' | 'Mujer');
-        form.setValue('estadoNacimiento', data.estadoNacimiento || 'NACIDO EN EL EXTRANJERO');
-        form.setValue('edad', calculateAge(data.birthDate));
+        form.setValue('sex', data.sex as 'Hombre' | 'Mujer');
+        form.setValue('birthState', data.estadoNacimiento || 'NACIDO EN EL EXTRANJERO');
+        form.setValue('age', calculateAge(data.birthDate));
       }
     }
   }, [curp, form]);
 
+  useEffect(() => {
+    const priorityPatients = [PatientType.Cronico, PatientType.Embarazada, PatientType.TerceraEdad];
+    if (priorityPatients.includes(patientType) && selectedTime) {
+        const slotIndex = allTimeSlots.indexOf(selectedTime);
+        if (slotIndex >= 5) {
+            toast({
+                title: "Horario no prioritario",
+                description: "Los pacientes prioritarios deben seleccionar uno de los primeros 5 horarios.",
+                variant: "destructive"
+            });
+        }
+    }
+    if (patientType === PatientType.General && selectedTime) {
+        const slotIndex = allTimeSlots.indexOf(selectedTime);
+        if (slotIndex < 5) {
+            toast({
+                title: "Horario prioritario",
+                description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del sexto horario.",
+                variant: "destructive"
+            });
+        }
+    }
+
+  }, [patientType, selectedTime, allTimeSlots, toast])
+
   const onSubmit = (data: BookingFormValues) => {
-    if (!selectedDate || !selectedConsultorio || !selectedTime || !selectedColoniaName) {
+    if (!selectedDate || !selectedClinic || !selectedTime || !selectedColoniaName) {
       toast({
         title: 'Error de validación',
         description: 'Por favor, selecciona una fecha, colonia y hora.',
@@ -101,35 +130,46 @@ export function BookingForm({
       return;
     }
 
+    const priorityPatients = [PatientType.Cronico, PatientType.Embarazada, PatientType.TerceraEdad];
+    const slotIndex = allTimeSlots.indexOf(selectedTime);
+
+    if (priorityPatients.includes(data.patientType) && slotIndex >= 5) {
+        toast({ title: "Horario no prioritario", description: "Los pacientes prioritarios deben seleccionar uno de los primeros 5 horarios.", variant: "destructive"});
+        return;
+    }
+
+    if (data.patientType === PatientType.General && slotIndex < 5) {
+        toast({ title: "Horario prioritario", description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del sexto horario.", variant: "destructive"});
+        return;
+    }
+
     startTransition(async () => {
+      const patientData: Omit<Patient, 'id'> = {
+        curp: data.curp,
+        name: data.name,
+        paternalLastName: data.paternalLastName,
+        maternalLastName: data.maternalLastName,
+        sex: data.sex,
+        age: data.age,
+        birthState: data.birthState,
+      };
+
       const result = await bookAppointment({
-          ...data,
+          patient: patientData,
           date: selectedDate.toISOString(),
           time: selectedTime,
-          consultorio: selectedConsultorio,
-          colonia: selectedColoniaName, // Pass colonia name
-          municipio: 'Huimanguillo', // Assuming this is always the case now
+          clinicId: selectedClinic.id,
+          patientType: data.patientType,
       });
 
-      if (result.success && result.appointmentId) {
+      if (result.success && result.appointment) {
         toast({
           title: 'Cita Confirmada',
-          description: `Tu cita ha sido agendada con éxito. Folio: ${result.appointmentNumber}`,
+          description: `Tu cita ha sido agendada con éxito. Folio: ${result.appointment.appointmentNumber}`,
           duration: 10000,
         });
 
-        // Generate and download PDF
-        const completeAppointmentData = {
-          ...data,
-          id: result.appointmentId,
-          date: selectedDate.toISOString(),
-          time: selectedTime,
-          consultorio: selectedConsultorio,
-          colonia: selectedColoniaName,
-          municipio: 'Huimanguillo',
-          appointmentNumber: result.appointmentNumber,
-        } as Appointment;
-        generateAppointmentPDF(completeAppointmentData);
+        generateAppointmentPDF(result.appointment, selectedClinic);
 
         form.reset();
         onBookingSuccess();
@@ -143,7 +183,7 @@ export function BookingForm({
     });
   };
   
-  if (!selectedDate || !selectedConsultorio || !selectedTime) {
+  if (!selectedDate || !selectedClinic || !selectedTime) {
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>
@@ -179,7 +219,7 @@ export function BookingForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField
                   control={form.control}
-                  name="nombre"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nombre(s)</FormLabel>
@@ -192,7 +232,7 @@ export function BookingForm({
                 />
                  <FormField
                   control={form.control}
-                  name="apellidoPaterno"
+                  name="paternalLastName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Apellido Paterno</FormLabel>
@@ -206,7 +246,7 @@ export function BookingForm({
             </div>
              <FormField
               control={form.control}
-              name="apellidoMaterno"
+              name="maternalLastName"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Apellido Materno</FormLabel>
@@ -220,7 +260,7 @@ export function BookingForm({
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <FormField
                   control={form.control}
-                  name="sexo"
+                  name="sex"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sexo</FormLabel>
@@ -241,7 +281,7 @@ export function BookingForm({
                 />
                  <FormField
                   control={form.control}
-                  name="edad"
+                  name="age"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Edad</FormLabel>
@@ -256,7 +296,7 @@ export function BookingForm({
             
             <FormField
               control={form.control}
-              name="estadoNacimiento"
+              name="birthState"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Estado de Nacimiento</FormLabel>
@@ -275,15 +315,25 @@ export function BookingForm({
 
             <FormField
               control={form.control}
-              name="telefono"
+              name="patientType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Número Telefónico</FormLabel>
-                  <FormControl>
-                    <Input type="tel" placeholder="Tu número a 10 dígitos" {...field} maxLength={10} />
-                  </FormControl>
+                  <FormLabel>Tipo de Paciente</FormLabel>
+                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                     <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un tipo" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={PatientType.General}>General</SelectItem>
+                      <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                      <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                      <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                    </SelectContent>
+                  </Select>
                    <FormDescription>
-                    Usaremos este número para contactarte si hay cambios en tu cita.
+                    Pacientes prioritarios (crónico, embarazada, 3ra edad) deben elegir los primeros 5 horarios.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
