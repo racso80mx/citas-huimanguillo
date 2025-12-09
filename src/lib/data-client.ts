@@ -29,7 +29,6 @@ export const getCollection = async <T>(collectionName: string): Promise<T[]> => 
         const snapshot = await getDocs(collectionRef);
         return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
     } catch (error) {
-        // Since handleFirestoreError is removed, we let the error propagate or handle it generically.
         console.error(`Error getting collection ${collectionName}:`, error);
         throw error;
     }
@@ -171,17 +170,8 @@ export function updateAppointmentStatus(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointmentId);
 
-  // Directly call updateDoc. If it fails, the error will be caught by the calling function's try/catch
-  // or will bubble up as an unhandled promise rejection, which is better than mis-classifying it.
+  // Perform the update. If it fails, log the actual error to the console.
   updateDoc(docRef, { status }).catch(err => {
     console.error(`Failed to update status for appointment ${appointmentId}:`, err);
-    // Let the error bubble up so we can see the real cause in the console.
-    // The global error boundary will catch it if not handled by a try-catch in the component.
-    const permissionError = new FirestorePermissionError({
-      path: docRef.path,
-      operation: 'update',
-      requestResourceData: { status },
-    });
-    errorEmitter.emit('permission-error', permissionError);
   });
 }

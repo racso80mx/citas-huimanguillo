@@ -17,10 +17,10 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
   useEffect(() => {
     const { auth } = firebaseServices;
     
+    // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // If no user is signed in (e.g., initial load or after a sign-out),
-      // sign in anonymously. This ensures that security rules requiring
-      // `request.auth != null` can pass for public actions.
+      // If there is no user, sign in anonymously.
+      // This is crucial for security rules that require request.auth != null
       if (!user) {
         signInAnonymously(auth).catch(error => {
             console.error("Anonymous sign-in failed:", error);
