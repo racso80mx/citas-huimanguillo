@@ -63,11 +63,7 @@ export async function bookAppointment(data: BookAppointmentArgs) {
   }
 
   // Create appointment number
-  const appointmentsInClinic = appointmentsOnDate.filter(
-    (app) => app.clinicId === clinicId
-  );
-  const consecutive = appointmentsInClinic.length + 1;
-  const appointmentNumber = `${format(new Date(date), 'ddMMyy')}-${clinicId.slice(0,4)}-${consecutive}`;
+  const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
   
   const newAppointment: Appointment = {
       id: uuidv4(),
