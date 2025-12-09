@@ -52,7 +52,7 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 
 export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic) {
     const doc = new jsPDF();
-    const { patient, date, time, appointmentNumber } = appointmentData;
+    const { patient, date, time, appointmentNumber, patientType } = appointmentData;
 
     // Set font
     doc.setFont('Helvetica');
@@ -81,22 +81,23 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
-    doc.text(`CURP: ${patient.curp}`, 20, 85);
-    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
+    doc.text(`Tipo de Paciente: ${patientType}`, 20, 85);
+    doc.text(`CURP: ${patient.curp}`, 20, 95);
+    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 105);
 
 
     // Appointment Details
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, 115);
+    doc.text('Detalles de la Cita:', 20, 125);
 
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, 125);
-    doc.text(`Hora: ${time} hrs`, 20, 135);
-    doc.text(`Clínica: ${clinicData.name}`, 20, 145);
-    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, 155);
+    doc.text(`Fecha: ${formattedDate}`, 20, 135);
+    doc.text(`Hora: ${time} hrs`, 20, 145);
+    doc.text(`Clínica: ${clinicData.name}`, 20, 155);
+    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, 165);
     
     // Add a footer note
     doc.setFontSize(10);
