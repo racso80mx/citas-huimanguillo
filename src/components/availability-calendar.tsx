@@ -4,6 +4,7 @@ import type { DailyAvailability } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
+import React, { useMemo } from 'react';
 
 type AvailabilityCalendarProps = {
   selectedDate: Date | undefined;
@@ -20,13 +21,17 @@ export function AvailabilityCalendar({
   onMonthChange,
   isLoading,
 }: AvailabilityCalendarProps) {
-  const disabledDays = availability
-    .filter((d) => d.availableSlots === 0)
-    .map((d) => parseISO(d.date));
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  disabledDays.push({ before: today });
+
+  const disabledDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const days = availability
+      .filter((d) => d.availableSlots === 0)
+      .map((d) => parseISO(d.date));
+    days.push({ before: today });
+    return days;
+  }, [availability]);
+
 
   const modifiers = {
     available: (date: Date) => {
