@@ -12,8 +12,8 @@ import {
   getAnnouncements as dataGetAnnouncements,
 } from './data';
 import type { Clinic, Colonia } from './definitions';
-import { initializeFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { getAdminApp } from '@/firebase/server-config';
+import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 
 export async function deleteAppointment(id: string) {
   try {
@@ -72,12 +72,13 @@ export async function updateAppointmentStatus(
   status: 'Atendida' | 'Cancelada'
 ): Promise<{ success: boolean; message: string }> {
   try {
-    // This now runs on the server and initializes its own Firebase instance
-    // ensuring it has the correct server-side permissions.
-    const { firestore } = initializeFirebase();
+    const adminApp = getAdminApp();
+    const firestore = getFirestore(adminApp);
     const docRef = doc(firestore, 'appointments', appointmentId);
+
     await updateDoc(docRef, { status });
-    revalidateTag('appointments'); // Revalidates the data cache for appointments
+
+    revalidateTag('appointments');
     return { success: true, message: 'Estado de la cita actualizado.' };
   } catch (error) {
     console.error('Server Action Error: updateAppointmentStatus failed', error);
@@ -85,13 +86,13 @@ export async function updateAppointmentStatus(
       error instanceof Error
         ? error.message
         : 'No se pudo actualizar el estado.';
-    // Provide a more generic error message to the client for security.
     return {
       success: false,
-      message: 'Ocurrió un error en el servidor. No se pudo actualizar el estado.',
+      message: `Error del servidor: ${errorMessage}`,
     };
   }
 }
+
 
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {

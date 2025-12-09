@@ -10,6 +10,7 @@ import {
   query,
   where,
   Timestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, Patient } from './definitions';
