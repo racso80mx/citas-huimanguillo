@@ -21,6 +21,7 @@ import {
   endOfMonth,
   parseISO,
 } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
 import {
@@ -292,7 +293,9 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                         <TableRow>
                             <TableHead>Folio</TableHead>
                             <TableHead>Paciente</TableHead>
+                            <TableHead>Fecha</TableHead>
                             <TableHead>Hora</TableHead>
+                            <TableHead>Teléfono</TableHead>
                             <TableHead>Tipo Paciente</TableHead>
                             <TableHead>Estado</TableHead>
                             <TableHead className='text-right'>Acciones</TableHead>
@@ -303,7 +306,9 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                             <TableRow key={app.id} className={isStatusPending && app.status !== 'Pendiente' ? 'opacity-50' : ''}>
                                 <TableCell>{app.appointmentNumber}</TableCell>
                                 <TableCell>{app.patient.name} {app.patient.paternalLastName}</TableCell>
+                                <TableCell>{format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                 <TableCell>{app.time}</TableCell>
+                                <TableCell>{app.patient.phoneNumber}</TableCell>
                                 <TableCell>{app.patientType}</TableCell>
                                 <TableCell>
                                   <span className={cn(
