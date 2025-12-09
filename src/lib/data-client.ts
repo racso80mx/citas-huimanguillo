@@ -181,3 +181,23 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
      return [];
   }
 }
+
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: 'Atendida' | 'Cancelada'
+): Promise<{ success: boolean; message?: string }> {
+  const db = getDb();
+  const docRef = doc(db, 'appointments', appointmentId);
+  try {
+    await updateDoc(docRef, { status });
+    return { success: true, message: 'Estado de la cita actualizado.' };
+  } catch (error) {
+    handleFirestoreError(error, {
+      path: docRef.path,
+      operation: 'update',
+      requestResourceData: { status },
+    });
+    // This part might not be reached if handleFirestoreError throws, but it's good for type safety.
+    return { success: false, message: 'No se pudo actualizar el estado.' };
+  }
+}

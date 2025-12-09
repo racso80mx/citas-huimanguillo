@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import { getFirestore } from 'firebase-admin/firestore';
 import { deleteAppointment as deleteDataAppointment } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
@@ -13,7 +12,6 @@ import {
   getAnnouncements as dataGetAnnouncements,
 } from './data';
 import type { Clinic, Colonia } from './definitions';
-import { getAdminApp } from '@/firebase/server-config';
 
 
 export async function deleteAppointment(id: string) {
@@ -67,32 +65,6 @@ export async function updateAnnouncements(announcements: string[]) {
   }
   return result;
 }
-
-export async function updateAppointmentStatus(
-  appointmentId: string,
-  status: 'Atendida' | 'Cancelada'
-): Promise<{ success: boolean; message?: string }> {
-  try {
-    const adminApp = getAdminApp();
-    const db = getFirestore(adminApp);
-    const docRef = db.collection('appointments').doc(appointmentId);
-    await docRef.update({ status: status });
-
-    revalidateTag('appointments');
-    return { success: true, message: 'Estado de la cita actualizado.' };
-  } catch (error) {
-    console.error('Server Action Error: updateAppointmentStatus failed', error);
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'No se pudo actualizar el estado.';
-    return {
-      success: false,
-      message: `Error del servidor: ${errorMessage}`,
-    };
-  }
-}
-
 
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {
