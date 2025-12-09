@@ -141,15 +141,11 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   }
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
-      startStatusTransition(async () => {
-        const result = await updateAppointmentStatus(appointmentId, status);
-        
-        if (result.success) {
-            toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
-            fetchData(); // Re-fetch data to show the change immediately
-        } else {
-            toast({ title: "Error", description: result.message || "No se pudo actualizar el estado de la cita.", variant: "destructive"});
-        }
+      startStatusTransition(() => {
+        updateAppointmentStatus(appointmentId, status);
+        toast({ title: "Actualizando estado...", description: "El cambio se reflejará en momentos."});
+        // Optimistically refetch data
+        setTimeout(fetchData, 1000); 
       })
   }
 
@@ -289,7 +285,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                     </TableHeader>
                     <TableBody>
                         {appointmentsToDisplay.map(app => (
-                            <TableRow key={app.id} className={isStatusPending && app.status !== 'Pendiente' ? 'opacity-50' : ''}>
+                            <TableRow key={app.id} className={isStatusPending ? 'opacity-50' : ''}>
                                 <TableCell>{format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                 <TableCell>{app.appointmentNumber}</TableCell>
                                 <TableCell>{app.patient.name} {app.patient.paternalLastName}</TableCell>

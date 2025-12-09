@@ -184,26 +184,18 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
   }
 }
 
-export async function updateAppointmentStatus(
+export function updateAppointmentStatus(
   appointmentId: string,
   status: 'Atendida' | 'Cancelada'
-): Promise<{ success: boolean; message?: string }> {
+): void {
   const db = getDb();
   const docRef = doc(db, 'appointments', appointmentId);
-  
-  // Use a simple .catch block for error handling. 
-  // The global error emitter will be triggered by handleFirestoreError if it's a permission issue.
-  return updateDoc(docRef, { status })
-    .then(() => {
-      return { success: true, message: 'Estado de la cita actualizado.' };
-    })
-    .catch((error) => {
-      handleFirestoreError(error, {
-        path: docRef.path,
-        operation: 'update',
-        requestResourceData: { status },
-      });
-      // This part might not be reached if handleFirestoreError throws, but it's good for type safety.
-      return { success: false, message: 'No se pudo actualizar el estado.' };
+
+  updateDoc(docRef, { status }).catch((error) => {
+    handleFirestoreError(error, {
+      path: docRef.path,
+      operation: 'update',
+      requestResourceData: { status },
     });
+  });
 }
