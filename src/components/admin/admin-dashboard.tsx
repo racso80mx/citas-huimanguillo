@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment, User, Clinic, Colonia } from '@/lib/definitions';
-import { deleteAppointment, getAppointments, getClinics, getColonias } from '@/lib/data';
+import { deleteAppointment } from '@/lib/actions';
+import { getAppointments, getClinics, getColonias } from '@/lib/data-client';
 import {
   Card,
   CardHeader,
@@ -69,7 +70,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           setAllAppointments(appointments);
           setClinics(clinicsData);
           setColonias(coloniasData);
-          // applyFilters is called inside useEffect, so no need to call it here
       } catch (error) {
           console.error("Error fetching admin dashboard data:", error);
           toast({
@@ -152,7 +152,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return;
     }
     
-    // Enrich appointments with clinic and colonia names for download
     const enrichedAppointments = filteredAppointments.map(app => {
         const clinic = clinics.find(c => c.id === app.clinicId);
         // This is a simplification; in a real app, you might need to find the colonia based on patient ID or another logic

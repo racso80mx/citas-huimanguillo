@@ -12,7 +12,8 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateAnnouncements, getAnnouncements } from '@/lib/data';
+import { updateAnnouncements } from '@/lib/actions';
+import { getAnnouncements as getAnnouncementsClient } from '@/lib/data-client';
 import { Loader2, Trash2, PlusCircle, Megaphone } from 'lucide-react';
 
 export function AnnouncementsManager() {
@@ -23,7 +24,7 @@ export function AnnouncementsManager() {
 
   const fetchAnnouncements = async () => {
       setIsLoading(true);
-      const data = await getAnnouncements();
+      const data = await getAnnouncementsClient();
       setAnnouncements(data);
       setIsLoading(false);
     };
@@ -64,10 +65,10 @@ export function AnnouncementsManager() {
       if (result.success) {
         toast({
           title: 'Avisos Guardados',
-          description: 'Los avisos se han actualizado correctamente.',
+          description: 'Los avisos se han actualizado. Se requiere un reinicio del servidor para que los cambios se reflejen en la UI de reserva.',
           className: 'bg-accent text-accent-foreground',
+          duration: 8000,
         });
-        // Refetch to get the canonical state from the server
         await fetchAnnouncements();
       } else {
         toast({

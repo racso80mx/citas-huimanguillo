@@ -27,7 +27,7 @@ import {
   findPatientByCURP,
   savePatient,
   saveAppointment,
-} from '@/lib/data';
+} from '@/lib/data-client';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -336,8 +336,7 @@ export function BookingForm({
                   name="age"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Edad</FormLabel>
-                      <FormControl>
+                      <FormLabel>Edad</FormLabel>                      <FormControl>
                         <Input type="number" placeholder="Derivado de CURP" {...field} disabled value={field.value || ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia, Clinic } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getAnnouncements, getColonias, getAppointments, getClinics } from '@/lib/data';
+import { getAppointments } from '@/lib/data-client';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';
@@ -50,15 +50,14 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
-  const [announcements, setAnnouncements] = React.useState<string[]>(initialAnnouncements);
-  const [colonias, setColonias] = React.useState<Colonia[]>(initialColonias);
-  const [clinics, setClinics] = React.useState<Clinic[]>(initialClinics);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
+  const [colonias] = React.useState<Colonia[]>(initialColonias);
+  const [clinics] = React.useState<Clinic[]>(initialClinics);
   
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
 
-  // Dummy form for the patient type select
   const form = useForm();
 
   const generateTimeSlots = (clinic: Clinic | undefined): string[] => {
@@ -74,16 +73,12 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     return slots;
   };
 
-  const fetchAvailability = async (year: number, month: number) => {
+  const fetchAvailability = React.useCallback(async (year: number, month: number) => {
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const [allAppointments, currentClinics] = await Promise.all([
-        getAppointments(),
-        getClinics(),
-      ]);
-      setClinics(currentClinics);
-
+      const allAppointments = await getAppointments();
+      
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
@@ -97,7 +92,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         const availabilityByClinic: { [key: string]: number } = {};
         const takenTimesByClinic: { [key: string]: string[] } = {};
 
-        for (const clinic of currentClinics) {
+        for (const clinic of clinics) { // Use the static clinics data
             const isWeekend = isSaturday(day) || isSunday(day);
             if (isWeekend && !clinic.weekendBookingEnabled) {
                 availabilityByClinic[clinic.id] = 0;
@@ -124,7 +119,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         });
       }
       setAvailability(availabilityResult);
-  }
+  }, [clinics]); // Depend on the static clinics data
 
   React.useEffect(() => {
     async function fetchInitialData() {
@@ -136,15 +131,14 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                 console.error("Failed to fetch initial data:", error);
                 toast({
                     title: "Error de Carga",
-                    description: "No se pudieron cargar los datos iniciales. Por favor, recarga la página.",
+                    description: "No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.",
                     variant: "destructive",
                 });
             }
         });
     }
     fetchInitialData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchAvailability, toast]);
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
@@ -159,15 +153,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const refreshData = () => {
     startTransition(async () => {
       try {
-        const [newAnnouncements, newColonias, newClinics] = await Promise.all([
-            getAnnouncements(),
-            getColonias(),
-            getClinics(),
-        ]);
         await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
-        setAnnouncements(newAnnouncements);
-        setColonias(newColonias);
-        setClinics(newClinics);
         setSelectedDate(undefined);
         setSelectedColoniaId(undefined);
         setSelectedTime(undefined);

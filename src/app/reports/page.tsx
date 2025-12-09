@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import type { Clinic } from '@/lib/definitions';
-import { getClinics } from '@/lib/data';
+import { getClinics as getClinicsClient } from '@/lib/data-client';
 import { verifyClinicPassword } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -28,7 +28,7 @@ export default function ReportsPage() {
     async function fetchClinics() {
       setIsLoading(true);
       try {
-        const clinicsData = await getClinics();
+        const clinicsData = await getClinicsClient();
         setClinics(clinicsData);
       } catch (error) {
         toast({

@@ -12,11 +12,13 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { getClinics, updateClinics } from '@/lib/data';
+import { updateClinics } from '@/lib/actions';
+import { getClinics as getClinicsClient } from '@/lib/data-client';
 import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -28,7 +30,7 @@ export function ClinicsManager() {
   const fetchClinics = async () => {
       setIsLoading(true);
       try {
-        const data = await getClinics();
+        const data = await getClinicsClient();
         setClinics(data);
       } catch (error) {
         console.error("Failed to fetch clinics:", error);
@@ -91,10 +93,10 @@ export function ClinicsManager() {
       if (result.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración de núcleos básicos ha sido actualizada.',
+          description: 'La configuración de núcleos básicos ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen en la UI de reserva.',
           className: 'bg-accent text-accent-foreground',
+          duration: 8000,
         });
-        // Refetch data after saving
         await fetchClinics();
       } else {
         toast({

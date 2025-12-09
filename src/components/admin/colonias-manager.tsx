@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { getColonias, getClinics, updateColonias } from '@/lib/data';
+import { updateColonias } from '@/lib/actions';
+import { getColonias as getColoniasClient, getClinics as getClinicsClient } from '@/lib/data-client';
 import { Loader2, Trash2, PlusCircle, MapPin, Save } from 'lucide-react';
 import type { Colonia, Clinic } from '@/lib/definitions';
 
@@ -33,7 +34,7 @@ export function ColoniasManager() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [coloniasData, clinicsData] = await Promise.all([getColonias(), getClinics()]);
+      const [coloniasData, clinicsData] = await Promise.all([getColoniasClient(), getClinicsClient()]);
       setColonias(coloniasData);
       setClinics(clinicsData);
     } catch (error) {
@@ -92,8 +93,9 @@ export function ColoniasManager() {
       if (result.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'Las colonias y sus asignaciones han sido actualizadas.',
+          description: 'Las colonias y sus asignaciones han sido actualizadas. Se requiere un reinicio del servidor para que los cambios se reflejen en la UI de reserva.',
           className: 'bg-accent text-accent-foreground',
+          duration: 8000,
         });
         // Refetch to ensure sync with DB state
         await fetchData();

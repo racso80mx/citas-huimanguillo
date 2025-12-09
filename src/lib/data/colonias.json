@@ -1,10 +1,12 @@
-
 [
-    { "nombre": "Centro" },
-    { "nombre": "Pueblo Nuevo" },
-    { "nombre": "Lázaro Cárdenas" },
-    { "nombre": "Benito Juárez" },
-    { "nombre": "El Torito" },
-    { "nombre": "Gilberto Flores Muñoz" },
-    { "nombre": "Otra" }
+    {
+        "id": "centro-id",
+        "name": "Centro",
+        "clinicId": "NB1"
+    },
+    {
+        "id": "pueblo-nuevo-id",
+        "name": "Pueblo Nuevo",
+        "clinicId": "NB1"
+    }
 ]

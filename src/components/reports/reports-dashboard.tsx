@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
-import { getAppointments } from '@/lib/data';
+import { getAppointments } from '@/lib/data-client';
 import { updateAppointmentStatus } from '@/lib/actions';
 import {
   Card,
