@@ -1,8 +1,7 @@
 'use client'
 import { useState, useEffect, useTransition } from 'react';
 import type { Appointment, Clinic } from '@/lib/definitions';
-import { getAppointments } from '@/lib/data-client';
-import { updateAppointmentStatus } from '@/lib/actions';
+import { getAppointments, updateAppointmentStatus } from '@/lib/data-client';
 import {
   Card,
   CardHeader,
@@ -120,12 +119,12 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
       startStatusTransition(async () => {
-        const result = await updateAppointmentStatus(appointmentId, status);
-        if (result.success) {
+        const success = await updateAppointmentStatus(appointmentId, status);
+        if (success) {
             toast({ title: "Estado Actualizado", description: "El estado de la cita ha sido actualizado."});
             fetchData(); // Refresh data to reflect changes
         } else {
-            toast({ title: "Error", description: result.message || "No se pudo actualizar el estado de la cita.", variant: "destructive"});
+            toast({ title: "Error", description: "No se pudo actualizar el estado de la cita.", variant: "destructive"});
         }
       })
   }

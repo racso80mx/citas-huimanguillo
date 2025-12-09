@@ -31,18 +31,6 @@ export async function deleteAppointment(id: string) {
   }
 }
 
-export async function updateAppointmentStatus(
-  appointmentId: string,
-  status: 'Atendida' | 'Cancelada'
-) {
-  const success = await updateDataAppointmentStatus(appointmentId, status);
-  if (success) {
-    revalidateTag('appointments');
-    return { success: true, message: 'Estado de la cita actualizado.' };
-  }
-  return { success: false, message: 'No se pudo actualizar el estado.' };
-}
-
 export async function verifyClinicPassword(
   clinicId: string,
   passwordAttempt: string
