@@ -13,6 +13,12 @@ import {
   WriteBatch,
   updateDoc,
 } from 'firebase/firestore';
+import {
+  getAuth as getAdminAuth,
+  UserRecord,
+  ListUsersResult,
+} from 'firebase-admin/auth';
+import { initializeAdminApp } from '@/firebase/admin-config';
 import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -23,6 +29,13 @@ const getDb = () => {
   const { firestore } = initializeFirebase();
   return firestore;
 };
+
+const getAdminSdk = () => {
+  const adminApp = initializeAdminApp();
+  return {
+    auth: getAdminAuth(adminApp),
+  }
+}
 
 const handleFirestoreError = (error: any, context: { path: string, operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write', requestResourceData?: any }) => {
     console.error(`Firestore Error [${context.operation}] at '${context.path}':`, error);
@@ -194,6 +207,11 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'At
 }
 
 // ========== Users (For Auth) ==========
+export const getUsers = cache(async (): Promise<User[]> => {
+    return getCollection<User>('users');
+}, ['users'], { revalidate: 10 });
+
+
 export const getUserByUID = async (uid: string): Promise<User | null> => {
     try {
         return await getDocument<User>('users', uid);
@@ -205,6 +223,53 @@ export const getUserByUID = async (uid: string): Promise<User | null> => {
         return null;
     }
 };
+
+export async function updateUsers(users: (User & { password?: string })[]) {
+    const adminAuth = getAdminSdk().auth;
+    const db = getDb();
+    const batch = writeBatch(db);
+
+    try {
+        for (const userData of users) {
+            const { id, email, name, role, clinicId, password } = userData;
+            let uid = id;
+
+            // Is it a new user? (check for temporary ID format)
+            if (id.startsWith('new-')) {
+                let userRecord: UserRecord;
+                try {
+                    userRecord = await adminAuth.createUser({ email, password, displayName: name });
+                    uid = userRecord.uid;
+                } catch (error: any) {
+                    if (error.code === 'auth/email-already-exists') {
+                        userRecord = await adminAuth.getUserByEmail(email);
+                        uid = userRecord.uid;
+                    } else {
+                        throw error;
+                    }
+                }
+            } else if (password) {
+                // If password is provided for an existing user, update it.
+                await adminAuth.updateUser(uid, { password });
+            }
+
+            // Prepare Firestore document
+            const userDocRef = doc(db, 'users', uid);
+            const userDocData: User = { id: uid, email, name, role };
+            if (role === 'doctor' && clinicId) {
+                userDocData.clinicId = clinicId;
+            }
+            batch.set(userDocRef, userDocData);
+        }
+
+        await batch.commit();
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error updating users:", error);
+        return { success: false, message: error.message };
+    }
+}
+
 
 // ========== Patients ==========
 export const findPatientByCURP = async (curp: string): Promise<Patient | null> => {

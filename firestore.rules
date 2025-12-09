@@ -39,6 +39,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow write: if isAdmin();
+      // allow create: if isAdmin(); // Covered by write
     }
 
     // Patients: Can be created by any authenticated user. Read by admins or doctors.
@@ -55,7 +56,7 @@ service cloud.firestore {
     match /appointments/{appointmentId} {
       allow create: if isOwner(request.resource.data.patientId);
       allow read: if isAdmin() || isDoctorForClinic(resource.data.clinicId);
-      allow update: if isAdmin() || isDoctorForClinic(request.resource.data.clinicId);
+      allow update: if isAdmin() || isDoctorForClinic(resource.data.clinicId) || isDoctorForClinic(request.resource.data.clinicId) ;
       allow delete: if isAdmin();
     }
     

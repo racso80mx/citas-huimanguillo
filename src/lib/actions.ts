@@ -11,9 +11,10 @@ import {
   findPatientByCURP,
   savePatient,
   updateAppointmentStatus as updateDataAppointmentStatus,
-  verifyClinicPassword as dataVerifyClinicPassword
+  verifyClinicPassword as dataVerifyClinicPassword,
+  updateUsers as updateDataUsers,
 } from './data';
-import type { Appointment, Clinic, Colonia, Patient, PatientType } from './definitions';
+import type { Appointment, Clinic, Colonia, Patient, PatientType, User } from './definitions';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -151,4 +152,13 @@ export async function updateAppointmentStatus(appointmentId: string, status: 'At
 export async function verifyClinicPassword(clinicId: string, passwordAttempt: string) {
     const isValid = await dataVerifyClinicPassword(clinicId, passwordAttempt);
     return { success: isValid };
+}
+
+export async function updateUsers(users: (User & { password?: string })[]) {
+    const result = await updateDataUsers(users);
+    if(result.success) {
+        revalidatePath('/admin');
+        return { success: true, message: "Usuarios actualizados con éxito." }
+    }
+    return { success: false, message: result.message || "No se pudo guardar la configuración de usuarios." }
 }

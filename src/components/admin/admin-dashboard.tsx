@@ -40,6 +40,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
 import { ClinicsManager } from './clinics-manager';
 import { ColoniasManager } from './colonias-manager';
+import { UsersManager } from './users-manager';
 
 type AdminDashboardProps = {
   user: User;
@@ -213,6 +214,7 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
       </Card>
 
       <div className="space-y-8">
+        <UsersManager />
         <div className="grid lg:grid-cols-2 gap-8">
             <ClinicsManager />
             <ColoniasManager />
