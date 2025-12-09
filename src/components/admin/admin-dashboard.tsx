@@ -86,9 +86,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     fetchData();
   }, [fetchData]);
 
-  const applyFilters = useCallback(
-    () => {
-      if (!allAppointments) {
+  const applyFilters = useCallback(() => {
+      if (!allAppointments || !Array.isArray(allAppointments)) {
         setFilteredAppointments([]);
         return;
       }
@@ -145,6 +144,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   useEffect(() => {
     applyFilters();
   }, [activeFilter, dateRange, allAppointments, applyFilters]);
+
 
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
