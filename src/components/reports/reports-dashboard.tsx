@@ -71,34 +71,63 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
 
   const applyFilters = useCallback(() => {
+    if (!allAppointments || !Array.isArray(allAppointments)) {
+        setFilteredAppointments([]);
+        return;
+    }
+    
     let dateFiltered: Appointment[] = [];
     const now = new Date();
 
     switch (activeFilter) {
       case 'today':
-        dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
+        const todayStart = startOfDay(now);
+        const todayEnd = endOfDay(now);
+        dateFiltered = allAppointments.filter(app => {
+            const appDate = parseISO(app.date);
+            return appDate >= todayStart && appDate <= todayEnd;
+        });
         break;
       case 'week':
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        dateFiltered = allAppointments.filter(app => parseISO(app.date) >= weekStart && parseISO(app.date) <= weekEnd);
+        dateFiltered = allAppointments.filter(app => {
+            const appDate = parseISO(app.date);
+            return appDate >= weekStart && appDate <= weekEnd;
+        });
         break;
       case 'month':
         const monthStart = startOfMonth(now);
         const monthEnd = endOfMonth(now);
-        dateFiltered = allAppointments.filter(app => parseISO(app.date) >= monthStart && parseISO(app.date) <= monthEnd);
+        dateFiltered = allAppointments.filter(app => {
+            const appDate = parseISO(app.date);
+            return appDate >= monthStart && appDate <= monthEnd;
+        });
         break;
       case 'range':
         if (dateRange?.from && dateRange.to) {
           const rangeStart = startOfDay(dateRange.from);
           const rangeEnd = endOfDay(dateRange.to);
-          dateFiltered = allAppointments.filter(app => parseISO(app.date) >= rangeStart && parseISO(app.date) <= rangeEnd);
+          dateFiltered = allAppointments.filter(app => {
+              const appDate = parseISO(app.date);
+              return appDate >= rangeStart && appDate <= rangeEnd;
+          });
         } else {
-          dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
+            const todayStart = startOfDay(now);
+            const todayEnd = endOfDay(now);
+            dateFiltered = allAppointments.filter(app => {
+                const appDate = parseISO(app.date);
+                return appDate >= todayStart && appDate <= todayEnd;
+            });
         }
         break;
       default:
-        dateFiltered = allAppointments.filter(app => format(parseISO(app.date), 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'));
+        const defaultStart = startOfDay(now);
+        const defaultEnd = endOfDay(now);
+        dateFiltered = allAppointments.filter(app => {
+            const appDate = parseISO(app.date);
+            return appDate >= defaultStart && appDate <= defaultEnd;
+        });
     }
     setFilteredAppointments(dateFiltered.sort((a, b) => a.time.localeCompare(b.time)));
   },[allAppointments, activeFilter, dateRange]);
@@ -109,7 +138,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
 
   useEffect(() => {
     applyFilters();
-  }, [applyFilters]);
+  }, [allAppointments, activeFilter, dateRange, applyFilters]);
   
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
