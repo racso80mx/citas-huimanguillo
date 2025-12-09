@@ -12,52 +12,29 @@ service cloud.firestore {
       return request.auth != null && getRole(request.auth.uid) == 'admin';
     }
     
-    // Is the user a doctor?
-    function isDoctor() {
-      return request.auth != null && getRole(request.auth.uid) == 'doctor';
-    }
-
-    // Is the user a doctor for the specified clinic?
-    function isDoctorForClinic(clinicId) {
-      return isDoctor() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId == clinicId;
-    }
-    
     // Is the user an authenticated user (either via password or anonymous)?
     function isAuthenticated() {
       return request.auth != null;
-    }
-
-    // Is the request owner? Check against patientId on the appointment
-    function isOwner(patientId) {
-      // This rule is tricky because anonymous users book appointments.
-      // We'd need a more secure way to verify ownership if they need to manage it.
-      // For now, we allow any authenticated user to create.
-      return isAuthenticated();
     }
     
     // User Profiles: Only admins can manage user roles. Users can read their own profile.
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow write: if isAdmin();
-      // allow create: if isAdmin(); // Covered by write
     }
 
-    // Patients: Can be created by any authenticated user. Read by admins or doctors.
+    // Patients: Can be created by any authenticated user. Read by admins.
     match /patients/{patientId} {
       allow create: if isAuthenticated();
-      allow read, update: if isAdmin() || isDoctor();
+      allow read, update: if isAdmin();
     }
 
     // Appointments: 
     // - Anyone authenticated (including anonymous) can create.
-    // - Read is complex: Admins can read all. Doctors can read for their clinic. Patients could read their own.
-    // - Update (status): Admins or the assigned doctor.
-    // - Delete: Admins only.
+    // - Admins can read, update, and delete all appointments.
     match /appointments/{appointmentId} {
-      allow create: if isOwner(request.resource.data.patientId);
-      allow read: if isAdmin() || isDoctorForClinic(resource.data.clinicId);
-      allow update: if isAdmin() || isDoctorForClinic(resource.data.clinicId) || isDoctorForClinic(request.resource.data.clinicId) ;
-      allow delete: if isAdmin();
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
     }
     
     // Clinics, Colonias, Settings: Publicly readable, but only writable by an admin.
@@ -76,9 +53,9 @@ service cloud.firestore {
        allow write: if isAdmin();
     }
     
-    // Reports: Writable and readable by doctors of that clinic or admins.
+    // Reports: Writable and readable by admins. Access for clinic staff is handled by password check in backend.
     match /reports/{reportId} {
-        allow read, write: if isAdmin() || isDoctorForClinic(request.resource.data.clinicId);
+        allow read, write: if isAdmin();
     }
   }
 }

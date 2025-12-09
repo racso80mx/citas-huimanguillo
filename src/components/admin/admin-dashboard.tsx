@@ -40,16 +40,14 @@ import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
 import { ClinicsManager } from './clinics-manager';
 import { ColoniasManager } from './colonias-manager';
-import { UsersManager } from './users-manager';
 
 type AdminDashboardProps = {
-  user: User;
   onLogout: () => void;
 };
 
 type FilterType = 'today' | 'week' | 'month' | 'range';
 
-export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
+export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -197,7 +195,7 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
               Panel de Administración
             </CardTitle>
             <CardDescription>
-              Bienvenido, {user.name}. Gestiona las citas y configuraciones.
+              Bienvenido, SuperAdmin. Gestiona las citas y configuraciones.
             </CardDescription>
           </div>
            <div className='flex items-center gap-2'>
@@ -214,7 +212,6 @@ export function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
       </Card>
 
       <div className="space-y-8">
-        <UsersManager />
         <div className="grid lg:grid-cols-2 gap-8">
             <ClinicsManager />
             <ColoniasManager />

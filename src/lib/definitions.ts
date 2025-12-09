@@ -5,8 +5,7 @@ export type User = {
   id: string; // Firebase UID
   email: string;
   name: string;
-  role: 'admin' | 'doctor';
-  clinicId?: string; // For doctor role
+  role: 'admin';
 };
 
 export type Patient = {

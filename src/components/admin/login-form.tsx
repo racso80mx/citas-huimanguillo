@@ -32,11 +32,10 @@ const formSchema = z.object({
 });
 
 type LoginFormProps = {
-    onSuperAdminLogin?: (credentials: {email: string, pass: string}) => void;
-    isReportsPage?: boolean; // This prop is no longer used but kept for safety
+    onSuperAdminLogin: () => void;
 }
 
-export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFormProps) {
+export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   const { toast } = useToast();
   const [isPending, setIsPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -52,8 +51,8 @@ export function LoginForm({ onSuperAdminLogin, isReportsPage = false }: LoginFor
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsPending(true);
 
-    if (onSuperAdminLogin && data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
-        onSuperAdminLogin({email: data.email, pass: data.password});
+    if (data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
+        onSuperAdminLogin();
         toast({
             title: 'Inicio de Sesión Exitoso',
             description: 'Bienvenido, Super Administrador.',

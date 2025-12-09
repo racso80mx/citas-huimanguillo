@@ -367,15 +367,18 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
 }
 
 // ========== Reports Auth ==========
-export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<boolean> {
+export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{isValid: boolean, error?: string}> {
     try {
         const clinic = await getDocument<Clinic>('clinics', clinicId);
-        if (clinic && clinic.password === passwordAttempt) {
-            return true;
+        if (!clinic) {
+            return { isValid: false, error: "El núcleo básico seleccionado no existe." };
         }
-        return false;
+        if (clinic.password === passwordAttempt) {
+            return { isValid: true };
+        }
+        return { isValid: false, error: "La contraseña es incorrecta." };
     } catch(error) {
         console.error("Error verifying clinic password", error);
-        return false;
+        return { isValid: false, error: "Ocurrió un error al verificar la contraseña." };
     }
 }

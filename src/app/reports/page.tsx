@@ -54,7 +54,7 @@ export default function ReportsPage() {
       setIsAuthenticated(true);
       toast({ title: 'Acceso Concedido', description: `Bienvenido al panel de ${selectedClinic.name}`});
     } else {
-      toast({ title: 'Acceso Denegado', description: 'La contraseña es incorrecta.', variant: 'destructive' });
+      toast({ title: 'Acceso Denegado', description: result.message || 'La contraseña es incorrecta.', variant: 'destructive' });
     }
     setIsVerifying(false);
   };

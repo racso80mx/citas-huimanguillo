@@ -3,13 +3,12 @@
     "User": {
       "title": "User",
       "type": "object",
-      "description": "Represents an authenticated user with a specific role.",
+      "description": "Represents an authenticated admin user.",
       "properties": {
         "id": { "type": "string", "description": "Firebase Authentication UID." },
         "email": { "type": "string", "format": "email" },
         "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "doctor"] },
-        "clinicId": { "type": "string", "description": "ID of the clinic the doctor is assigned to. Only for 'doctor' role." }
+        "role": { "type": "string", "enum": ["admin"] }
       },
       "required": ["id", "email", "name", "role"]
     },
@@ -102,7 +101,6 @@
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },
