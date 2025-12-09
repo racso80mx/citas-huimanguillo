@@ -51,7 +51,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   
   const [isPending, startTransition] = useTransition();
-  const [isStatusPending, startStatusTransition] = useTransition();
+  const [isStatusPending, setIsStatusPending] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
@@ -141,18 +141,27 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   }
 
   const handleStatusChange = async (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
-      startStatusTransition(async () => {
-        toast({ title: "Actualizando estado...", description: "Por favor espera."});
-        try {
-            await updateAppointmentStatus(appointmentId, status);
-            toast({ title: "Éxito", description: "El estado de la cita ha sido actualizado."});
-            fetchData(); // Refetch data to show the update
-        } catch (error) {
-            console.error("Failed to update status:", error);
-            toast({ title: "Error", description: "No se pudo actualizar el estado de la cita.", variant: "destructive"});
-        }
-      })
-  }
+    setIsStatusPending(true);
+    toast({ title: 'Actualizando estado...', description: 'Por favor espera.' });
+    try {
+      await updateAppointmentStatus(appointmentId, status);
+      toast({
+        title: 'Éxito',
+        description: 'El estado de la cita ha sido actualizado.',
+      });
+      await fetchData(); // Refetch data to show the update
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el estado de la cita.',
+        variant: 'destructive',
+      });
+    } finally {
+        setIsStatusPending(false);
+    }
+  };
+
 
   const statusCounts = appointmentsToDisplay.reduce((acc, app) => {
       acc[app.status] = (acc[app.status] || 0) + 1;
