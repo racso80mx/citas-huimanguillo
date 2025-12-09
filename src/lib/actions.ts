@@ -2,6 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import {
+  getAuth,
+  signInWithEmailAndPassword,
+  Auth,
+} from 'firebase-admin/auth';
+import {
   saveAppointment,
   getAppointmentsByDate,
   deleteAppointment as deleteDataAppointment,
@@ -13,25 +18,31 @@ import {
   updateAppointmentStatus as updateDataAppointmentStatus,
   verifyClinicPassword as dataVerifyClinicPassword,
 } from './data';
-import type { Appointment, Clinic, Colonia, Patient, PatientType } from './definitions';
+import type {
+  Appointment,
+  Clinic,
+  Colonia,
+  Patient,
+  PatientType,
+} from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 type BookAppointmentArgs = {
-    patient: Omit<Patient, 'id'>;
-    date: string;
-    time: string;
-    clinicId: string;
-    patientType: PatientType;
-}
+  patient: Omit<Patient, 'id'>;
+  date: string;
+  time: string;
+  clinicId: string;
+  patientType: PatientType;
+};
 
 export async function bookAppointment(data: BookAppointmentArgs) {
   const { date, time, patient, clinicId } = data;
-  
+
   const appointmentsOnDate = await getAppointmentsByDate(new Date(date));
 
   // Check if the specific time slot is already taken for the clinic
   const isTimeSlotTaken = appointmentsOnDate.some(
-    app => app.clinicId === clinicId && app.time === time
+    (app) => app.clinicId === clinicId && app.time === time
   );
 
   if (isTimeSlotTaken) {
@@ -43,7 +54,8 @@ export async function bookAppointment(data: BookAppointmentArgs) {
 
   // Check if CURP already has an appointment on this date
   const curpExistsOnDate = appointmentsOnDate.some(
-    (app) => app.patient && app.patient.curp.toUpperCase() === patient.curp.toUpperCase()
+    (app) =>
+      app.patient && app.patient.curp.toUpperCase() === patient.curp.toUpperCase()
   );
 
   if (curpExistsOnDate) {
@@ -53,13 +65,13 @@ export async function bookAppointment(data: BookAppointmentArgs) {
         'Ya existe una cita agendada con esta CURP para el día seleccionado.',
     };
   }
-  
+
   // Find or create patient
   let existingPatient = await findPatientByCURP(patient.curp);
   if (!existingPatient) {
-      const newPatient = { ...patient, id: uuidv4()};
-      await savePatient(newPatient);
-      existingPatient = newPatient;
+    const newPatient = { ...patient, id: uuidv4() };
+    await savePatient(newPatient);
+    existingPatient = newPatient;
   } else {
     // If patient exists, update their info just in case (e.g. phone number)
     const updatedPatient = { ...existingPatient, ...patient };
@@ -69,30 +81,37 @@ export async function bookAppointment(data: BookAppointmentArgs) {
 
   // Create appointment number
   const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
-  
+
   const newAppointment: Appointment = {
-      id: uuidv4(),
-      appointmentNumber,
-      patientId: existingPatient.id,
-      clinicId,
-      date,
-      time,
-      patientType: data.patientType,
-      status: 'Pendiente',
-      patient, // Embed patient data for convenience
-  }
+    id: uuidv4(),
+    appointmentNumber,
+    patientId: existingPatient.id,
+    clinicId,
+    date,
+    time,
+    patientType: data.patientType,
+    status: 'Pendiente',
+    patient, // Embed patient data for convenience
+  };
 
   const savedAppointment = await saveAppointment(newAppointment);
 
   if (!savedAppointment) {
-     return { success: false, message: 'No se pudo guardar la cita en la base de datos.' };
+    return {
+      success: false,
+      message: 'No se pudo guardar la cita en la base de datos.',
+    };
   }
 
   revalidatePath('/');
   revalidatePath('/admin');
   revalidatePath('/reports');
 
-  return { success: true, message: 'Cita agendada con éxito.', appointment: savedAppointment };
+  return {
+    success: true,
+    message: 'Cita agendada con éxito.',
+    appointment: savedAppointment,
+  };
 }
 
 export async function deleteAppointment(id: string) {
@@ -107,7 +126,8 @@ export async function deleteAppointment(id: string) {
     // but we catch it here to return a user-friendly message.
     return {
       success: false,
-      message: 'Error al eliminar la cita. Verifica los permisos de seguridad en Firebase.',
+      message:
+        'Error al eliminar la cita. Verifica los permisos de seguridad en Firebase.',
     };
   }
 }
@@ -119,43 +139,55 @@ export async function updateAnnouncements(newAnnouncements: string[]) {
     revalidatePath('/admin');
     return { success: true, message: 'Avisos actualizados con éxito.' };
   }
-  return { success: false, message: 'No se pudieron guardar los avisos.'};
+  return { success: false, message: 'No se pudieron guardar los avisos.' };
 }
 
 export async function updateClinics(clinics: Clinic[]) {
-    const success = await updateDataClinics(clinics);
-    if(success) {
-        revalidatePath('/admin');
-        revalidatePath('/');
-        return { success: true, message: "Núcleos actualizados con éxito." }
-    }
-    return { success: false, message: "No se pudo guardar la configuración de núcleos." }
+  const success = await updateDataClinics(clinics);
+  if (success) {
+    revalidatePath('/admin');
+    revalidatePath('/');
+    return { success: true, message: 'Núcleos actualizados con éxito.' };
+  }
+  return {
+    success: false,
+    message: 'No se pudo guardar la configuración de núcleos.',
+  };
 }
 
 export async function updateColonias(colonias: Colonia[]) {
-    const success = await updateDataColonias(colonias);
-    if(success) {
-        revalidatePath('/admin');
-        revalidatePath('/');
-        return { success: true, message: "Colonias actualizadas con éxito." }
-    }
-    return { success: false, message: "No se pudo guardar la configuración de colonias." }
+  const success = await updateDataColonias(colonias);
+  if (success) {
+    revalidatePath('/admin');
+    revalidatePath('/');
+    return { success: true, message: 'Colonias actualizadas con éxito.' };
+  }
+  return {
+    success: false,
+    message: 'No se pudo guardar la configuración de colonias.',
+  };
 }
 
-export async function updateAppointmentStatus(appointmentId: string, status: 'Atendida' | 'Cancelada') {
-    const success = await updateDataAppointmentStatus(appointmentId, status);
-     if(success) {
-        revalidatePath('/admin');
-        revalidatePath('/reports');
-        return { success: true, message: "Estado de la cita actualizado." }
-    }
-    return { success: false, message: "No se pudo actualizar el estado." }
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: 'Atendida' | 'Cancelada'
+) {
+  const success = await updateDataAppointmentStatus(appointmentId, status);
+  if (success) {
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+    return { success: true, message: 'Estado de la cita actualizado.' };
+  }
+  return { success: false, message: 'No se pudo actualizar el estado.' };
 }
 
-export async function verifyClinicPassword(clinicId: string, passwordAttempt: string) {
-    const result = await dataVerifyClinicPassword(clinicId, passwordAttempt);
-    if (result.isValid) {
-        return { success: true };
-    }
-    return { success: false, message: result.message };
+export async function verifyClinicPassword(
+  clinicId: string,
+  passwordAttempt: string
+) {
+  const result = await dataVerifyClinicPassword(clinicId, passwordAttempt);
+  if (result.isValid) {
+    return { success: true };
+  }
+  return { success: false, message: result.message };
 }
