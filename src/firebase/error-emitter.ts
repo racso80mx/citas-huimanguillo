@@ -1,4 +1,3 @@
-'use client';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
@@ -28,6 +27,7 @@ function createEventEmitter<T extends Record<string, any>>() {
      * @param callback The function to call when the event is emitted.
      */
     on<K extends keyof T>(eventName: K, callback: Callback<T[K]>) {
+      if (typeof window === 'undefined') return; // Don't subscribe on server
       if (!events[eventName]) {
         events[eventName] = [];
       }
@@ -40,6 +40,7 @@ function createEventEmitter<T extends Record<string, any>>() {
      * @param callback The specific callback to remove.
      */
     off<K extends keyof T>(eventName: K, callback: Callback<T[K]>) {
+      if (typeof window === 'undefined') return; // Don't unsubscribe on server
       if (!events[eventName]) {
         return;
       }
@@ -52,6 +53,12 @@ function createEventEmitter<T extends Record<string, any>>() {
      * @param data The data payload that corresponds to the event's type.
      */
     emit<K extends keyof T>(eventName: K, data: T[K]) {
+      if (typeof window === 'undefined') {
+        // On the server, we can't use the event emitter.
+        // We will throw the error directly.
+        console.error("Firestore Permission Error (SERVER):", data.message);
+        return;
+      };
       if (!events[eventName]) {
         return;
       }

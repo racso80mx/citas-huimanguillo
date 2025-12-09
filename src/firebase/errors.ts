@@ -1,4 +1,3 @@
-'use client';
 import { getAuth, type User } from 'firebase/auth';
 
 type SecurityRuleContext = {
@@ -77,7 +76,8 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    // Safely attempt to get the current user.
+    // Safely attempt to get the current user. This may fail on the server
+    // if Firebase hasn't been initialized in the current scope.
     const firebaseAuth = getAuth();
     const currentUser = firebaseAuth.currentUser;
     if (currentUser) {
