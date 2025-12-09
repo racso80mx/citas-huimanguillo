@@ -122,10 +122,18 @@ export function BookingForm({
         };
       }
 
-      const curpExistsOnDate = appointmentsOnDate.some(
-        (app) =>
-          app.patient && app.patient.curp.toUpperCase() === curp.toUpperCase()
+      // We need to fetch the patient for each appointment to check the CURP.
+      // This is less efficient but necessary with the current data model.
+      const patientIds = appointmentsOnDate.map(app => app.patientId).filter(Boolean);
+      const patientDocs = await Promise.all(
+          patientIds.map(id => getDoc(doc(getDb(), 'patients', id)))
       );
+      const patientsOnDate = patientDocs.map(doc => doc.data() as Patient);
+
+      const curpExistsOnDate = patientsOnDate.some(
+        (p) => p && p.curp.toUpperCase() === curp.toUpperCase()
+      );
+
 
       if (curpExistsOnDate) {
         return {
@@ -134,8 +142,7 @@ export function BookingForm({
         };
       }
       
-      // Upsert patient logic: Create a consistent ID based on CURP
-      const patientId = uuidv4(); // We will just create a new patient record for simplicity now
+      const patientId = uuidv4();
       const patientToSave: Patient = {
           id: patientId,
           curp: curp.toUpperCase(),

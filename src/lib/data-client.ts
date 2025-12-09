@@ -159,7 +159,7 @@ export async function getAppointments(): Promise<Appointment[]> {
 };
 
 
-export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> {
+export async function getAppointmentsByDate(date: Date): Promise<any[]> {
   const db = getDb();
   const startOfDay = new Date(date);
   startOfDay.setHours(0, 0, 0, 0);
@@ -174,23 +174,15 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
 
   try {
     const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map((doc) => {
+    // Return raw appointment data without enriching it
+    return snapshot.docs.map((doc) => {
       const data = doc.data();
-      return { ...data, id: doc.id, date: (data.date as Timestamp).toDate().toISOString() } as Appointment;
+      return { 
+          ...data, 
+          id: doc.id, 
+          date: (data.date as Timestamp).toDate().toISOString() 
+      };
     });
-
-    const enrichedAppointments = await Promise.all(
-        appointments
-            .filter(app => !!app.patientId)
-            .map(async (app) => {
-            const patient = await getDocument<Patient>('patients', app.patientId);
-            if (!patient) return null;
-            return { ...app, patient: { ...patient } };
-        })
-    );
-
-    return enrichedAppointments.filter(app => app !== null) as Appointment[];
-
   } catch(error) {
      handleFirestoreError(error, { path: 'appointments', operation: 'list' });
      return [];
