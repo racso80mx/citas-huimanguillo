@@ -140,7 +140,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleDownload = () => {
-    if (appointmentsToDisplay.length === 0) {
+    const dataToDownload = appointmentsToDisplay;
+    if (dataToDownload.length === 0) {
       toast({
         title: 'No hay datos para descargar',
         description: 'No hay citas en el filtro actual para exportar.',
@@ -149,7 +150,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return;
     }
 
-    const enrichedAppointments = appointmentsToDisplay.map((app) => {
+    const enrichedAppointments = dataToDownload.map((app) => {
       const clinic = clinics.find((c) => c.id === app.clinicId);
       // This is a simplification; in a real app, you might need to find the colonia based on patient ID or another logic
       const patientColonia = colonias.find((c) => c.clinicId === app.clinicId); // Example logic
