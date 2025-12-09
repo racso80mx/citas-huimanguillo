@@ -291,9 +291,9 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                  <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead>Fecha</TableHead>
                             <TableHead>Folio</TableHead>
                             <TableHead>Paciente</TableHead>
-                            <TableHead>Fecha</TableHead>
                             <TableHead>Hora</TableHead>
                             <TableHead>Teléfono</TableHead>
                             <TableHead>Tipo Paciente</TableHead>
@@ -304,9 +304,9 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
                     <TableBody>
                         {filteredAppointments.map(app => (
                             <TableRow key={app.id} className={isStatusPending && app.status !== 'Pendiente' ? 'opacity-50' : ''}>
+                                <TableCell>{format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                 <TableCell>{app.appointmentNumber}</TableCell>
                                 <TableCell>{app.patient.name} {app.patient.paternalLastName}</TableCell>
-                                <TableCell>{format(parseISO(app.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                 <TableCell>{app.time}</TableCell>
                                 <TableCell>{app.patient.phoneNumber}</TableCell>
                                 <TableCell>{app.patientType}</TableCell>
