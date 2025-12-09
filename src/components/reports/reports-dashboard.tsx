@@ -140,12 +140,17 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     setActiveFilter('range');
   }
 
-  const handleStatusChange = (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
-      startStatusTransition(() => {
-        toast({ title: "Actualizando estado...", description: "El cambio se reflejará en momentos."});
-        updateAppointmentStatus(appointmentId, status);
-        // Optimistically refetch data after a short delay to allow Firestore to process
-        setTimeout(fetchData, 1500); 
+  const handleStatusChange = async (appointmentId: string, status: 'Atendida' | 'Cancelada') => {
+      startStatusTransition(async () => {
+        toast({ title: "Actualizando estado...", description: "Por favor espera."});
+        try {
+            await updateAppointmentStatus(appointmentId, status);
+            toast({ title: "Éxito", description: "El estado de la cita ha sido actualizado."});
+            fetchData(); // Refetch data to show the update
+        } catch (error) {
+            console.error("Failed to update status:", error);
+            toast({ title: "Error", description: "No se pudo actualizar el estado de la cita.", variant: "destructive"});
+        }
       })
   }
 

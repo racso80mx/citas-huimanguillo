@@ -163,15 +163,11 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
   }
 }
 
-export function updateAppointmentStatus(
+export async function updateAppointmentStatus(
   appointmentId: string,
   status: 'Atendida' | 'Cancelada'
-): void {
+): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'appointments', appointmentId);
-
-  // Perform the update. If it fails, log the actual error to the console.
-  updateDoc(docRef, { status }).catch(err => {
-    console.error(`Failed to update status for appointment ${appointmentId}:`, err);
-  });
+  await updateDoc(docRef, { status });
 }
