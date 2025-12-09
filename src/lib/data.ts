@@ -346,7 +346,17 @@ export async function getColonias(): Promise<Colonia[]> {
         const docRef = doc(db, 'colonias', col.id);
         batch.set(docRef, { nombre: col.nombre, nucleo: col.nucleo });
       });
-      await batch.commit();
+      await batch.commit().catch(error => {
+        // If the initial seeding fails, emit an error but still return defaults for UI
+         errorEmitter.emit(
+            'permission-error',
+            new FirestorePermissionError({
+                path: collectionRef.path,
+                operation: 'write',
+                requestResourceData: {info: "Batch write for default colonias failed."}
+            })
+        );
+      });
 
       return defaultColonias;
     }
@@ -370,7 +380,7 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
 
     // Get a list of documents currently in the collection
     const existingDocsSnapshot = await getDocs(collectionRef).catch(error => {
-        // If we can't even read the collection, that's a permission error
+        // If we can't even read the collection, that's a permission error that needs to be surfaced
         errorEmitter.emit(
             'permission-error',
             new FirestorePermissionError({

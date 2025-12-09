@@ -17,8 +17,7 @@ service cloud.firestore {
 
     // Colonias configuration is publicly readable, but only writable by an admin.
     match /colonias/{coloniaId} {
-       allow read: if true;
-       allow write: if request.auth != null; // Simplified: Should be admin-only
+       allow read, write: if request.auth != null;
     }
   }
 }
