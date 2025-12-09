@@ -50,6 +50,10 @@ const getCollection = async <T>(collectionName: string): Promise<T[]> => {
 
 const getDocument = async <T>(collectionName: string, docId: string): Promise<T | null> => {
     const db = getDb();
+    if (!docId) {
+        console.warn(`getDocument called with undefined or null docId for collection ${collectionName}`);
+        return null;
+    }
     const docRef = doc(db, collectionName, docId);
     try {
         const docSnap = await getDoc(docRef);
@@ -101,18 +105,29 @@ export async function saveAppointment(appointment: Appointment): Promise<Appoint
 
 export const getAppointments = cache(async (): Promise<Appointment[]> => {
     const appointments = await getCollection<any>('appointments');
-    const enrichedAppointments = await Promise.all(
-        appointments.map(async (app) => {
-            const patient = await getDocument<Patient>('patients', app.patientId);
-            return {
-                ...app,
-                date: (app.date as Timestamp).toDate().toISOString(),
-                patient: patient ? { ...patient } : null,
-            };
-        })
-    );
-    return enrichedAppointments
-        .filter(app => app.patient !== null) // Filter out appointments with no patient
+    
+    const enrichedAppointmentsPromises = appointments
+        .filter(app => !!app.patientId) // Ensure patientId exists
+        .map(async (app) => {
+            try {
+                const patient = await getDocument<Patient>('patients', app.patientId);
+                if (!patient) return null; // Skip if patient not found
+
+                return {
+                    ...app,
+                    date: (app.date as Timestamp).toDate().toISOString(),
+                    patient: { ...patient },
+                };
+            } catch (error) {
+                console.error(`Failed to enrich appointment ${app.id} for patient ${app.patientId}:`, error);
+                return null; // Skip this appointment on error
+            }
+        });
+
+    const settledAppointments = await Promise.all(enrichedAppointmentsPromises);
+    
+    return settledAppointments
+        .filter((app): app is Appointment => app !== null) // Filter out nulls
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }, ['appointments'], { revalidate: 10 });
 
@@ -139,13 +154,16 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
 
     // Enrich with patient data
     const enrichedAppointments = await Promise.all(
-        appointments.map(async (app) => {
+        appointments
+            .filter(app => !!app.patientId)
+            .map(async (app) => {
             const patient = await getDocument<Patient>('patients', app.patientId);
-            return { ...app, patient: patient ? { ...patient } : null };
+            if (!patient) return null;
+            return { ...app, patient: { ...patient } };
         })
     );
 
-    return enrichedAppointments.filter(app => app.patient !== null) as Appointment[];
+    return enrichedAppointments.filter(app => app !== null) as Appointment[];
 
   } catch(error) {
      handleFirestoreError(error, { path: 'appointments', operation: 'list' });
