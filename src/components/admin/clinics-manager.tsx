@@ -17,7 +17,6 @@ import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide
 import type { Clinic } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
-import { revalidateTag } from 'next/cache';
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
