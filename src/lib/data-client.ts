@@ -13,7 +13,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment, Clinic, Colonia } from './definitions';
+import type { Appointment, Clinic, Colonia, Patient } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -126,11 +126,23 @@ export async function updateAppointmentStatus(
 }
 
 export async function getAppointments(): Promise<Appointment[]> {
-    const appointments = await getCollection<any>('appointments');
-    return appointments.map((app: any) => ({
-        ...app,
-        date: (app.date as Timestamp).toDate().toISOString(),
-    }));
+    const db = getDb();
+    const collectionRef = collection(db, 'appointments');
+    try {
+        const snapshot = await getDocs(collectionRef);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return { 
+                ...data, 
+                id: doc.id,
+                date: (data.date as Timestamp).toDate().toISOString(),
+                patient: data.patient, // Ensure nested object is included
+            } as Appointment;
+        });
+    } catch (error) {
+        handleFirestoreError(error, { path: 'appointments', operation: 'list' });
+        return [];
+    }
 }
 
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {

@@ -1,12 +1,17 @@
 [
-    {
-        "id": "centro-id",
-        "name": "Centro",
-        "clinicId": "NB1"
-    },
-    {
-        "id": "pueblo-nuevo-id",
-        "name": "Pueblo Nuevo",
-        "clinicId": "NB1"
-    }
+  {
+    "id": "centro-id",
+    "name": "Centro",
+    "clinicId": "NB1"
+  },
+  {
+    "id": "pueblo-nuevo-id",
+    "name": "Pueblo Nuevo",
+    "clinicId": "NB1"
+  },
+  {
+    "id": "567ee96d-1874-4fd4-b81b-c284a7d344db",
+    "name": "Colonia 2",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898"
+  }
 ]
