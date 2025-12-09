@@ -22,23 +22,6 @@ const getDb = () => {
   return firestore;
 };
 
-const handleFirestoreError = (
-  error: any,
-  context: {
-    path: string;
-    operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
-    requestResourceData?: any;
-  }
-) => {
-  const permissionError = new FirestorePermissionError({
-    path: context.path,
-    operation: context.operation,
-    requestResourceData: context.requestResourceData,
-  });
-  errorEmitter.emit('permission-error', permissionError);
-  throw permissionError;
-};
-
 export const getCollection = async <T>(collectionName: string): Promise<T[]> => {
     const db = getDb();
     const collectionRef = collection(db, collectionName);
@@ -46,8 +29,9 @@ export const getCollection = async <T>(collectionName: string): Promise<T[]> => 
         const snapshot = await getDocs(collectionRef);
         return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
     } catch (error) {
-        handleFirestoreError(error, { path: collectionName, operation: 'list' });
-        return []; // Should not be reached due to throw
+        // Since handleFirestoreError is removed, we let the error propagate or handle it generically.
+        console.error(`Error getting collection ${collectionName}:`, error);
+        throw error;
     }
 };
 
@@ -65,8 +49,8 @@ export const getDocument = async <T>(collectionName: string, docId: string): Pro
         }
         return null;
     } catch (error) {
-        handleFirestoreError(error, { path: docRef.path, operation: 'get' });
-        return null; // Should not be reached due to throw
+        console.error(`Error getting document ${docId} from ${collectionName}:`, error);
+        throw error;
     }
 }
 
@@ -87,12 +71,8 @@ export async function saveAppointment(
     await setDoc(docRef, dataToSave);
     return appointment;
   } catch (error) {
-    handleFirestoreError(error, {
-      path: docRef.path,
-      operation: 'create',
-      requestResourceData: dataToSave,
-    });
-    return null;
+    console.error("Error saving appointment:", error);
+    throw error;
   }
 }
 
@@ -102,7 +82,8 @@ export async function deleteAppointment(id: string): Promise<void> {
   try {
     await deleteDoc(docRef);
   } catch (error) {
-    handleFirestoreError(error, { path: docRef.path, operation: 'delete' });
+    console.error("Error deleting appointment:", error);
+    throw error;
   }
 }
 
@@ -121,8 +102,8 @@ export async function getAppointments(): Promise<Appointment[]> {
             } as Appointment;
         });
     } catch (error) {
-        handleFirestoreError(error, { path: 'appointments', operation: 'list' });
-        return [];
+        console.error("Error getting appointments:", error);
+        throw error;
     }
 }
 
@@ -146,8 +127,8 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
       } as Appointment;
     });
   } catch(error) {
-     handleFirestoreError(error, { path: 'appointments', operation: 'list' });
-     return [];
+     console.error("Error getting appointments for clinic:", error);
+     throw error;
   }
 }
 
@@ -178,8 +159,8 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
     });
     return appointments;
   } catch(error) {
-     handleFirestoreError(error, { path: 'appointments', operation: 'list' });
-     return [];
+     console.error("Error getting appointments by date:", error);
+     throw error;
   }
 }
 
@@ -190,12 +171,17 @@ export function updateAppointmentStatus(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointmentId);
 
-  updateDoc(docRef, { status }).catch((error) => {
-    // Let the global error handler catch and display the permission error
-    handleFirestoreError(error, {
+  // Directly call updateDoc. If it fails, the error will be caught by the calling function's try/catch
+  // or will bubble up as an unhandled promise rejection, which is better than mis-classifying it.
+  updateDoc(docRef, { status }).catch(err => {
+    console.error(`Failed to update status for appointment ${appointmentId}:`, err);
+    // Let the error bubble up so we can see the real cause in the console.
+    // The global error boundary will catch it if not handled by a try-catch in the component.
+    const permissionError = new FirestorePermissionError({
       path: docRef.path,
       operation: 'update',
       requestResourceData: { status },
     });
+    errorEmitter.emit('permission-error', permissionError);
   });
 }
