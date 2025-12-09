@@ -72,9 +72,9 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
-              <TableCell>{`${app.patient.name} ${app.patient.paternalLastName}`}</TableCell>
-              <TableCell>{app.patient.curp}</TableCell>
-              <TableCell>{app.patient.phoneNumber}</TableCell>
+              <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName}` : 'N/A'}</TableCell>
+              <TableCell>{app.patient?.curp || 'N/A'}</TableCell>
+              <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
               <TableCell>{getClinicName(app.clinicId)}</TableCell>
               <TableCell>{app.patientType}</TableCell>
               <TableCell>{app.status}</TableCell>
@@ -91,7 +91,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                         <AlertDialogDescription>
                           Esta acción no se puede deshacer. Se eliminará permanentemente la cita de
-                          <span className='font-bold'>{` ${app.patient.name} ${app.patient.paternalLastName} `}</span>
+                          <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ` : 'este paciente '}</span>
                            ({app.appointmentNumber}) y el espacio quedará libre.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
