@@ -19,8 +19,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { getColonias, getClinics } from '@/lib/data';
-import { updateColonias } from '@/lib/actions';
+import { getColonias, getClinics, updateColonias } from '@/lib/data';
 import { Loader2, Trash2, PlusCircle, MapPin, Save } from 'lucide-react';
 import type { Colonia, Clinic } from '@/lib/definitions';
 
@@ -31,24 +30,25 @@ export function ColoniasManager() {
   const [isSaving, startSavingTransition] = useTransition();
   const { toast } = useToast();
 
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [coloniasData, clinicsData] = await Promise.all([getColonias(), getClinics()]);
+      setColonias(coloniasData);
+      setClinics(clinicsData);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos iniciales. Por favor, recarga la página.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [coloniasData, clinicsData] = await Promise.all([getColonias(), getClinics()]);
-        setColonias(coloniasData);
-        setClinics(clinicsData);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos iniciales. Por favor, recarga la página.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchData();
   }, [toast]);
 
@@ -95,12 +95,7 @@ export function ColoniasManager() {
           className: 'bg-accent text-accent-foreground',
         });
         // Refetch to ensure sync with DB state
-        try {
-            const data = await getColonias();
-            setColonias(data);
-        } catch (error) {
-            console.error("Failed to refetch colonias after save:", error);
-        }
+        await fetchData();
       } else {
         toast({
           title: 'Error',

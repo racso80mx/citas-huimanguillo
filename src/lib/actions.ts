@@ -5,9 +5,6 @@ import {
   saveAppointment,
   getAppointmentsByDate,
   deleteAppointment as deleteDataAppointment,
-  updateAnnouncements as updateDataAnnouncements,
-  updateClinics as updateDataClinics,
-  updateColonias as updateDataColonias,
   findPatientByCURP,
   savePatient,
   updateAppointmentStatus as updateDataAppointmentStatus,
@@ -126,44 +123,6 @@ export async function deleteAppointment(id: string) {
   }
 }
 
-export async function updateAnnouncements(newAnnouncements: string[]) {
-  const result = await updateDataAnnouncements(newAnnouncements);
-  if (result) {
-    revalidatePath('/');
-    revalidatePath('/admin');
-    return { success: true, message: 'Avisos actualizados con éxito.' };
-  }
-  return { success: false, message: 'No se pudieron guardar los avisos.' };
-}
-
-export async function updateClinics(clinics: Clinic[]) {
-  const success = await updateDataClinics(clinics);
-  if (success) {
-    revalidatePath('/admin');
-    revalidatePath('/');
-    revalidateTag('clinics');
-    return { success: true, message: 'Núcleos actualizados con éxito.' };
-  }
-  return {
-    success: false,
-    message: 'No se pudo guardar la configuración de núcleos.',
-  };
-}
-
-export async function updateColonias(colonias: Colonia[]) {
-  const success = await updateDataColonias(colonias);
-  if (success) {
-    revalidatePath('/admin');
-    revalidatePath('/');
-    revalidateTag('colonias');
-    return { success: true, message: 'Colonias actualizadas con éxito.' };
-  }
-  return {
-    success: false,
-    message: 'No se pudo guardar la configuración de colonias.',
-  };
-}
-
 export async function updateAppointmentStatus(
   appointmentId: string,
   status: 'Atendida' | 'Cancelada'
@@ -183,7 +142,50 @@ export async function verifyClinicPassword(
 ) {
   const result = await dataVerifyClinicPassword(clinicId, passwordAttempt);
   if (result.isValid) {
+    revalidateTag(`clinic-auth-${clinicId}`);
     return { success: true };
   }
   return { success: false, message: result.error || "Contraseña incorrecta." };
 }
+
+// These functions will now be handled on the client-side to leverage the existing auth context.
+// This file can be further cleaned up if these are the only server actions.
+// For now, we will just comment them out to ensure they are not used.
+
+// export async function updateAnnouncements(newAnnouncements: string[]) {
+//   const result = await updateDataAnnouncements(newAnnouncements);
+//   if (result) {
+//     revalidatePath('/');
+//     revalidatePath('/admin');
+//     return { success: true, message: 'Avisos actualizados con éxito.' };
+//   }
+//   return { success: false, message: 'No se pudieron guardar los avisos.' };
+// }
+
+// export async function updateClinics(clinics: Clinic[]) {
+//   const success = await updateDataClinics(clinics);
+//   if (success) {
+//     revalidatePath('/admin');
+//     revalidatePath('/');
+//     revalidateTag('clinics');
+//     return { success: true, message: 'Núcleos actualizados con éxito.' };
+//   }
+//   return {
+//     success: false,
+//     message: 'No se pudo guardar la configuración de núcleos.',
+//   };
+// }
+
+// export async function updateColonias(colonias: Colonia[]) {
+//   const success = await updateDataColonias(colonias);
+//   if (success) {
+//     revalidatePath('/admin');
+//     revalidatePath('/');
+//     revalidateTag('colonias');
+//     return { success: true, message: 'Colonias actualizadas con éxito.' };
+//   }
+//   return {
+//     success: false,
+//     message: 'No se pudo guardar la configuración de colonias.',
+//   };
+// }

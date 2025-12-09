@@ -12,8 +12,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateAnnouncements } from '@/lib/actions';
-import { getAnnouncements } from '@/lib/data';
+import { updateAnnouncements, getAnnouncements } from '@/lib/data';
 import { Loader2, Trash2, PlusCircle, Megaphone } from 'lucide-react';
 
 export function AnnouncementsManager() {
@@ -22,13 +21,14 @@ export function AnnouncementsManager() {
   const [isSaving, startSavingTransition] = useTransition();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchAnnouncements = async () => {
+  const fetchAnnouncements = async () => {
       setIsLoading(true);
       const data = await getAnnouncements();
       setAnnouncements(data);
       setIsLoading(false);
     };
+
+  useEffect(() => {
     fetchAnnouncements();
   }, []);
 
@@ -68,8 +68,7 @@ export function AnnouncementsManager() {
           className: 'bg-accent text-accent-foreground',
         });
         // Refetch to get the canonical state from the server
-        const data = await getAnnouncements();
-        setAnnouncements(data);
+        await fetchAnnouncements();
       } else {
         toast({
           title: 'Error',

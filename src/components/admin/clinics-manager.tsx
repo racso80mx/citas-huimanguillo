@@ -12,12 +12,12 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { getClinics } from '@/lib/data';
-import { updateClinics } from '@/lib/actions';
+import { getClinics, updateClinics } from '@/lib/data';
 import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+import { revalidateTag } from 'next/cache';
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -26,8 +26,7 @@ export function ClinicsManager() {
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchClinics = async () => {
+  const fetchClinics = async () => {
       setIsLoading(true);
       try {
         const data = await getClinics();
@@ -43,6 +42,8 @@ export function ClinicsManager() {
         setIsLoading(false);
       }
     };
+
+  useEffect(() => {
     fetchClinics();
   }, [toast]);
 
@@ -93,12 +94,8 @@ export function ClinicsManager() {
           description: 'La configuración de núcleos básicos ha sido actualizada.',
           className: 'bg-accent text-accent-foreground',
         });
-        try {
-            const data = await getClinics();
-            setClinics(data);
-        } catch (error) {
-            console.error("Failed to refetch clinics after save:", error);
-        }
+        // Refetch data after saving
+        await fetchClinics();
       } else {
         toast({
           title: 'Error',

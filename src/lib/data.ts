@@ -18,7 +18,7 @@ import { initializeFirebase } from '@/firebase';
 import type { Appointment, Clinic, Colonia, User, Patient } from './definitions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { unstable_cache as cache } from 'next/cache';
+import { unstable_cache as cache, revalidateTag } from 'next/cache';
 
 const getDb = () => {
   const { firestore } = initializeFirebase();
@@ -26,14 +26,14 @@ const getDb = () => {
 };
 
 const handleFirestoreError = (error: any, context: { path: string, operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write', requestResourceData?: any }) => {
-    // No log to console, the listener will handle it.
     const permissionError = new FirestorePermissionError({
         path: context.path,
         operation: context.operation,
         requestResourceData: context.requestResourceData,
     });
+    // The listener in FirebaseErrorListener.tsx will catch this and show the overlay.
+    // The component that called the function will also see the thrown error.
     errorEmitter.emit('permission-error', permissionError);
-    // Re-throwing is important for server-side operations to fail explicitly.
     throw permissionError;
 }
 
@@ -243,8 +243,17 @@ export const getAnnouncements = async (): Promise<string[]> => {
   }
 }
 
-export const updateAnnouncements = async (newAnnouncements: string[]): Promise<boolean> => {
-  return setDocument('settings', 'announcements', { messages: newAnnouncements.slice(0, 4) });
+export const updateAnnouncements = async (newAnnouncements: string[]): Promise<{success: boolean, message?: string}> => {
+  try {
+    const success = await setDocument('settings', 'announcements', { messages: newAnnouncements.slice(0, 4) });
+    if(success) {
+      revalidatePath('/');
+      revalidatePath('/admin');
+    }
+    return { success };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+  }
 }
 
 // ========== Clinics Configuration ==========
@@ -281,7 +290,7 @@ export const getClinics = cache(async(): Promise<Clinic[]> => {
 }, ['clinics'], { revalidate: 10 });
 
 
-export async function updateClinics(clinics: Clinic[]): Promise<boolean> {
+export async function updateClinics(clinics: Clinic[]): Promise<{success: boolean, message?: string}> {
     const db = getDb();
     const batch = writeBatch(db);
     const collectionRef = collection(db, 'clinics');
@@ -302,10 +311,13 @@ export async function updateClinics(clinics: Clinic[]): Promise<boolean> {
       });
 
       await batch.commit();
-      return true;
+      revalidateTag('clinics');
+      revalidatePath('/admin');
+      revalidatePath('/');
+      return { success: true };
     } catch(error) {
         handleFirestoreError(error, { path: 'clinics', operation: 'write', requestResourceData: clinics});
-        return false;
+        return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
 
@@ -331,7 +343,7 @@ export const getColonias = cache(async (): Promise<Colonia[]> => {
   }
 }, ['colonias'], { revalidate: 10 });
 
-export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
+export async function updateColonias(colonias: Colonia[]): Promise<{success: boolean, message?: string}> {
     const db = getDb();
     const batch = writeBatch(db);
     const collectionRef = collection(db, 'colonias');
@@ -355,27 +367,30 @@ export async function updateColonias(colonias: Colonia[]): Promise<boolean> {
         });
 
         await batch.commit();
-        return true;
+        revalidateTag('colonias');
+        revalidatePath('/admin');
+        revalidatePath('/');
+        return { success: true };
     } catch (error) {
         handleFirestoreError(error, {
             path: 'colonias',
             operation: 'write',
             requestResourceData: { info: 'Batch operation on colonias collection.', data: colonias }
         });
-        return false;
+        return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
     }
 }
 
 // ========== Reports Auth ==========
 export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{isValid: boolean, error?: string}> {
     try {
-        // Use the cached getClinics function to avoid direct DB calls in this server action
         const clinics = await getClinics();
         const clinic = clinics.find(c => c.id === clinicId);
         
         if (!clinic) {
             return { isValid: false, error: "El núcleo básico seleccionado no existe." };
         }
+
         if (clinic.password === passwordAttempt) {
             return { isValid: true };
         }
