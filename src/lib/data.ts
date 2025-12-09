@@ -366,7 +366,7 @@ export async function updateClinics(clinics: Clinic[]): Promise<boolean> {
       await batch.commit();
       return true;
     } catch(error) {
-        handleFirestoreError(error, { path: collectionRef.path, operation: 'write', requestResourceData: clinics});
+        handleFirestoreError(error, { path: 'clinics', operation: 'write', requestResourceData: clinics});
         return false;
     }
 }
