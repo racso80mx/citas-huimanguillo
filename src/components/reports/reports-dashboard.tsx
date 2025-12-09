@@ -149,7 +149,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         title: 'Éxito',
         description: 'El estado de la cita ha sido actualizado.',
       });
-      await fetchData(); // Refetch data to show the update
+      fetchData(); // Refetch data to show the update
     } catch (error) {
       console.error('Failed to update status:', error);
       toast({

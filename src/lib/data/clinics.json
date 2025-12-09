@@ -18,5 +18,15 @@
     "startTime": "08:00",
     "endTime": "13:00",
     "weekendBookingEnabled": false
+  },
+  {
+    "id": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
+    "name": "Nucleo Basico 3",
+    "doctorName": "Dr. Nucleo 3",
+    "password": "1234",
+    "dailySlots": 15,
+    "startTime": "08:00",
+    "endTime": "13:00",
+    "weekendBookingEnabled": false
   }
 ]
