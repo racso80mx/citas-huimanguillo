@@ -35,12 +35,12 @@ service cloud.firestore {
     // Configuration collections are publicly readable, but only writable by an authenticated user.
     // The UI prevents non-admins from reaching the forms that write to these collections.
     match /clinics/{clinicId} {
-       allow read: if true;
+       allow read, list: if true;
        allow write: if isAuthenticated();
     }
     
     match /colonias/{coloniaId} {
-       allow read: if true;
+       allow read, list: if true;
        allow write: if isAuthenticated();
     }
 
