@@ -121,6 +121,7 @@ export type XRaySettings = {
     startTime: string;
     endTime: string;
     weekendBookingEnabled: boolean;
+    password?: string;
 }
 
 export const UltrasoundStudySchema = z.object({
@@ -146,4 +147,5 @@ export type UltrasoundSettings = {
     startTime: string;
     endTime: string;
     weekendBookingEnabled: boolean;
+    password?: string;
 }

@@ -1,8 +1,11 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
+  getLabAppointments,
+  getXRayAppointments,
+  getUltrasoundAppointments,
 } from '@/lib/data-client';
 import {
   Card,
@@ -41,24 +44,23 @@ import {
 import { cn, downloadExcel } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { AppointmentList } from '../appointment-list';
+import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
+import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
+import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
+
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound';
 
 type ReportsDashboardProps = {
-  clinic: Clinic;
+  entity: any;
   onLogout: () => void;
+  reportType: ReportType;
 };
 
 type FilterType = 'today' | 'week' | 'month' | 'range';
 
-export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashboardProps) {
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [isDataLoading, startDataTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -67,8 +69,15 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
   const fetchData = useCallback(() => {
     startDataTransition(async () => {
       try {
-        const appointments = await getAppointmentsForClinic(clinic.id);
-        setAllAppointments(appointments);
+        let appointmentsData;
+        if (reportType === 'clinic') {
+            appointmentsData = await getAppointmentsForClinic(entity.id);
+        } else if (reportType === 'x-ray') {
+            appointmentsData = await getXRayAppointments();
+        } else if (reportType === 'ultrasound') {
+            appointmentsData = await getUltrasoundAppointments();
+        }
+        setAppointments(appointmentsData || []);
       } catch (error) {
         console.error('Error fetching data for reports dashboard', error);
         toast({
@@ -78,18 +87,18 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         });
       }
     });
-  }, [clinic.id, toast]);
+  }, [entity.id, reportType, toast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const appointmentsToDisplay = useMemo(() => {
-    if (!allAppointments || allAppointments.length === 0) {
+    if (!appointments || appointments.length === 0) {
       return [];
     }
 
-    let filterFn: (app: Appointment) => boolean;
+    let filterFn: (app: any) => boolean;
     const now = new Date();
 
     switch (activeFilter) {
@@ -131,10 +140,10 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         };
         break;
     }
-    return allAppointments
+    return appointments
       .filter(filterFn)
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [allAppointments, activeFilter, dateRange]);
+  }, [appointments, activeFilter, dateRange]);
 
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -150,13 +159,12 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
       });
       return;
     }
-    // Enrich data for download without mutating state
-    const enrichedData = appointmentsToDisplay.map((app) => ({
-      ...app,
-      clinicName: clinic.name,
-      coloniaName: 'N/A', // Colonia info is not available here
-    }));
-    downloadExcel(enrichedData, `reporte_${clinic.name}_${activeFilter}`);
+    let filename = '';
+    if (reportType === 'clinic') filename = `reporte_${entity.name}_${activeFilter}`;
+    if (reportType === 'x-ray') filename = `reporte_rayos_x_${activeFilter}`;
+    if (reportType === 'ultrasound') filename = `reporte_ultrasonidos_${activeFilter}`;
+
+    downloadExcel(appointmentsToDisplay, filename);
   };
 
   const summaryCounts = useMemo(() => {
@@ -169,11 +177,25 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
     const monthEnd = endOfMonth(now);
 
     return {
-      today: allAppointments.filter(app => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd })).length,
-      week: allAppointments.filter(app => isWithinInterval(parseISO(app.date), { start: weekStart, end: weekEnd })).length,
-      month: allAppointments.filter(app => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd })).length,
+      today: appointments.filter(app => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd })).length,
+      week: appointments.filter(app => isWithinInterval(parseISO(app.date), { start: weekStart, end: weekEnd })).length,
+      month: appointments.filter(app => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd })).length,
     }
-  }, [allAppointments]);
+  }, [appointments]);
+
+  const renderAppointmentList = () => {
+    switch(reportType) {
+        case 'clinic':
+            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} />;
+        case 'x-ray':
+            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} />;
+        case 'ultrasound':
+            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} />;
+        default:
+            return <p>Tipo de reporte no reconocido.</p>
+    }
+  }
+
 
   return (
     <div className="space-y-8 container mx-auto px-4 py-8 md:py-12">
@@ -181,10 +203,10 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-3xl font-bold font-headline">
-              Reportes de Citas: {clinic.name}
+              Reportes de Citas: {entity.name}
             </CardTitle>
             <CardDescription>
-              Bienvenido, Dr. {clinic.doctorName}. Visualiza y gestiona las
+              Bienvenido, {entity.doctorName}. Visualiza y gestiona las
               citas.
             </CardDescription>
           </div>
@@ -306,36 +328,7 @@ export function ReportsDashboard({ clinic, onLogout }: ReportsDashboardProps) {
           ) : (
             <>
               {appointmentsToDisplay.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Folio</TableHead>
-                      <TableHead>Paciente</TableHead>
-                      <TableHead>Hora</TableHead>
-                      <TableHead>Teléfono</TableHead>
-                      <TableHead>Tipo Paciente</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {appointmentsToDisplay.map((app) => (
-                      <TableRow key={app.id}>
-                        <TableCell>
-                          {format(parseISO(app.date), 'dd/MM/yyyy', {
-                            locale: es,
-                          })}
-                        </TableCell>
-                        <TableCell>{app.appointmentNumber}</TableCell>
-                        <TableCell>
-                          {app.patient?.name} {app.patient?.paternalLastName}
-                        </TableCell>
-                        <TableCell>{app.time}</TableCell>
-                        <TableCell>{app.patient?.phoneNumber}</TableCell>
-                        <TableCell>{app.patientType}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                renderAppointmentList()
               ) : (
                 <div className="text-center py-10 text-muted-foreground">
                   No hay citas para mostrar con los filtros seleccionados.

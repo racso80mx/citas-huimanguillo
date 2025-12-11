@@ -9,6 +9,8 @@ import {
 } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
+  verifyXRayPassword as dataVerifyXRayPassword,
+  verifyUltrasoundPassword as dataVerifyUltrasoundPassword,
   updateClinics as dataUpdateClinics,
   updateColonias as dataUpdateColonias,
   updateAnnouncements as dataUpdateAnnouncements,
@@ -109,6 +111,23 @@ export async function verifyClinicPassword(
   }
   return { success: false, message: result.error || 'Contraseña incorrecta.' };
 }
+
+export async function verifyXRayPassword(passwordAttempt: string) {
+    const result = await dataVerifyXRayPassword(passwordAttempt);
+    if(result.isValid) {
+        return { success: true };
+    }
+    return { success: false, message: result.error || 'Contraseña incorrecta.' };
+}
+
+export async function verifyUltrasoundPassword(passwordAttempt: string) {
+    const result = await dataVerifyUltrasoundPassword(passwordAttempt);
+    if(result.isValid) {
+        return { success: true };
+    }
+    return { success: false, message: result.error || 'Contraseña incorrecta.' };
+}
+
 
 export async function updateClinics(clinics: Clinic[]) {
   const result = await dataUpdateClinics(clinics);

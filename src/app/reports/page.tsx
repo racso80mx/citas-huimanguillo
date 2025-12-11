@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
-import type { Clinic } from '@/lib/definitions';
-import { getClinics } from '@/lib/actions';
-import { verifyClinicPassword } from '@/lib/actions';
+import { useState, useEffect, useTransition } from 'react';
+import type { Clinic, XRaySettings, UltrasoundSettings } from '@/lib/definitions';
+import { getClinics, getXRaySettings, getUltrasoundSettings } from '@/lib/actions';
+import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,57 +14,94 @@ import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound';
+
 export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [xRaySettings, setXRaySettings] = useState<XRaySettings | null>(null);
+  const [ultrasoundSettings, setUltrasoundSettings] = useState<UltrasoundSettings | null>(null);
+
+  const [selectedReportType, setSelectedReportType] = useState<ReportType>('clinic');
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerifying, setIsVerifying] = useState(false);
+  
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authenticatedEntity, setAuthenticatedEntity] = useState<any>(null);
+  
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchClinics() {
+    async function fetchData() {
       setIsLoading(true);
       try {
-        const clinicsData = await getClinics();
+        const [clinicsData, xrayData, ultrasoundData] = await Promise.all([
+            getClinics(),
+            getXRaySettings(),
+            getUltrasoundSettings(),
+        ]);
         setClinics(clinicsData);
+        setXRaySettings(xrayData);
+        setUltrasoundSettings(ultrasoundData);
       } catch (error) {
         toast({
           title: 'Error',
-          description: 'No se pudieron cargar los núcleos básicos.',
+          description: 'No se pudieron cargar los datos de configuración.',
           variant: 'destructive',
         });
       } finally {
         setIsLoading(false);
       }
     }
-    fetchClinics();
+    fetchData();
   }, [toast]);
 
   const handleLogin = async () => {
-    if (!selectedClinic || !password) {
-      toast({ title: 'Error', description: 'Selecciona un núcleo e ingresa la contraseña.' });
-      return;
-    }
     setIsVerifying(true);
-    const result = await verifyClinicPassword(selectedClinic.id, password);
-    if (result.success) {
+    let result;
+    let entityToAuth;
+
+    if (selectedReportType === 'clinic') {
+        if (!selectedClinic || !password) {
+          toast({ title: 'Error', description: 'Selecciona un núcleo e ingresa la contraseña.' });
+          setIsVerifying(false);
+          return;
+        }
+        result = await verifyClinicPassword(selectedClinic.id, password);
+        entityToAuth = selectedClinic;
+    } else if (selectedReportType === 'x-ray') {
+        result = await verifyXRayPassword(password);
+        entityToAuth = { id: 'rayos-x', name: 'Rayos X', doctorName: 'Responsable de Rayos X' };
+    } else if (selectedReportType === 'ultrasound') {
+        result = await verifyUltrasoundPassword(password);
+        entityToAuth = { id: 'ultrasonidos', name: 'Ultrasonidos', doctorName: 'Responsable de Ultrasonidos' };
+    }
+
+    if (result?.success && entityToAuth) {
       setIsAuthenticated(true);
-      toast({ title: 'Acceso Concedido', description: `Bienvenido al panel de ${selectedClinic.name}`});
+      setAuthenticatedEntity(entityToAuth);
+      toast({ title: 'Acceso Concedido', description: `Bienvenido al panel de ${entityToAuth.name}`});
     } else {
-      toast({ title: 'Acceso Denegado', description: result.message || 'La contraseña es incorrecta.', variant: 'destructive' });
+      toast({ title: 'Acceso Denegado', description: result?.message || 'La contraseña es incorrecta.', variant: 'destructive' });
     }
     setIsVerifying(false);
   };
   
   const handleLogout = () => {
       setIsAuthenticated(false);
+      setAuthenticatedEntity(null);
       setSelectedClinic(null);
       setPassword('');
   }
 
+  const handleReportTypeChange = (type: ReportType) => {
+    setSelectedReportType(type);
+    setSelectedClinic(null);
+    setPassword('');
+  };
+  
   const handleClinicSelect = (clinicId: string) => {
     const clinic = clinics.find(c => c.id === clinicId);
     setSelectedClinic(clinic || null);
@@ -75,13 +112,13 @@ export default function ReportsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
-        <p className='ml-2'>Cargando núcleos...</p>
+        <p className='ml-2'>Cargando...</p>
       </div>
     );
   }
 
-  if (isAuthenticated && selectedClinic) {
-    return <ReportsDashboard clinic={selectedClinic} onLogout={handleLogout} />;
+  if (isAuthenticated && authenticatedEntity) {
+    return <ReportsDashboard entity={authenticatedEntity} onLogout={handleLogout} reportType={selectedReportType} />;
   }
 
   return (
@@ -101,23 +138,38 @@ export default function ReportsPage() {
                 Acceso a Reportes de Citas
             </CardTitle>
             <CardDescription>
-                Selecciona tu núcleo básico e ingresa la contraseña.
+                Selecciona el tipo de reporte e ingresa la contraseña.
             </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
             <div className="space-y-2">
-                <Label htmlFor="clinic">Núcleo Básico</Label>
-                 <Select onValueChange={handleClinicSelect} value={selectedClinic?.id}>
-                    <SelectTrigger id="clinic" className="w-full">
-                        <SelectValue placeholder="Selecciona un núcleo..." />
+                <Label htmlFor="report-type">Tipo de Reporte</Label>
+                 <Select onValueChange={(value: ReportType) => handleReportTypeChange(value)} value={selectedReportType}>
+                    <SelectTrigger id="report-type" className="w-full">
+                        <SelectValue placeholder="Selecciona un tipo de reporte..." />
                     </SelectTrigger>
                     <SelectContent>
-                        {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        <SelectItem value="clinic">Núcleos Básicos</SelectItem>
+                        <SelectItem value="x-ray">Rayos X</SelectItem>
+                        <SelectItem value="ultrasound">Ultrasonidos</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
-           {selectedClinic && (
-             <div className="space-y-2">
+            {selectedReportType === 'clinic' && (
+                <div className="space-y-2">
+                    <Label htmlFor="clinic">Núcleo Básico</Label>
+                    <Select onValueChange={handleClinicSelect} value={selectedClinic?.id}>
+                        <SelectTrigger id="clinic" className="w-full">
+                            <SelectValue placeholder="Selecciona un núcleo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+           
+            <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
                 <div className="relative">
                     <Input
@@ -125,8 +177,9 @@ export default function ReportsPage() {
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder={`Contraseña para ${selectedClinic.name}`}
+                        placeholder={`Contraseña para reportes`}
                         onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                        disabled={selectedReportType === 'clinic' && !selectedClinic}
                     />
                     <Button
                         type="button"
@@ -139,10 +192,9 @@ export default function ReportsPage() {
                     </Button>
                 </div>
              </div>
-           )}
         </CardContent>
         <CardFooter>
-            <Button onClick={handleLogin} disabled={isVerifying || !selectedClinic || !password} className="w-full">
+            <Button onClick={handleLogin} disabled={isVerifying || !password || (selectedReportType === 'clinic' && !selectedClinic)} className="w-full">
                {isVerifying ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (

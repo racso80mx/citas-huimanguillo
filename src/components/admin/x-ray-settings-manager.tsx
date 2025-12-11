@@ -13,7 +13,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateXRaySettings, getXRaySettings, updateXRayStudies, getXRayStudies } from '@/lib/actions';
-import { Loader2, Save, Stethoscope, CalendarClock, Settings, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Save, Stethoscope, CalendarClock, Settings, PlusCircle, Trash2, Eye, EyeOff } from 'lucide-react';
 import type { XRaySettings, XRayStudy } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -26,6 +26,7 @@ export function XRaySettingsManager() {
   const [studies, setStudies] = useState<XRayStudy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -181,6 +182,31 @@ export function XRaySettingsManager() {
                 onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
                 />
                 <Label htmlFor="xray-weekend">Permitir citas en fin de semana</Label>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="xray-password">Contraseña para Reportes</Label>
+                <div className="relative">
+                    <Input
+                        id="xray-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={settings.password || ''}
+                        onChange={(e) => handleSettingsChange('password', e.target.value)}
+                        placeholder="Contraseña para reportes de Rayos X"
+                    />
+                     <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-y-0 right-0 h-full px-3"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                </div>
             </div>
         </div>
          <div className="space-y-4">

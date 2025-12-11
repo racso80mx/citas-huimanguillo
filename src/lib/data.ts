@@ -87,7 +87,8 @@ export async function getXRaySettings(): Promise<XRaySettings> {
         dailySlots: 15,
         startTime: "08:00",
         endTime: "14:00",
-        weekendBookingEnabled: false
+        weekendBookingEnabled: false,
+        password: "xray"
     });
 }
 
@@ -109,7 +110,8 @@ export async function getUltrasoundSettings(): Promise<UltrasoundSettings> {
         dailySlots: 15,
         startTime: "08:00",
         endTime: "14:00",
-        weekendBookingEnabled: false
+        weekendBookingEnabled: false,
+        password: "ultrasound"
     });
 }
 
@@ -150,4 +152,30 @@ export async function verifyClinicPassword(
       error: 'Ocurrió un error al verificar la contraseña.',
     };
   }
+}
+
+export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {
+    try {
+        const settings = await getXRaySettings();
+        if (settings.password === passwordAttempt) {
+            return { isValid: true };
+        }
+        return { isValid: false, error: 'La contraseña es incorrecta.' };
+    } catch (error) {
+        console.error('Error verifying X-Ray password', error);
+        return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
+    }
+}
+
+export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {
+    try {
+        const settings = await getUltrasoundSettings();
+        if (settings.password === passwordAttempt) {
+            return { isValid: true };
+        }
+        return { isValid: false, error: 'La contraseña es incorrecta.' };
+    } catch (error) {
+        console.error('Error verifying Ultrasound password', error);
+        return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
+    }
 }
