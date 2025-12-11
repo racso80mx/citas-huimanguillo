@@ -2,11 +2,8 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy } from './definitions';
 
-// =======================
-// JSON File Operations
-// =======================
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
 
 async function readJsonFile<T>(filename: string, defaultValue: T): Promise<T> {
@@ -16,70 +13,76 @@ async function readJsonFile<T>(filename: string, defaultValue: T): Promise<T> {
     return JSON.parse(fileContent);
   } catch (error: any) {
     if (error.code === 'ENOENT') {
-      // File doesn't exist, return default value
+      await writeJsonFile(filename, defaultValue);
       return defaultValue;
     }
     console.error(`Failed to read static file ${filename}`, error);
-    // In case of other errors, return the default value to avoid crashing
     return defaultValue;
   }
 }
 
 async function writeJsonFile(filename: string, data: any): Promise<{success: boolean, message?: string}> {
     try {
-        console.warn(`Writing to static file ${filename}. A server restart is required for changes to take effect in the booking UI.`);
+        console.warn(`Writing to static file ${filename}. A server restart is required for changes to take effect in the UI.`);
         await fs.writeFile(dataFilePath(filename), JSON.stringify(data, null, 2), 'utf-8');
         return { success: true };
     } catch (e: any) {
         console.error(`Failed to write to static file ${filename}`, e);
-        // This is a dev-time convenience, so we don't throw an error in production
         return { success: false, message: `Failed to write to static file ${filename}: ${e.message}` };
     }
 }
 
-
 // ========== Announcements ==========
-
 export const getAnnouncements = async (): Promise<string[]> => {
   const data = await readJsonFile<{ messages: string[] }>('announcements.json', { messages: [] });
   return data.messages;
 };
 
-// This function is a Server Action called from the admin panel.
-export const updateAnnouncements = async (
-  newAnnouncements: string[]
-): Promise<{ success: boolean; message?: string }> => {
+export const updateAnnouncements = async (newAnnouncements: string[]): Promise<{ success: boolean; message?: string }> => {
   const data = { messages: newAnnouncements.slice(0, 4) };
   return await writeJsonFile('announcements.json', data);
 };
 
 // ========== Clinics Configuration ==========
-
 export async function getClinics(): Promise<Clinic[]> {
-  const clinics = await readJsonFile<Clinic[]>('clinics.json', []);
-  return clinics;
+  return await readJsonFile<Clinic[]>('clinics.json', []);
 }
 
-// This function is a Server Action called from the admin panel.
-export async function updateClinics(
-  clinics: Clinic[]
-): Promise<{ success: boolean; message?: string }> {
+export async function updateClinics(clinics: Clinic[]): Promise<{ success: boolean; message?: string }> {
   return await writeJsonFile('clinics.json', clinics);
 }
 
 // ========== Colonias Configuration ==========
-
 export async function getColonias(): Promise<Colonia[]> {
-  const colonias = await readJsonFile<Colonia[]>('colonias.json', []);
-  return colonias;
+  return await readJsonFile<Colonia[]>('colonias.json', []);
 }
 
-// This function is a Server Action called from the admin panel.
-export async function updateColonias(
-  colonias: Colonia[]
-): Promise<{ success: boolean; message?: string }> {
+export async function updateColonias(colonias: Colonia[]): Promise<{ success: boolean; message?: string }> {
     return await writeJsonFile('colonias.json', colonias);
 }
+
+// ========== Lab Settings & Studies ==========
+export async function getLabSettings(): Promise<LabSettings> {
+    return await readJsonFile<LabSettings>('lab-settings.json', {
+        dailySlots: 20,
+        startTime: "07:00",
+        endTime: "11:00",
+        weekendBookingEnabled: false
+    });
+}
+
+export async function updateLabSettings(settings: LabSettings): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('lab-settings.json', settings);
+}
+
+export async function getLabStudies(): Promise<LabStudy[]> {
+    return await readJsonFile<LabStudy[]>('lab-studies.json', []);
+}
+
+export async function updateLabStudies(studies: LabStudy[]): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('lab-studies.json', studies);
+}
+
 
 // ========== Reports Auth ==========
 export async function verifyClinicPassword(
@@ -87,7 +90,7 @@ export async function verifyClinicPassword(
   passwordAttempt: string
 ): Promise<{ isValid: boolean; error?: string }> {
   try {
-    const clinics = await getClinics(); // Reads from JSON now
+    const clinics = await getClinics();
     const clinic = clinics.find((c) => c.id === clinicId);
 
     if (!clinic) {

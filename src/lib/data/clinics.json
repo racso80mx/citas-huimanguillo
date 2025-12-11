@@ -3,7 +3,7 @@
     "id": "NB1",
     "name": "Núcleo Básico 1",
     "doctorName": "Dr. Ejemplo",
-    "password": "1234",
+    "password": "123456",
     "dailySlots": 15,
     "startTime": "07:00",
     "endTime": "12:00",

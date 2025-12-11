@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import { deleteAppointment as deleteDataAppointment } from './data-client';
+import { deleteAppointment as deleteDataAppointment, deleteLabAppointment as deleteDataLabAppointment } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
   updateClinics as dataUpdateClinics,
@@ -10,8 +10,12 @@ import {
   getClinics as dataGetClinics,
   getColonias as dataGetColonias,
   getAnnouncements as dataGetAnnouncements,
+  updateLabSettings as dataUpdateLabSettings,
+  getLabSettings as dataGetLabSettings,
+  updateLabStudies as dataUpdateLabStudies,
+  getLabStudies as dataGetLabStudies,
 } from './data';
-import type { Clinic, Colonia } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy } from './definitions';
 
 
 export async function deleteAppointment(id: string) {
@@ -19,6 +23,23 @@ export async function deleteAppointment(id: string) {
     await deleteDataAppointment(id);
     revalidateTag('appointments');
     return { success: true, message: 'Cita eliminada con éxito.' };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Error desconocido al eliminar la cita.';
+    return {
+      success: false,
+      message: errorMessage,
+    };
+  }
+}
+
+export async function deleteLabAppointment(id: string) {
+  try {
+    await deleteDataLabAppointment(id);
+    revalidateTag('labAppointments');
+    return { success: true, message: 'Cita de laboratorio eliminada con éxito.' };
   } catch (error) {
     const errorMessage =
       error instanceof Error
@@ -66,6 +87,22 @@ export async function updateAnnouncements(announcements: string[]) {
   return result;
 }
 
+export async function updateLabSettings(settings: LabSettings) {
+  const result = await dataUpdateLabSettings(settings);
+  if (result.success) {
+    revalidateTag('labSettings');
+  }
+  return result;
+}
+
+export async function updateLabStudies(studies: LabStudy[]) {
+  const result = await dataUpdateLabStudies(studies);
+  if (result.success) {
+    revalidateTag('labStudies');
+  }
+  return result;
+}
+
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {
   return await dataGetClinics();
@@ -77,4 +114,12 @@ export async function getColonias() {
 
 export async function getAnnouncements() {
   return await dataGetAnnouncements();
+}
+
+export async function getLabSettings() {
+    return await dataGetLabSettings();
+}
+
+export async function getLabStudies() {
+    return await dataGetLabStudies();
 }

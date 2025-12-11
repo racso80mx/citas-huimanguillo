@@ -11,9 +11,11 @@ import {
   where,
   Timestamp,
   updateDoc,
+  addDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment } from './definitions';
+import type { Appointment, LabAppointment } from './definitions';
+import { v4 as uuidv4 } from 'uuid';
 
 const getDb = () => {
   const { firestore } = initializeFirebase();
@@ -59,12 +61,9 @@ export async function saveAppointment(
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
 
-  // Convert date string back to Firestore Timestamp before saving
   const dataToSave = {
     ...appointment,
     date: Timestamp.fromDate(new Date(appointment.date)),
-    // Ensure status is set on creation
-    status: 'Pendiente',
   };
 
   try {
@@ -94,7 +93,6 @@ export async function getAppointments(): Promise<Appointment[]> {
         const snapshot = await getDocs(collectionRef);
         return snapshot.docs.map(doc => {
             const data = doc.data();
-            // Ensure patient data is present and date is stringified
             return {
                 ...data,
                 id: doc.id,
@@ -161,6 +159,91 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
     return appointments;
   } catch(error) {
      console.error("Error getting appointments by date:", error);
+     throw error;
+  }
+}
+
+
+// ========== Lab Appointments ==========
+
+export async function saveLabAppointment(
+  appointment: Omit<LabAppointment, 'id'>
+): Promise<LabAppointment | null> {
+  const db = getDb();
+  const collectionRef = collection(db, 'lab-appointments');
+  const id = uuidv4();
+  const dataToSave = {
+    ...appointment,
+    id,
+    date: Timestamp.fromDate(new Date(appointment.date)),
+  };
+
+  try {
+    await setDoc(doc(collectionRef, id), dataToSave);
+    return dataToSave;
+  } catch (error) {
+    console.error("Error saving lab appointment:", error);
+    throw error;
+  }
+}
+
+export async function deleteLabAppointment(id: string): Promise<void> {
+  const db = getDb();
+  const docRef = doc(db, 'lab-appointments', id);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting lab appointment:", error);
+    throw error;
+  }
+}
+
+export async function getLabAppointments(): Promise<LabAppointment[]> {
+    const db = getDb();
+    const collectionRef = collection(db, 'lab-appointments');
+    try {
+        const snapshot = await getDocs(collectionRef);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                date: (data.date as Timestamp).toDate().toISOString(),
+                patient: data.patient || null,
+            } as LabAppointment;
+        });
+    } catch (error) {
+        console.error("Error getting lab appointments:", error);
+        throw error;
+    }
+}
+
+export async function getLabAppointmentsByDate(date: Date): Promise<LabAppointment[]> {
+  const db = getDb();
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const q = query(
+    collection(db, 'lab-appointments'),
+    where('date', '>=', Timestamp.fromDate(startOfDay)),
+    where('date', '<=', Timestamp.fromDate(endOfDay))
+  );
+
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+          ...data,
+          id: doc.id,
+          date: (data.date as Timestamp).toDate().toISOString(),
+          patient: data.patient
+      } as LabAppointment;
+    });
+  } catch(error) {
+     console.error("Error getting lab appointments by date:", error);
      throw error;
   }
 }

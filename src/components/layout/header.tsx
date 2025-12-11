@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LayoutGrid, BarChart3 } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, FlaskConical } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ export function SiteHeader() {
             CitaMedicaFacil
           </span>
         </Link>
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -42,7 +42,23 @@ export function SiteHeader() {
           >
             <Link href="/">
               <Home className="h-4 w-4 mr-2" />
-              Reservar Cita
+              Cita Médica
+            </Link>
+          </Button>
+           <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className={cn(
+              'transition-colors',
+              pathname === '/laboratorio'
+                ? 'text-primary font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Link href="/laboratorio">
+              <FlaskConical className="h-4 w-4 mr-2" />
+              Laboratorio
             </Link>
           </Button>
            <Button

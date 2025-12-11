@@ -44,6 +44,39 @@
       },
       "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType"]
     },
+    "LabAppointment": {
+      "title": "Lab Appointment",
+      "type": "object",
+      "description": "Represents a scheduled laboratory appointment.",
+      "properties": {
+        "id": { "type": "string" },
+        "appointmentNumber": { "type": "string" },
+        "patient": { "type": "object" },
+        "date": { "type": "string", "format": "date-time" },
+        "time": { "type": "string" },
+        "studies": { 
+          "type": "array", 
+          "items": { "$ref": "#/entities/LabStudy" }
+        },
+        "xRay": { "type": "string" },
+        "ultrasound": { "type": "string" }
+      },
+      "required": ["id", "appointmentNumber", "patient", "date", "time", "studies"]
+    },
+     "LabStudy": {
+      "title": "Lab Study",
+      "type": "object",
+      "description": "Represents a single laboratory study.",
+      "properties": {
+        "id": { "type": "string" },
+        "section": { "type": "string" },
+        "name": { "type": "string" },
+        "sampleType": { "type": "string" },
+        "fastingHours": { "type": "string" },
+        "available": { "type": "boolean" }
+      },
+      "required": ["id", "section", "name", "sampleType", "fastingHours", "available"]
+    },
     "Clinic": {
         "title": "Clinic",
         "type": "object",
@@ -125,6 +158,13 @@
         "definition": {
           "entityName": "Appointment",
           "schema": { "$ref": "#/entities/Appointment" }
+        }
+      },
+      {
+        "path": "/lab-appointments/{labAppointmentId}",
+        "definition": {
+          "entityName": "LabAppointment",
+          "schema": { "$ref": "#/entities/LabAppointment" }
         }
       },
       {

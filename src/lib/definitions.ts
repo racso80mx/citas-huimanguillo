@@ -30,12 +30,12 @@ export enum PatientType {
 export type Appointment = {
   id: string; // UUID
   appointmentNumber: string;
-  patientId: string; // This will now be the patient's CURP or a generated ID
+  patientId: string;
   clinicId: string;
   date: string; // ISO string for serializability
   time: string; // HH:mm format
   patientType: PatientType;
-  patient: Omit<Patient, 'id'>; // Denormalized for easy display
+  patient: Omit<Patient, 'id'>; 
 };
 
 export const ClinicSchema = z.object({
@@ -72,4 +72,31 @@ export type Report = {
     attended: number;
     pending: number;
     cancelled: number;
+}
+
+export type LabStudy = {
+    id: string;
+    section: string;
+    name: string;
+    sampleType: string;
+    fastingHours: string;
+    available: boolean;
+}
+
+export type LabAppointment = {
+    id: string;
+    appointmentNumber: string;
+    patient: Omit<Patient, 'id'>;
+    date: string; // ISO string
+    time: string; // HH:mm
+    studies: LabStudy[];
+    xRay: string;
+    ultrasound: string;
+}
+
+export type LabSettings = {
+    dailySlots: number;
+    startTime: string;
+    endTime: string;
+    weekendBookingEnabled: boolean;
 }

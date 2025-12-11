@@ -20,13 +20,6 @@ import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Form,
   FormControl,
   FormDescription,
@@ -36,6 +29,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
+import { Combobox } from '@/components/ui/combobox';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -220,6 +214,30 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     const dateString = format(selectedDate, 'yyyy-MM-dd');
     return availability.find((d) => d.date === dateString) || null;
   }, [selectedDate, availability]);
+  
+  const coloniaOptions = React.useMemo(() => {
+    if (!selectedDayAvailability) return [];
+    return colonias.map(colonia => {
+        const clinic = clinics.find(c => c.id === colonia.clinicId);
+        const slots = selectedDayAvailability.availabilityByClinic[colonia.clinicId] ?? 0;
+        const isDisabled = slots === 0;
+
+        return {
+            value: colonia.id,
+            label: `${colonia.name} (${clinic?.name}) - ${slots} citas`,
+            keywords: `${colonia.name} ${clinic?.name}`,
+            disabled: isDisabled,
+            content: (
+                 <div className="flex justify-between w-full">
+                    <span>{colonia.name} (<strong className="text-red-600">{clinic?.name}</strong>)</span>
+                    <span className={`font-bold ml-4 ${isDisabled ? 'text-destructive' : 'text-green-600'}`}>
+                        {slots} citas
+                    </span>
+                </div>
+            )
+        };
+    });
+  }, [colonias, clinics, selectedDayAvailability]);
 
   const allTimeSlots = React.useMemo(() => generateTimeSlots(selectedClinic), [selectedClinic]);
 
@@ -278,33 +296,17 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                             <MapPin className="h-5 w-5 text-primary" />
                             Colonias con citas para el {format(selectedDate, 'PPP', { locale: es })}
                         </CardTitle>
-                        <CardDescription>Al seleccionar tu colonia, se te asignará el núcleo básico correspondiente.</CardDescription>
+                        <CardDescription>Busca y selecciona tu colonia. Se te asignará el núcleo básico correspondiente.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                         <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona tu colonia..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {colonias.map(colonia => {
-                                    const clinicId = colonia.clinicId;
-                                    const slots = selectedDayAvailability.availabilityByClinic[clinicId] ?? 0;
-                                    const isDisabled = slots === 0;
-                                    const clinic = clinics.find(c => c.id === clinicId);
-
-                                    return (
-                                        <SelectItem key={colonia.id} value={colonia.id} disabled={isDisabled}>
-                                            <div className="flex justify-between w-full">
-                                                <span>{colonia.name} ({clinic?.name})</span>
-                                                <span className={`font-bold ml-4 ${isDisabled ? 'text-destructive' : 'text-green-600'}`}>
-                                                    {slots} citas
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    )
-                                })}
-                            </SelectContent>
-                         </Select>
+                         <Combobox
+                            options={coloniaOptions}
+                            value={selectedColoniaId || ''}
+                            onChange={handleColoniaSelect}
+                            placeholder="Busca y selecciona tu colonia..."
+                            searchPlaceholder="Escribe colonia o núcleo..."
+                            noResultsText="No se encontró la colonia."
+                         />
                     </CardContent>
                    </Card>
                 </div>

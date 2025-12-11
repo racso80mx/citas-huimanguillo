@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, Colonia } from '@/lib/definitions';
-import { deleteAppointment } from '@/lib/actions';
-import { getAppointments } from '@/lib/data-client';
+import type { Appointment, Clinic, Colonia, LabAppointment } from '@/lib/definitions';
+import { deleteAppointment, deleteLabAppointment } from '@/lib/actions';
+import { getAppointments, getLabAppointments } from '@/lib/data-client';
 import { getClinics, getColonias } from '@/lib/data';
 import {
   Card,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AppointmentList } from '../appointment-list';
+import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import {
   LogOut,
   Download,
@@ -42,6 +43,9 @@ import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
 import { ClinicsManager } from './clinics-manager';
 import { ColoniasManager } from './colonias-manager';
+import { LabSettingsManager } from './lab-settings-manager';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -51,20 +55,32 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [allLabAppointments, setAllLabAppointments] = useState<LabAppointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
 
   const [isPending, startTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [activeTab, setActiveTab] = useState("configuracion");
   const { toast } = useToast();
 
   const fetchData = useCallback(() => {
     startTransition(async () => {
       try {
-        const [appointmentsData, clinicsData, coloniasData] =
-          await Promise.all([getAppointments(), getClinics(), getColonias()]);
+        const [
+          appointmentsData,
+          labAppointmentsData,
+          clinicsData,
+          coloniasData,
+        ] = await Promise.all([
+          getAppointments(),
+          getLabAppointments(),
+          getClinics(),
+          getColonias(),
+        ]);
         setAllAppointments(appointmentsData);
+        setAllLabAppointments(labAppointmentsData);
         setClinics(clinicsData);
         setColonias(coloniasData);
       } catch (error) {
@@ -83,13 +99,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     fetchData();
   }, [fetchData]);
 
-  const appointmentsToDisplay = useMemo(() => {
-    if (!allAppointments || allAppointments.length === 0) {
+  const getFilteredData = (appointments: any[]) => {
+    if (!appointments || appointments.length === 0) {
       return [];
     }
 
     const now = new Date();
-    let filterFn: (app: Appointment) => boolean;
+    let filterFn: (app: any) => boolean;
 
     switch (activeFilter) {
       case 'week':
@@ -130,8 +146,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         };
         break;
     }
-    return allAppointments.filter(filterFn);
-  }, [activeFilter, dateRange, allAppointments]);
+    return appointments.filter(filterFn);
+  };
+  
+  const appointmentsToDisplay = useMemo(() => getFilteredData(allAppointments), [activeFilter, dateRange, allAppointments]);
+  const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [activeFilter, dateRange, allLabAppointments]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
@@ -140,7 +159,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   };
 
   const handleDownload = () => {
-    const dataToDownload = appointmentsToDisplay;
+    const dataToDownload = activeTab === 'citas' ? appointmentsToDisplay : labAppointmentsToDisplay;
     if (dataToDownload.length === 0) {
       toast({
         title: 'No hay datos para descargar',
@@ -149,20 +168,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
       return;
     }
-
-    // Create a safe, enriched copy for download without mutating the original data
-    const enrichedAppointments = dataToDownload.map((app) => {
-      const clinic = clinics.find((c) => c.id === app.clinicId);
-      // This is a simplification; in a real app, you might need to find the colonia based on patient ID or another logic
-      const patientColonia = colonias.find((c) => c.clinicId === app.clinicId); // Example logic
-      return {
+    
+    const enrichedAppointments = dataToDownload.map((app: any) => {
+        const clinic = clinics.find((c) => c.id === app.clinicId);
+        const patientColonia = colonias.find((c) => c.clinicId === app.clinicId);
+        return {
         ...app,
-        clinicName: clinic?.name || 'N/A',
-        coloniaName: patientColonia?.name || 'N/A', // This property is not standard on Appointment
-      };
+        clinicName: clinic?.name || 'Laboratorio',
+        coloniaName: patientColonia?.name || 'N/A', 
+        };
     });
 
-    downloadExcel(enrichedAppointments, `citas_${activeFilter}`);
+    downloadExcel(enrichedAppointments, `citas_${activeTab}_${activeFilter}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -181,6 +198,24 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
     }
   };
+
+  const handleLabDelete = async (id: string) => {
+    try {
+      await deleteLabAppointment(id);
+      toast({
+        title: 'Cita de Laboratorio Eliminada',
+        description: 'La cita ha sido eliminada.',
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la cita de laboratorio.',
+        variant: 'destructive',
+      });
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -208,101 +243,155 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </div>
         </CardHeader>
       </Card>
-
-      <div className="space-y-8">
-        <div className="grid lg:grid-cols-2 gap-8">
-          <ClinicsManager />
-          <ColoniasManager />
-        </div>
-        <AnnouncementsManager />
-      </div>
-
-      <Card className="w-full max-w-7xl mx-auto shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold font-headline">
-            Reporte de Citas
-          </CardTitle>
-          <div className="flex flex-wrap items-center gap-2 pt-4">
-            <Button
-              variant={activeFilter === 'today' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('today')}
-            >
-              Hoy
-            </Button>
-            <Button
-              variant={activeFilter === 'week' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('week')}
-            >
-              Esta Semana
-            </Button>
-            <Button
-              variant={activeFilter === 'month' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('month')}
-            >
-              Este Mes
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="date"
-                  variant={activeFilter === 'range' ? 'default' : 'outline'}
-                  className={cn('w-[260px] justify-start text-left font-normal')}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, 'LLL dd, y')} -{' '}
-                        {format(dateRange.to, 'LLL dd, y')}
-                      </>
-                    ) : (
-                      format(dateRange.from, 'LLL dd, y')
-                    )
-                  ) : (
-                    <span>Seleccionar rango</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={handleSetDateRange}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-            <Button
-              onClick={handleDownload}
-              variant="secondary"
-              className="ml-auto"
-              disabled={isPending}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Descargar Excel
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isPending ? (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-4 text-muted-foreground">
-                Cargando citas...
-              </span>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="configuracion">Configuración General</TabsTrigger>
+          <TabsTrigger value="citas">Reporte Citas Médicas</TabsTrigger>
+          <TabsTrigger value="laboratorio">Reporte Laboratorio</TabsTrigger>
+        </TabsList>
+        <TabsContent value="configuracion" className="mt-6">
+            <div className="space-y-8">
+                <div className="grid lg:grid-cols-2 gap-8">
+                <ClinicsManager />
+                <ColoniasManager />
+                </div>
+                <AnnouncementsManager />
+                <LabSettingsManager />
             </div>
-          ) : (
-            <AppointmentList
-              appointments={appointmentsToDisplay}
-              onDelete={handleDelete}
-              isAdmin
-              clinics={clinics}
-            />
-          )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+        <TabsContent value="citas">
+            <Card className="w-full shadow-lg mt-6">
+                <CardHeader>
+                <CardTitle className="text-2xl font-bold font-headline">
+                    Reporte de Citas Médicas
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-2 pt-4">
+                    <Button
+                    variant={activeFilter === 'today' ? 'default' : 'outline'}
+                    onClick={() => setActiveFilter('today')}
+                    >
+                    Hoy
+                    </Button>
+                    <Button
+                    variant={activeFilter === 'week' ? 'default' : 'outline'}
+                    onClick={() => setActiveFilter('week')}
+                    >
+                    Esta Semana
+                    </Button>
+                    <Button
+                    variant={activeFilter === 'month' ? 'default' : 'outline'}
+                    onClick={() => setActiveFilter('month')}
+                    >
+                    Este Mes
+                    </Button>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                        id="date"
+                        variant={activeFilter === 'range' ? 'default' : 'outline'}
+                        className={cn('w-[260px] justify-start text-left font-normal')}
+                        >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                            dateRange.to ? (
+                            <>
+                                {format(dateRange.from, 'LLL dd, y')} -{' '}
+                                {format(dateRange.to, 'LLL dd, y')}
+                            </>
+                            ) : (
+                            format(dateRange.from, 'LLL dd, y')
+                            )
+                        ) : (
+                            <span>Seleccionar rango</span>
+                        )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={handleSetDateRange}
+                        numberOfMonths={2}
+                        />
+                    </PopoverContent>
+                    </Popover>
+                    <Button
+                    onClick={handleDownload}
+                    variant="secondary"
+                    className="ml-auto"
+                    disabled={isPending}
+                    >
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar Excel
+                    </Button>
+                </div>
+                </CardHeader>
+                <CardContent>
+                {isPending ? (
+                    <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-4 text-muted-foreground">
+                        Cargando citas...
+                    </span>
+                    </div>
+                ) : (
+                    <AppointmentList
+                    appointments={appointmentsToDisplay}
+                    onDelete={handleDelete}
+                    isAdmin
+                    clinics={clinics}
+                    />
+                )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="laboratorio">
+           <Card className="w-full shadow-lg mt-6">
+                <CardHeader>
+                <CardTitle className="text-2xl font-bold font-headline">
+                    Reporte de Citas de Laboratorio
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-2 pt-4">
+                   <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date-lab" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                        </PopoverContent>
+                    </Popover>
+                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar Excel
+                    </Button>
+                </div>
+                </CardHeader>
+                <CardContent>
+                {isPending ? (
+                    <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                    </div>
+                ) : (
+                    <LabAppointmentList
+                        appointments={labAppointmentsToDisplay}
+                        onDelete={handleLabDelete}
+                        isAdmin
+                    />
+                )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
