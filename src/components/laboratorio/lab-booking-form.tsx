@@ -122,7 +122,8 @@ export function LabBookingForm({
       throw new Error('Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.');
     }
     
-    const patientData: Omit<Patient, 'id'> = {
+    const patientData: Patient = {
+        id: uuidv4(),
         curp: bookingData.curp.toUpperCase(),
         name: bookingData.name,
         paternalLastName: bookingData.paternalLastName,
@@ -135,15 +136,14 @@ export function LabBookingForm({
 
     const appointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`;
 
-    const newAppointment: Omit<LabAppointment, 'id'> = {
+    const newAppointment: Omit<LabAppointment, 'id' | 'patient'> = {
       appointmentNumber,
-      patient: patientData,
       date: selectedDate.toISOString(),
       time: "Recepción de Muestras",
       studies: selectedStudies,
     };
 
-    return await saveLabAppointment(newAppointment);
+    return await saveLabAppointment(newAppointment, patientData);
   }
 
 

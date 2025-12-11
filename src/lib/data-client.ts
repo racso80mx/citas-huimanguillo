@@ -12,7 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { initializeFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
-import type { Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment } from './definitions';
+import type { Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment, Patient } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const getDb = () => {
@@ -71,7 +71,6 @@ export async function saveAppointment(
           requestResourceData: dataToSave
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
 
   return appointment;
@@ -87,7 +86,6 @@ export async function deleteAppointment(id: string): Promise<void> {
           operation: 'delete',
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
 }
 
@@ -172,25 +170,31 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
 // ========== Lab Appointments ==========
 
 export async function saveLabAppointment(
-  appointment: Omit<LabAppointment, 'id'>
+  appointment: Omit<LabAppointment, 'id'>,
+  patient: Patient
 ): Promise<LabAppointment> {
   const db = getDb();
   const id = uuidv4();
   const docRef = doc(db, 'lab-appointments', id);
-  const dataToSave = {
+  const dataToSave: LabAppointment = {
     ...appointment,
     id,
-    date: Timestamp.fromDate(new Date(appointment.date)),
+    patient,
+    date: new Date(appointment.date).toISOString(),
   };
 
-  setDoc(docRef, dataToSave).catch(serverError => {
+  const firestoreData = {
+      ...dataToSave,
+      date: Timestamp.fromDate(new Date(dataToSave.date)),
+  }
+
+  setDoc(docRef, firestoreData).catch(serverError => {
       const permissionError = new FirestorePermissionError({
           path: docRef.path,
           operation: 'create',
-          requestResourceData: dataToSave
+          requestResourceData: firestoreData
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
   return dataToSave;
 }
@@ -205,7 +209,6 @@ export async function deleteLabAppointment(id: string): Promise<void> {
           operation: 'delete',
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
 }
 
@@ -280,9 +283,11 @@ export async function saveXRayAppointment(
           requestResourceData: dataToSave
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
-  return dataToSave;
+  return {
+      ...dataToSave,
+      date: new Date(appointment.date).toISOString()
+  };
 }
 
 
@@ -295,7 +300,6 @@ export async function deleteXRayAppointment(id: string): Promise<void> {
           operation: 'delete',
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
 }
 
@@ -371,9 +375,11 @@ export async function saveUltrasoundAppointment(
           requestResourceData: dataToSave
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
-  return dataToSave;
+  return {
+    ...dataToSave,
+    date: new Date(appointment.date).toISOString()
+  };
 }
 
 export async function deleteUltrasoundAppointment(id: string): Promise<void> {
@@ -385,7 +391,6 @@ export async function deleteUltrasoundAppointment(id: string): Promise<void> {
           operation: 'delete',
       });
       errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
   });
 }
 
