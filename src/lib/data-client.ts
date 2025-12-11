@@ -12,7 +12,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment, LabAppointment, XRayAppointment } from './definitions';
+import type { Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const getDb = () => {
@@ -326,6 +326,90 @@ export async function getXRayAppointmentsByDate(date: Date): Promise<XRayAppoint
     });
   } catch(error) {
      console.error("Error getting X-Ray appointments by date:", error);
+     throw error;
+  }
+}
+
+// ========== Ultrasound Appointments ==========
+
+export async function saveUltrasoundAppointment(
+  appointment: Omit<UltrasoundAppointment, 'id'>
+): Promise<UltrasoundAppointment | null> {
+  const db = getDb();
+  const collectionRef = collection(db, 'ultrasound-appointments');
+  const id = uuidv4();
+  const dataToSave = {
+    ...appointment,
+    id,
+    date: Timestamp.fromDate(new Date(appointment.date)),
+  };
+
+  try {
+    await setDoc(doc(collectionRef, id), dataToSave);
+    return dataToSave;
+  } catch (error) {
+    console.error("Error saving Ultrasound appointment:", error);
+    throw error;
+  }
+}
+
+export async function deleteUltrasoundAppointment(id: string): Promise<void> {
+  const db = getDb();
+  const docRef = doc(db, 'ultrasound-appointments', id);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting Ultrasound appointment:", error);
+    throw error;
+  }
+}
+
+export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment[]> {
+    const db = getDb();
+    const collectionRef = collection(db, 'ultrasound-appointments');
+    try {
+        const snapshot = await getDocs(collectionRef);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                date: (data.date as Timestamp).toDate().toISOString(),
+                patient: data.patient || null,
+            } as UltrasoundAppointment;
+        });
+    } catch (error) {
+        console.error("Error getting Ultrasound appointments:", error);
+        throw error;
+    }
+}
+
+export async function getUltrasoundAppointmentsByDate(date: Date): Promise<UltrasoundAppointment[]> {
+  const db = getDb();
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const q = query(
+    collection(db, 'ultrasound-appointments'),
+    where('date', '>=', Timestamp.fromDate(startOfDay)),
+    where('date', '<=', Timestamp.fromDate(endOfDay))
+  );
+
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+          ...data,
+          id: doc.id,
+          date: (data.date as Timestamp).toDate().toISOString(),
+          patient: data.patient
+      } as UltrasoundAppointment;
+    });
+  } catch(error) {
+     console.error("Error getting Ultrasound appointments by date:", error);
      throw error;
   }
 }

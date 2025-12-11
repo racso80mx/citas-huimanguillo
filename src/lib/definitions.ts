@@ -97,12 +97,14 @@ export type LabSettings = {
     weekendBookingEnabled: boolean;
 }
 
-export type XRayStudy = {
-    id: string;
-    name: string;
-    indications: string;
-    available: boolean;
-}
+export const XRayStudySchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'El nombre del estudio es requerido.'),
+  indications: z.string().min(1, 'Las indicaciones son requeridas.'),
+  available: z.boolean(),
+});
+export type XRayStudy = z.infer<typeof XRayStudySchema>;
+
 
 export type XRayAppointment = {
     id: string;
@@ -115,6 +117,31 @@ export type XRayAppointment = {
 }
 
 export type XRaySettings = {
+    dailySlots: number;
+    startTime: string;
+    endTime: string;
+    weekendBookingEnabled: boolean;
+}
+
+export const UltrasoundStudySchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, 'El nombre del estudio es requerido.'),
+  indications: z.string().min(1, 'Las indicaciones son requeridas.'),
+  available: z.boolean(),
+});
+export type UltrasoundStudy = z.infer<typeof UltrasoundStudySchema>;
+
+export type UltrasoundAppointment = {
+    id: string;
+    appointmentNumber: string;
+    patient: Omit<Patient, 'id'>;
+    date: string; // ISO string
+    time: string; // HH:mm
+    studyId: string;
+    studyName: string;
+}
+
+export type UltrasoundSettings = {
     dailySlots: number;
     startTime: string;
     endTime: string;

@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment } from '@/lib/definitions';
-import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment } from '@/lib/actions';
-import { getAppointments, getLabAppointments, getXRayAppointments } from '@/lib/data-client';
+import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment } from '@/lib/definitions';
+import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment } from '@/lib/actions';
+import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments } from '@/lib/data-client';
 import { getClinics, getColonias } from '@/lib/data';
 import {
   Card,
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { AppointmentList } from '../appointment-list';
 import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
+import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
 import {
   LogOut,
   Download,
@@ -46,6 +47,7 @@ import { ClinicsManager } from './clinics-manager';
 import { ColoniasManager } from './colonias-manager';
 import { LabSettingsManager } from './lab-settings-manager';
 import { XRaySettingsManager } from './x-ray-settings-manager';
+import { UltrasoundSettingsManager } from './ultrasound-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -59,6 +61,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [allLabAppointments, setAllLabAppointments] = useState<LabAppointment[]>([]);
   const [allXRayAppointments, setAllXRayAppointments] = useState<XRayAppointment[]>([]);
+  const [allUltrasoundAppointments, setAllUltrasoundAppointments] = useState<UltrasoundAppointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
 
@@ -75,18 +78,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           appointmentsData,
           labAppointmentsData,
           xRayAppointmentsData,
+          ultrasoundAppointmentsData,
           clinicsData,
           coloniasData,
         ] = await Promise.all([
           getAppointments(),
           getLabAppointments(),
           getXRayAppointments(),
+          getUltrasoundAppointments(),
           getClinics(),
           getColonias(),
         ]);
         setAllAppointments(appointmentsData);
         setAllLabAppointments(labAppointmentsData);
         setAllXRayAppointments(xRayAppointmentsData);
+        setAllUltrasoundAppointments(ultrasoundAppointmentsData);
         setClinics(clinicsData);
         setColonias(coloniasData);
       } catch (error) {
@@ -158,6 +164,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const appointmentsToDisplay = useMemo(() => getFilteredData(allAppointments), [activeFilter, dateRange, allAppointments]);
   const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [activeFilter, dateRange, allLabAppointments]);
   const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [activeFilter, dateRange, allXRayAppointments]);
+  const ultrasoundAppointmentsToDisplay = useMemo(() => getFilteredData(allUltrasoundAppointments), [activeFilter, dateRange, allUltrasoundAppointments]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
@@ -178,6 +185,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     } else if (activeTab === 'rayos-x') {
         dataToDownload = xRayAppointmentsToDisplay;
         filename = 'citas_rayos_x';
+    } else if (activeTab === 'ultrasonidos') {
+        dataToDownload = ultrasoundAppointmentsToDisplay;
+        filename = 'citas_ultrasonidos';
     }
 
 
@@ -253,6 +263,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
     }
   };
+  
+  const handleUltrasoundDelete = async (id: string) => {
+    try {
+      await deleteUltrasoundAppointment(id);
+      toast({
+        title: 'Cita de Ultrasonido Eliminada',
+        description: 'La cita ha sido eliminada.',
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la cita de Ultrasonido.',
+        variant: 'destructive',
+      });
+    }
+  };
 
 
   return (
@@ -283,11 +310,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
           <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
           <TabsTrigger value="rayos-x">Rayos X</TabsTrigger>
+          <TabsTrigger value="ultrasonidos">Ultrasonidos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="configuracion" className="mt-6">
@@ -301,6 +329,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <LabSettingsManager />
                   <XRaySettingsManager />
                 </div>
+                <UltrasoundSettingsManager />
             </div>
         </TabsContent>
 
@@ -401,6 +430,40 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </div>
                   ) : (
                     <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={handleXRayDelete} isAdmin />
+                  )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+        
+        <TabsContent value="ultrasonidos">
+           <Card className="w-full shadow-lg mt-6">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Ultrasonido</CardTitle>
+                  <div className="flex flex-wrap items-center gap-2 pt-4">
+                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date-ultrasound" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                        </PopoverContent>
+                    </Popover>
+                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isPending ? (
+                    <div className="flex justify-center items-center h-40">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                    </div>
+                  ) : (
+                    <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} isAdmin />
                   )}
                 </CardContent>
             </Card>

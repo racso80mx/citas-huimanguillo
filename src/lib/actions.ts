@@ -5,6 +5,7 @@ import {
     deleteAppointment as deleteDataAppointment, 
     deleteLabAppointment as deleteDataLabAppointment,
     deleteXRayAppointment as deleteDataXRayAppointment,
+    deleteUltrasoundAppointment as deleteDataUltrasoundAppointment,
 } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
@@ -22,8 +23,12 @@ import {
   updateXRaySettings as dataUpdateXRaySettings,
   getXRayStudies as dataGetXRayStudies,
   updateXRayStudies as dataUpdateXRayStudies,
+  getUltrasoundSettings as dataGetUltrasoundSettings,
+  updateUltrasoundSettings as dataUpdateUltrasoundSettings,
+  getUltrasoundStudies as dataGetUltrasoundStudies,
+  updateUltrasoundStudies as dataUpdateUltrasoundStudies,
 } from './data';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy } from './definitions';
 
 
 export async function deleteAppointment(id: string) {
@@ -65,6 +70,23 @@ export async function deleteXRayAppointment(id: string) {
       await deleteDataXRayAppointment(id);
       revalidateTag('xRayAppointments');
       return { success: true, message: 'Cita de Rayos X eliminada con éxito.' };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Error desconocido al eliminar la cita.';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+}
+
+export async function deleteUltrasoundAppointment(id: string) {
+    try {
+      await deleteDataUltrasoundAppointment(id);
+      revalidateTag('ultrasoundAppointments');
+      return { success: true, message: 'Cita de Ultrasonido eliminada con éxito.' };
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -147,6 +169,23 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
   return result;
 }
 
+// Ultrasound
+export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
+  const result = await dataUpdateUltrasoundSettings(settings);
+  if (result.success) {
+    revalidateTag('ultrasoundSettings');
+  }
+  return result;
+}
+
+export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
+  const result = await dataUpdateUltrasoundStudies(studies);
+  if (result.success) {
+    revalidateTag('ultrasoundStudies');
+  }
+  return result;
+}
+
 
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {
@@ -175,4 +214,12 @@ export async function getXRaySettings() {
 
 export async function getXRayStudies() {
     return await dataGetXRayStudies();
+}
+
+export async function getUltrasoundSettings() {
+    return await dataGetUltrasoundSettings();
+}
+
+export async function getUltrasoundStudies() {
+    return await dataGetUltrasoundStudies();
 }

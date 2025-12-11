@@ -1,0 +1,6 @@
+[
+    { "id": "us-abdominal", "name": "Ultrasonido Abdominal Completo", "indications": "Ayuno de 8 horas. Tomar 1.5 litros de agua 1 hora antes del estudio y no orinar.", "available": true },
+    { "id": "us-renal", "name": "Ultrasonido Renal y Vías Urinarias", "indications": "Tomar 1.5 litros de agua 1 hora antes del estudio y no orinar.", "available": true },
+    { "id": "us-pelvico", "name": "Ultrasonido Pélvico", "indications": "Tomar 1.5 litros de agua 1 hora antes del estudio y no orinar.", "available": true },
+    { "id": "us-obstetrico", "name": "Ultrasonido Obstétrico", "indications": "Puede requerir vejiga llena en el primer trimestre. Seguir indicación médica.", "available": true }
+]

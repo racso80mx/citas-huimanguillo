@@ -101,6 +101,32 @@
         },
         "required": ["id", "name", "indications", "available"]
     },
+    "UltrasoundAppointment": {
+        "title": "Ultrasound Appointment",
+        "type": "object",
+        "description": "Represents a scheduled Ultrasound appointment.",
+        "properties": {
+            "id": { "type": "string" },
+            "appointmentNumber": { "type": "string" },
+            "patient": { "$ref": "#/entities/Patient" },
+            "date": { "type": "string", "format": "date-time" },
+            "time": { "type": "string" },
+            "studyId": { "type": "string" }
+        },
+        "required": ["id", "appointmentNumber", "patient", "date", "time", "studyId"]
+    },
+    "UltrasoundStudy": {
+        "title": "Ultrasound Study",
+        "type": "object",
+        "description": "Represents a single Ultrasound study.",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "indications": { "type": "string" },
+            "available": { "type": "boolean" }
+        },
+        "required": ["id", "name", "indications", "available"]
+    },
     "Clinic": {
         "title": "Clinic",
         "type": "object",
@@ -196,6 +222,13 @@
         "definition": {
             "entityName": "XRayAppointment",
             "schema": { "$ref": "#/entities/XRayAppointment" }
+        }
+      },
+      {
+        "path": "/ultrasound-appointments/{ultrasoundAppointmentId}",
+        "definition": {
+            "entityName": "UltrasoundAppointment",
+            "schema": { "$ref": "#/entities/UltrasoundAppointment" }
         }
       },
       {

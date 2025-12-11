@@ -12,18 +12,17 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateXRaySettings, getXRaySettings, updateXRayStudies, getXRayStudies } from '@/lib/actions';
-import { Loader2, Save, Stethoscope, CalendarClock, Settings, PlusCircle, Trash2 } from 'lucide-react';
-import type { XRaySettings, XRayStudy } from '@/lib/definitions';
+import { updateUltrasoundSettings, getUltrasoundSettings, updateUltrasoundStudies, getUltrasoundStudies } from '@/lib/actions';
+import { Loader2, Save, Waves, CalendarClock, Settings, PlusCircle, Trash2 } from 'lucide-react';
+import type { UltrasoundSettings, UltrasoundStudy } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { ScrollArea } from '../ui/scroll-area';
 import { Textarea } from '../ui/textarea';
 
-
-export function XRaySettingsManager() {
-  const [settings, setSettings] = useState<XRaySettings | null>(null);
-  const [studies, setStudies] = useState<XRayStudy[]>([]);
+export function UltrasoundSettingsManager() {
+  const [settings, setSettings] = useState<UltrasoundSettings | null>(null);
+  const [studies, setStudies] = useState<UltrasoundStudy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
   const { toast } = useToast();
@@ -32,17 +31,17 @@ export function XRaySettingsManager() {
     setIsLoading(true);
     try {
       const [settingsData, studiesData] = await Promise.all([
-        getXRaySettings(),
-        getXRayStudies()
+        getUltrasoundSettings(),
+        getUltrasoundStudies()
       ]);
       setSettings(settingsData);
       setStudies(studiesData);
     } catch (error) {
-      console.error('Failed to fetch X-Ray settings:', error);
+      console.error('Failed to fetch Ultrasound settings:', error);
       toast({
         title: 'Error',
         description:
-          'No se pudo cargar la configuración de Rayos X.',
+          'No se pudo cargar la configuración de Ultrasonido.',
         variant: 'destructive',
       });
     } finally {
@@ -55,18 +54,18 @@ export function XRaySettingsManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSettingsChange = (field: keyof XRaySettings, value: string | number | boolean) => {
+  const handleSettingsChange = (field: keyof UltrasoundSettings, value: string | number | boolean) => {
     if (settings) {
         setSettings({ ...settings, [field]: value });
     }
   };
 
-  const handleStudyChange = (id: string, field: keyof XRayStudy, value: string | boolean) => {
+  const handleStudyChange = (id: string, field: keyof UltrasoundStudy, value: string | boolean) => {
     setStudies(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
   
   const addStudy = () => {
-    const newStudy: XRayStudy = { id: uuidv4(), name: '', indications: '', available: true };
+    const newStudy: UltrasoundStudy = { id: uuidv4(), name: '', indications: '', available: true };
     setStudies([...studies, newStudy]);
   };
 
@@ -76,21 +75,21 @@ export function XRaySettingsManager() {
 
   const handleSave = () => {
     if (!settings) return;
-    
-    const validStudies = studies.filter(s => s.name.trim() !== '' && s.indications.trim() !== '');
-    if (validStudies.length !== studies.length) {
-        toast({
-            title: 'Campos Requeridos',
-            description: 'El nombre y las indicaciones del estudio no pueden estar vacíos.',
-            variant: 'destructive',
-        });
-        return;
-    }
 
     startSavingTransition(async () => {
+      const validStudies = studies.filter(s => s.name.trim() !== '' && s.indications.trim() !== '');
+      if (validStudies.length !== studies.length) {
+          toast({
+              title: 'Campos Requeridos',
+              description: 'El nombre y las indicaciones del estudio no pueden estar vacíos.',
+              variant: 'destructive',
+          });
+          return;
+      }
+      
       const results = await Promise.all([
-          updateXRaySettings(settings),
-          updateXRayStudies(studies)
+          updateUltrasoundSettings(settings),
+          updateUltrasoundStudies(studies)
       ]);
 
       const settingsResult = results[0];
@@ -99,7 +98,7 @@ export function XRaySettingsManager() {
       if (settingsResult.success && studiesResult.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración de Rayos X ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
+          description: 'La configuración de Ultrasonido ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
           className: 'bg-accent text-accent-foreground',
           duration: 8000,
         });
@@ -119,7 +118,7 @@ export function XRaySettingsManager() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings /> Configuración de Rayos X
+            <Settings /> Configuración de Ultrasonido
           </CardTitle>
           <CardDescription>
             Gestiona los horarios y la disponibilidad de los estudios.
@@ -136,7 +135,7 @@ export function XRaySettingsManager() {
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Settings /> Configuración de Rayos X
+          <Settings /> Configuración de Ultrasonido
         </CardTitle>
         <CardDescription>
           Gestiona los horarios, la disponibilidad y el catálogo de estudios.
@@ -147,27 +146,27 @@ export function XRaySettingsManager() {
             <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Horarios y Citas</h3>
             <div className='grid sm:grid-cols-3 gap-4'>
                 <div className='space-y-2'>
-                    <Label htmlFor="xray-slots">Citas por día</Label>
+                    <Label htmlFor="ultrasound-slots">Citas por día</Label>
                     <Input
-                    id="xray-slots"
+                    id="ultrasound-slots"
                     type="number"
                     value={settings.dailySlots}
                     onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
                     />
                 </div>
                 <div className='space-y-2'>
-                    <Label htmlFor="xray-start">Hora Inicio</Label>
+                    <Label htmlFor="ultrasound-start">Hora Inicio</Label>
                     <Input
-                    id="xray-start"
+                    id="ultrasound-start"
                     type="time"
                     value={settings.startTime}
                     onChange={(e) => handleSettingsChange('startTime', e.target.value)}
                     />
                 </div>
                 <div className='space-y-2'>
-                    <Label htmlFor="xray-end">Hora Fin</Label>
+                    <Label htmlFor="ultrasound-end">Hora Fin</Label>
                     <Input
-                    id="xray-end"
+                    id="ultrasound-end"
                     type="time"
                     value={settings.endTime}
                     onChange={(e) => handleSettingsChange('endTime', e.target.value)}
@@ -176,32 +175,32 @@ export function XRaySettingsManager() {
             </div>
             <div className="flex items-center space-x-2">
                 <Switch 
-                id="xray-weekend"
+                id="ultrasound-weekend"
                 checked={settings.weekendBookingEnabled}
                 onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
                 />
-                <Label htmlFor="xray-weekend">Permitir citas en fin de semana</Label>
+                <Label htmlFor="ultrasound-weekend">Permitir citas en fin de semana</Label>
             </div>
         </div>
          <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2"><Stethoscope/> Gestionar Estudios</h3>
+            <h3 className="font-semibold text-lg flex items-center gap-2"><Waves/> Gestionar Estudios</h3>
             <ScrollArea className="h-72 w-full rounded-md border p-4 space-y-4">
               {studies.map(study => (
                   <div key={study.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50">
                     <Button variant="ghost" size="icon" onClick={() => removeStudy(study.id)} className="absolute top-2 right-2 h-6 w-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     <div className="grid grid-cols-2 gap-4 items-center">
                       <div className='space-y-2'>
-                        <Label htmlFor={`rx-name-${study.id}`}>Nombre del Estudio</Label>
-                        <Input id={`rx-name-${study.id}`} value={study.name} onChange={(e) => handleStudyChange(study.id, 'name', e.target.value)} placeholder="Ej. Tórax P.A."/>
+                        <Label htmlFor={`us-name-${study.id}`}>Nombre del Estudio</Label>
+                        <Input id={`us-name-${study.id}`} value={study.name} onChange={(e) => handleStudyChange(study.id, 'name', e.target.value)} placeholder="Ej. Ultrasonido Abdominal"/>
                       </div>
                       <div className="flex items-center space-x-2 pt-6">
-                        <Switch id={`rx-available-${study.id}`} checked={study.available} onCheckedChange={(checked) => handleStudyChange(study.id, 'available', checked)} />
-                        <Label htmlFor={`rx-available-${study.id}`}>Disponible</Label>
+                        <Switch id={`us-available-${study.id}`} checked={study.available} onCheckedChange={(checked) => handleStudyChange(study.id, 'available', checked)} />
+                        <Label htmlFor={`us-available-${study.id}`}>Disponible</Label>
                       </div>
                     </div>
                     <div className='space-y-2'>
-                        <Label htmlFor={`rx-indications-${study.id}`}>Indicaciones</Label>
-                        <Textarea id={`rx-indications-${study.id}`} value={study.indications} onChange={(e) => handleStudyChange(study.id, 'indications', e.target.value)} placeholder="Indicaciones para el paciente..."/>
+                        <Label htmlFor={`us-indications-${study.id}`}>Indicaciones</Label>
+                        <Textarea id={`us-indications-${study.id}`} value={study.indications} onChange={(e) => handleStudyChange(study.id, 'indications', e.target.value)} placeholder="Indicaciones para el paciente..."/>
                     </div>
                   </div>
               ))}
@@ -216,7 +215,7 @@ export function XRaySettingsManager() {
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          {isSaving ? 'Guardando...' : 'Guardar Configuración de Rayos X'}
+          {isSaving ? 'Guardando...' : 'Guardar Configuración de Ultrasonido'}
         </Button>
       </CardFooter>
     </Card>

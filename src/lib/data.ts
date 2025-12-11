@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy } from './definitions';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
 
@@ -101,6 +101,28 @@ export async function getXRayStudies(): Promise<XRayStudy[]> {
 
 export async function updateXRayStudies(studies: XRayStudy[]): Promise<{ success: boolean; message?: string }> {
     return await writeJsonFile('x-ray-studies.json', studies);
+}
+
+// ========== Ultrasound Settings & Studies ==========
+export async function getUltrasoundSettings(): Promise<UltrasoundSettings> {
+    return await readJsonFile<UltrasoundSettings>('ultrasound-settings.json', {
+        dailySlots: 15,
+        startTime: "08:00",
+        endTime: "14:00",
+        weekendBookingEnabled: false
+    });
+}
+
+export async function updateUltrasoundSettings(settings: UltrasoundSettings): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('ultrasound-settings.json', settings);
+}
+
+export async function getUltrasoundStudies(): Promise<UltrasoundStudy[]> {
+    return await readJsonFile<UltrasoundStudy[]>('ultrasound-studies.json', []);
+}
+
+export async function updateUltrasoundStudies(studies: UltrasoundStudy[]): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('ultrasound-studies.json', studies);
 }
 
 
