@@ -101,72 +101,49 @@ export function LabBookingForm({
   const bookAppointment = async (
     bookingData: BookingFormValues,
   ) => {
-    if (!selectedDate || selectedStudies.length === 0) return { success: false, message: "Datos de la cita incompletos."};
+    if (!selectedDate || selectedStudies.length === 0) throw new Error("Datos de la cita incompletos.");
 
-    try {
-      const appointmentsOnDate = await getLabAppointmentsByDate(selectedDate);
-      
-      const isWeekend = isSaturday(selectedDate) || isSunday(selectedDate);
-      if (isWeekend && !weekendBookingEnabled) {
-          return { success: false, message: 'No se permiten citas en fin de semana.' };
-      }
-
-      if (appointmentsOnDate.length >= dailySlots) {
-        return { success: false, message: 'No hay más cupos para este día.' };
-      }
-
-      const curpExistsOnDate = appointmentsOnDate.some(
-        (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
-      );
-
-      if (curpExistsOnDate) {
-        return {
-          success: false,
-          message: 'Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.',
-        };
-      }
-      
-      const patientData: Omit<Patient, 'id'> = {
-          curp: bookingData.curp.toUpperCase(),
-          name: bookingData.name,
-          paternalLastName: bookingData.paternalLastName,
-          maternalLastName: bookingData.maternalLastName,
-          sex: bookingData.sex,
-          age: bookingData.age,
-          birthState: bookingData.birthState,
-          phoneNumber: bookingData.phoneNumber
-      };
-
-      const appointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`;
-
-      const newAppointment: Omit<LabAppointment, 'id'> = {
-        appointmentNumber,
-        patient: patientData,
-        date: selectedDate.toISOString(),
-        time: "Recepción de Muestras",
-        studies: selectedStudies,
-      };
-
-      const savedAppointment = await saveLabAppointment(newAppointment);
-
-      if (!savedAppointment) {
-        return {
-          success: false,
-          message: 'No se pudo guardar la cita en la base de datos.',
-        };
-      }
-
-      return {
-        success: true,
-        message: 'Cita de laboratorio agendada con éxito.',
-        appointment: savedAppointment,
-      };
-
-    } catch (error) {
-        console.error("Error booking lab appointment", error);
-        const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
-        return { success: false, message: `Error al agendar la cita: ${errorMessage}`};
+    const appointmentsOnDate = await getLabAppointmentsByDate(selectedDate);
+    
+    const isWeekend = isSaturday(selectedDate) || isSunday(selectedDate);
+    if (isWeekend && !weekendBookingEnabled) {
+        throw new Error('No se permiten citas en fin de semana.');
     }
+
+    if (appointmentsOnDate.length >= dailySlots) {
+      throw new Error('No hay más cupos para este día.');
+    }
+
+    const curpExistsOnDate = appointmentsOnDate.some(
+      (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
+    );
+
+    if (curpExistsOnDate) {
+      throw new Error('Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.');
+    }
+    
+    const patientData: Omit<Patient, 'id'> = {
+        curp: bookingData.curp.toUpperCase(),
+        name: bookingData.name,
+        paternalLastName: bookingData.paternalLastName,
+        maternalLastName: bookingData.maternalLastName,
+        sex: bookingData.sex,
+        age: bookingData.age,
+        birthState: bookingData.birthState,
+        phoneNumber: bookingData.phoneNumber
+    };
+
+    const appointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`;
+
+    const newAppointment: Omit<LabAppointment, 'id'> = {
+      appointmentNumber,
+      patient: patientData,
+      date: selectedDate.toISOString(),
+      time: "Recepción de Muestras",
+      studies: selectedStudies,
+    };
+
+    return await saveLabAppointment(newAppointment);
   }
 
 
@@ -181,25 +158,27 @@ export function LabBookingForm({
     }
 
     startTransition(async () => {
-      const result = await bookAppointment(data);
+       try {
+        const appointment = await bookAppointment(data);
+        if (appointment) {
+            toast({
+              title: 'Cita Confirmada',
+              description: `Tu cita de laboratorio ha sido agendada. Folio: ${appointment.appointmentNumber}`,
+              duration: 10000,
+            });
 
-      if (result.success && result.appointment) {
-        toast({
-          title: 'Cita Confirmada',
-          description: `Tu cita de laboratorio ha sido agendada. Folio: ${result.appointment.appointmentNumber}`,
-          duration: 10000,
-        });
+            generateLabAppointmentPDF(appointment);
 
-        generateLabAppointmentPDF(result.appointment);
-
-        form.reset();
-        onBookingSuccess();
-      } else {
-        toast({
-          title: 'Error al Agendar',
-          description: result.message || 'No se pudo agendar la cita. Intenta de nuevo.',
-          variant: 'destructive',
-        });
+            form.reset();
+            onBookingSuccess();
+        }
+      } catch(error) {
+          const errorMessage = error instanceof Error ? error.message : 'No se pudo agendar la cita. Intenta de nuevo.';
+          toast({
+            title: 'Error al Agendar',
+            description: errorMessage,
+            variant: 'destructive',
+          });
       }
     });
   };

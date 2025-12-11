@@ -11,7 +11,7 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import type { Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -55,7 +55,7 @@ export const getDocument = async <T>(collectionName: string, docId: string): Pro
 
 export async function saveAppointment(
   appointment: Appointment
-): Promise<Appointment | null> {
+): Promise<Appointment> {
   const db = getDb();
   const docRef = doc(db, 'appointments', appointment.id);
 
@@ -64,24 +64,32 @@ export async function saveAppointment(
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
-  try {
-    await setDoc(docRef, dataToSave);
-    return appointment;
-  } catch (error) {
-    console.error("Error saving appointment:", error);
-    throw error;
-  }
+  await setDoc(docRef, dataToSave).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'create',
+          requestResourceData: dataToSave
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      // Re-throw the original error to allow the caller to handle it if needed
+      throw serverError;
+  });
+
+  return appointment;
 }
+
 
 export async function deleteAppointment(id: string): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'appointments', id);
-  try {
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.error("Error deleting appointment:", error);
-    throw error;
-  }
+  await deleteDoc(docRef).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
 }
 
 export async function getAppointments(): Promise<Appointment[]> {
@@ -166,34 +174,40 @@ export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> 
 
 export async function saveLabAppointment(
   appointment: Omit<LabAppointment, 'id'>
-): Promise<LabAppointment | null> {
+): Promise<LabAppointment> {
   const db = getDb();
-  const collectionRef = collection(db, 'lab-appointments');
   const id = uuidv4();
+  const docRef = doc(db, 'lab-appointments', id);
   const dataToSave = {
     ...appointment,
     id,
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
-  try {
-    await setDoc(doc(collectionRef, id), dataToSave);
-    return dataToSave;
-  } catch (error) {
-    console.error("Error saving lab appointment:", error);
-    throw error;
-  }
+  await setDoc(docRef, dataToSave).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'create',
+          requestResourceData: dataToSave
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
+  return dataToSave;
 }
+
 
 export async function deleteLabAppointment(id: string): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'lab-appointments', id);
-  try {
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.error("Error deleting lab appointment:", error);
-    throw error;
-  }
+  await deleteDoc(docRef).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
 }
 
 export async function getLabAppointments(): Promise<LabAppointment[]> {
@@ -250,35 +264,42 @@ export async function getLabAppointmentsByDate(date: Date): Promise<LabAppointme
 
 export async function saveXRayAppointment(
   appointment: Omit<XRayAppointment, 'id'>
-): Promise<XRayAppointment | null> {
+): Promise<XRayAppointment> {
   const db = getDb();
-  const collectionRef = collection(db, 'x-ray-appointments');
   const id = uuidv4();
+  const docRef = doc(db, 'x-ray-appointments', id);
   const dataToSave = {
     ...appointment,
     id,
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
-  try {
-    await setDoc(doc(collectionRef, id), dataToSave);
-    return dataToSave;
-  } catch (error) {
-    console.error("Error saving X-Ray appointment:", error);
-    throw error;
-  }
+  await setDoc(docRef, dataToSave).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'create',
+          requestResourceData: dataToSave
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
+  return dataToSave;
 }
+
 
 export async function deleteXRayAppointment(id: string): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'x-ray-appointments', id);
-  try {
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.error("Error deleting X-Ray appointment:", error);
-    throw error;
-  }
+  await deleteDoc(docRef).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
 }
+
 
 export async function getXRayAppointments(): Promise<XRayAppointment[]> {
     const db = getDb();
@@ -334,34 +355,39 @@ export async function getXRayAppointmentsByDate(date: Date): Promise<XRayAppoint
 
 export async function saveUltrasoundAppointment(
   appointment: Omit<UltrasoundAppointment, 'id'>
-): Promise<UltrasoundAppointment | null> {
+): Promise<UltrasoundAppointment> {
   const db = getDb();
-  const collectionRef = collection(db, 'ultrasound-appointments');
   const id = uuidv4();
+  const docRef = doc(db, 'ultrasound-appointments', id);
   const dataToSave = {
     ...appointment,
     id,
     date: Timestamp.fromDate(new Date(appointment.date)),
   };
 
-  try {
-    await setDoc(doc(collectionRef, id), dataToSave);
-    return dataToSave;
-  } catch (error) {
-    console.error("Error saving Ultrasound appointment:", error);
-    throw error;
-  }
+  await setDoc(docRef, dataToSave).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'create',
+          requestResourceData: dataToSave
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
+  return dataToSave;
 }
 
 export async function deleteUltrasoundAppointment(id: string): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'ultrasound-appointments', id);
-  try {
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.error("Error deleting Ultrasound appointment:", error);
-    throw error;
-  }
+  await deleteDoc(docRef).catch(serverError => {
+      const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      throw serverError;
+  });
 }
 
 export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment[]> {

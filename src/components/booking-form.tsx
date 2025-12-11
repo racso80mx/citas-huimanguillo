@@ -104,83 +104,53 @@ export function BookingForm({
   const bookAppointment = async (
     bookingData: BookingFormValues,
   ) => {
-    if (!selectedDate || !selectedClinic || !selectedTime) return { success: false, message: "Datos de la cita incompletos."};
+    if (!selectedDate || !selectedClinic || !selectedTime) throw new Error("Datos de la cita incompletos.");
 
-    try {
-      const appointmentsOnDate = await getAppointmentsByDate(selectedDate);
-      
-      const isTimeSlotTaken = appointmentsOnDate.some(
-        (app) => app.clinicId === selectedClinic.id && app.time === selectedTime
-      );
+    const appointmentsOnDate = await getAppointmentsByDate(selectedDate);
+    
+    const isTimeSlotTaken = appointmentsOnDate.some(
+      (app) => app.clinicId === selectedClinic.id && app.time === selectedTime
+    );
 
-      if (isTimeSlotTaken) {
-        return {
-          success: false,
-          message: `El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`,
-        };
-      }
-      
-      const curpExistsOnDate = appointmentsOnDate.some(
-        (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
-      );
-
-      if (curpExistsOnDate) {
-        return {
-          success: false,
-          message: 'Ya existe una cita agendada con esta CURP para el día seleccionado.',
-        };
-      }
-      
-      const patientId = uuidv4();
-      
-      const patientToSave: Omit<Patient, 'id'> = {
-          curp: bookingData.curp.toUpperCase(),
-          name: bookingData.name,
-          paternalLastName: bookingData.paternalLastName,
-          maternalLastName: bookingData.maternalLastName,
-          sex: bookingData.sex,
-          age: bookingData.age,
-          birthState: bookingData.birthState,
-          phoneNumber: bookingData.phoneNumber
-      };
-
-      const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
-
-      const newAppointment: Appointment = {
-        id: uuidv4(),
-        appointmentNumber,
-        patientId: patientId, // Using a new UUID for the patient relation
-        clinicId: selectedClinic.id,
-        date: selectedDate.toISOString(),
-        time: selectedTime,
-        patientType: patientType,
-        status: 'Pendiente',
-        patient: patientToSave,
-      };
-
-      const savedAppointment = await saveAppointment(newAppointment);
-
-      if (!savedAppointment) {
-        return {
-          success: false,
-          message: 'No se pudo guardar la cita en la base de datos.',
-        };
-      }
-
-      return {
-        success: true,
-        message: 'Cita agendada con éxito.',
-        appointment: savedAppointment,
-      };
-
-    } catch (error) {
-        console.error("Error booking appointment", error);
-        const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
-        if (errorMessage.includes("insufficient permissions")) {
-            return { success: false, message: "Error de permisos. Asegúrate de que la sesión esté activa."};
-        }
-        return { success: false, message: `Error al agendar la cita: ${errorMessage}`};
+    if (isTimeSlotTaken) {
+      throw new Error(`El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`);
     }
+    
+    const curpExistsOnDate = appointmentsOnDate.some(
+      (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
+    );
+
+    if (curpExistsOnDate) {
+      throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.');
+    }
+    
+    const patientId = uuidv4();
+    
+    const patientToSave: Omit<Patient, 'id'> = {
+        curp: bookingData.curp.toUpperCase(),
+        name: bookingData.name,
+        paternalLastName: bookingData.paternalLastName,
+        maternalLastName: bookingData.maternalLastName,
+        sex: bookingData.sex,
+        age: bookingData.age,
+        birthState: bookingData.birthState,
+        phoneNumber: bookingData.phoneNumber
+    };
+
+    const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
+
+    const newAppointment: Appointment = {
+      id: uuidv4(),
+      appointmentNumber,
+      patientId: patientId, // Using a new UUID for the patient relation
+      clinicId: selectedClinic.id,
+      date: selectedDate.toISOString(),
+      time: selectedTime,
+      patientType: patientType,
+      patient: patientToSave,
+    };
+
+    return await saveAppointment(newAppointment);
   }
 
 
@@ -195,25 +165,27 @@ export function BookingForm({
     }
 
     startTransition(async () => {
-      const result = await bookAppointment(data);
+      try {
+        const appointment = await bookAppointment(data);
+        if (appointment) {
+            toast({
+              title: 'Cita Confirmada',
+              description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
+              duration: 10000,
+            });
 
-      if (result.success && result.appointment) {
-        toast({
-          title: 'Cita Confirmada',
-          description: `Tu cita ha sido agendada con éxito. Folio: ${result.appointment.appointmentNumber}`,
-          duration: 10000,
-        });
+            generateAppointmentPDF(appointment, selectedClinic);
 
-        generateAppointmentPDF(result.appointment, selectedClinic);
-
-        form.reset();
-        onBookingSuccess();
-      } else {
-        toast({
-          title: 'Error al Agendar',
-          description: result.message || 'No se pudo agendar la cita. Intenta de nuevo.',
-          variant: 'destructive',
-        });
+            form.reset();
+            onBookingSuccess();
+        }
+      } catch(error) {
+          const errorMessage = error instanceof Error ? error.message : 'No se pudo agendar la cita. Intenta de nuevo.';
+          toast({
+            title: 'Error al Agendar',
+            description: errorMessage,
+            variant: 'destructive',
+          });
       }
     });
   };
