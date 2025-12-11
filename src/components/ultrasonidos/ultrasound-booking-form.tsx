@@ -32,6 +32,7 @@ import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
 import { generateUltrasoundAppointmentPDF } from '@/lib/utils';
 import type { UltrasoundAppointment, Patient, UltrasoundStudy } from '@/lib/definitions';
+import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
