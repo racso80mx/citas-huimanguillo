@@ -142,7 +142,18 @@ export function LabBookingForm({
       studies: selectedStudies,
     };
 
-    return await saveLabAppointment(newAppointment, patientData);
+    const appointment = await saveLabAppointment(newAppointment, patientData);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita de laboratorio ha sido agendada. Folio: ${appointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateLabAppointmentPDF(appointment);
+
+    form.reset();
+    onBookingSuccess();
   }
 
 
@@ -156,28 +167,14 @@ export function LabBookingForm({
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const appointment = await bookAppointment(data);
-        if (appointment) {
+    startTransition(() => {
+        bookAppointment(data).catch((error: any) => {
             toast({
-              title: 'Cita Confirmada',
-              description: `Tu cita de laboratorio ha sido agendada. Folio: ${appointment.appointmentNumber}`,
-              duration: 10000,
+                title: 'Error al Agendar',
+                description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+                variant: 'destructive',
             });
-
-            generateLabAppointmentPDF(appointment);
-
-            form.reset();
-            onBookingSuccess();
-        }
-      } catch (error: any) {
-         toast({
-          title: 'Error al Agendar',
-          description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
-          variant: 'destructive',
         });
-      }
     });
   };
   

@@ -139,7 +139,18 @@ export function XRayBookingForm({
       studyName: selectedStudy.name,
     };
 
-    return await saveXRayAppointment(newAppointment, patientData);
+    const appointment = await saveXRayAppointment(newAppointment, patientData);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita de Rayos X ha sido agendada. Folio: ${appointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateXRayAppointmentPDF(appointment, selectedStudy);
+
+    form.reset();
+    onBookingSuccess();
   }
 
 
@@ -153,28 +164,14 @@ export function XRayBookingForm({
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const appointment = await bookAppointment(data);
-        if (appointment) {
-          toast({
-            title: 'Cita Confirmada',
-            description: `Tu cita de Rayos X ha sido agendada. Folio: ${appointment.appointmentNumber}`,
-            duration: 10000,
-          });
-
-          generateXRayAppointmentPDF(appointment, selectedStudy);
-
-          form.reset();
-          onBookingSuccess();
-        }
-       } catch (error: any) {
-         toast({
-          title: 'Error al Agendar',
-          description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
-          variant: 'destructive',
+    startTransition(() => {
+        bookAppointment(data).catch((error: any) => {
+            toast({
+                title: 'Error al Agendar',
+                description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+                variant: 'destructive',
+            });
         });
-      }
     });
   };
   

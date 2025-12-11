@@ -144,7 +144,18 @@ export function BookingForm({
       patientType: patientType,
     };
 
-    return await saveAppointment(newAppointmentData, patientToSave);
+    const appointment = await saveAppointment(newAppointmentData, patientToSave);
+    
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateAppointmentPDF(appointment, selectedClinic);
+
+    form.reset();
+    onBookingSuccess();
   }
 
 
@@ -158,28 +169,14 @@ export function BookingForm({
       return;
     }
 
-    startTransition(async () => {
-      try {
-        const appointment = await bookAppointment(data);
-        if (appointment) {
-            toast({
-              title: 'Cita Confirmada',
-              description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
-              duration: 10000,
+    startTransition(() => {
+        bookAppointment(data).catch((error: any) => {
+             toast({
+                title: 'Error al Agendar',
+                description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+                variant: 'destructive',
             });
-
-            generateAppointmentPDF(appointment, selectedClinic);
-
-            form.reset();
-            onBookingSuccess();
-        }
-      } catch (error: any) {
-        toast({
-          title: 'Error al Agendar',
-          description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
-          variant: 'destructive',
         });
-      }
     });
   };
   
