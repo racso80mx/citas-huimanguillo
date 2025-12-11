@@ -1,5 +1,5 @@
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp, deleteApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -7,11 +7,13 @@ import { getFirestore } from 'firebase/firestore';
 export function initializeFirebase() {
   const apps = getApps();
   if (apps.length) {
-    // In a development environment, Next.js can cause multiple initializations.
-    // We delete the existing app to ensure the new, correct config is used.
-     apps.forEach(app => deleteApp(app));
+    // If an app is already initialized, return its services.
+    // This prevents re-initialization on hot reloads in development.
+    const existingApp = getApp();
+    return getSdks(existingApp);
   }
-  
+
+  // Otherwise, initialize a new app
   const firebaseApp = initializeApp(firebaseConfig);
   return getSdks(firebaseApp);
 }
