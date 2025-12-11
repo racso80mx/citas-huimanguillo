@@ -11,6 +11,7 @@ import {
   verifyClinicPassword as dataVerifyClinicPassword,
   verifyXRayPassword as dataVerifyXRayPassword,
   verifyUltrasoundPassword as dataVerifyUltrasoundPassword,
+  verifyLabPassword as dataVerifyLabPassword,
   updateClinics as dataUpdateClinics,
   updateColonias as dataUpdateColonias,
   updateAnnouncements as dataUpdateAnnouncements,
@@ -110,6 +111,14 @@ export async function verifyClinicPassword(
     return { success: true };
   }
   return { success: false, message: result.error || 'Contraseña incorrecta.' };
+}
+
+export async function verifyLabPassword(passwordAttempt: string) {
+    const result = await dataVerifyLabPassword(passwordAttempt);
+    if(result.isValid) {
+        return { success: true };
+    }
+    return { success: false, message: result.error || 'Contraseña incorrecta.' };
 }
 
 export async function verifyXRayPassword(passwordAttempt: string) {

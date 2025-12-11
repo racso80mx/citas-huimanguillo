@@ -49,7 +49,7 @@ import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
 import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
 
-type ReportType = 'clinic' | 'x-ray' | 'ultrasound';
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio';
 
 type ReportsDashboardProps = {
   entity: any;
@@ -76,6 +76,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             appointmentsData = await getXRayAppointments();
         } else if (reportType === 'ultrasound') {
             appointmentsData = await getUltrasoundAppointments();
+        } else if (reportType === 'laboratorio') {
+            appointmentsData = await getLabAppointments();
         }
         setAppointments(appointmentsData || []);
       } catch (error) {
@@ -163,6 +165,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     if (reportType === 'clinic') filename = `reporte_${entity.name}_${activeFilter}`;
     if (reportType === 'x-ray') filename = `reporte_rayos_x_${activeFilter}`;
     if (reportType === 'ultrasound') filename = `reporte_ultrasonidos_${activeFilter}`;
+    if (reportType === 'laboratorio') filename = `reporte_laboratorio_${activeFilter}`;
 
     downloadExcel(appointmentsToDisplay, filename);
   };
@@ -187,6 +190,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     switch(reportType) {
         case 'clinic':
             return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} />;
+        case 'laboratorio':
+            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} />;
         case 'x-ray':
             return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} />;
         case 'ultrasound':

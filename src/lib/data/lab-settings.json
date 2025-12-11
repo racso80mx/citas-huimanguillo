@@ -1,4 +1,5 @@
 {
     "dailySlots": 20,
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "password": "lab"
 }

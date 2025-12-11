@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
-import type { Clinic, XRaySettings, UltrasoundSettings } from '@/lib/definitions';
-import { getClinics, getXRaySettings, getUltrasoundSettings } from '@/lib/actions';
-import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword } from '@/lib/actions';
+import type { Clinic, XRaySettings, UltrasoundSettings, LabSettings } from '@/lib/definitions';
+import { getClinics, getXRaySettings, getUltrasoundSettings, getLabSettings } from '@/lib/actions';
+import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,12 +14,14 @@ import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 
-type ReportType = 'clinic' | 'x-ray' | 'ultrasound';
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio';
 
 export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [xRaySettings, setXRaySettings] = useState<XRaySettings | null>(null);
   const [ultrasoundSettings, setUltrasoundSettings] = useState<UltrasoundSettings | null>(null);
+  const [labSettings, setLabSettings] = useState<LabSettings | null>(null);
+
 
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('clinic');
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -37,14 +39,16 @@ export default function ReportsPage() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const [clinicsData, xrayData, ultrasoundData] = await Promise.all([
+        const [clinicsData, xrayData, ultrasoundData, labData] = await Promise.all([
             getClinics(),
             getXRaySettings(),
             getUltrasoundSettings(),
+            getLabSettings(),
         ]);
         setClinics(clinicsData);
         setXRaySettings(xrayData);
         setUltrasoundSettings(ultrasoundData);
+        setLabSettings(labData);
       } catch (error) {
         toast({
           title: 'Error',
@@ -77,6 +81,9 @@ export default function ReportsPage() {
     } else if (selectedReportType === 'ultrasound') {
         result = await verifyUltrasoundPassword(password);
         entityToAuth = { id: 'ultrasonidos', name: 'Ultrasonidos', doctorName: 'Responsable de Ultrasonidos' };
+    } else if (selectedReportType === 'laboratorio') {
+        result = await verifyLabPassword(password);
+        entityToAuth = { id: 'laboratorio', name: 'Laboratorio', doctorName: 'Responsable de Laboratorio' };
     }
 
     if (result?.success && entityToAuth) {
@@ -150,6 +157,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="clinic">Núcleos Básicos</SelectItem>
+                        <SelectItem value="laboratorio">Laboratorio</SelectItem>
                         <SelectItem value="x-ray">Rayos X</SelectItem>
                         <SelectItem value="ultrasound">Ultrasonidos</SelectItem>
                     </SelectContent>

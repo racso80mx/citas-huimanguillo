@@ -95,6 +95,7 @@ export type LabAppointment = {
 export type LabSettings = {
     dailySlots: number;
     weekendBookingEnabled: boolean;
+    password?: string;
 }
 
 export const XRayStudySchema = z.object({

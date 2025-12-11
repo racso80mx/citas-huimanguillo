@@ -65,7 +65,8 @@ export async function updateColonias(colonias: Colonia[]): Promise<{ success: bo
 export async function getLabSettings(): Promise<LabSettings> {
     return await readJsonFile<LabSettings>('lab-settings.json', {
         dailySlots: 20,
-        weekendBookingEnabled: false
+        weekendBookingEnabled: false,
+        password: "lab"
     });
 }
 
@@ -152,6 +153,19 @@ export async function verifyClinicPassword(
       error: 'Ocurrió un error al verificar la contraseña.',
     };
   }
+}
+
+export async function verifyLabPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {
+    try {
+        const settings = await getLabSettings();
+        if (settings.password === passwordAttempt) {
+            return { isValid: true };
+        }
+        return { isValid: false, error: 'La contraseña es incorrecta.' };
+    } catch (error) {
+        console.error('Error verifying Lab password', error);
+        return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
+    }
 }
 
 export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {

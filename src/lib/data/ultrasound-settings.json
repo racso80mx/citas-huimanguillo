@@ -2,5 +2,6 @@
   "dailySlots": 10,
   "startTime": "08:00",
   "endTime": "13:00",
-  "weekendBookingEnabled": false
+  "weekendBookingEnabled": false,
+  "password": "1234"
 }
