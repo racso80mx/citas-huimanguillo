@@ -2,7 +2,7 @@
 
 import React, { useMemo, type ReactNode, useEffect } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
-import { initializeFirebase } from '@/firebase';
+import { getSdks, initializeFirebase } from '@/firebase';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 interface FirebaseClientProviderProps {
@@ -11,6 +11,8 @@ interface FirebaseClientProviderProps {
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
   const firebaseServices = useMemo(() => {
+    // This now simply initializes the app and gets the services.
+    // The logic to check for existing apps is self-contained in initializeFirebase.
     return initializeFirebase();
   }, []);
 
