@@ -98,7 +98,7 @@ export default function UltrasoundPageContent({
           date: dateString,
           availableSlots: available,
           availabilityByClinic: {},
-          takenTimesByClinic: {'ultrasound': takenTimes},
+          takenTimesByClinic: {'ultrasound': takenTimes || []},
         });
       }
       setAvailability(availabilityResult);

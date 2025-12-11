@@ -98,7 +98,7 @@ export default function XRayPageContent({
           date: dateString,
           availableSlots: available,
           availabilityByClinic: {},
-          takenTimesByClinic: {'x-ray': takenTimes},
+          takenTimesByClinic: {'x-ray': takenTimes || []},
         });
       }
       setAvailability(availabilityResult);
