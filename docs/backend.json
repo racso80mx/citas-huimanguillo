@@ -51,7 +51,7 @@
       "properties": {
         "id": { "type": "string" },
         "appointmentNumber": { "type": "string" },
-        "patient": { "type": "object" },
+        "patientId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "time": { "type": "string" },
         "studies": { 
@@ -59,7 +59,7 @@
           "items": { "$ref": "#/entities/LabStudy" }
         }
       },
-      "required": ["id", "appointmentNumber", "patient", "date", "time", "studies"]
+      "required": ["id", "appointmentNumber", "patientId", "date", "time", "studies"]
     },
      "LabStudy": {
       "title": "Lab Study",
@@ -82,12 +82,12 @@
         "properties": {
             "id": { "type": "string" },
             "appointmentNumber": { "type": "string" },
-            "patient": { "$ref": "#/entities/Patient" },
+            "patientId": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
             "time": { "type": "string" },
             "studyId": { "type": "string" }
         },
-        "required": ["id", "appointmentNumber", "patient", "date", "time", "studyId"]
+        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId"]
     },
     "XRayStudy": {
         "title": "X-Ray Study",
@@ -108,12 +108,12 @@
         "properties": {
             "id": { "type": "string" },
             "appointmentNumber": { "type": "string" },
-            "patient": { "$ref": "#/entities/Patient" },
+            "patientId": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
             "time": { "type": "string" },
             "studyId": { "type": "string" }
         },
-        "required": ["id", "appointmentNumber", "patient", "date", "time", "studyId"]
+        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId"]
     },
     "UltrasoundStudy": {
         "title": "Ultrasound Study",

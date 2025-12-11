@@ -34,7 +34,6 @@ import { Combobox } from './ui/combobox';
 import { generateAppointmentPDF } from '@/lib/utils';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -124,8 +123,6 @@ export function BookingForm({
       throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.');
     }
     
-    const patientId = uuidv4();
-    
     const patientToSave: Omit<Patient, 'id'> = {
         curp: bookingData.curp.toUpperCase(),
         name: bookingData.name,
@@ -139,18 +136,15 @@ export function BookingForm({
 
     const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
 
-    const newAppointment: Appointment = {
-      id: uuidv4(),
+    const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'> = {
       appointmentNumber,
-      patientId: patientId, // Using a new UUID for the patient relation
       clinicId: selectedClinic.id,
       date: selectedDate.toISOString(),
       time: selectedTime,
       patientType: patientType,
-      patient: patientToSave,
     };
 
-    return await saveAppointment(newAppointment);
+    return await saveAppointment(newAppointmentData, patientToSave);
   }
 
 
@@ -165,18 +159,26 @@ export function BookingForm({
     }
 
     startTransition(async () => {
-      const appointment = await bookAppointment(data);
-      if (appointment) {
-          toast({
-            title: 'Cita Confirmada',
-            description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
-            duration: 10000,
-          });
+      try {
+        const appointment = await bookAppointment(data);
+        if (appointment) {
+            toast({
+              title: 'Cita Confirmada',
+              description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
+              duration: 10000,
+            });
 
-          generateAppointmentPDF(appointment, selectedClinic);
+            generateAppointmentPDF(appointment, selectedClinic);
 
-          form.reset();
-          onBookingSuccess();
+            form.reset();
+            onBookingSuccess();
+        }
+      } catch (error: any) {
+        toast({
+          title: 'Error al Agendar',
+          description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          variant: 'destructive',
+        });
       }
     });
   };

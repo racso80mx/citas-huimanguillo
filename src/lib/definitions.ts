@@ -35,7 +35,7 @@ export type Appointment = {
   date: string; // ISO string for serializability
   time: string; // HH:mm format
   patientType: PatientType;
-  patient: Omit<Patient, 'id'>; 
+  patient: Patient; 
 };
 
 export const ClinicSchema = z.object({
@@ -86,10 +86,11 @@ export type LabStudy = {
 export type LabAppointment = {
     id: string;
     appointmentNumber: string;
-    patient: Omit<Patient, 'id'>;
+    patientId: string;
     date: string; // ISO string
     time: string; // HH:mm
     studies: LabStudy[];
+    patient: Patient;
 }
 
 export type LabSettings = {
@@ -110,11 +111,12 @@ export type XRayStudy = z.infer<typeof XRayStudySchema>;
 export type XRayAppointment = {
     id: string;
     appointmentNumber: string;
-    patient: Omit<Patient, 'id'>;
+    patientId: string;
     date: string; // ISO string
     time: string; // HH:mm
     studyId: string;
     studyName: string;
+    patient: Patient;
 }
 
 export type XRaySettings = {
@@ -136,11 +138,12 @@ export type UltrasoundStudy = z.infer<typeof UltrasoundStudySchema>;
 export type UltrasoundAppointment = {
     id: string;
     appointmentNumber: string;
-    patient: Omit<Patient, 'id'>;
+    patientId: string;
     date: string; // ISO string
     time: string; // HH:mm
     studyId: string;
     studyName: string;
+    patient: Patient;
 }
 
 export type UltrasoundSettings = {

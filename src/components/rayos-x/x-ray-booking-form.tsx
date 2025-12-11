@@ -32,7 +32,6 @@ import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
 import { generateXRayAppointmentPDF } from '@/lib/utils';
 import type { XRayAppointment, Patient, XRayStudy } from '@/lib/definitions';
-import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -131,16 +130,15 @@ export function XRayBookingForm({
 
     const appointmentNumber = `RX-${uuidv4().split('-')[0].toUpperCase()}`;
 
-    const newAppointment: Omit<XRayAppointment, 'id'> = {
+    const newAppointment: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'> = {
       appointmentNumber,
-      patient: patientData,
       date: selectedDate.toISOString(),
       time: selectedTime,
       studyId: selectedStudy.id,
       studyName: selectedStudy.name,
     };
 
-    return await saveXRayAppointment(newAppointment);
+    return await saveXRayAppointment(newAppointment, patientData);
   }
 
 
@@ -155,6 +153,7 @@ export function XRayBookingForm({
     }
 
     startTransition(async () => {
+      try {
         const appointment = await bookAppointment(data);
         if (appointment) {
           toast({
@@ -168,6 +167,13 @@ export function XRayBookingForm({
           form.reset();
           onBookingSuccess();
         }
+       } catch (error: any) {
+         toast({
+          title: 'Error al Agendar',
+          description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          variant: 'destructive',
+        });
+      }
     });
   };
   

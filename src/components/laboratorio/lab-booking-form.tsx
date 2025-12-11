@@ -122,8 +122,7 @@ export function LabBookingForm({
       throw new Error('Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.');
     }
     
-    const patientData: Patient = {
-        id: uuidv4(),
+    const patientData: Omit<Patient, 'id'> = {
         curp: bookingData.curp.toUpperCase(),
         name: bookingData.name,
         paternalLastName: bookingData.paternalLastName,
@@ -136,7 +135,7 @@ export function LabBookingForm({
 
     const appointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`;
 
-    const newAppointment: Omit<LabAppointment, 'id' | 'patient'> = {
+    const newAppointment: Omit<LabAppointment, 'id' | 'patientId' | 'patient'> = {
       appointmentNumber,
       date: selectedDate.toISOString(),
       time: "Recepción de Muestras",
@@ -158,6 +157,7 @@ export function LabBookingForm({
     }
 
     startTransition(async () => {
+      try {
         const appointment = await bookAppointment(data);
         if (appointment) {
             toast({
@@ -171,6 +171,13 @@ export function LabBookingForm({
             form.reset();
             onBookingSuccess();
         }
+      } catch (error: any) {
+         toast({
+          title: 'Error al Agendar',
+          description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          variant: 'destructive',
+        });
+      }
     });
   };
   
