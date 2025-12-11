@@ -33,6 +33,7 @@ import { Combobox } from '../ui/combobox';
 import { generateLabAppointmentPDF } from '@/lib/utils';
 import type { LabAppointment, Patient, LabStudy } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
+import { isSaturday, isSunday } from 'date-fns';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -55,12 +56,16 @@ type LabBookingFormProps = {
   selectedDate: Date | undefined;
   selectedStudies: LabStudy[];
   onBookingSuccess: () => void;
+  dailySlots: number;
+  weekendBookingEnabled: boolean;
 };
 
 export function LabBookingForm({
   selectedDate,
   selectedStudies,
   onBookingSuccess,
+  dailySlots,
+  weekendBookingEnabled,
 }: LabBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -101,6 +106,15 @@ export function LabBookingForm({
     try {
       const appointmentsOnDate = await getLabAppointmentsByDate(selectedDate);
       
+      const isWeekend = isSaturday(selectedDate) || isSunday(selectedDate);
+      if (isWeekend && !weekendBookingEnabled) {
+          return { success: false, message: 'No se permiten citas en fin de semana.' };
+      }
+
+      if (appointmentsOnDate.length >= dailySlots) {
+        return { success: false, message: 'No hay más cupos para este día.' };
+      }
+
       const curpExistsOnDate = appointmentsOnDate.some(
         (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
       );

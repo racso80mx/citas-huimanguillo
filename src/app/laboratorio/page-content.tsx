@@ -210,6 +210,8 @@ export default function LabPageContent({
                   selectedDate={selectedDate}
                   selectedStudies={selectedStudies}
                   onBookingSuccess={refreshData}
+                  dailySlots={settings.dailySlots}
+                  weekendBookingEnabled={settings.weekendBookingEnabled}
                 />
               </div>
             </div>

@@ -186,6 +186,7 @@ export default function UltrasoundPageContent({
 
   const availableTimeSlots = React.useMemo(() => {
     if (!selectedDayAvailability) return [];
+    if (selectedDayAvailability.availableSlots <= 0) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic['ultrasound'] || [];
     return allTimeSlots.filter(slot => !takenTimes.includes(slot));
   }, [selectedDayAvailability, allTimeSlots]);
