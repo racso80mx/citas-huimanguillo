@@ -1,18 +1,19 @@
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp, deleteApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (!getApps().length) {
-    // We are not using Firebase App Hosting, so we always initialize with the config object.
-    const firebaseApp = initializeApp(firebaseConfig);
-    return getSdks(firebaseApp);
+  const apps = getApps();
+  if (apps.length) {
+    // In a development environment, Next.js can cause multiple initializations.
+    // We delete the existing app to ensure the new, correct config is used.
+     apps.forEach(app => deleteApp(app));
   }
-
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  
+  const firebaseApp = initializeApp(firebaseConfig);
+  return getSdks(firebaseApp);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
