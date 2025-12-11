@@ -185,11 +185,10 @@ export default function XRayPageContent({
   }, [selectedDate, availability]);
 
   const availableTimeSlots = React.useMemo(() => {
-    if (!selectedDayAvailability) return [];
-    if (selectedDayAvailability.availableSlots <= 0) return [];
+    if (!selectedDayAvailability || selectedDayAvailability.availableSlots <= 0) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic['x-ray'] || [];
     return allTimeSlots.filter(slot => !takenTimes.includes(slot));
-  }, [selectedDayAvailability, allTimeSlots]);
+}, [selectedDayAvailability, allTimeSlots]);
 
   const availableStudies = allStudies.filter(s => s.available);
 
