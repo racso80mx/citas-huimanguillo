@@ -57,9 +57,7 @@
         "studies": { 
           "type": "array", 
           "items": { "$ref": "#/entities/LabStudy" }
-        },
-        "xRay": { "type": "string" },
-        "ultrasound": { "type": "string" }
+        }
       },
       "required": ["id", "appointmentNumber", "patient", "date", "time", "studies"]
     },
@@ -76,6 +74,32 @@
         "available": { "type": "boolean" }
       },
       "required": ["id", "section", "name", "sampleType", "fastingHours", "available"]
+    },
+    "XRayAppointment": {
+        "title": "X-Ray Appointment",
+        "type": "object",
+        "description": "Represents a scheduled X-Ray appointment.",
+        "properties": {
+            "id": { "type": "string" },
+            "appointmentNumber": { "type": "string" },
+            "patient": { "$ref": "#/entities/Patient" },
+            "date": { "type": "string", "format": "date-time" },
+            "time": { "type": "string" },
+            "studyId": { "type": "string" }
+        },
+        "required": ["id", "appointmentNumber", "patient", "date", "time", "studyId"]
+    },
+    "XRayStudy": {
+        "title": "X-Ray Study",
+        "type": "object",
+        "description": "Represents a single X-Ray study.",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "indications": { "type": "string" },
+            "available": { "type": "boolean" }
+        },
+        "required": ["id", "name", "indications", "available"]
     },
     "Clinic": {
         "title": "Clinic",
@@ -165,6 +189,13 @@
         "definition": {
           "entityName": "LabAppointment",
           "schema": { "$ref": "#/entities/LabAppointment" }
+        }
+      },
+      {
+        "path": "/x-ray-appointments/{xRayAppointmentId}",
+        "definition": {
+            "entityName": "XRayAppointment",
+            "schema": { "$ref": "#/entities/XRayAppointment" }
         }
       },
       {

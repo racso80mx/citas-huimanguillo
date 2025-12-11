@@ -11,16 +11,16 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateLabSettings, getLabSettings, updateLabStudies, getLabStudies } from '@/lib/actions';
-import { Loader2, Save, FlaskConical, CalendarClock, Settings } from 'lucide-react';
-import type { LabSettings, LabStudy } from '@/lib/definitions';
+import { updateXRaySettings, getXRaySettings, updateXRayStudies, getXRayStudies } from '@/lib/actions';
+import { Loader2, Save, Stethoscope, CalendarClock, Settings } from 'lucide-react';
+import type { XRaySettings, XRayStudy } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { ScrollArea } from '../ui/scroll-area';
 
-export function LabSettingsManager() {
-  const [settings, setSettings] = useState<LabSettings | null>(null);
-  const [studies, setStudies] = useState<LabStudy[]>([]);
+export function XRaySettingsManager() {
+  const [settings, setSettings] = useState<XRaySettings | null>(null);
+  const [studies, setStudies] = useState<XRayStudy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
   const { toast } = useToast();
@@ -29,17 +29,17 @@ export function LabSettingsManager() {
     setIsLoading(true);
     try {
       const [settingsData, studiesData] = await Promise.all([
-        getLabSettings(),
-        getLabStudies()
+        getXRaySettings(),
+        getXRayStudies()
       ]);
       setSettings(settingsData);
       setStudies(studiesData);
     } catch (error) {
-      console.error('Failed to fetch lab settings:', error);
+      console.error('Failed to fetch X-Ray settings:', error);
       toast({
         title: 'Error',
         description:
-          'No se pudo cargar la configuración del laboratorio.',
+          'No se pudo cargar la configuración de Rayos X.',
         variant: 'destructive',
       });
     } finally {
@@ -52,7 +52,7 @@ export function LabSettingsManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSettingsChange = (field: keyof LabSettings, value: string | number | boolean) => {
+  const handleSettingsChange = (field: keyof XRaySettings, value: string | number | boolean) => {
     if (settings) {
         setSettings({ ...settings, [field]: value });
     }
@@ -67,8 +67,8 @@ export function LabSettingsManager() {
 
     startSavingTransition(async () => {
       const results = await Promise.all([
-          updateLabSettings(settings),
-          updateLabStudies(studies)
+          updateXRaySettings(settings),
+          updateXRayStudies(studies)
       ]);
 
       const settingsResult = results[0];
@@ -77,7 +77,7 @@ export function LabSettingsManager() {
       if (settingsResult.success && studiesResult.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración del laboratorio ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
+          description: 'La configuración de Rayos X ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
           className: 'bg-accent text-accent-foreground',
           duration: 8000,
         });
@@ -97,7 +97,7 @@ export function LabSettingsManager() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Settings /> Configuración de Laboratorio
+            <Settings /> Configuración de Rayos X
           </CardTitle>
           <CardDescription>
             Gestiona los horarios y la disponibilidad de los estudios.
@@ -110,16 +110,11 @@ export function LabSettingsManager() {
     );
   }
 
-  const groupedStudies = studies.reduce((acc, study) => {
-    (acc[study.section] = acc[study.section] || []).push(study);
-    return acc;
-  }, {} as Record<string, LabStudy[]>);
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Settings /> Configuración de Laboratorio
+          <Settings /> Configuración de Rayos X
         </CardTitle>
         <CardDescription>
           Gestiona los horarios y la disponibilidad de los estudios.
@@ -127,47 +122,62 @@ export function LabSettingsManager() {
       </CardHeader>
       <CardContent className="grid md:grid-cols-2 gap-8">
         <div className="space-y-6">
-            <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Citas y Horarios</h3>
-            <div className='space-y-2'>
-                <Label htmlFor="lab-slots">Citas por día</Label>
-                <Input
-                id="lab-slots"
-                type="number"
-                value={settings.dailySlots}
-                onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
-                />
+            <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Horarios y Citas</h3>
+            <div className='grid sm:grid-cols-3 gap-4'>
+                <div className='space-y-2'>
+                    <Label htmlFor="xray-slots">Citas por día</Label>
+                    <Input
+                    id="xray-slots"
+                    type="number"
+                    value={settings.dailySlots}
+                    onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
+                    />
+                </div>
+                <div className='space-y-2'>
+                    <Label htmlFor="xray-start">Hora Inicio</Label>
+                    <Input
+                    id="xray-start"
+                    type="time"
+                    value={settings.startTime}
+                    onChange={(e) => handleSettingsChange('startTime', e.target.value)}
+                    />
+                </div>
+                <div className='space-y-2'>
+                    <Label htmlFor="xray-end">Hora Fin</Label>
+                    <Input
+                    id="xray-end"
+                    type="time"
+                    value={settings.endTime}
+                    onChange={(e) => handleSettingsChange('endTime', e.target.value)}
+                    />
+                </div>
             </div>
             <div className="flex items-center space-x-2">
                 <Switch 
-                id="lab-weekend"
+                id="xray-weekend"
                 checked={settings.weekendBookingEnabled}
                 onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
                 />
-                <Label htmlFor="lab-weekend">Permitir citas en fin de semana</Label>
+                <Label htmlFor="xray-weekend">Permitir citas en fin de semana</Label>
             </div>
         </div>
          <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2"><FlaskConical/> Estudios Disponibles</h3>
+            <h3 className="font-semibold text-lg flex items-center gap-2"><Stethoscope/> Estudios Disponibles</h3>
             <ScrollArea className="h-72 w-full rounded-md border p-4">
-              {Object.entries(groupedStudies).map(([section, studiesInSection]) => (
-                <div key={section} className="mb-4">
-                  <h4 className="font-bold text-md mb-2 sticky top-0 bg-background py-1">{section}</h4>
-                  <div className="space-y-2">
-                    {studiesInSection.map(study => (
-                      <div key={study.id} className="flex items-center justify-between">
-                        <Label htmlFor={`study-${study.id}`} className="flex-1">
-                          {study.name}
-                        </Label>
-                        <Switch
-                          id={`study-${study.id}`}
-                          checked={study.available}
-                          onCheckedChange={(checked) => handleStudyAvailabilityChange(study.id, checked)}
-                        />
-                      </div>
-                    ))}
+              <div className="space-y-2">
+                {studies.map(study => (
+                  <div key={study.id} className="flex items-center justify-between">
+                    <Label htmlFor={`study-${study.id}`} className="flex-1">
+                      {study.name}
+                    </Label>
+                    <Switch
+                      id={`study-${study.id}`}
+                      checked={study.available}
+                      onCheckedChange={(checked) => handleStudyAvailabilityChange(study.id, checked)}
+                    />
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </ScrollArea>
         </div>
       </CardContent>
@@ -178,7 +188,7 @@ export function LabSettingsManager() {
           ) : (
             <Save className="mr-2 h-4 w-4" />
           )}
-          {isSaving ? 'Guardando...' : 'Guardar Configuración de Laboratorio'}
+          {isSaving ? 'Guardando...' : 'Guardar Configuración de Rayos X'}
         </Button>
       </CardFooter>
     </Card>

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { Appointment, Clinic, LabAppointment } from "./definitions";
+import { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy } from "./definitions";
 import * as xlsx from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -11,10 +11,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-type EnrichedAppointment = (Appointment | LabAppointment) & { clinicName: string, coloniaName: string };
+type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string };
 
 export function downloadExcel(data: EnrichedAppointment[], filename: string) {
     const isLab = filename.includes('laboratorio');
+    const isXRay = filename.includes('rayos_x');
     
     const worksheetData = data.map(
         (item) => {
@@ -33,6 +34,12 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
                     ...baseData,
                     'Estudios': labItem.studies.map(s => s.name).join(', '),
                 };
+            } else if (isXRay) {
+                 const xrayItem = item as XRayAppointment;
+                 return {
+                     ...baseData,
+                     'Estudio': xrayItem.studyName,
+                 }
             } else {
                 const regularItem = item as Appointment;
                 return {
@@ -138,7 +145,7 @@ export function generateLabAppointmentPDF(appointmentData: LabAppointment) {
     doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
     doc.text(`Fecha: ${formattedDate}`, 20, 125);
-    doc.text(`Hora: ${time} hrs`, 20, 135);
+    doc.text(`Hora: ${time}`, 20, 135);
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
@@ -162,4 +169,61 @@ export function generateLabAppointmentPDF(appointmentData: LabAppointment) {
     doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
 
     doc.save(`recibo_lab_${patient.curp}.pdf`);
+}
+
+export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, study: XRayStudy) {
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber } = appointmentData;
+
+    doc.setFont('Helvetica');
+    doc.setFontSize(22);
+    doc.text('Confirmación de Cita de Rayos X', 40, 25);
+    doc.setFontSize(10);
+    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33);
+    doc.setFontSize(14);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
+
+    doc.setLineWidth(0.5);
+    doc.line(20, 55, 190, 55);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Datos del Paciente:', 20, 65);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
+    doc.text(`CURP: ${patient.curp}`, 20, 85);
+    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Detalles de la Cita:', 20, 115);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+    doc.text(`Fecha: ${formattedDate}`, 20, 125);
+    doc.text(`Hora: ${time} hrs`, 20, 135);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Estudio Solicitado e Indicaciones:', 20, 155);
+    
+    doc.autoTable({
+        startY: 165,
+        head: [['Estudio', 'Indicaciones']],
+        body: [[study.name, study.indications]],
+        theme: 'grid',
+        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+    });
+
+    const finalY = doc.lastAutoTable.finalY || 200;
+
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY + 10);
+    doc.text('Siga las indicaciones de preparación para el estudio.', 20, finalY + 15);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
+
+    doc.save(`recibo_rayosx_${patient.curp}.pdf`);
 }

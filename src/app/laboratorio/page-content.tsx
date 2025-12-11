@@ -14,9 +14,8 @@ import {
 import type { DailyAvailability, LabStudy, LabSettings } from '@/lib/definitions';
 import { getLabAppointments } from '@/lib/data-client';
 import { useToast } from '@/hooks/use-toast';
-import { FlaskConical, Clock, CalendarDays, Microscope } from 'lucide-react';
+import { FlaskConical, CalendarDays, Microscope } from 'lucide-react';
 import {
-  format,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -24,7 +23,6 @@ import {
   isSunday,
   startOfToday,
 } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { LabStudiesSelector } from '@/components/laboratorio/lab-studies-selector';
 
 type LabPageContentProps = {
@@ -37,7 +35,6 @@ export default function LabPageContent({
   initialSettings,
 }: LabPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
-  const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedStudies, setSelectedStudies] = React.useState<LabStudy[]>([]);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
@@ -47,20 +44,6 @@ export default function LabPageContent({
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
-
-  const generateTimeSlots = (): string[] => {
-    const slots = [];
-    const [startHour] = settings.startTime.split(':').map(Number);
-    const [endHour] = settings.endTime.split(':').map(Number);
-
-    for (let hour = startHour; hour < endHour; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`);
-      slots.push(`${String(hour).padStart(2, '0')}:30`);
-    }
-    return slots;
-  };
-
-  const allTimeSlots = React.useMemo(generateTimeSlots, [settings]);
 
   const fetchAvailability = React.useCallback(
     async (year: number, month: number) => {
@@ -86,13 +69,12 @@ export default function LabPageContent({
             : settings.dailySlots;
 
         const available = Math.max(0, maxSlots - appointmentsOnDate.length);
-        const takenTimes = appointmentsOnDate.map((app) => app.time);
         
         availabilityResult.push({
           date: dateString,
           availableSlots: available,
           availabilityByClinic: {}, // Not used in labs
-          takenTimesByClinic: {'lab': takenTimes},
+          takenTimesByClinic: {}, // Not used in labs
         });
       }
       setAvailability(availabilityResult);
@@ -135,7 +117,6 @@ export default function LabPageContent({
           currentMonth.getMonth()
         );
         setSelectedDate(undefined);
-        setSelectedTime(undefined);
         setSelectedStudies([]);
       } catch (error) {
         console.error('Failed to refresh data:', error);
@@ -160,29 +141,11 @@ export default function LabPageContent({
       }
     }
     setSelectedDate(date);
-    setSelectedTime(undefined);
   };
   
   const handleStudiesChange = (studies: LabStudy[]) => {
       setSelectedStudies(studies);
   }
-
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-  };
-
-   const selectedDayAvailability = React.useMemo(() => {
-    if (!selectedDate) return null;
-    const dateString = format(selectedDate, 'yyyy-MM-dd');
-    return availability.find((d) => d.date === dateString) || null;
-  }, [selectedDate, availability]);
-
-  const availableTimeSlots = React.useMemo(() => {
-    if (!selectedDayAvailability) return [];
-    const takenTimes = selectedDayAvailability.takenTimesByClinic['lab'] || [];
-    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
-  }, [selectedDayAvailability, allTimeSlots]);
-
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -200,8 +163,7 @@ export default function LabPageContent({
           Agenda tus Estudios de Laboratorio
         </h1>
         <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">
-          Selecciona un día, los estudios que necesites, un horario y registra
-          tus datos.
+          Selecciona un día, los estudios que necesites y registra tus datos. La recepción de muestras es en un horario general.
         </p>
       </div>
 
@@ -239,57 +201,13 @@ export default function LabPageContent({
             </div>
 
             <div className="flex flex-col gap-8">
-              {selectedDate && selectedStudies.length > 0 && (
-                <div>
-                  <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
-                    <Clock className="h-6 w-6" />
-                    3. Selecciona una hora
-                  </h3>
-                  <Card className="bg-card">
-                    <CardHeader>
-                      <CardTitle className="text-xl flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-primary" />
-                        Horarios Disponibles
-                      </CardTitle>
-                      <CardDescription>
-                        Selecciona un horario para el{' '}
-                        {format(selectedDate, 'PPP', { locale: es })}.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-3 gap-2">
-                      {availableTimeSlots.length > 0 ? (
-                        availableTimeSlots.map((time) => (
-                          <button
-                            key={time}
-                            onClick={() => handleTimeSelect(time)}
-                            className={`w-full p-2 border rounded-md text-center transition-colors ${
-                              selectedTime === time
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-background hover:bg-accent'
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        ))
-                      ) : (
-                        <p className="col-span-3 text-center text-muted-foreground">
-                          No hay horarios disponibles para la fecha
-                          seleccionada.
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                   <Microscope className="h-6 w-6" />
-                  4. Completa tus datos
+                  3. Completa tus datos
                 </h3>
                 <LabBookingForm
                   selectedDate={selectedDate}
-                  selectedTime={selectedTime}
                   selectedStudies={selectedStudies}
                   onBookingSuccess={refreshData}
                 />

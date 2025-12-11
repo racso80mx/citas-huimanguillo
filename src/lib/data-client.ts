@@ -10,11 +10,9 @@ import {
   query,
   where,
   Timestamp,
-  updateDoc,
-  addDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Appointment, LabAppointment } from './definitions';
+import type { Appointment, LabAppointment, XRayAppointment } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const getDb = () => {
@@ -244,6 +242,90 @@ export async function getLabAppointmentsByDate(date: Date): Promise<LabAppointme
     });
   } catch(error) {
      console.error("Error getting lab appointments by date:", error);
+     throw error;
+  }
+}
+
+// ========== X-Ray Appointments ==========
+
+export async function saveXRayAppointment(
+  appointment: Omit<XRayAppointment, 'id'>
+): Promise<XRayAppointment | null> {
+  const db = getDb();
+  const collectionRef = collection(db, 'x-ray-appointments');
+  const id = uuidv4();
+  const dataToSave = {
+    ...appointment,
+    id,
+    date: Timestamp.fromDate(new Date(appointment.date)),
+  };
+
+  try {
+    await setDoc(doc(collectionRef, id), dataToSave);
+    return dataToSave;
+  } catch (error) {
+    console.error("Error saving X-Ray appointment:", error);
+    throw error;
+  }
+}
+
+export async function deleteXRayAppointment(id: string): Promise<void> {
+  const db = getDb();
+  const docRef = doc(db, 'x-ray-appointments', id);
+  try {
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error("Error deleting X-Ray appointment:", error);
+    throw error;
+  }
+}
+
+export async function getXRayAppointments(): Promise<XRayAppointment[]> {
+    const db = getDb();
+    const collectionRef = collection(db, 'x-ray-appointments');
+    try {
+        const snapshot = await getDocs(collectionRef);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                date: (data.date as Timestamp).toDate().toISOString(),
+                patient: data.patient || null,
+            } as XRayAppointment;
+        });
+    } catch (error) {
+        console.error("Error getting X-Ray appointments:", error);
+        throw error;
+    }
+}
+
+export async function getXRayAppointmentsByDate(date: Date): Promise<XRayAppointment[]> {
+  const db = getDb();
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const q = query(
+    collection(db, 'x-ray-appointments'),
+    where('date', '>=', Timestamp.fromDate(startOfDay)),
+    where('date', '<=', Timestamp.fromDate(endOfDay))
+  );
+
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+          ...data,
+          id: doc.id,
+          date: (data.date as Timestamp).toDate().toISOString(),
+          patient: data.patient
+      } as XRayAppointment;
+    });
+  } catch(error) {
+     console.error("Error getting X-Ray appointments by date:", error);
      throw error;
   }
 }

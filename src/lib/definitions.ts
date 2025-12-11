@@ -90,11 +90,31 @@ export type LabAppointment = {
     date: string; // ISO string
     time: string; // HH:mm
     studies: LabStudy[];
-    xRay: string;
-    ultrasound: string;
 }
 
 export type LabSettings = {
+    dailySlots: number;
+    weekendBookingEnabled: boolean;
+}
+
+export type XRayStudy = {
+    id: string;
+    name: string;
+    indications: string;
+    available: boolean;
+}
+
+export type XRayAppointment = {
+    id: string;
+    appointmentNumber: string;
+    patient: Omit<Patient, 'id'>;
+    date: string; // ISO string
+    time: string; // HH:mm
+    studyId: string;
+    studyName: string;
+}
+
+export type XRaySettings = {
     dailySlots: number;
     startTime: string;
     endTime: string;

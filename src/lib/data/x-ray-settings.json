@@ -1,0 +1,6 @@
+{
+    "dailySlots": 15,
+    "startTime": "08:00",
+    "endTime": "14:00",
+    "weekendBookingEnabled": false
+}

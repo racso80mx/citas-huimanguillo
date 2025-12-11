@@ -22,16 +22,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
-  getLabAppointmentsByDate,
-  saveLabAppointment,
+  getXRayAppointmentsByDate,
+  saveXRayAppointment,
 } from '@/lib/data-client';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
-import { generateLabAppointmentPDF } from '@/lib/utils';
-import type { LabAppointment, Patient, LabStudy } from '@/lib/definitions';
+import { generateXRayAppointmentPDF } from '@/lib/utils';
+import type { XRayAppointment, Patient, XRayStudy } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
@@ -51,17 +51,19 @@ const formSchema = z.object({
 
 type BookingFormValues = z.infer<typeof formSchema>;
 
-type LabBookingFormProps = {
+type XRayBookingFormProps = {
   selectedDate: Date | undefined;
-  selectedStudies: LabStudy[];
+  selectedTime: string | undefined;
+  selectedStudy: XRayStudy | undefined;
   onBookingSuccess: () => void;
 };
 
-export function LabBookingForm({
+export function XRayBookingForm({
   selectedDate,
-  selectedStudies,
+  selectedTime,
+  selectedStudy,
   onBookingSuccess,
-}: LabBookingFormProps) {
+}: XRayBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
@@ -96,10 +98,21 @@ export function LabBookingForm({
   const bookAppointment = async (
     bookingData: BookingFormValues,
   ) => {
-    if (!selectedDate || selectedStudies.length === 0) return { success: false, message: "Datos de la cita incompletos."};
+    if (!selectedDate || !selectedTime || !selectedStudy) return { success: false, message: "Datos de la cita incompletos."};
 
     try {
-      const appointmentsOnDate = await getLabAppointmentsByDate(selectedDate);
+      const appointmentsOnDate = await getXRayAppointmentsByDate(selectedDate);
+      
+      const isTimeSlotTaken = appointmentsOnDate.some(
+        (app) => app.time === selectedTime
+      );
+
+      if (isTimeSlotTaken) {
+        return {
+          success: false,
+          message: `El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`,
+        };
+      }
       
       const curpExistsOnDate = appointmentsOnDate.some(
         (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
@@ -108,7 +121,7 @@ export function LabBookingForm({
       if (curpExistsOnDate) {
         return {
           success: false,
-          message: 'Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.',
+          message: 'Ya existe una cita de Rayos X agendada con esta CURP para el día seleccionado.',
         };
       }
       
@@ -123,17 +136,18 @@ export function LabBookingForm({
           phoneNumber: bookingData.phoneNumber
       };
 
-      const appointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`;
+      const appointmentNumber = `RX-${uuidv4().split('-')[0].toUpperCase()}`;
 
-      const newAppointment: Omit<LabAppointment, 'id'> = {
+      const newAppointment: Omit<XRayAppointment, 'id'> = {
         appointmentNumber,
         patient: patientData,
         date: selectedDate.toISOString(),
-        time: "Recepción de Muestras",
-        studies: selectedStudies,
+        time: selectedTime,
+        studyId: selectedStudy.id,
+        studyName: selectedStudy.name,
       };
 
-      const savedAppointment = await saveLabAppointment(newAppointment);
+      const savedAppointment = await saveXRayAppointment(newAppointment);
 
       if (!savedAppointment) {
         return {
@@ -144,12 +158,12 @@ export function LabBookingForm({
 
       return {
         success: true,
-        message: 'Cita de laboratorio agendada con éxito.',
+        message: 'Cita de Rayos X agendada con éxito.',
         appointment: savedAppointment,
       };
 
     } catch (error) {
-        console.error("Error booking lab appointment", error);
+        console.error("Error booking X-Ray appointment", error);
         const errorMessage = error instanceof Error ? error.message : "Un error desconocido ocurrió.";
         return { success: false, message: `Error al agendar la cita: ${errorMessage}`};
     }
@@ -157,10 +171,10 @@ export function LabBookingForm({
 
 
   const onSubmit = (data: BookingFormValues) => {
-    if (!selectedDate || selectedStudies.length === 0) {
+    if (!selectedDate || !selectedTime || !selectedStudy) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona fecha y estudios.',
+        description: 'Por favor, selecciona fecha, estudio y hora.',
         variant: 'destructive',
       });
       return;
@@ -172,11 +186,11 @@ export function LabBookingForm({
       if (result.success && result.appointment) {
         toast({
           title: 'Cita Confirmada',
-          description: `Tu cita de laboratorio ha sido agendada. Folio: ${result.appointment.appointmentNumber}`,
+          description: `Tu cita de Rayos X ha sido agendada. Folio: ${result.appointment.appointmentNumber}`,
           duration: 10000,
         });
 
-        generateLabAppointmentPDF(result.appointment);
+        generateXRayAppointmentPDF(result.appointment, selectedStudy);
 
         form.reset();
         onBookingSuccess();
@@ -190,7 +204,7 @@ export function LabBookingForm({
     });
   };
   
-  if (!selectedDate || selectedStudies.length === 0) {
+  if (!selectedDate || !selectedTime || !selectedStudy) {
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>

@@ -1,7 +1,11 @@
 'use server';
 
 import { revalidateTag } from 'next/cache';
-import { deleteAppointment as deleteDataAppointment, deleteLabAppointment as deleteDataLabAppointment } from './data-client';
+import { 
+    deleteAppointment as deleteDataAppointment, 
+    deleteLabAppointment as deleteDataLabAppointment,
+    deleteXRayAppointment as deleteDataXRayAppointment,
+} from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
   updateClinics as dataUpdateClinics,
@@ -14,8 +18,12 @@ import {
   getLabSettings as dataGetLabSettings,
   updateLabStudies as dataUpdateLabStudies,
   getLabStudies as dataGetLabStudies,
+  getXRaySettings as dataGetXRaySettings,
+  updateXRaySettings as dataUpdateXRaySettings,
+  getXRayStudies as dataGetXRayStudies,
+  updateXRayStudies as dataUpdateXRayStudies,
 } from './data';
-import type { Clinic, Colonia, LabSettings, LabStudy } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy } from './definitions';
 
 
 export async function deleteAppointment(id: string) {
@@ -50,6 +58,23 @@ export async function deleteLabAppointment(id: string) {
       message: errorMessage,
     };
   }
+}
+
+export async function deleteXRayAppointment(id: string) {
+    try {
+      await deleteDataXRayAppointment(id);
+      revalidateTag('xRayAppointments');
+      return { success: true, message: 'Cita de Rayos X eliminada con éxito.' };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Error desconocido al eliminar la cita.';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
 }
 
 export async function verifyClinicPassword(
@@ -87,6 +112,7 @@ export async function updateAnnouncements(announcements: string[]) {
   return result;
 }
 
+// Lab
 export async function updateLabSettings(settings: LabSettings) {
   const result = await dataUpdateLabSettings(settings);
   if (result.success) {
@@ -102,6 +128,25 @@ export async function updateLabStudies(studies: LabStudy[]) {
   }
   return result;
 }
+
+
+// X-Ray
+export async function updateXRaySettings(settings: XRaySettings) {
+  const result = await dataUpdateXRaySettings(settings);
+  if (result.success) {
+    revalidateTag('xRaySettings');
+  }
+  return result;
+}
+
+export async function updateXRayStudies(studies: XRayStudy[]) {
+  const result = await dataUpdateXRayStudies(studies);
+  if (result.success) {
+    revalidateTag('xRayStudies');
+  }
+  return result;
+}
+
 
 // Server actions to fetch static data for client components that can't be server components
 export async function getClinics() {
@@ -122,4 +167,12 @@ export async function getLabSettings() {
 
 export async function getLabStudies() {
     return await dataGetLabStudies();
+}
+
+export async function getXRaySettings() {
+    return await dataGetXRaySettings();
+}
+
+export async function getXRayStudies() {
+    return await dataGetXRayStudies();
 }
