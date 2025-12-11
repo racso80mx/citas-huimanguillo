@@ -1,8 +1,8 @@
 export const firebaseConfig = {
-  "projectId": "studio-5995013944-ec4f8",
-  "appId": "1:1011296435123:web:a4a9c1f622f6c843b5a9c6",
-  "apiKey": "AIzaSyDaE6Bi9zNiKk6DK9j4r0CNeaU0TAsuTqA",
-  "authDomain": "studio-5995013944-ec4f8.firebaseapp.com",
-  "measurementId": "",
+  "projectId": "citamedicafacil",
+  "appId": "1:1011296435123:web:f8a7c2957b4b3b89b5a9c6",
+  "storageBucket": "citamedicafacil.appspot.com",
+  "apiKey": "AIzaSyC2_1fJd3T1gX5aY6h7Z8c9V0b2E4f3DgI",
+  "authDomain": "citamedicafacil.firebaseapp.com",
   "messagingSenderId": "1011296435123"
 };
