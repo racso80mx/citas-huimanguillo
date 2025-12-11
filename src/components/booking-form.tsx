@@ -134,7 +134,7 @@ export function BookingForm({
         phoneNumber: bookingData.phoneNumber
     };
 
-    const appointmentNumber = uuidv4().split('-')[0].toUpperCase();
+    const appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
 
     const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'> = {
       appointmentNumber,
