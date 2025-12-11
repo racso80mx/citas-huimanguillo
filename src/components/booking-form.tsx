@@ -165,27 +165,18 @@ export function BookingForm({
     }
 
     startTransition(async () => {
-      try {
-        const appointment = await bookAppointment(data);
-        if (appointment) {
-            toast({
-              title: 'Cita Confirmada',
-              description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
-              duration: 10000,
-            });
-
-            generateAppointmentPDF(appointment, selectedClinic);
-
-            form.reset();
-            onBookingSuccess();
-        }
-      } catch(error) {
-          const errorMessage = error instanceof Error ? error.message : 'No se pudo agendar la cita. Intenta de nuevo.';
+      const appointment = await bookAppointment(data);
+      if (appointment) {
           toast({
-            title: 'Error al Agendar',
-            description: errorMessage,
-            variant: 'destructive',
+            title: 'Cita Confirmada',
+            description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
+            duration: 10000,
           });
+
+          generateAppointmentPDF(appointment, selectedClinic);
+
+          form.reset();
+          onBookingSuccess();
       }
     });
   };

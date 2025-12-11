@@ -155,7 +155,6 @@ export function UltrasoundBookingForm({
     }
 
     startTransition(async () => {
-      try {
         const appointment = await bookAppointment(data);
         if (appointment) {
           toast({
@@ -169,14 +168,6 @@ export function UltrasoundBookingForm({
           form.reset();
           onBookingSuccess();
         }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'No se pudo agendar la cita. Intenta de nuevo.';
-        toast({
-          title: 'Error al Agendar',
-          description: errorMessage,
-          variant: 'destructive',
-        });
-      }
     });
   };
   
