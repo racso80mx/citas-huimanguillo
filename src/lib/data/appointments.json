@@ -1,0 +1,22 @@
+[
+  {
+    "appointmentNumber": "CITA-6384",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "date": "2025-12-17T06:00:00.000Z",
+    "time": "10:30",
+    "patientType": "General",
+    "id": "561eb4aa-2ecf-4141-bc66-c9929b1df889",
+    "patientId": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
+    "patient": {
+      "id": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
+      "curp": "GALO800711HTCPRS04",
+      "name": "ASDF",
+      "paternalLastName": "ASD",
+      "maternalLastName": "ASDF",
+      "sex": "Hombre",
+      "age": 45,
+      "birthState": "TABASCO",
+      "phoneNumber": "2341234123"
+    }
+  }
+]

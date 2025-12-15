@@ -8,6 +8,7 @@ import {
   saveUltrasoundAppointment as dataSaveUltrasoundAppointment,
   getAppointments,
   getAppointmentsByDate,
+  getAppointmentsForClinic,
   getLabAppointmentsByDate,
   getXRayAppointmentsByDate,
   getUltrasoundAppointmentsByDate,
@@ -46,6 +47,9 @@ import {
   getXRayStudies,
   getUltrasoundSettings,
   getUltrasoundStudies,
+  getLabAppointments,
+  getXRayAppointments,
+  getUltrasoundAppointments,
 } from './data';
 
 import type {
@@ -423,4 +427,4 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
 }
 
 // Server actions to fetch static data for client components that can't be server components
-export { getClinics, getColonias, getAnnouncements, getLabSettings, getLabStudies, getXRaySettings, getXRayStudies, getUltrasoundSettings, getUltrasoundStudies, getAppointments };
+export { getClinics, getColonias, getAnnouncements, getLabSettings, getLabStudies, getXRaySettings, getXRayStudies, getUltrasoundSettings, getUltrasoundStudies, getAppointments, getAppointmentsForClinic, getLabAppointments, getXRayAppointments, getUltrasoundAppointments };

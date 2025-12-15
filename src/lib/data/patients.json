@@ -1,0 +1,46 @@
+[
+  {
+    "id": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
+    "curp": "GALO800711HTCPRS04",
+    "name": "ASDF",
+    "paternalLastName": "ASD",
+    "maternalLastName": "ASDF",
+    "sex": "Hombre",
+    "age": 45,
+    "birthState": "TABASCO",
+    "phoneNumber": "2341234123"
+  },
+  {
+    "id": "172b2f5b-c6dd-418a-a21e-ba52970cafaf",
+    "curp": "GALO800712HTCPRS05",
+    "name": "ASD",
+    "paternalLastName": "ASDF",
+    "maternalLastName": "ASDFASDF",
+    "sex": "Hombre",
+    "age": 45,
+    "birthState": "TABASCO",
+    "phoneNumber": "2345234523"
+  },
+  {
+    "id": "2eadb409-c160-4535-b25a-e00ce5ba55cd",
+    "curp": "GALO800712HTCPRS04",
+    "name": "KFJFKJFKFGJF",
+    "paternalLastName": "KHGHJGKJGKJH",
+    "maternalLastName": "JHGHJGFJGFJG",
+    "sex": "Hombre",
+    "age": 45,
+    "birthState": "TABASCO",
+    "phoneNumber": "7676767676"
+  },
+  {
+    "id": "d2221b1c-08db-4650-a6b7-bd724addaf14",
+    "curp": "GALO800713HTCPRS03",
+    "name": "ASD",
+    "paternalLastName": "ASDF",
+    "maternalLastName": "ASDFASDF",
+    "sex": "Hombre",
+    "age": 45,
+    "birthState": "TABASCO",
+    "phoneNumber": "2341234123"
+  }
+]

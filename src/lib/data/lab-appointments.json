@@ -1,0 +1,46 @@
+[
+  {
+    "appointmentNumber": "LAB-B13F17D7",
+    "date": "2025-12-17T06:00:00.000Z",
+    "time": "Recepción de Muestras",
+    "studies": [
+      {
+        "id": "hematologia-4",
+        "section": "Hematología/Coagulación",
+        "name": "Frotis de sangre periférica",
+        "sampleType": "Sangre venosa",
+        "fastingHours": "No requiere",
+        "available": true
+      },
+      {
+        "id": "hematologia-3",
+        "section": "Hematología/Coagulación",
+        "name": "Reticulocitos",
+        "sampleType": "Sangre venosa",
+        "fastingHours": "No requiere",
+        "available": true
+      },
+      {
+        "id": "hematologia-6",
+        "section": "Hematología/Coagulación",
+        "name": "Tiempo de protrombina (TP)",
+        "sampleType": "Sangre venosa",
+        "fastingHours": "No requiere",
+        "available": true
+      }
+    ],
+    "id": "381606e9-9fe6-4cee-a88e-36748dc7237d",
+    "patientId": "172b2f5b-c6dd-418a-a21e-ba52970cafaf",
+    "patient": {
+      "id": "172b2f5b-c6dd-418a-a21e-ba52970cafaf",
+      "curp": "GALO800712HTCPRS05",
+      "name": "ASD",
+      "paternalLastName": "ASDF",
+      "maternalLastName": "ASDFASDF",
+      "sex": "Hombre",
+      "age": 45,
+      "birthState": "TABASCO",
+      "phoneNumber": "2345234523"
+    }
+  }
+]

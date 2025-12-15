@@ -162,6 +162,11 @@ export async function getAppointmentsByDate(date: Date): Promise<(Appointment & 
     return appointments.filter(app => app.date.startsWith(dateString));
 }
 
+export async function getAppointmentsForClinic(clinicId: string): Promise<(Appointment & { patient: Patient })[]> {
+    const appointments = await getAppointments();
+    return appointments.filter(app => app.clinicId === clinicId);
+}
+
 export async function saveAppointment(
   appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
