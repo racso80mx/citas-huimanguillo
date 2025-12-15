@@ -37,6 +37,15 @@ import {
   updateUltrasoundSettings as dataUpdateUltrasoundSettings,
   getUltrasoundStudies as dataGetUltrasoundStudies,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
+  getClinics,
+  getColonias,
+  getAnnouncements,
+  getLabSettings,
+  getLabStudies,
+  getXRaySettings,
+  getXRayStudies,
+  getUltrasoundSettings,
+  getUltrasoundStudies,
 } from './data';
 
 import type {
