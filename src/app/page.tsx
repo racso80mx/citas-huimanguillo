@@ -5,7 +5,7 @@ import { getAnnouncements, getColonias, getClinics } from '@/lib/data';
 
 export default async function HomePage() {
     // Fetch data directly on the server. Since these now read from local JSON files,
-    // this is a fast, synchronous-like operation. No need for spinners or client-side fetching.
+    // this is a fast, synchronous-like operation.
     const [initialAnnouncements, initialColonias, initialClinics] = await Promise.all([
         getAnnouncements(),
         getColonias(),

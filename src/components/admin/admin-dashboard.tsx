@@ -2,8 +2,7 @@
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment } from '@/lib/definitions';
 import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment } from '@/lib/actions';
-import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments } from '@/lib/data-client';
-import { getClinics, getColonias } from '@/lib/data';
+import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getClinics, getColonias } from '@/lib/data';
 import {
   Card,
   CardHeader,

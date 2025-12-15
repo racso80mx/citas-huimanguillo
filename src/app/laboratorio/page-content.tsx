@@ -12,7 +12,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, LabStudy, LabSettings } from '@/lib/definitions';
-import { getLabAppointments } from '@/lib/data-client';
+import { getLabAppointments } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { FlaskConical, CalendarDays, Microscope } from 'lucide-react';
 import {

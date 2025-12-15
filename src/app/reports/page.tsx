@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import type { Clinic, XRaySettings, UltrasoundSettings, LabSettings } from '@/lib/definitions';
-import { getClinics, getXRaySettings, getUltrasoundSettings, getLabSettings } from '@/lib/actions';
-import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword } from '@/lib/actions';
+import { getClinics, getXRaySettings, getUltrasoundSettings, getLabSettings, verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

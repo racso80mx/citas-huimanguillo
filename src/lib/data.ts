@@ -2,9 +2,8 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment } from './definitions';
-// We import from data-server because this file contains server-side logic (reading files) that could be used by server actions.
-import { getAppointmentsByDate, getLabAppointmentsByDate, getXRayAppointmentsByDate, getUltrasoundAppointmentsByDate } from './data-server';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment } from './definitions';
+import { v4 as uuidv4 } from 'uuid';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
 
@@ -131,6 +130,186 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]): Promi
 }
 
 
+// ========== Appointments ==========
+
+const getPatientsFromAppointments = async <T extends { patientId: string }>(appointments: T[]): Promise<Record<string, Patient>> => {
+    const patients = await readJsonFile<Patient[]>('patients.json', []);
+    const patientMap: Record<string, Patient> = {};
+    patients.forEach(p => {
+        patientMap[p.id] = p;
+    });
+    return patientMap;
+}
+
+const enrichAppointmentsWithPatients = async <T extends { patientId: string }>(appointments: T[]): Promise<(T & { patient: Patient })[]> => {
+    const patients = await getPatientsFromAppointments(appointments);
+    return appointments
+      .map((app) => ({
+        ...app,
+        patient: patients[app.patientId],
+      }))
+      .filter((app) => app.patient);
+};
+
+export async function getAppointments(): Promise<(Appointment & { patient: Patient })[]> {
+    const appointments = await readJsonFile<Appointment[]>('appointments.json', []);
+    return await enrichAppointmentsWithPatients(appointments);
+}
+
+export async function getAppointmentsByDate(date: Date): Promise<(Appointment & { patient: Patient })[]> {
+    const appointments = await getAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return appointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function saveAppointment(
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<Appointment> {
+  const patients = await readJsonFile<Patient[]>('patients.json', []);
+  const appointments = await readJsonFile<Appointment[]>('appointments.json', []);
+
+  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  const newAppointment: Appointment = {
+      ...appointmentData,
+      id: uuidv4(),
+      patientId: newPatient.id,
+      patient: newPatient,
+  };
+  
+  await writeJsonFile('patients.json', [...patients, newPatient]);
+  await writeJsonFile('appointments.json', [...appointments, newAppointment]);
+
+  return newAppointment;
+}
+
+export async function deleteAppointment(id: string): Promise<void> {
+    const appointments = await readJsonFile<Appointment[]>('appointments.json', []);
+    const updatedAppointments = appointments.filter(app => app.id !== id);
+    await writeJsonFile('appointments.json', updatedAppointments);
+}
+
+
+// ========== Lab Appointments ==========
+export async function getLabAppointments(): Promise<(LabAppointment & { patient: Patient })[]> {
+    const appointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+    return await enrichAppointmentsWithPatients(appointments);
+}
+
+export async function getLabAppointmentsByDate(date: Date): Promise<(LabAppointment & { patient: Patient })[]> {
+    const appointments = await getLabAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return appointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function saveLabAppointment(
+  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<LabAppointment> {
+  const patients = await readJsonFile<Patient[]>('patients.json', []);
+  const appointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+
+  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  const newAppointment: LabAppointment = {
+      ...appointmentData,
+      id: uuidv4(),
+      patientId: newPatient.id,
+      patient: newPatient,
+  };
+  
+  await writeJsonFile('patients.json', [...patients, newPatient]);
+  await writeJsonFile('lab-appointments.json', [...appointments, newAppointment]);
+
+  return newAppointment;
+}
+
+export async function deleteLabAppointment(id: string): Promise<void> {
+    const appointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+    const updatedAppointments = appointments.filter(app => app.id !== id);
+    await writeJsonFile('lab-appointments.json', updatedAppointments);
+}
+
+
+// ========== X-Ray Appointments ==========
+export async function getXRayAppointments(): Promise<(XRayAppointment & { patient: Patient })[]> {
+    const appointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+    return await enrichAppointmentsWithPatients(appointments);
+}
+
+export async function getXRayAppointmentsByDate(date: Date): Promise<(XRayAppointment & { patient: Patient })[]> {
+    const appointments = await getXRayAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return appointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function saveXRayAppointment(
+  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<XRayAppointment> {
+  const patients = await readJsonFile<Patient[]>('patients.json', []);
+  const appointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+
+  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  const newAppointment: XRayAppointment = {
+      ...appointmentData,
+      id: uuidv4(),
+      patientId: newPatient.id,
+      patient: newPatient,
+  };
+  
+  await writeJsonFile('patients.json', [...patients, newPatient]);
+  await writeJsonFile('x-ray-appointments.json', [...appointments, newAppointment]);
+
+  return newAppointment;
+}
+
+export async function deleteXRayAppointment(id: string): Promise<void> {
+    const appointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+    const updatedAppointments = appointments.filter(app => app.id !== id);
+    await writeJsonFile('x-ray-appointments.json', updatedAppointments);
+}
+
+
+// ========== Ultrasound Appointments ==========
+export async function getUltrasoundAppointments(): Promise<(UltrasoundAppointment & { patient: Patient })[]> {
+    const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+    return await enrichAppointmentsWithPatients(appointments);
+}
+
+export async function getUltrasoundAppointmentsByDate(date: Date): Promise<(UltrasoundAppointment & { patient: Patient })[]> {
+    const appointments = await getUltrasoundAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return appointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function saveUltrasoundAppointment(
+  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<UltrasoundAppointment> {
+  const patients = await readJsonFile<Patient[]>('patients.json', []);
+  const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+
+  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  const newAppointment: UltrasoundAppointment = {
+      ...appointmentData,
+      id: uuidv4(),
+      patientId: newPatient.id,
+      patient: newPatient,
+  };
+  
+  await writeJsonFile('patients.json', [...patients, newPatient]);
+  await writeJsonFile('ultrasound-appointments.json', [...appointments, newAppointment]);
+
+  return newAppointment;
+}
+
+export async function deleteUltrasoundAppointment(id: string): Promise<void> {
+    const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+    const updatedAppointments = appointments.filter(app => app.id !== id);
+    await writeJsonFile('ultrasound-appointments.json', updatedAppointments);
+}
+
+
 // ========== Reports Auth ==========
 export async function verifyClinicPassword(
   clinicId: string,
@@ -195,6 +374,3 @@ export async function verifyUltrasoundPassword(passwordAttempt: string): Promise
         return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
     }
 }
-
-// Re-export server-side date filtering functions
-export { getAppointmentsByDate, getLabAppointmentsByDate, getXRayAppointmentsByDate, getUltrasoundAppointmentsByDate };

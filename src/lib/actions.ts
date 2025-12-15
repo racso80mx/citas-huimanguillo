@@ -6,18 +6,15 @@ import {
   saveLabAppointment as dataSaveLabAppointment,
   saveXRayAppointment as dataSaveXRayAppointment,
   saveUltrasoundAppointment as dataSaveUltrasoundAppointment,
+  getAppointments,
   getAppointmentsByDate,
   getLabAppointmentsByDate,
   getXRayAppointmentsByDate,
   getUltrasoundAppointmentsByDate,
-} from './data-server';
-import {
-  deleteAppointment as deleteDataAppointment,
-  deleteLabAppointment as deleteDataLabAppointment,
-  deleteXRayAppointment as deleteDataXRayAppointment,
-  deleteUltrasoundAppointment as deleteDataUltrasoundAppointment,
-} from './data-client';
-import {
+  deleteAppointment as dataDeleteAppointment,
+  deleteLabAppointment as dataDeleteLabAppointment,
+  deleteXRayAppointment as dataDeleteXRayAppointment,
+  deleteUltrasoundAppointment as dataDeleteUltrasoundAppointment,
   verifyClinicPassword as dataVerifyClinicPassword,
   verifyXRayPassword as dataVerifyXRayPassword,
   verifyUltrasoundPassword as dataVerifyUltrasoundPassword,
@@ -230,7 +227,7 @@ export async function saveNewUltrasoundAppointment(
 
 export async function deleteAppointment(id: string) {
   try {
-    await deleteDataAppointment(id);
+    await dataDeleteAppointment(id);
     revalidateTag('appointments');
     return { success: true, message: 'Cita eliminada con éxito.' };
   } catch (error) {
@@ -247,7 +244,7 @@ export async function deleteAppointment(id: string) {
 
 export async function deleteLabAppointment(id: string) {
   try {
-    await deleteDataLabAppointment(id);
+    await dataDeleteLabAppointment(id);
     revalidateTag('labAppointments');
     return {
       success: true,
@@ -267,7 +264,7 @@ export async function deleteLabAppointment(id: string) {
 
 export async function deleteXRayAppointment(id: string) {
   try {
-    await deleteDataXRayAppointment(id);
+    await dataDeleteXRayAppointment(id);
     revalidateTag('xRayAppointments');
     return { success: true, message: 'Cita de Rayos X eliminada con éxito.' };
   } catch (error) {
@@ -284,7 +281,7 @@ export async function deleteXRayAppointment(id: string) {
 
 export async function deleteUltrasoundAppointment(id: string) {
   try {
-    await deleteDataUltrasoundAppointment(id);
+    await dataDeleteUltrasoundAppointment(id);
     revalidateTag('ultrasoundAppointments');
     return {
       success: true,
@@ -417,38 +414,4 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
 }
 
 // Server actions to fetch static data for client components that can't be server components
-export async function getClinics() {
-  return await dataGetClinics();
-}
-
-export async function getColonias() {
-  return await dataGetColonias();
-}
-
-export async function getAnnouncements() {
-  return await dataGetAnnouncements();
-}
-
-export async function getLabSettings() {
-  return await dataGetLabSettings();
-}
-
-export async function getLabStudies() {
-  return await dataGetLabStudies();
-}
-
-export async function getXRaySettings() {
-  return await dataGetXRaySettings();
-}
-
-export async function getXRayStudies() {
-  return await dataGetXRayStudies();
-}
-
-export async function getUltrasoundSettings() {
-  return await dataGetUltrasoundSettings();
-}
-
-export async function getUltrasoundStudies() {
-  return await dataGetUltrasoundStudies();
-}
+export { getClinics, getColonias, getAnnouncements, getLabSettings, getLabStudies, getXRaySettings, getXRayStudies, getUltrasoundSettings, getUltrasoundStudies, getAppointments };

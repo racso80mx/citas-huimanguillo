@@ -12,7 +12,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, UltrasoundStudy, UltrasoundSettings } from '@/lib/definitions';
-import { getUltrasoundAppointments } from '@/lib/data-client';
+import { getUltrasoundAppointments } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, Waves } from 'lucide-react';
 import {

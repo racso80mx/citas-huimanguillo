@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia, Clinic } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getAppointments } from '@/lib/data-client';
+import { getAppointments } from '@/lib/data';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';

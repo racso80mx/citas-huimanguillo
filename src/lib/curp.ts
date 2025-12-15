@@ -1,3 +1,4 @@
+'use client';
 import { differenceInYears } from 'date-fns';
 import estados from './data/estados.json';
 
@@ -53,6 +54,9 @@ export function parseCURP(curp: string) {
   return { birthDate, sex, estadoNacimiento };
 }
 
-export function calculateAge(birthDate: Date): number {
+export function calculateAge(birthDate: Date | undefined): number {
+  if (!birthDate || !(birthDate instanceof Date) || isNaN(birthDate.getTime())) {
+    return 0; // Return a default value if birthDate is invalid
+  }
   return differenceInYears(new Date(), birthDate);
 }

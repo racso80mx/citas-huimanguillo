@@ -12,7 +12,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, XRayStudy, XRaySettings } from '@/lib/definitions';
-import { getXRayAppointments } from '@/lib/data-client';
+import { getXRayAppointments } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, Stethoscope } from 'lucide-react';
 import {
