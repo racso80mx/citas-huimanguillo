@@ -58,12 +58,14 @@ export const getDocument = async <T>(collectionName: string, docId: string): Pro
 
 const getPatientsFromAppointments = async <T extends { patientId: string }>(appointments: T[]): Promise<Record<string, Patient>> => {
     const db = getDb();
-    const patientIds = [...new Set(appointments.map(app => app.patientId))];
+    if (appointments.length === 0) return {};
+    const patientIds = [...new Set(appointments.map(app => app.patientId).filter(id => id))];
+    if (patientIds.length === 0) return {};
     const patients: Record<string, Patient> = {};
 
     // Firestore 'in' query supports up to 30 items. We batch them.
-    while (patientIds.length) {
-        const batchIds = patientIds.splice(0, 30);
+    for (let i = 0; i < patientIds.length; i += 30) {
+        const batchIds = patientIds.slice(i, i + 30);
         if (batchIds.length > 0) {
             const q = query(collection(db, 'patients'), where('id', 'in', batchIds));
             const snapshot = await getDocs(q);
@@ -125,6 +127,7 @@ export async function saveAppointment(
     id: appointmentId,
     patientId: patientId,
     patient: patientToSave,
+    date: appointmentData.date, // ensure date is ISO string
   };
 }
 
@@ -187,38 +190,6 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<(Appoi
   }
 }
 
-
-export async function getAppointmentsByDate(date: Date): Promise<(Appointment & { patient: Patient })[]> {
-  const db = getDb();
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const q = query(
-    collection(db, 'appointments'),
-    where('date', '>=', Timestamp.fromDate(startOfDay)),
-    where('date', '<=', Timestamp.fromDate(endOfDay))
-  );
-
-  try {
-    const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-          ...data,
-          id: doc.id,
-          date: (data.date as Timestamp).toDate().toISOString(),
-      } as Appointment;
-    });
-    return await enrichAppointmentsWithPatients(appointments);
-  } catch(error) {
-     console.error("Error getting appointments by date:", error);
-     throw error;
-  }
-}
-
-
 // ========== Lab Appointments ==========
 
 export async function saveLabAppointment(
@@ -259,6 +230,7 @@ export async function saveLabAppointment(
     id: id,
     patientId: patientId,
     patient: patientToSave,
+    date: appointmentData.date,
   };
 }
 
@@ -296,35 +268,6 @@ export async function getLabAppointments(): Promise<(LabAppointment & { patient:
     }
 }
 
-export async function getLabAppointmentsByDate(date: Date): Promise<(LabAppointment & { patient: Patient })[]> {
-  const db = getDb();
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const q = query(
-    collection(db, 'lab-appointments'),
-    where('date', '>=', Timestamp.fromDate(startOfDay)),
-    where('date', '<=', Timestamp.fromDate(endOfDay))
-  );
-
-  try {
-    const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-          ...data,
-          id: doc.id,
-          date: (data.date as Timestamp).toDate().toISOString(),
-      } as LabAppointment;
-    });
-    return await enrichAppointmentsWithPatients(appointments);
-  } catch(error) {
-     console.error("Error getting lab appointments by date:", error);
-     throw error;
-  }
-}
 
 // ========== X-Ray Appointments ==========
 
@@ -365,6 +308,7 @@ export async function saveXRayAppointment(
       id,
       patientId: patientId,
       patient: patientToSave,
+      date: appointmentData.date,
   };
 }
 
@@ -403,35 +347,6 @@ export async function getXRayAppointments(): Promise<(XRayAppointment & { patien
     }
 }
 
-export async function getXRayAppointmentsByDate(date: Date): Promise<(XRayAppointment & { patient: Patient })[]> {
-  const db = getDb();
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const q = query(
-    collection(db, 'x-ray-appointments'),
-    where('date', '>=', Timestamp.fromDate(startOfDay)),
-    where('date', '<=', Timestamp.fromDate(endOfDay))
-  );
-
-  try {
-    const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-          ...data,
-          id: doc.id,
-          date: (data.date as Timestamp).toDate().toISOString(),
-      } as XRayAppointment;
-    });
-    return await enrichAppointmentsWithPatients(appointments);
-  } catch(error) {
-     console.error("Error getting X-Ray appointments by date:", error);
-     throw error;
-  }
-}
 
 // ========== Ultrasound Appointments ==========
 
@@ -472,6 +387,7 @@ export async function saveUltrasoundAppointment(
     id,
     patientId: patientId,
     patient: patientToSave,
+    date: appointmentData.date,
   };
 }
 
@@ -508,32 +424,4 @@ export async function getUltrasoundAppointments(): Promise<(UltrasoundAppointmen
     }
 }
 
-export async function getUltrasoundAppointmentsByDate(date: Date): Promise<(UltrasoundAppointment & { patient: Patient })[]> {
-  const db = getDb();
-  const startOfDay = new Date(date);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const q = query(
-    collection(db, 'ultrasound-appointments'),
-    where('date', '>=', Timestamp.fromDate(startOfDay)),
-    where('date', '<=', Timestamp.fromDate(endOfDay))
-  );
-
-  try {
-    const snapshot = await getDocs(q);
-    const appointments = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-          ...data,
-          id: doc.id,
-          date: (data.date as Timestamp).toDate().toISOString(),
-      } as UltrasoundAppointment;
-    });
-    return await enrichAppointmentsWithPatients(appointments);
-  } catch(error) {
-     console.error("Error getting Ultrasound appointments by date:", error);
-     throw error;
-  }
-}
+    

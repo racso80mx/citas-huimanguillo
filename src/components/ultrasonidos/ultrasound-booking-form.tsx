@@ -21,10 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import {
-  getUltrasoundAppointmentsByDate,
-  saveUltrasoundAppointment,
-} from '@/lib/data-client';
+import { saveNewUltrasoundAppointment } from '@/lib/actions';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -95,65 +92,6 @@ export function UltrasoundBookingForm({
   }, [curp, form]);
 
 
-  const bookAppointment = async (
-    bookingData: BookingFormValues,
-  ) => {
-    if (!selectedDate || !selectedTime || !selectedStudy) throw new Error("Datos de la cita incompletos.");
-
-    const appointmentsOnDate = await getUltrasoundAppointmentsByDate(selectedDate);
-    
-    const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) => app.time === selectedTime
-    );
-
-    if (isTimeSlotTaken) {
-      throw new Error(`El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`);
-    }
-    
-    const curpExistsOnDate = appointmentsOnDate.some(
-      (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
-    );
-
-    if (curpExistsOnDate) {
-      throw new Error('Ya existe una cita de Ultrasonido agendada con esta CURP para el día seleccionado.');
-    }
-    
-    const patientData: Omit<Patient, 'id'> = {
-        curp: bookingData.curp.toUpperCase(),
-        name: bookingData.name,
-        paternalLastName: bookingData.paternalLastName,
-        maternalLastName: bookingData.maternalLastName,
-        sex: bookingData.sex,
-        age: bookingData.age,
-        birthState: bookingData.birthState,
-        phoneNumber: bookingData.phoneNumber
-    };
-
-    const appointmentNumber = `US-${uuidv4().split('-')[0].toUpperCase()}`;
-
-    const newAppointment: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'> = {
-      appointmentNumber,
-      date: selectedDate.toISOString(),
-      time: selectedTime,
-      studyId: selectedStudy.id,
-      studyName: selectedStudy.name,
-    };
-
-    const appointment = await saveUltrasoundAppointment(newAppointment, patientData);
-    
-    toast({
-        title: 'Cita Confirmada',
-        description: `Tu cita de Ultrasonido ha sido agendada. Folio: ${appointment.appointmentNumber}`,
-        duration: 10000,
-    });
-
-    generateUltrasoundAppointmentPDF(appointment, selectedStudy);
-
-    form.reset();
-    onBookingSuccess();
-  }
-
-
   const onSubmit = (data: BookingFormValues) => {
     if (!selectedDate || !selectedTime || !selectedStudy) {
       toast({
@@ -165,13 +103,44 @@ export function UltrasoundBookingForm({
     }
 
     startTransition(async () => {
-      try {
-        await bookAppointment(data);
-      } catch (error: any) {
+      const patientData: Omit<Patient, 'id'> = {
+          curp: data.curp.toUpperCase(),
+          name: data.name,
+          paternalLastName: data.paternalLastName,
+          maternalLastName: data.maternalLastName,
+          sex: data.sex,
+          age: data.age,
+          birthState: data.birthState,
+          phoneNumber: data.phoneNumber
+      };
+
+      const appointmentNumber = `US-${uuidv4().split('-')[0].toUpperCase()}`;
+
+      const newAppointment: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'> = {
+        appointmentNumber,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        studyId: selectedStudy.id,
+        studyName: selectedStudy.name,
+      };
+
+      const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
+      
+      if (result.success && result.data) {
         toast({
+            title: 'Cita Confirmada',
+            description: `Tu cita de Ultrasonido ha sido agendada. Folio: ${result.data.appointmentNumber}`,
+            duration: 10000,
+        });
+
+        generateUltrasoundAppointmentPDF(result.data, selectedStudy);
+
+        form.reset();
+        onBookingSuccess();
+      } else {
+         toast({
           title: 'Error al Agendar',
-          description:
-            error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          description: result.error || 'No se pudo agendar la cita. Inténtalo de nuevo.',
           variant: 'destructive',
         });
       }
@@ -334,3 +303,5 @@ export function UltrasoundBookingForm({
     </Card>
   );
 }
+
+    

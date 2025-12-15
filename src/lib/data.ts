@@ -2,7 +2,8 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment } from './definitions';
+import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments } from './data-client';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
 
@@ -31,6 +32,33 @@ async function writeJsonFile(filename: string, data: any): Promise<{success: boo
         return { success: false, message: `Failed to write to static file ${filename}: ${e.message}` };
     }
 }
+
+
+export async function getAppointmentsByDate(date: Date): Promise<Appointment[]> {
+    const allAppointments = await getAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return allAppointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function getLabAppointmentsByDate(date: Date) {
+    const allAppointments = await getLabAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return allAppointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function getXRayAppointmentsByDate(date: Date) {
+    const allAppointments = await getXRayAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return allAppointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function getUltrasoundAppointmentsByDate(date: Date) {
+    const allAppointments = await getUltrasoundAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return allAppointments.filter(app => app.date.startsWith(dateString));
+}
+
+
 
 // ========== Announcements ==========
 export const getAnnouncements = async (): Promise<string[]> => {
@@ -193,3 +221,5 @@ export async function verifyUltrasoundPassword(passwordAttempt: string): Promise
         return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
     }
 }
+
+    

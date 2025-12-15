@@ -6,7 +6,6 @@ import { useEffect, useTransition } from 'react';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,10 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import {
-  getAppointmentsByDate,
-  saveAppointment,
-} from '@/lib/data-client';
+import { saveNewAppointment } from '@/lib/actions';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -99,66 +95,6 @@ export function BookingForm({
     }
   }, [curp, form]);
 
-
-  const bookAppointment = async (
-    bookingData: BookingFormValues,
-  ) => {
-    if (!selectedDate || !selectedClinic || !selectedTime) throw new Error("Datos de la cita incompletos.");
-
-    const appointmentsOnDate = await getAppointmentsByDate(selectedDate);
-    
-    const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) => app.clinicId === selectedClinic.id && app.time === selectedTime
-    );
-
-    if (isTimeSlotTaken) {
-      throw new Error(`El horario de ${selectedTime} ya no está disponible. Por favor, selecciona otro.`);
-    }
-    
-    const curpExistsOnDate = appointmentsOnDate.some(
-      (app) => app.patient.curp.toUpperCase() === bookingData.curp.toUpperCase()
-    );
-
-    if (curpExistsOnDate) {
-      throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.');
-    }
-    
-    const patientToSave: Omit<Patient, 'id'> = {
-        curp: bookingData.curp.toUpperCase(),
-        name: bookingData.name,
-        paternalLastName: bookingData.paternalLastName,
-        maternalLastName: bookingData.maternalLastName,
-        sex: bookingData.sex,
-        age: bookingData.age,
-        birthState: bookingData.birthState,
-        phoneNumber: bookingData.phoneNumber
-    };
-
-    const appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
-
-    const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'> = {
-      appointmentNumber,
-      clinicId: selectedClinic.id,
-      date: selectedDate.toISOString(),
-      time: selectedTime,
-      patientType: patientType,
-    };
-
-    const appointment = await saveAppointment(newAppointmentData, patientToSave);
-    
-    toast({
-        title: 'Cita Confirmada',
-        description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
-        duration: 10000,
-    });
-
-    generateAppointmentPDF(appointment, selectedClinic);
-
-    form.reset();
-    onBookingSuccess();
-  }
-
-
   const onSubmit = (data: BookingFormValues) => {
     if (!selectedDate || !selectedClinic || !selectedTime || !selectedColoniaName) {
       toast({
@@ -170,13 +106,43 @@ export function BookingForm({
     }
 
     startTransition(async () => {
-      try {
-        await bookAppointment(data);
-      } catch (error: any) {
+      const patientToSave: Omit<Patient, 'id'> = {
+          curp: data.curp.toUpperCase(),
+          name: data.name,
+          paternalLastName: data.paternalLastName,
+          maternalLastName: data.maternalLastName,
+          sex: data.sex,
+          age: data.age,
+          birthState: data.birthState,
+          phoneNumber: data.phoneNumber
+      };
+
+      const appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
+
+      const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'> = {
+        appointmentNumber,
+        clinicId: selectedClinic.id,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        patientType: patientType,
+      };
+
+      const result = await saveNewAppointment(newAppointmentData, patientToSave);
+
+      if (result.success && result.data) {
         toast({
+            title: 'Cita Confirmada',
+            description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointmentNumber}`,
+            duration: 10000,
+        });
+
+        generateAppointmentPDF(result.data, selectedClinic);
+        form.reset();
+        onBookingSuccess();
+      } else {
+         toast({
           title: 'Error al Agendar',
-          description:
-            error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          description: result.error || 'No se pudo agendar la cita. Inténtalo de nuevo.',
           variant: 'destructive',
         });
       }
@@ -339,3 +305,5 @@ export function BookingForm({
     </Card>
   );
 }
+
+    
