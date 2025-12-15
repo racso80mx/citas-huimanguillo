@@ -423,5 +423,3 @@ export async function getUltrasoundAppointments(): Promise<(UltrasoundAppointmen
         throw error;
     }
 }
-
-    

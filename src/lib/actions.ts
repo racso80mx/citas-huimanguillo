@@ -3,14 +3,14 @@
 import { revalidateTag } from 'next/cache';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  deleteAppointment as deleteDataAppointment,
-  deleteLabAppointment as deleteDataLabAppointment,
-  deleteXRayAppointment as deleteDataXRayAppointment,
-  deleteUltrasoundAppointment as deleteDataUltrasoundAppointment,
   saveAppointment as dataSaveAppointment,
   saveLabAppointment as dataSaveLabAppointment,
   saveXRayAppointment as dataSaveXRayAppointment,
   saveUltrasoundAppointment as dataSaveUltrasoundAppointment,
+  deleteAppointment as deleteDataAppointment,
+  deleteLabAppointment as deleteDataLabAppointment,
+  deleteXRayAppointment as deleteDataXRayAppointment,
+  deleteUltrasoundAppointment as deleteDataUltrasoundAppointment,
 } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
@@ -35,11 +35,14 @@ import {
   updateUltrasoundSettings as dataUpdateUltrasoundSettings,
   getUltrasoundStudies as dataGetUltrasoundStudies,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
-  getAppointmentsByDate,
-  getLabAppointmentsByDate,
-  getXRayAppointmentsByDate,
-  getUltrasoundAppointmentsByDate,
 } from './data';
+import { 
+    getAppointmentsByDate,
+    getLabAppointmentsByDate,
+    getXRayAppointmentsByDate,
+    getUltrasoundAppointmentsByDate
+} from './data-server';
+
 import type {
   Appointment,
   Clinic,
@@ -404,5 +407,3 @@ export async function getUltrasoundSettings() {
 export async function getUltrasoundStudies() {
   return await dataGetUltrasoundStudies();
 }
-
-    
