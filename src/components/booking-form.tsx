@@ -169,14 +169,17 @@ export function BookingForm({
       return;
     }
 
-    startTransition(() => {
-        bookAppointment(data).catch((error: any) => {
-             toast({
-                title: 'Error al Agendar',
-                description: error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
-                variant: 'destructive',
-            });
+    startTransition(async () => {
+      try {
+        await bookAppointment(data);
+      } catch (error: any) {
+        toast({
+          title: 'Error al Agendar',
+          description:
+            error.message || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          variant: 'destructive',
         });
+      }
     });
   };
   
