@@ -35,12 +35,12 @@ export function SiteHeader() {
             asChild
             className={cn(
               'transition-colors',
-              pathname === '/'
+              pathname === '/citas-medicas'
                 ? 'text-primary font-bold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Link href="/">
+            <Link href="/citas-medicas">
               <Home className="h-4 w-4 mr-2" />
               Cita Médica
             </Link>

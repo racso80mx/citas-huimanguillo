@@ -1,22 +1,71 @@
-'use server'; // Keep this as a server component
-import React from 'react';
-import PageContent from './page-content';
-import { getAnnouncements, getColonias, getClinics } from '@/lib/data';
+'use client';
+import Link from 'next/link';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Home, FlaskConical, Stethoscope, Waves } from 'lucide-react';
+import Image from 'next/image';
+import { logoBase64 } from '@/lib/logo-data';
 
-export default async function HomePage() {
-    // Fetch data directly on the server. Since these now read from local JSON files,
-    // this is a fast, synchronous-like operation.
-    const [initialAnnouncements, initialColonias, initialClinics] = await Promise.all([
-        getAnnouncements(),
-        getColonias(),
-        getClinics(),
-    ]);
+export default function HomePage() {
+  const modules = [
+    {
+      title: 'Cita Médica General',
+      description: 'Agenda una consulta en tu núcleo básico.',
+      href: '/citas-medicas',
+      icon: <Home className="h-10 w-10 text-primary" />,
+    },
+    {
+      title: 'Laboratorio',
+      description: 'Agenda una cita para tus estudios de laboratorio.',
+      href: '/laboratorio',
+      icon: <FlaskConical className="h-10 w-10 text-primary" />,
+    },
+    {
+      title: 'Rayos X',
+      description: 'Agenda una cita para tus estudios de radiografía.',
+      href: '/rayos-x',
+      icon: <Stethoscope className="h-10 w-10 text-primary" />,
+    },
+    {
+      title: 'Ultrasonidos',
+      description: 'Agenda una cita para tus estudios de ultrasonido.',
+      href: '/ultrasonidos',
+      icon: <Waves className="h-10 w-10 text-primary" />,
+    },
+  ];
 
-    return (
-        <PageContent
-            initialAnnouncements={initialAnnouncements}
-            initialColonias={initialColonias}
-            initialClinics={initialClinics}
-        />
-    );
+  return (
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <div className="text-center mb-12 flex flex-col items-center">
+        <div className="text-primary mb-4">
+          <Image
+            src={logoBase64}
+            alt="Logo CitaMedicaFacil"
+            width={90}
+            height={90}
+            className="rounded-md"
+          />
+        </div>
+        <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground">
+          Bienvenido a CitaMedicaFacil
+        </h1>
+        <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">
+          Selecciona el servicio que necesitas y agenda tu cita de forma rápida y sencilla.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
+        {modules.map((mod) => (
+          <Link href={mod.href} key={mod.href}>
+            <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6">
+              <CardHeader>
+                <div className="mb-4 flex justify-center">{mod.icon}</div>
+                <CardTitle className="text-xl font-headline">{mod.title}</CardTitle>
+                <CardDescription>{mod.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
 }
