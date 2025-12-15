@@ -9,6 +9,8 @@ import {
   query,
   where,
   type Firestore,
+  writeBatch,
+  doc,
 } from 'firebase/firestore';
 import type {
   Appointment,
@@ -17,6 +19,7 @@ import type {
   UltrasoundAppointment,
   Patient,
 } from './definitions';
+import { v4 as uuidv4 } from 'uuid';
 
 // Initialize admin app and Firestore instance
 let db: Firestore;
@@ -164,4 +167,139 @@ export async function getUltrasoundAppointmentsByDate(date: Date) {
     const allAppointments = await getAllUltrasoundAppointmentsFromServer();
     const dateString = date.toISOString().split('T')[0];
     return allAppointments.filter(app => app.date.startsWith(dateString));
+}
+
+// =====================================================================
+// SAVE APPOINTMENTS
+// =====================================================================
+
+export async function saveAppointment(
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<Appointment> {
+  const batch = writeBatch(db);
+
+  const patientId = uuidv4();
+  const patientRef = doc(db, 'patients', patientId);
+  const patientToSave: Patient = { id: patientId, ...patientData };
+  batch.set(patientRef, patientToSave);
+
+  const appointmentId = uuidv4();
+  const appointmentRef = doc(db, 'appointments', appointmentId);
+  const appointmentToSave = {
+      ...appointmentData,
+      id: appointmentId,
+      patientId: patientId,
+      date: Timestamp.fromDate(new Date(appointmentData.date)),
+  };
+  batch.set(appointmentRef, appointmentToSave);
+
+  await batch.commit();
+
+  return {
+    ...appointmentData,
+    id: appointmentId,
+    patientId: patientId,
+    patient: patientToSave,
+    date: appointmentData.date,
+  };
+}
+
+export async function saveLabAppointment(
+  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<LabAppointment> {
+  const batch = writeBatch(db);
+
+  const patientId = uuidv4();
+  const patientRef = doc(db, 'patients', patientId);
+  const patientToSave: Patient = { id: patientId, ...patientData };
+  batch.set(patientRef, patientToSave);
+  
+  const id = uuidv4();
+  const docRef = doc(db, 'lab-appointments', id);
+  const appointmentToSave = {
+    ...appointmentData,
+    id,
+    patientId: patientId,
+    date: Timestamp.fromDate(new Date(appointmentData.date)),
+  };
+
+  batch.set(docRef, appointmentToSave)
+  
+  await batch.commit();
+
+  return {
+    ...appointmentData,
+    id: id,
+    patientId: patientId,
+    patient: patientToSave,
+    date: appointmentData.date,
+  };
+}
+
+export async function saveXRayAppointment(
+  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<XRayAppointment> {
+  const batch = writeBatch(db);
+
+  const patientId = uuidv4();
+  const patientRef = doc(db, 'patients', patientId);
+  const patientToSave: Patient = { id: patientId, ...patientData };
+  batch.set(patientRef, patientToSave);
+
+  const id = uuidv4();
+  const docRef = doc(db, 'x-ray-appointments', id);
+  const dataToSave = {
+    ...appointmentData,
+    id,
+    patientId: patientId,
+    date: Timestamp.fromDate(new Date(appointmentData.date)),
+  };
+
+  batch.set(docRef, dataToSave);
+
+  await batch.commit();
+
+  return {
+      ...appointmentData,
+      id,
+      patientId: patientId,
+      patient: patientToSave,
+      date: appointmentData.date,
+  };
+}
+
+export async function saveUltrasoundAppointment(
+  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<UltrasoundAppointment> {
+  const batch = writeBatch(db);
+
+  const patientId = uuidv4();
+  const patientRef = doc(db, 'patients', patientId);
+  const patientToSave: Patient = { id: patientId, ...patientData };
+  batch.set(patientRef, patientToSave);
+
+  const id = uuidv4();
+  const docRef = doc(db, 'ultrasound-appointments', id);
+  const dataToSave = {
+    ...appointmentData,
+    id,
+    patientId: patientId,
+    date: Timestamp.fromDate(new Date(appointmentData.date)),
+  };
+
+  batch.set(docRef, dataToSave);
+
+  await batch.commit();
+
+  return {
+    ...appointmentData,
+    id,
+    patientId: patientId,
+    patient: patientToSave,
+    date: appointmentData.date,
+  };
 }

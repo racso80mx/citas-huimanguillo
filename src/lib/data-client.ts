@@ -86,52 +86,10 @@ const enrichAppointmentsWithPatients = async <T extends { patientId: string }>(a
     })).filter(app => app.patient); // Filter out appointments where patient data might be missing
 };
 
+
 // =====================================================================
 // Appointments
 // =====================================================================
-
-export async function saveAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
-): Promise<Appointment> {
-  const db = getDb();
-  const batch = writeBatch(db);
-
-  const patientId = uuidv4();
-  const patientRef = doc(db, 'patients', patientId);
-  const patientToSave: Patient = { id: patientId, ...patientData };
-  batch.set(patientRef, patientToSave);
-
-  const appointmentId = uuidv4();
-  const appointmentRef = doc(db, 'appointments', appointmentId);
-  const appointmentToSave = {
-      ...appointmentData,
-      id: appointmentId,
-      patientId: patientId, // Reference the patient ID
-      date: Timestamp.fromDate(new Date(appointmentData.date)),
-  };
-  batch.set(appointmentRef, appointmentToSave);
-
-  await batch.commit().catch(serverError => {
-      const permissionError = new FirestorePermissionError({
-          path: `appointments/${appointmentId}`,
-          operation: 'create',
-          requestResourceData: appointmentToSave
-      });
-      errorEmitter.emit('permission-error', permissionError);
-      throw permissionError; // Re-throw to be caught by the caller
-  });
-
-  return {
-    ...appointmentData,
-    id: appointmentId,
-    patientId: patientId,
-    patient: patientToSave,
-    date: appointmentData.date, // ensure date is ISO string
-  };
-}
-
-
 export async function deleteAppointment(id: string): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'appointments', id);
@@ -192,49 +150,6 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<(Appoi
 
 // ========== Lab Appointments ==========
 
-export async function saveLabAppointment(
-  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
-): Promise<LabAppointment> {
-  const db = getDb();
-  const batch = writeBatch(db);
-
-  const patientId = uuidv4();
-  const patientRef = doc(db, 'patients', patientId);
-  const patientToSave: Patient = { id: patientId, ...patientData };
-  batch.set(patientRef, patientToSave);
-  
-  const id = uuidv4();
-  const docRef = doc(db, 'lab-appointments', id);
-  const appointmentToSave = {
-    ...appointmentData,
-    id,
-    patientId: patientId, // Reference patient
-    date: Timestamp.fromDate(new Date(appointmentData.date)),
-  };
-
-  batch.set(docRef, appointmentToSave)
-  
-  await batch.commit().catch(serverError => {
-      const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'create',
-          requestResourceData: appointmentToSave
-      });
-      errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
-  });
-
-  return {
-    ...appointmentData,
-    id: id,
-    patientId: patientId,
-    patient: patientToSave,
-    date: appointmentData.date,
-  };
-}
-
-
 export async function deleteLabAppointment(id: string): Promise<void> {
   const db = getDb();
   const docRef = doc(db, 'lab-appointments', id);
@@ -270,48 +185,6 @@ export async function getLabAppointments(): Promise<(LabAppointment & { patient:
 
 
 // ========== X-Ray Appointments ==========
-
-export async function saveXRayAppointment(
-  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
-): Promise<XRayAppointment> {
-  const db = getDb();
-  const batch = writeBatch(db);
-
-  const patientId = uuidv4();
-  const patientRef = doc(db, 'patients', patientId);
-  const patientToSave: Patient = { id: patientId, ...patientData };
-  batch.set(patientRef, patientToSave);
-
-  const id = uuidv4();
-  const docRef = doc(db, 'x-ray-appointments', id);
-  const dataToSave = {
-    ...appointmentData,
-    id,
-    patientId: patientId,
-    date: Timestamp.fromDate(new Date(appointmentData.date)),
-  };
-
-  batch.set(docRef, dataToSave);
-
-  await batch.commit().catch(serverError => {
-      const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'create',
-          requestResourceData: dataToSave
-      });
-      errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
-  });
-  return {
-      ...appointmentData,
-      id,
-      patientId: patientId,
-      patient: patientToSave,
-      date: appointmentData.date,
-  };
-}
-
 
 export async function deleteXRayAppointment(id: string): Promise<void> {
   const db = getDb();
@@ -349,47 +222,6 @@ export async function getXRayAppointments(): Promise<(XRayAppointment & { patien
 
 
 // ========== Ultrasound Appointments ==========
-
-export async function saveUltrasoundAppointment(
-  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
-): Promise<UltrasoundAppointment> {
-  const db = getDb();
-  const batch = writeBatch(db);
-
-  const patientId = uuidv4();
-  const patientRef = doc(db, 'patients', patientId);
-  const patientToSave: Patient = { id: patientId, ...patientData };
-  batch.set(patientRef, patientToSave);
-
-  const id = uuidv4();
-  const docRef = doc(db, 'ultrasound-appointments', id);
-  const dataToSave = {
-    ...appointmentData,
-    id,
-    patientId: patientId,
-    date: Timestamp.fromDate(new Date(appointmentData.date)),
-  };
-
-  batch.set(docRef, dataToSave);
-
-  await batch.commit().catch(serverError => {
-      const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'create',
-          requestResourceData: dataToSave
-      });
-      errorEmitter.emit('permission-error', permissionError);
-      throw permissionError;
-  });
-  return {
-    ...appointmentData,
-    id,
-    patientId: patientId,
-    patient: patientToSave,
-    date: appointmentData.date,
-  };
-}
 
 export async function deleteUltrasoundAppointment(id: string): Promise<void> {
   const db = getDb();
