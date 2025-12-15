@@ -6,7 +6,7 @@ import {
   getLabAppointments,
   getXRayAppointments,
   getUltrasoundAppointments,
-} from '@/lib/data';
+} from '@/lib/data-client';
 import {
   Card,
   CardHeader,
@@ -290,11 +290,11 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                   {dateRange?.from ? (
                     dateRange.to ? (
                       <>
-                        {format(dateRange.from, 'LLL dd, y')} -{' '}
-                        {format(dateRange.to, 'LLL dd, y')}
+                        {format(dateRange.from, 'LLL dd, y', {locale: es})} -{' '}
+                        {format(dateRange.to, 'LLL dd, y', {locale: es})}
                       </>
                     ) : (
-                      format(dateRange.from, 'LLL dd, y')
+                      format(dateRange.from, 'LLL dd, y', {locale: es})
                     )
                   ) : (
                     <span>Seleccionar rango</span>

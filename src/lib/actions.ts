@@ -23,30 +23,21 @@ import {
   updateClinics as dataUpdateClinics,
   updateColonias as dataUpdateColonias,
   updateAnnouncements as dataUpdateAnnouncements,
-  getClinics as dataGetClinics,
-  getColonias as dataGetColonias,
-  getAnnouncements as dataGetAnnouncements,
-  updateLabSettings as dataUpdateLabSettings,
-  getLabSettings as dataGetLabSettings,
-  updateLabStudies as dataUpdateLabStudies,
-  getLabStudies as dataGetLabStudies,
-  getXRaySettings as dataGetXRaySettings,
-  updateXRaySettings as dataUpdateXRaySettings,
-  getXRayStudies as dataGetXRayStudies,
-  updateXRayStudies as dataUpdateXRayStudies,
-  getUltrasoundSettings as dataGetUltrasoundSettings,
-  updateUltrasoundSettings as dataUpdateUltrasoundSettings,
-  getUltrasoundStudies as dataGetUltrasoundStudies,
-  updateUltrasoundStudies as dataUpdateUltrasoundStudies,
   getClinics,
   getColonias,
   getAnnouncements,
   getLabSettings,
   getLabStudies,
+  updateLabSettings as dataUpdateLabSettings,
+  updateLabStudies as dataUpdateLabStudies,
   getXRaySettings,
   getXRayStudies,
+  updateXRaySettings as dataUpdateXRaySettings,
+  updateXRayStudies as dataUpdateXRayStudies,
   getUltrasoundSettings,
   getUltrasoundStudies,
+  updateUltrasoundSettings as dataUpdateUltrasoundSettings,
+  updateUltrasoundStudies as dataUpdateUltrasoundStudies,
   getLabAppointments,
   getXRayAppointments,
   getUltrasoundAppointments,
@@ -243,11 +234,9 @@ export async function deleteAppointment(id: string) {
     await dataDeleteAppointment(id);
     revalidateTag('appointments');
     return { success: true, message: 'Cita eliminada con éxito.' };
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Error desconocido al eliminar la cita.';
+      error.message || 'Error desconocido al eliminar la cita.';
     return {
       success: false,
       message: errorMessage,
@@ -263,11 +252,9 @@ export async function deleteLabAppointment(id: string) {
       success: true,
       message: 'Cita de laboratorio eliminada con éxito.',
     };
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Error desconocido al eliminar la cita.';
+      error.message || 'Error desconocido al eliminar la cita.';
     return {
       success: false,
       message: errorMessage,
@@ -280,11 +267,9 @@ export async function deleteXRayAppointment(id: string) {
     await dataDeleteXRayAppointment(id);
     revalidateTag('xRayAppointments');
     return { success: true, message: 'Cita de Rayos X eliminada con éxito.' };
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Error desconocido al eliminar la cita.';
+      error.message || 'Error desconocido al eliminar la cita.';
     return {
       success: false,
       message: errorMessage,
@@ -300,11 +285,9 @@ export async function deleteUltrasoundAppointment(id: string) {
       success: true,
       message: 'Cita de Ultrasonido eliminada con éxito.',
     };
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
-        : 'Error desconocido al eliminar la cita.';
+      error.message || 'Error desconocido al eliminar la cita.';
     return {
       success: false,
       message: errorMessage,
@@ -426,5 +409,4 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return result;
 }
 
-// Server actions to fetch static data for client components that can't be server components
 export { getClinics, getColonias, getAnnouncements, getLabSettings, getLabStudies, getXRaySettings, getXRayStudies, getUltrasoundSettings, getUltrasoundStudies, getAppointments, getAppointmentsForClinic, getLabAppointments, getXRayAppointments, getUltrasoundAppointments };

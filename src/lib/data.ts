@@ -174,15 +174,20 @@ export async function saveAppointment(
   const patients = await readJsonFile<Patient[]>('patients.json', []);
   const appointments = await readJsonFile<Appointment[]>('appointments.json', []);
 
-  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  // Check if patient already exists
+  let patient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
+  if (!patient) {
+      patient = { id: uuidv4(), ...patientData };
+      await writeJsonFile('patients.json', [...patients, patient]);
+  }
+
   const newAppointment: Appointment = {
       ...appointmentData,
       id: uuidv4(),
-      patientId: newPatient.id,
-      patient: newPatient,
+      patientId: patient.id,
+      patient: patient,
   };
   
-  await writeJsonFile('patients.json', [...patients, newPatient]);
   await writeJsonFile('appointments.json', [...appointments, newAppointment]);
 
   return newAppointment;
@@ -214,15 +219,19 @@ export async function saveLabAppointment(
   const patients = await readJsonFile<Patient[]>('patients.json', []);
   const appointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
 
-  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  let patient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
+  if (!patient) {
+      patient = { id: uuidv4(), ...patientData };
+      await writeJsonFile('patients.json', [...patients, patient]);
+  }
+  
   const newAppointment: LabAppointment = {
       ...appointmentData,
       id: uuidv4(),
-      patientId: newPatient.id,
-      patient: newPatient,
+      patientId: patient.id,
+      patient: patient,
   };
   
-  await writeJsonFile('patients.json', [...patients, newPatient]);
   await writeJsonFile('lab-appointments.json', [...appointments, newAppointment]);
 
   return newAppointment;
@@ -254,15 +263,19 @@ export async function saveXRayAppointment(
   const patients = await readJsonFile<Patient[]>('patients.json', []);
   const appointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
 
-  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  let patient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
+  if (!patient) {
+      patient = { id: uuidv4(), ...patientData };
+      await writeJsonFile('patients.json', [...patients, patient]);
+  }
+
   const newAppointment: XRayAppointment = {
       ...appointmentData,
       id: uuidv4(),
-      patientId: newPatient.id,
-      patient: newPatient,
+      patientId: patient.id,
+      patient: patient,
   };
   
-  await writeJsonFile('patients.json', [...patients, newPatient]);
   await writeJsonFile('x-ray-appointments.json', [...appointments, newAppointment]);
 
   return newAppointment;
@@ -294,15 +307,19 @@ export async function saveUltrasoundAppointment(
   const patients = await readJsonFile<Patient[]>('patients.json', []);
   const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
 
-  const newPatient: Patient = { id: uuidv4(), ...patientData };
+  let patient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
+  if (!patient) {
+      patient = { id: uuidv4(), ...patientData };
+      await writeJsonFile('patients.json', [...patients, patient]);
+  }
+
   const newAppointment: UltrasoundAppointment = {
       ...appointmentData,
       id: uuidv4(),
-      patientId: newPatient.id,
-      patient: newPatient,
+      patientId: patient.id,
+      patient: patient,
   };
   
-  await writeJsonFile('patients.json', [...patients, newPatient]);
   await writeJsonFile('ultrasound-appointments.json', [...appointments, newAppointment]);
 
   return newAppointment;

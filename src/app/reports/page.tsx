@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import type { Clinic, XRaySettings, UltrasoundSettings, LabSettings } from '@/lib/definitions';
-import { getClinics, getXRaySettings, getUltrasoundSettings, getLabSettings, verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword } from '@/lib/actions';
+import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, getClinics } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,11 +17,7 @@ type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio';
 
 export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [xRaySettings, setXRaySettings] = useState<XRaySettings | null>(null);
-  const [ultrasoundSettings, setUltrasoundSettings] = useState<UltrasoundSettings | null>(null);
-  const [labSettings, setLabSettings] = useState<LabSettings | null>(null);
-
-
+  
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('clinic');
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [password, setPassword] = useState('');
@@ -38,16 +34,8 @@ export default function ReportsPage() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const [clinicsData, xrayData, ultrasoundData, labData] = await Promise.all([
-            getClinics(),
-            getXRaySettings(),
-            getUltrasoundSettings(),
-            getLabSettings(),
-        ]);
+        const clinicsData = await getClinics();
         setClinics(clinicsData);
-        setXRaySettings(xrayData);
-        setUltrasoundSettings(ultrasoundData);
-        setLabSettings(labData);
       } catch (error) {
         toast({
           title: 'Error',
