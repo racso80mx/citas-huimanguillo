@@ -9,13 +9,13 @@ import {
   getAppointmentsByDate,
   getLabAppointmentsByDate,
   getXRayAppointmentsByDate,
-  getUltrasoundAppointmentsByDate
+  getUltrasoundAppointmentsByDate,
 } from './data-server';
 import {
-    deleteAppointment as deleteDataAppointment,
-    deleteLabAppointment as deleteDataLabAppointment,
-    deleteXRayAppointment as deleteDataXRayAppointment,
-    deleteUltrasoundAppointment as deleteDataUltrasoundAppointment,
+  deleteAppointment as deleteDataAppointment,
+  deleteLabAppointment as deleteDataLabAppointment,
+  deleteXRayAppointment as deleteDataXRayAppointment,
+  deleteUltrasoundAppointment as deleteDataUltrasoundAppointment,
 } from './data-client';
 import {
   verifyClinicPassword as dataVerifyClinicPassword,
@@ -42,7 +42,6 @@ import {
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
 } from './data';
 
-
 import type {
   Appointment,
   Clinic,
@@ -64,23 +63,35 @@ export async function saveNewAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: Appointment; error?: string }> {
   try {
-    const appointmentsOnDate = await getAppointmentsByDate(new Date(appointmentData.date));
+    const appointmentsOnDate = await getAppointmentsByDate(
+      new Date(appointmentData.date)
+    );
 
     const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) => app.clinicId === appointmentData.clinicId && app.time === appointmentData.time
+      (app) =>
+        app.clinicId === appointmentData.clinicId &&
+        app.time === appointmentData.time
     );
     if (isTimeSlotTaken) {
-      throw new Error(`El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`);
+      throw new Error(
+        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
+      );
     }
 
     const curpExistsOnDate = appointmentsOnDate.some(
-      (app) => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
+      (app) =>
+        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
     );
     if (curpExistsOnDate) {
-      throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.');
+      throw new Error(
+        'Ya existe una cita agendada con esta CURP para el día seleccionado.'
+      );
     }
 
-    const newAppointment = await dataSaveAppointment(appointmentData, patientData);
+    const newAppointment = await dataSaveAppointment(
+      appointmentData,
+      patientData
+    );
     revalidateTag('appointments');
     return { success: true, data: newAppointment };
   } catch (e: any) {
@@ -94,90 +105,124 @@ export async function saveNewLabAppointment(
   settings: { dailySlots: number; weekendBookingEnabled: boolean }
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-    const appointmentsOnDate = await getLabAppointmentsByDate(new Date(appointmentData.date));
+    const appointmentsOnDate = await getLabAppointmentsByDate(
+      new Date(appointmentData.date)
+    );
     if (appointmentsOnDate.length >= settings.dailySlots) {
       throw new Error('No hay más cupos para este día.');
     }
-    
+
     const curpExistsOnDate = appointmentsOnDate.some(
-      (app) => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
+      (app) =>
+        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
     );
     if (curpExistsOnDate) {
-      throw new Error('Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.');
+      throw new Error(
+        'Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.'
+      );
     }
 
-    const newAppointment = await dataSaveLabAppointment(appointmentData, patientData);
+    const newAppointment = await dataSaveLabAppointment(
+      appointmentData,
+      patientData
+    );
     revalidateTag('labAppointments');
     return { success: true, data: newAppointment };
   } catch (e: any) {
-    return { success: false, error: e.message || 'Error al guardar la cita de laboratorio.' };
+    return {
+      success: false,
+      error: e.message || 'Error al guardar la cita de laboratorio.',
+    };
   }
 }
 
-
 export async function saveNewXRayAppointment(
   appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
+  patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
-   try {
-    const appointmentsOnDate = await getXRayAppointmentsByDate(new Date(appointmentData.date));
-    
+  try {
+    const appointmentsOnDate = await getXRayAppointmentsByDate(
+      new Date(appointmentData.date)
+    );
+
     const isTimeSlotTaken = appointmentsOnDate.some(
       (app) => app.time === appointmentData.time
     );
 
     if (isTimeSlotTaken) {
-      throw new Error(`El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`);
+      throw new Error(
+        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
+      );
     }
-    
+
     const curpExistsOnDate = appointmentsOnDate.some(
-      (app) => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
+      (app) =>
+        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
     );
 
     if (curpExistsOnDate) {
-      throw new Error('Ya existe una cita de Rayos X agendada con esta CURP para el día seleccionado.');
+      throw new Error(
+        'Ya existe una cita de Rayos X agendada con esta CURP para el día seleccionado.'
+      );
     }
 
-    const newAppointment = await dataSaveXRayAppointment(appointmentData, patientData);
+    const newAppointment = await dataSaveXRayAppointment(
+      appointmentData,
+      patientData
+    );
     revalidateTag('xRayAppointments');
     return { success: true, data: newAppointment };
   } catch (e: any) {
-    return { success: false, error: e.message || 'Error al guardar la cita de Rayos X.' };
+    return {
+      success: false,
+      error: e.message || 'Error al guardar la cita de Rayos X.',
+    };
   }
 }
 
 export async function saveNewUltrasoundAppointment(
   appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
+  patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
-   try {
-    const appointmentsOnDate = await getUltrasoundAppointmentsByDate(new Date(appointmentData.date));
-    
+  try {
+    const appointmentsOnDate = await getUltrasoundAppointmentsByDate(
+      new Date(appointmentData.date)
+    );
+
     const isTimeSlotTaken = appointmentsOnDate.some(
       (app) => app.time === appointmentData.time
     );
 
     if (isTimeSlotTaken) {
-      throw new Error(`El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`);
+      throw new Error(
+        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
+      );
     }
-    
+
     const curpExistsOnDate = appointmentsOnDate.some(
-      (app) => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
+      (app) =>
+        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
     );
 
     if (curpExistsOnDate) {
-      throw new Error('Ya existe una cita de Ultrasonido agendada con esta CURP para el día seleccionado.');
+      throw new Error(
+        'Ya existe una cita de Ultrasonido agendada con esta CURP para el día seleccionado.'
+      );
     }
 
-    const newAppointment = await dataSaveUltrasoundAppointment(appointmentData, patientData);
+    const newAppointment = await dataSaveUltrasoundAppointment(
+      appointmentData,
+      patientData
+    );
     revalidateTag('ultrasoundAppointments');
     return { success: true, data: newAppointment };
   } catch (e: any) {
-    return { success: false, error: e.message || 'Error al guardar la cita de Ultrasonido.' };
+    return {
+      success: false,
+      error: e.message || 'Error al guardar la cita de Ultrasonido.',
+    };
   }
 }
-
-
 
 // =====================================================================
 // Delete Actions
