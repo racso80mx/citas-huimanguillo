@@ -2,7 +2,7 @@
 
 import React, { useMemo, type ReactNode, useEffect } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
-import { getSdks, initializeFirebase } from '@/firebase';
+import { initializeFirebase } from '@/firebase';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 interface FirebaseClientProviderProps {
@@ -10,14 +10,13 @@ interface FirebaseClientProviderProps {
 }
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  const firebaseServices = useMemo(() => {
-    // This now simply initializes the app and gets the services.
-    // The logic to check for existing apps is self-contained in initializeFirebase.
-    return initializeFirebase();
-  }, []);
+  // By calling initializeFirebase() here, we ensure that the singleton
+  // instance is created or retrieved on the client-side.
+  // The useMemo with an empty dependency array ensures this runs only once per component instance.
+  const services = useMemo(() => initializeFirebase(), []);
 
   useEffect(() => {
-    const { auth } = firebaseServices;
+    const { auth } = services;
     
     // Subscribe to auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -25,6 +24,7 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
       // This is crucial for security rules that require request.auth != null
       if (!user) {
         signInAnonymously(auth).catch(error => {
+            // We still log this error because a failure to sign in anonymously is a critical setup issue.
             console.error("Anonymous sign-in failed:", error);
         });
       }
@@ -33,13 +33,13 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     // Cleanup subscription on unmount
     return () => unsubscribe();
 
-  }, [firebaseServices]);
+  }, [services]); // Depend on the services object from useMemo.
 
   return (
     <FirebaseProvider
-      firebaseApp={firebaseServices.firebaseApp}
-      auth={firebaseServices.auth}
-      firestore={firebaseServices.firestore}
+      firebaseApp={services.firebaseApp}
+      auth={services.auth}
+      firestore={services.firestore}
     >
       {children}
     </FirebaseProvider>
