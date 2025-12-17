@@ -2,7 +2,7 @@
 // Do not modify this file manually.
 
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  apiKey: "YOUR_API_KEY",
   authDomain: 'citamedicafacil.firebaseapp.com',
   projectId: 'citamedicafacil',
   storageBucket: 'citamedicafacil.appspot.com',
