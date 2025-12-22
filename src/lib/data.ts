@@ -179,6 +179,10 @@ export async function saveAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+  } else { // If patient exists, update their info
+      const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
+      await writeJsonFile('patients.json', updatedPatients);
+      patient = { ...patient, ...patientData };
   }
 
   const newAppointment: Appointment = {
@@ -223,6 +227,10 @@ export async function saveLabAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+  } else {
+      const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
+      await writeJsonFile('patients.json', updatedPatients);
+      patient = { ...patient, ...patientData };
   }
   
   const newAppointment: LabAppointment = {
@@ -267,6 +275,10 @@ export async function saveXRayAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+  } else {
+      const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
+      await writeJsonFile('patients.json', updatedPatients);
+      patient = { ...patient, ...patientData };
   }
 
   const newAppointment: XRayAppointment = {
@@ -311,6 +323,10 @@ export async function saveUltrasoundAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+  } else {
+      const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
+      await writeJsonFile('patients.json', updatedPatients);
+      patient = { ...patient, ...patientData };
   }
 
   const newAppointment: UltrasoundAppointment = {
@@ -329,6 +345,31 @@ export async function deleteUltrasoundAppointment(id: string): Promise<void> {
     const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
     const updatedAppointments = appointments.filter(app => app.id !== id);
     await writeJsonFile('ultrasound-appointments.json', updatedAppointments);
+}
+
+// ========== Universal Patient Search ==========
+export async function getPatientByCURP(curp: string): Promise<Patient | null> {
+    const upperCurp = curp.toUpperCase();
+    
+    // Combine all appointments from all sources
+    const allAppointments = [
+        ...(await getAppointments()),
+        ...(await getLabAppointments()),
+        ...(await getXRayAppointments()),
+        ...(await getUltrasoundAppointments()),
+    ];
+
+    // Filter for the specific CURP and sort by date to find the most recent
+    const patientAppointments = allAppointments
+        .filter(app => app.patient.curp.toUpperCase() === upperCurp)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Return the patient data from the most recent appointment
+    if (patientAppointments.length > 0) {
+        return patientAppointments[0].patient;
+    }
+
+    return null;
 }
 
 

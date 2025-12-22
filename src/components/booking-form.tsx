@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { saveNewAppointment } from '@/lib/actions';
+import { saveNewAppointment, getPatientByCURP } from '@/lib/actions';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -83,6 +83,25 @@ export function BookingForm({
   });
 
   const curp = form.watch('curp');
+
+  const handleCurpBlur = async () => {
+    const curp = form.getValues('curp').toUpperCase();
+    if (curpRegex.test(curp)) {
+      startTransition(async () => {
+        const result = await getPatientByCURP(curp);
+        if (result.success && result.data) {
+          form.setValue('name', result.data.name, { shouldValidate: true });
+          form.setValue('paternalLastName', result.data.paternalLastName, { shouldValidate: true });
+          form.setValue('maternalLastName', result.data.maternalLastName, { shouldValidate: true });
+          form.setValue('phoneNumber', result.data.phoneNumber, { shouldValidate: true });
+           toast({
+                title: 'Paciente Encontrado',
+                description: 'Se han precargado tus datos.',
+            });
+        }
+      });
+    }
+  };
 
   useEffect(() => {
     if (curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
@@ -174,6 +193,7 @@ export function BookingForm({
                     <Input
                       placeholder="Tu CURP de 18 caracteres"
                       {...field}
+                      onBlur={handleCurpBlur}
                       maxLength={18}
                       className="uppercase"
                     />
@@ -305,5 +325,3 @@ export function BookingForm({
     </Card>
   );
 }
-
-    

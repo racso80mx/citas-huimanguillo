@@ -2,16 +2,20 @@
 
 import { revalidateTag } from 'next/cache';
 import {
+  getPatientByCURP as dataGetPatientByCURP,
   saveAppointment as dataSaveAppointment,
   saveLabAppointment as dataSaveLabAppointment,
   saveXRayAppointment as dataSaveXRayAppointment,
   saveUltrasoundAppointment as dataSaveUltrasoundAppointment,
-  getAppointments,
-  getAppointmentsByDate,
-  getAppointmentsForClinic,
-  getLabAppointmentsByDate,
-  getXRayAppointmentsByDate,
-  getUltrasoundAppointmentsByDate,
+  getAppointments as dataGetAppointments,
+  getAppointmentsByDate as dataGetAppointmentsByDate,
+  getAppointmentsForClinic as dataGetAppointmentsForClinic,
+  getLabAppointments as dataGetLabAppointments,
+  getLabAppointmentsByDate as dataGetLabAppointmentsByDate,
+  getXRayAppointments as dataGetXRayAppointments,
+  getXRayAppointmentsByDate as dataGetXRayAppointmentsByDate,
+  getUltrasoundAppointments as dataGetUltrasoundAppointments,
+  getUltrasoundAppointmentsByDate as dataGetUltrasoundAppointmentsByDate,
   deleteAppointment as dataDeleteAppointment,
   deleteLabAppointment as dataDeleteLabAppointment,
   deleteXRayAppointment as dataDeleteXRayAppointment,
@@ -23,24 +27,21 @@ import {
   updateClinics as dataUpdateClinics,
   updateColonias as dataUpdateColonias,
   updateAnnouncements as dataUpdateAnnouncements,
-  getClinics,
-  getColonias,
-  getAnnouncements,
-  getLabSettings,
-  getLabStudies,
+  getClinics as dataGetClinics,
+  getColonias as dataGetColonias,
+  getAnnouncements as dataGetAnnouncements,
+  getLabSettings as dataGetLabSettings,
+  getLabStudies as dataGetLabStudies,
   updateLabSettings as dataUpdateLabSettings,
   updateLabStudies as dataUpdateLabStudies,
-  getXRaySettings,
-  getXRayStudies,
+  getXRaySettings as dataGetXRaySettings,
+  getXRayStudies as dataGetXRayStudies,
   updateXRaySettings as dataUpdateXRaySettings,
   updateXRayStudies as dataUpdateXRayStudies,
-  getUltrasoundSettings,
-  getUltrasoundStudies,
+  getUltrasoundSettings as dataGetUltrasoundSettings,
+  getUltrasoundStudies as dataGetUltrasoundStudies,
   updateUltrasoundSettings as dataUpdateUltrasoundSettings,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
-  getLabAppointments,
-  getXRayAppointments,
-  getUltrasoundAppointments,
 } from './data';
 
 import type {
@@ -59,12 +60,24 @@ import type {
   XRayStudy,
 } from './definitions';
 
+export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
+  try {
+    const patient = await dataGetPatientByCURP(curp);
+    if (patient) {
+      return { success: true, data: patient };
+    }
+    return { success: false, error: 'No se encontró paciente con esa CURP.' };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Error al buscar el paciente.' };
+  }
+}
+
 export async function saveNewAppointment(
   appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: Appointment; error?: string }> {
   try {
-    const appointmentsOnDate = await getAppointmentsByDate(
+    const appointmentsOnDate = await dataGetAppointmentsByDate(
       new Date(appointmentData.date)
     );
 
@@ -106,7 +119,7 @@ export async function saveNewLabAppointment(
   settings: { dailySlots: number; weekendBookingEnabled: boolean }
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-    const appointmentsOnDate = await getLabAppointmentsByDate(
+    const appointmentsOnDate = await dataGetLabAppointmentsByDate(
       new Date(appointmentData.date)
     );
     if (appointmentsOnDate.length >= settings.dailySlots) {
@@ -142,7 +155,7 @@ export async function saveNewXRayAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
-    const appointmentsOnDate = await getXRayAppointmentsByDate(
+    const appointmentsOnDate = await dataGetXRayAppointmentsByDate(
       new Date(appointmentData.date)
     );
 
@@ -186,7 +199,7 @@ export async function saveNewUltrasoundAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
-    const appointmentsOnDate = await getUltrasoundAppointmentsByDate(
+    const appointmentsOnDate = await dataGetUltrasoundAppointmentsByDate(
       new Date(appointmentData.date)
     );
 
@@ -409,4 +422,4 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return result;
 }
 
-export { getClinics, getColonias, getAnnouncements, getLabSettings, getLabStudies, getXRaySettings, getXRayStudies, getUltrasoundSettings, getUltrasoundStudies, getAppointments, getAppointmentsForClinic, getLabAppointments, getXRayAppointments, getUltrasoundAppointments };
+export { dataGetClinics as getClinics, dataGetColonias as getColonias, dataGetAnnouncements as getAnnouncements, dataGetLabSettings as getLabSettings, dataGetLabStudies as getLabStudies, dataGetXRaySettings as getXRaySettings, dataGetXRayStudies as getXRayStudies, dataGetUltrasoundSettings as getUltrasoundSettings, dataGetUltrasoundStudies as getUltrasoundStudies, dataGetAppointments as getAppointments, dataGetAppointmentsForClinic as getAppointmentsForClinic, dataGetLabAppointments as getLabAppointments, dataGetXRayAppointments as getXRayAppointments, dataGetUltrasoundAppointments as getUltrasoundAppointments };
