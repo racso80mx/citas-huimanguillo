@@ -58,5 +58,45 @@
       "birthState": "TABASCO",
       "phoneNumber": "9371162730"
     }
+  },
+  {
+    "appointmentNumber": "CITA-6676",
+    "clinicId": "NB1",
+    "date": "2026-01-22T06:00:00.000Z",
+    "time": "11:00",
+    "patientType": "Crónico",
+    "id": "323ab0f7-0d5f-4d46-a611-e9d627d78bd4",
+    "patientId": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
+    "patient": {
+      "id": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
+      "curp": "CABJ730816HTCDRS02",
+      "name": "OSCAR ALBERTO",
+      "paternalLastName": "GARCIA",
+      "maternalLastName": "LOPEZ",
+      "sex": "Hombre",
+      "age": 52,
+      "birthState": "TABASCO",
+      "phoneNumber": "9371162730"
+    }
+  },
+  {
+    "appointmentNumber": "CITA-4700",
+    "clinicId": "NB1",
+    "date": "2026-01-26T06:00:00.000Z",
+    "time": "11:00",
+    "patientType": "General",
+    "id": "bd6dcac2-f799-4a13-bd59-6eb549bcad4c",
+    "patientId": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
+    "patient": {
+      "id": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
+      "curp": "CABJ730816HTCDRS02",
+      "name": "OSCAR ALBERTO",
+      "paternalLastName": "GARCIA",
+      "maternalLastName": "LOPEZ",
+      "sex": "Hombre",
+      "age": 52,
+      "birthState": "TABASCO",
+      "phoneNumber": "9371162730"
+    }
   }
 ]

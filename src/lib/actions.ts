@@ -77,9 +77,21 @@ export async function saveNewAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: Appointment; error?: string }> {
   try {
+    const clinics = await dataGetClinics();
+    const clinic = clinics.find(c => c.id === appointmentData.clinicId);
+    
+    if (!clinic) {
+      throw new Error("La clínica seleccionada no es válida.");
+    }
+
     const appointmentsOnDate = await dataGetAppointmentsByDate(
       new Date(appointmentData.date)
     );
+
+    const appointmentsInClinicOnDate = appointmentsOnDate.filter(app => app.clinicId === appointmentData.clinicId);
+    if (appointmentsInClinicOnDate.length >= clinic.dailySlots) {
+        throw new Error("No hay más cupos disponibles en este núcleo para la fecha seleccionada.");
+    }
 
     const isTimeSlotTaken = appointmentsOnDate.some(
       (app) =>
@@ -155,9 +167,14 @@ export async function saveNewXRayAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
+    const settings = await dataGetXRaySettings();
     const appointmentsOnDate = await dataGetXRayAppointmentsByDate(
       new Date(appointmentData.date)
     );
+
+    if (appointmentsOnDate.length >= settings.dailySlots) {
+      throw new Error('No hay más cupos para Rayos X en la fecha seleccionada.');
+    }
 
     const isTimeSlotTaken = appointmentsOnDate.some(
       (app) => app.time === appointmentData.time
@@ -199,10 +216,15 @@ export async function saveNewUltrasoundAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
+    const settings = await dataGetUltrasoundSettings();
     const appointmentsOnDate = await dataGetUltrasoundAppointmentsByDate(
       new Date(appointmentData.date)
     );
 
+    if (appointmentsOnDate.length >= settings.dailySlots) {
+        throw new Error('No hay más cupos para Ultrasonidos en la fecha seleccionada.');
+    }
+    
     const isTimeSlotTaken = appointmentsOnDate.some(
       (app) => app.time === appointmentData.time
     );

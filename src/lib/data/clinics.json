@@ -5,11 +5,18 @@
     "doctorName": "Sarahi",
     "password": "123456",
     "dailySlots": 15,
-    "startTime": "07:00",
+    "startTime": "08:30",
     "endTime": "12:00",
     "weekendBookingEnabled": false,
-    "dayOfAction": "Ninguno",
-    "unavailableDates": []
+    "dayOfAction": "Lunes",
+    "unavailableDates": [
+      "2026-01-26",
+      "2026-01-27",
+      "2026-01-28",
+      "2026-01-29",
+      "2026-01-30",
+      "2026-01-31"
+    ]
   },
   {
     "id": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
@@ -17,7 +24,7 @@
     "doctorName": "Azamar",
     "password": "12345",
     "dailySlots": 15,
-    "startTime": "08:00",
+    "startTime": "10:00",
     "endTime": "13:00",
     "weekendBookingEnabled": false,
     "dayOfAction": "Ninguno",
