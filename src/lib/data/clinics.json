@@ -2,9 +2,9 @@
   {
     "id": "NB1",
     "name": "Núcleo Básico 1",
-    "doctorName": "Sarahi",
+    "doctorName": "SaraY",
     "password": "123456",
-    "dailySlots": 15,
+    "dailySlots": 5,
     "startTime": "08:30",
     "endTime": "12:00",
     "weekendBookingEnabled": false,

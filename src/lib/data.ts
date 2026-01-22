@@ -24,7 +24,6 @@ async function readJsonFile<T>(filename: string, defaultValue: T): Promise<T> {
 
 async function writeJsonFile(filename: string, data: any): Promise<{success: boolean, message?: string}> {
     try {
-        console.warn(`Writing to static file ${filename}. A server restart is required for changes to take effect in the UI.`);
         await fs.writeFile(dataFilePath(filename), JSON.stringify(data, null, 2), 'utf-8');
         return { success: true };
     } catch (e: any) {

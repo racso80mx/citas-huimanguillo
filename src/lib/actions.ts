@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidateTag } from 'next/cache';
+import { revalidatePath } from 'next/cache';
 import {
   getPatientByCURP as dataGetPatientByCURP,
   saveAppointment as dataSaveAppointment,
@@ -40,7 +40,6 @@ import {
   updateXRayStudies as dataUpdateXRayStudies,
   getUltrasoundSettings as dataGetUltrasoundSettings,
   getUltrasoundStudies as dataGetUltrasoundStudies,
-  updateUltrasoundSettings as dataUpdateUltrasoundSettings,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
 } from './data';
 
@@ -118,7 +117,7 @@ export async function saveNewAppointment(
       appointmentData,
       patientData
     );
-    revalidateTag('appointments');
+    revalidatePath('/citas-medicas');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return { success: false, error: e.message || 'Error al guardar la cita.' };
@@ -152,7 +151,7 @@ export async function saveNewLabAppointment(
       appointmentData,
       patientData
     );
-    revalidateTag('labAppointments');
+    revalidatePath('/laboratorio');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return {
@@ -201,7 +200,7 @@ export async function saveNewXRayAppointment(
       appointmentData,
       patientData
     );
-    revalidateTag('xRayAppointments');
+    revalidatePath('/rayos-x');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return {
@@ -250,7 +249,7 @@ export async function saveNewUltrasoundAppointment(
       appointmentData,
       patientData
     );
-    revalidateTag('ultrasoundAppointments');
+    revalidatePath('/ultrasonidos');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return {
@@ -267,7 +266,9 @@ export async function saveNewUltrasoundAppointment(
 export async function deleteAppointment(id: string) {
   try {
     await dataDeleteAppointment(id);
-    revalidateTag('appointments');
+    revalidatePath('/citas-medicas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, message: 'Cita eliminada con éxito.' };
   } catch (error: any) {
     const errorMessage =
@@ -282,7 +283,9 @@ export async function deleteAppointment(id: string) {
 export async function deleteLabAppointment(id: string) {
   try {
     await dataDeleteLabAppointment(id);
-    revalidateTag('labAppointments');
+    revalidatePath('/laboratorio');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
     return {
       success: true,
       message: 'Cita de laboratorio eliminada con éxito.',
@@ -300,7 +303,9 @@ export async function deleteLabAppointment(id: string) {
 export async function deleteXRayAppointment(id: string) {
   try {
     await dataDeleteXRayAppointment(id);
-    revalidateTag('xRayAppointments');
+    revalidatePath('/rayos-x');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, message: 'Cita de Rayos X eliminada con éxito.' };
   } catch (error: any) {
     const errorMessage =
@@ -315,7 +320,9 @@ export async function deleteXRayAppointment(id: string) {
 export async function deleteUltrasoundAppointment(id: string) {
   try {
     await dataDeleteUltrasoundAppointment(id);
-    revalidateTag('ultrasoundAppointments');
+    revalidatePath('/ultrasonidos');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
     return {
       success: true,
       message: 'Cita de Ultrasonido eliminada con éxito.',
@@ -372,7 +379,8 @@ export async function verifyUltrasoundPassword(passwordAttempt: string) {
 export async function updateClinics(clinics: Clinic[]) {
   const result = await dataUpdateClinics(clinics);
   if (result.success) {
-    revalidateTag('clinics');
+    revalidatePath('/citas-medicas');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -380,7 +388,8 @@ export async function updateClinics(clinics: Clinic[]) {
 export async function updateColonias(colonias: Colonia[]) {
   const result = await dataUpdateColonias(colonias);
   if (result.success) {
-    revalidateTag('colonias');
+    revalidatePath('/citas-medicas');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -388,7 +397,11 @@ export async function updateColonias(colonias: Colonia[]) {
 export async function updateAnnouncements(announcements: string[]) {
   const result = await dataUpdateAnnouncements(announcements);
   if (result.success) {
-    revalidateTag('announcements');
+    revalidatePath('/citas-medicas');
+    revalidatePath('/laboratorio');
+    revalidatePath('/rayos-x');
+    revalidatePath('/ultrasonidos');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -397,7 +410,8 @@ export async function updateAnnouncements(announcements: string[]) {
 export async function updateLabSettings(settings: LabSettings) {
   const result = await dataUpdateLabSettings(settings);
   if (result.success) {
-    revalidateTag('labSettings');
+    revalidatePath('/laboratorio');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -405,7 +419,8 @@ export async function updateLabSettings(settings: LabSettings) {
 export async function updateLabStudies(studies: LabStudy[]) {
   const result = await dataUpdateLabStudies(studies);
   if (result.success) {
-    revalidateTag('labStudies');
+    revalidatePath('/laboratorio');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -414,7 +429,8 @@ export async function updateLabStudies(studies: LabStudy[]) {
 export async function updateXRaySettings(settings: XRaySettings) {
   const result = await dataUpdateXRaySettings(settings);
   if (result.success) {
-    revalidateTag('xRaySettings');
+    revalidatePath('/rayos-x');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -422,7 +438,8 @@ export async function updateXRaySettings(settings: XRaySettings) {
 export async function updateXRayStudies(studies: XRayStudy[]) {
   const result = await dataUpdateXRayStudies(studies);
   if (result.success) {
-    revalidateTag('xRayStudies');
+    revalidatePath('/rayos-x');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -431,7 +448,8 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
 export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
   const result = await dataUpdateUltrasoundSettings(settings);
   if (result.success) {
-    revalidateTag('ultrasoundSettings');
+    revalidatePath('/ultrasonidos');
+    revalidatePath('/admin');
   }
   return result;
 }
@@ -439,7 +457,8 @@ export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
 export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   const result = await dataUpdateUltrasoundStudies(studies);
   if (result.success) {
-    revalidateTag('ultrasoundStudies');
+    revalidatePath('/ultrasonidos');
+    revalidatePath('/admin');
   }
   return result;
 }
