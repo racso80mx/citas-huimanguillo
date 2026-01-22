@@ -13,11 +13,17 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateClinics, getClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, CalendarIcon } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Calendar } from '../ui/calendar';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
+const daysOfWeek = ["Ninguno", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -48,7 +54,7 @@ export function ClinicsManager() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleClinicChange = (id: string, field: keyof Omit<Clinic, 'id'>, value: string | number | boolean) => {
+  const handleClinicChange = (id: string, field: keyof Omit<Clinic, 'id'>, value: any) => {
     setClinics(prev =>
       prev.map(c => (c.id === id ? { ...c, [field]: value } : c))
     );
@@ -68,6 +74,8 @@ export function ClinicsManager() {
         startTime: '08:00',
         endTime: '13:00',
         weekendBookingEnabled: false,
+        dayOfAction: "Ninguno",
+        unavailableDates: [],
     };
     setClinics([...clinics, newClinic]);
   };
@@ -125,9 +133,9 @@ export function ClinicsManager() {
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
-        <CardDescription>Configura los detalles de cada núcleo básico.</CardDescription>
+        <CardDescription>Configura los detalles y horarios de cada núcleo básico.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6 max-h-96 overflow-y-auto p-4">
+      <CardContent className="space-y-6 max-h-[32rem] overflow-y-auto p-4">
         {clinics.map((clinic) => (
           <div key={clinic.id} className="p-4 border rounded-lg space-y-4 relative bg-background">
              <Button
@@ -212,6 +220,39 @@ export function ClinicsManager() {
                     />
                 </div>
             </div>
+             <div className='grid sm:grid-cols-2 gap-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor={`day-of-action-${clinic.id}`}>Día de Acción (No Citas)</Label>
+                   <Select value={clinic.dayOfAction || 'Ninguno'} onValueChange={(value) => handleClinicChange(clinic.id, 'dayOfAction', value)}>
+                        <SelectTrigger id={`day-of-action-${clinic.id}`}>
+                            <SelectValue placeholder="Selecciona un día" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className='space-y-2'>
+                    <Label>Días Inhábiles (Vacaciones)</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className='w-full justify-start text-left font-normal'>
+                                <CalendarIcon className='mr-2 h-4 w-4' />
+                                <span>{clinic.unavailableDates && clinic.unavailableDates.length > 0 ? `${clinic.unavailableDates.length} días seleccionados` : "Seleccionar fechas"}</span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className='w-auto p-0'>
+                             <Calendar
+                                mode="multiple"
+                                selected={(clinic.unavailableDates || []).map(d => new Date(d))}
+                                onSelect={(dates) => handleClinicChange(clinic.id, 'unavailableDates', dates?.map(d => d.toISOString().split('T')[0]) || [])}
+                                initialFocus
+                                locale={es}
+                             />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+             </div>
             <div className="flex items-center space-x-2">
                 <Switch 
                 id={`weekend-${clinic.id}`}

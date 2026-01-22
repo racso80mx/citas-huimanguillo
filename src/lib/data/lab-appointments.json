@@ -42,5 +42,49 @@
       "birthState": "TABASCO",
       "phoneNumber": "2345234523"
     }
+  },
+  {
+    "appointmentNumber": "LAB-509DDD41",
+    "date": "2025-12-23T06:00:00.000Z",
+    "time": "Recepción de Muestras",
+    "studies": [
+      {
+        "id": "hematologia-1",
+        "section": "Hematología/Coagulación",
+        "name": "Biometría hemática",
+        "sampleType": "Sangre venosa",
+        "fastingHours": "No requiere o 4 horas",
+        "available": true
+      },
+      {
+        "id": "hematologia-2",
+        "section": "Hematología/Coagulación",
+        "name": "Grupo sanguíneo y Rh",
+        "sampleType": "Sangre venosa",
+        "fastingHours": "No requiere",
+        "available": true
+      },
+      {
+        "id": "hematologia-4",
+        "section": "Hematología/Coagulación",
+        "name": "Frotis de sangre periférica",
+        "sampleType": "Sangre venosa",
+        "fastingHours": "No requiere",
+        "available": true
+      }
+    ],
+    "id": "9c00c4ae-df3a-4fc0-bf44-806529bc5706",
+    "patientId": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
+    "patient": {
+      "id": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
+      "curp": "GALO800711HTCPRS04",
+      "name": "OSCAR ALBERTO",
+      "paternalLastName": "GARCIA",
+      "maternalLastName": "LOPEZ",
+      "sex": "Hombre",
+      "age": 45,
+      "birthState": "TABASCO",
+      "phoneNumber": "9371162730"
+    }
   }
 ]

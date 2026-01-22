@@ -7,7 +7,9 @@
     "dailySlots": 15,
     "startTime": "07:00",
     "endTime": "12:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
@@ -17,7 +19,9 @@
     "dailySlots": 15,
     "startTime": "08:00",
     "endTime": "13:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
@@ -27,7 +31,9 @@
     "dailySlots": 15,
     "startTime": "08:00",
     "endTime": "13:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "5fc4b85d-7954-440b-bb64-372a90e5d9b3",
@@ -37,7 +43,9 @@
     "dailySlots": 10,
     "startTime": "08:00",
     "endTime": "14:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "2bd205fe-98eb-4234-a751-b4c7b533f16f",
@@ -47,7 +55,9 @@
     "dailySlots": 15,
     "startTime": "08:00",
     "endTime": "13:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "5ab6735b-f2b6-48ea-8538-f27a1bb20b23",
@@ -57,7 +67,9 @@
     "dailySlots": 15,
     "startTime": "08:00",
     "endTime": "13:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "901570f0-a105-4fe9-b18b-a840dff92b68",
@@ -67,7 +79,9 @@
     "dailySlots": 15,
     "startTime": "08:00",
     "endTime": "13:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   },
   {
     "id": "c5c4098e-9ced-4f01-9171-e96ac36f0eeb",
@@ -77,6 +91,8 @@
     "dailySlots": 15,
     "startTime": "08:00",
     "endTime": "13:00",
-    "weekendBookingEnabled": false
+    "weekendBookingEnabled": false,
+    "dayOfAction": "Ninguno",
+    "unavailableDates": []
   }
 ]

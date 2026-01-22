@@ -44,6 +44,17 @@ type PageContentProps = {
     initialClinics: Clinic[];
 };
 
+const dayOfWeekMap: { [key: string]: number } = {
+  "Domingo": 0,
+  "Lunes": 1,
+  "Martes": 2,
+  "Miércoles": 3,
+  "Jueves": 4,
+  "Viernes": 5,
+  "Sábado": 6,
+};
+
+
 export default function PageContent({ initialAnnouncements, initialColonias, initialClinics }: PageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
@@ -93,12 +104,19 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         const availabilityByClinic: { [key: string]: number } = {};
         const takenTimesByClinic: { [key: string]: string[] } = {};
 
-        for (const clinic of clinics) { // Use the static clinics data
+        for (const clinic of clinics) {
             const isWeekend = isSaturday(day) || isSunday(day);
-            if (isWeekend && !clinic.weekendBookingEnabled) {
+            const dayOfWeek = day.getDay();
+            
+            // Check for various unavailability conditions
+            const isDayOfAction = clinic.dayOfAction ? dayOfWeekMap[clinic.dayOfAction] === dayOfWeek : false;
+            const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
+            const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
+
+            if (isDayOfAction || isUnavailableDate || isWeekendAndNotEnabled) {
                 availabilityByClinic[clinic.id] = 0;
                 takenTimesByClinic[clinic.id] = [];
-                continue;
+                continue; // Skip to next clinic for this day
             }
 
             const maxSlots = clinic.dailySlots;
@@ -120,7 +138,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         });
       }
       setAvailability(availabilityResult);
-  }, [clinics]); // Depend on the static clinics data
+  }, [clinics]);
 
   React.useEffect(() => {
     async function fetchInitialData() {
@@ -193,16 +211,10 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   }
 
   const handleTimeSelect = (time: string) => {
-    const priorityPatients = [PatientType.Cronico, PatientType.Embarazada, PatientType.TerceraEdad];
     const slotIndex = allTimeSlots.indexOf(time);
 
-    if (priorityPatients.includes(patientType) && slotIndex >= 5) {
-        toast({ title: "Horario no prioritario", description: "Los pacientes prioritarios deben seleccionar uno de los primeros 5 horarios.", variant: "destructive"});
-        return;
-    }
-
-    if (patientType === PatientType.General && slotIndex < 5) {
-        toast({ title: "Horario prioritario", description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del sexto horario.", variant: "destructive"});
+    if (patientType === PatientType.General && slotIndex < 6) {
+        toast({ title: "Horario prioritario", description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del séptimo horario.", variant: "destructive"});
         return;
     }
     setSelectedTime(time);
@@ -354,7 +366,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                                         </SelectContent>
                                                     </Select>
                                                     <FormDescription className='pt-2'>
-                                                        Pacientes prioritarios (crónico, embarazada, 3ra edad) deben elegir los primeros 5 horarios.
+                                                        Pacientes generales solo pueden agendar después de los primeros 6 horarios del día.
                                                     </FormDescription>
                                                     <FormMessage />
                                                     </FormItem>

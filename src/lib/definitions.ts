@@ -47,6 +47,8 @@ export const ClinicSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
   weekendBookingEnabled: z.boolean(),
+  dayOfAction: z.enum(["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Ninguno"]).optional(),
+  unavailableDates: z.array(z.string()).optional(),
 });
 
 export type Clinic = z.infer<typeof ClinicSchema>;
