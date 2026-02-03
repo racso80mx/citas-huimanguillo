@@ -75,17 +75,37 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const generateTimeSlots = (clinic: Clinic | undefined): string[] => {
     if (!clinic) return [];
     const slots = [];
-    const [startHour] = clinic.startTime.split(':').map(Number);
-    const [endHour] = clinic.endTime.split(':').map(Number);
+    const [startHour, startMinute] = clinic.startTime.split(':').map(Number);
+    const [endHour, endMinute] = clinic.endTime.split(':').map(Number);
 
-    for (let hour = startHour; hour < endHour; hour++) {
-      slots.push(`${String(hour).padStart(2, '0')}:00`);
-      slots.push(`${String(hour).padStart(2, '0')}:30`);
+    let currentHour = startHour;
+    let currentMinute = startMinute;
+
+    while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+      slots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
+      
+      currentMinute += 30;
+      if (currentMinute >= 60) {
+        currentHour++;
+        currentMinute -= 60;
+      }
     }
-    return slots;
+    return slots.slice(0, clinic.dailySlots);
   };
 
   const fetchAvailability = React.useCallback(async (year: number, month: number) => {
+      const calculateSlotsInTimeRange = (startTime: string, endTime: string): number => {
+        if (!startTime || !endTime) return 0;
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+        const startDate = new Date(0);
+        startDate.setHours(startHour, startMinute, 0, 0);
+        const endDate = new Date(0);
+        endDate.setHours(endHour, endMinute, 0, 0);
+        const diffMinutes = (endDate.getTime() - startDate.getTime()) / 60000;
+        return Math.floor(diffMinutes / 30);
+      };
+
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
@@ -108,7 +128,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             const isWeekend = isSaturday(day) || isSunday(day);
             const dayOfWeek = day.getDay();
             
-            // Check for various unavailability conditions
             const isDayOfAction = clinic.dayOfAction ? dayOfWeekMap[clinic.dayOfAction] === dayOfWeek : false;
             const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
             const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
@@ -116,10 +135,11 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             if (isDayOfAction || isUnavailableDate || isWeekendAndNotEnabled) {
                 availabilityByClinic[clinic.id] = 0;
                 takenTimesByClinic[clinic.id] = [];
-                continue; // Skip to next clinic for this day
+                continue;
             }
 
-            const maxSlots = clinic.dailySlots;
+            const slotsInTimeRange = calculateSlotsInTimeRange(clinic.startTime, clinic.endTime);
+            const maxSlots = Math.min(clinic.dailySlots, slotsInTimeRange);
             const bookedAppointments = appointmentsOnDate.filter(
                 (app) => app.clinicId === clinic.id
             );
