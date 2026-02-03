@@ -2,10 +2,10 @@
 // Do not modify this file manually.
 
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: 'citamedicafacil.firebaseapp.com',
-  projectId: 'citamedicafacil',
-  storageBucket: 'citamedicafacil.appspot.com',
-  messagingSenderId: '1011296435123',
-  appId: '1:1011296435123:web:f8a7c2957b4b3b89b5a9c6',
+  projectId: 'citasfull-ok-22108253-af2f0',
+  appId: '1:821094072226:web:7ae864de2eb3f42debbcfb',
+  apiKey: 'AIzaSyDlHYibUZf-0zIiMDKXAM34vQggoye10YI',
+  authDomain: 'citasfull-ok-22108253-af2f0.firebaseapp.com',
+  measurementId: '',
+  messagingSenderId: '821094072226',
 };
