@@ -41,6 +41,7 @@ import {
   getUltrasoundSettings as dataGetUltrasoundSettings,
   getUltrasoundStudies as dataGetUltrasoundStudies,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
+  updateUltrasoundSettings as dataUpdateUltrasoundSettings,
 } from './data';
 
 import type {
@@ -74,7 +75,7 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 export async function saveNewAppointment(
   appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>
-): Promise<{ success: boolean; data?: Appointment; error?: string }> {
+): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
     const clinics = await dataGetClinics();
     const clinic = clinics.find(c => c.id === appointmentData.clinicId);
@@ -118,7 +119,7 @@ export async function saveNewAppointment(
       patientData
     );
     revalidatePath('/citas-medicas');
-    return { success: true, data: newAppointment };
+    return { success: true, data: { appointment: newAppointment, clinic: clinic } };
   } catch (e: any) {
     return { success: false, error: e.message || 'Error al guardar la cita.' };
   }
@@ -381,6 +382,7 @@ export async function updateClinics(clinics: Clinic[]) {
   if (result.success) {
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -390,6 +392,7 @@ export async function updateColonias(colonias: Colonia[]) {
   if (result.success) {
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -402,6 +405,7 @@ export async function updateAnnouncements(announcements: string[]) {
     revalidatePath('/rayos-x');
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -412,6 +416,7 @@ export async function updateLabSettings(settings: LabSettings) {
   if (result.success) {
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -421,6 +426,7 @@ export async function updateLabStudies(studies: LabStudy[]) {
   if (result.success) {
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -431,6 +437,7 @@ export async function updateXRaySettings(settings: XRaySettings) {
   if (result.success) {
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -440,6 +447,7 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
   if (result.success) {
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -450,6 +458,7 @@ export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
   if (result.success) {
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }
@@ -459,6 +468,7 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   if (result.success) {
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
+    revalidatePath('/reports');
   }
   return result;
 }

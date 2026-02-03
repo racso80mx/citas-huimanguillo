@@ -151,11 +151,11 @@ export function BookingForm({
       if (result.success && result.data) {
         toast({
             title: 'Cita Confirmada',
-            description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointmentNumber}`,
+            description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointment.appointmentNumber}`,
             duration: 10000,
         });
 
-        generateAppointmentPDF(result.data, selectedClinic);
+        generateAppointmentPDF(result.data.appointment, result.data.clinic);
         form.reset();
         onBookingSuccess();
       } else {
