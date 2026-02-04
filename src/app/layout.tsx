@@ -5,6 +5,7 @@ import { SiteFooter } from '@/components/layout/footer';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { PT_Sans } from 'next/font/google';
+import { getModuleSettings } from '@/lib/data';
 
 const ptSans = PT_Sans({
   subsets: ['latin'],
@@ -18,18 +19,19 @@ export const metadata: Metadata = {
     'Agenda tu cita médica de forma fácil y rápida en Huimanguillo, Tabasco.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const moduleSettings = await getModuleSettings();
   return (
     <html lang="es" suppressHydrationWarning>
       <body
         className={`${ptSans.variable} font-body antialiased min-h-screen bg-background flex flex-col`}
       >
         <FirebaseClientProvider>
-          <SiteHeader />
+          <SiteHeader moduleSettings={moduleSettings} />
           <main className="flex-1">{children}</main>
           <SiteFooter />
           <Toaster />

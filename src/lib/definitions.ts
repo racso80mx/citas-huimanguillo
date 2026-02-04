@@ -155,3 +155,10 @@ export type UltrasoundSettings = {
     weekendBookingEnabled: boolean;
     password?: string;
 }
+
+export type ModuleSettings = {
+  citasMedicasEnabled: boolean;
+  laboratorioEnabled: boolean;
+  rayosXEnabled: boolean;
+  ultrasoundEnabled: boolean;
+};

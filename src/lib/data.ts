@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
@@ -128,6 +128,19 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]): Promi
     return await writeJsonFile('ultrasound-studies.json', studies);
 }
 
+// ========== Module Settings ==========
+export async function getModuleSettings(): Promise<ModuleSettings> {
+    return await readJsonFile<ModuleSettings>('module-settings.json', {
+        citasMedicasEnabled: true,
+        laboratorioEnabled: true,
+        rayosXEnabled: true,
+        ultrasoundEnabled: true
+    });
+}
+
+export async function updateModuleSettings(settings: ModuleSettings): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('module-settings.json', settings);
+}
 
 // ========== Appointments ==========
 

@@ -43,6 +43,8 @@ import {
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
   updateUltrasoundSettings as dataUpdateUltrasoundSettings,
   updatePatient as dataUpdatePatient,
+  getModuleSettings as dataGetModuleSettings,
+  updateModuleSettings as dataUpdateModuleSettings,
 } from './data';
 
 import type {
@@ -59,6 +61,7 @@ import type {
   XRayAppointment,
   XRaySettings,
   XRayStudy,
+  ModuleSettings,
 } from './definitions';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -492,4 +495,17 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return result;
 }
 
-export { dataGetClinics as getClinics, dataGetColonias as getColonias, dataGetAnnouncements as getAnnouncements, dataGetLabSettings as getLabSettings, dataGetLabStudies as getLabStudies, dataGetXRaySettings as getXRaySettings, dataGetXRayStudies as getXRayStudies, dataGetUltrasoundSettings as getUltrasoundSettings, dataGetUltrasoundStudies as getUltrasoundStudies, dataGetAppointments as getAppointments, dataGetAppointmentsForClinic as getAppointmentsForClinic, dataGetLabAppointments as getLabAppointments, dataGetXRayAppointments as getXRayAppointments, dataGetUltrasoundAppointments as getUltrasoundAppointments };
+export async function updateModuleSettings(settings: ModuleSettings) {
+    const result = await dataUpdateModuleSettings(settings);
+    if (result.success) {
+        revalidatePath('/');
+        revalidatePath('/citas-medicas');
+        revalidatePath('/laboratorio');
+        revalidatePath('/rayos-x');
+        revalidatePath('/ultrasonidos');
+        revalidatePath('/admin');
+    }
+    return result;
+}
+
+export { dataGetClinics as getClinics, dataGetColonias as getColonias, dataGetAnnouncements as getAnnouncements, dataGetModuleSettings as getModuleSettings, dataGetLabSettings as getLabSettings, dataGetLabStudies as getLabStudies, dataGetXRaySettings as getXRaySettings, dataGetXRayStudies as getXRayStudies, dataGetUltrasoundSettings as getUltrasoundSettings, dataGetUltrasoundStudies as getUltrasoundStudies, dataGetAppointments as getAppointments, dataGetAppointmentsForClinic as getAppointmentsForClinic, dataGetLabAppointments as getLabAppointments, dataGetXRayAppointments as getXRayAppointments, dataGetUltrasoundAppointments as getUltrasoundAppointments };

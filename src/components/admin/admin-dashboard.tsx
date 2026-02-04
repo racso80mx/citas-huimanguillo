@@ -48,6 +48,7 @@ import { LabSettingsManager } from './lab-settings-manager';
 import { XRaySettingsManager } from './x-ray-settings-manager';
 import { UltrasoundSettingsManager } from './ultrasound-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ModuleManager } from './module-manager';
 
 
 type AdminDashboardProps = {
@@ -319,6 +320,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
         <TabsContent value="configuracion" className="mt-6">
             <div className="space-y-8">
+                <ModuleManager />
                 <div className="grid lg:grid-cols-2 gap-8">
                   <ClinicsManager />
                   <ColoniasManager />

@@ -7,8 +7,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
+import type { ModuleSettings } from '@/lib/definitions';
 
-export function SiteHeader() {
+export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings }) {
   const pathname = usePathname();
 
   return (
@@ -29,22 +30,25 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className={cn(
-              'transition-colors',
-              pathname === '/citas-medicas'
-                ? 'text-primary font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Link href="/citas-medicas">
-              <Home className="h-4 w-4 mr-2" />
-              Cita Médica
-            </Link>
-          </Button>
+          {moduleSettings.citasMedicasEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors',
+                pathname === '/citas-medicas'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/citas-medicas">
+                <Home className="h-4 w-4 mr-2" />
+                Cita Médica
+              </Link>
+            </Button>
+          )}
+          {moduleSettings.laboratorioEnabled && (
            <Button
             variant="ghost"
             size="sm"
@@ -61,38 +65,43 @@ export function SiteHeader() {
               Laboratorio
             </Link>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className={cn(
-              'transition-colors',
-              pathname === '/rayos-x'
-                ? 'text-primary font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Link href="/rayos-x">
-              <Stethoscope className="h-4 w-4 mr-2" />
-              Rayos X
-            </Link>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className={cn(
-              'transition-colors',
-              pathname === '/ultrasonidos'
-                ? 'text-primary font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Link href="/ultrasonidos">
-              <Waves className="h-4 w-4 mr-2" />
-              Ultrasonidos
-            </Link>
-          </Button>
+          )}
+          {moduleSettings.rayosXEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors',
+                pathname === '/rayos-x'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/rayos-x">
+                <Stethoscope className="h-4 w-4 mr-2" />
+                Rayos X
+              </Link>
+            </Button>
+          )}
+          {moduleSettings.ultrasoundEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors',
+                pathname === '/ultrasonidos'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/ultrasonidos">
+                <Waves className="h-4 w-4 mr-2" />
+                Ultrasonidos
+              </Link>
+            </Button>
+          )}
            <Button
             variant="ghost"
             size="sm"
