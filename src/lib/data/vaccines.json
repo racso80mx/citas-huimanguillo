@@ -29,7 +29,7 @@
     "applicationAge": "2, 4 y 12 meses",
     "sex": "Ambos",
     "description": "Neumonía y meningitis por neumococo",
-    "available": true
+    "available": false
   },
   {
     "id": "neumo-20",
@@ -69,7 +69,7 @@
     "applicationAge": "11 años (5º de primaria)",
     "sex": "Mujeres",
     "description": "Virus del Papiloma Humano",
-    "available": true
+    "available": false
   },
   {
     "id": "td",
@@ -109,6 +109,6 @@
     "applicationAge": "Refuerzos estacionales",
     "sex": "Ambos",
     "description": "Según grupos de riesgo",
-    "available": true
+    "available": false
   }
 ]

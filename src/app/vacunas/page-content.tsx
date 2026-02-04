@@ -49,7 +49,6 @@ export default function VaccinePageContent({
   const [isNewborn, setIsNewborn] = React.useState(false);
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
 
-  const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allVaccines] = React.useState<Vaccine[]>(initialVaccines);
   const [settings] = React.useState<VaccineSettings>(initialSettings);
   const [colonias] = React.useState<Colonia[]>(initialColonias);
@@ -58,6 +57,8 @@ export default function VaccinePageContent({
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
+
+  const availableVaccines = React.useMemo(() => allVaccines.filter(v => v.available), [allVaccines]);
 
   const getSlotsCount = (startTime: string, endTime: string, interval: number): number => {
     if (!startTime || !endTime) return 0;
@@ -327,7 +328,7 @@ export default function VaccinePageContent({
                         {isNewborn ? '3.' : '4.'} Selecciona la(s) Vacuna(s)
                     </h3>
                     <VaccineSelector
-                      allVaccines={allVaccines}
+                      allVaccines={availableVaccines}
                       onSelectionChange={handleVaccineChange}
                       selectedVaccines={selectedVaccines}
                     />

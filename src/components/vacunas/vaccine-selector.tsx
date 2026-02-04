@@ -23,7 +23,6 @@ export function VaccineSelector({
   selectedVaccines,
   onSelectionChange,
 }: VaccineSelectorProps) {
-  const availableVaccines = allVaccines.filter((v) => v.available);
 
   const handleVaccineToggle = (vaccine: Vaccine) => {
     const isSelected = selectedVaccines.some((v) => v.id === vaccine.id);
@@ -49,7 +48,7 @@ export function VaccineSelector({
       <CardContent>
         <ScrollArea className="h-72 w-full pr-4">
            <div className="space-y-4">
-            {availableVaccines.map((vaccine) => (
+            {allVaccines.map((vaccine) => (
               <div
                 key={vaccine.id}
                 className="flex items-start gap-4 p-2 rounded-md hover:bg-accent/50 cursor-pointer"
