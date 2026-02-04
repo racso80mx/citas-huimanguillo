@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
   CardContent,
@@ -12,11 +13,12 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateVaccineSettings, getVaccineSettings, updateVaccines, getVaccines } from '@/lib/actions';
-import { Loader2, Save, ShieldPlus, CalendarClock, Settings, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Save, ShieldPlus, CalendarClock, Settings, Eye, EyeOff, PlusCircle, Trash2 } from 'lucide-react';
 import type { VaccineSettings, Vaccine } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { ScrollArea } from '../ui/scroll-area';
+import { Textarea } from '../ui/textarea';
 
 export function VaccineSettingsManager() {
   const [settings, setSettings] = useState<VaccineSettings | null>(null);
@@ -58,14 +60,40 @@ export function VaccineSettingsManager() {
     }
   };
 
-  const handleVaccineAvailabilityChange = (id: string, available: boolean) => {
-      setVaccines(prev => prev.map(v => v.id === id ? {...v, available} : v));
-  }
+  const handleVaccineChange = (id: string, field: keyof Vaccine, value: string | boolean) => {
+    setVaccines(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
+  };
+  
+  const addVaccine = () => {
+    const newVaccine: Vaccine = { 
+        id: uuidv4(), 
+        name: '', 
+        applicationAge: '', 
+        sex: '', 
+        description: '', 
+        available: true 
+    };
+    setVaccines([...vaccines, newVaccine]);
+  };
+
+  const removeVaccine = (id: string) => {
+    setVaccines(vaccines.filter(v => v.id !== id));
+  };
 
   const handleSave = () => {
     if (!settings) return;
 
     startSavingTransition(async () => {
+      const validVaccines = vaccines.filter(v => v.name.trim() !== '' && v.description.trim() !== '');
+      if (validVaccines.length !== vaccines.length) {
+          toast({
+              title: 'Campos Requeridos',
+              description: 'El nombre y la descripción de la vacuna no pueden estar vacíos.',
+              variant: 'destructive',
+          });
+          return;
+      }
+      
       const results = await Promise.all([
           updateVaccineSettings(settings),
           updateVaccines(vaccines)
@@ -120,7 +148,7 @@ export function VaccineSettingsManager() {
           Gestiona los horarios, la disponibilidad y el catálogo de vacunas.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid md:grid-cols-2 gap-8">
+      <CardContent className="space-y-8">
         <div className="space-y-6">
             <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Citas y Horarios</h3>
              <div className='grid sm:grid-cols-3 gap-4'>
@@ -187,22 +215,38 @@ export function VaccineSettingsManager() {
             </div>
         </div>
          <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2"><ShieldPlus/> Vacunas Disponibles</h3>
-            <ScrollArea className="h-72 w-full rounded-md border p-4">
-              <div className="space-y-2">
-                {vaccines.map(vaccine => (
-                  <div key={vaccine.id} className="flex items-center justify-between">
-                    <Label htmlFor={`vaccine-${vaccine.id}`} className="flex-1">
-                      {vaccine.name}
-                    </Label>
-                    <Switch
-                      id={`vaccine-${vaccine.id}`}
-                      checked={vaccine.available}
-                      onCheckedChange={(checked) => handleVaccineAvailabilityChange(vaccine.id, checked)}
-                    />
-                  </div>
-                ))}
-              </div>
+            <h3 className="font-semibold text-lg flex items-center gap-2"><ShieldPlus/> Gestionar Vacunas</h3>
+            <ScrollArea className="h-72 w-full rounded-md border p-4 space-y-4">
+              {vaccines.map(vaccine => (
+                <div key={vaccine.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50">
+                    <Button variant="ghost" size="icon" onClick={() => removeVaccine(vaccine.id)} className="absolute top-2 right-2 h-6 w-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <div className="grid grid-cols-2 gap-4 items-center">
+                        <div className='space-y-2'>
+                            <Label htmlFor={`vac-name-${vaccine.id}`}>Nombre</Label>
+                            <Input id={`vac-name-${vaccine.id}`} value={vaccine.name} onChange={(e) => handleVaccineChange(vaccine.id, 'name', e.target.value)} placeholder="Ej. BCG"/>
+                        </div>
+                        <div className="flex items-center space-x-2 pt-6">
+                            <Switch id={`vac-available-${vaccine.id}`} checked={vaccine.available} onCheckedChange={(checked) => handleVaccineChange(vaccine.id, 'available', checked)} />
+                            <Label htmlFor={`vac-available-${vaccine.id}`}>Disponible</Label>
+                        </div>
+                    </div>
+                     <div className='grid grid-cols-2 gap-4'>
+                         <div className='space-y-2'>
+                            <Label htmlFor={`vac-age-${vaccine.id}`}>Edad de Aplicación</Label>
+                            <Input id={`vac-age-${vaccine.id}`} value={vaccine.applicationAge} onChange={(e) => handleVaccineChange(vaccine.id, 'applicationAge', e.target.value)} placeholder="Ej. Al nacer"/>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label htmlFor={`vac-sex-${vaccine.id}`}>Sexo</Label>
+                            <Input id={`vac-sex-${vaccine.id}`} value={vaccine.sex} onChange={(e) => handleVaccineChange(vaccine.id, 'sex', e.target.value)} placeholder="Ej. Ambos"/>
+                        </div>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`vac-desc-${vaccine.id}`}>Descripción / Protección</Label>
+                        <Textarea id={`vac-desc-${vaccine.id}`} value={vaccine.description} onChange={(e) => handleVaccineChange(vaccine.id, 'description', e.target.value)} placeholder="Protege contra..."/>
+                    </div>
+                </div>
+              ))}
+               <Button variant="outline" className="w-full mt-4" onClick={addVaccine}><PlusCircle className="mr-2 h-4 w-4" />Agregar Vacuna</Button>
             </ScrollArea>
         </div>
       </CardContent>

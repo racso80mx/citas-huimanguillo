@@ -45,7 +45,7 @@ export default function VaccinePageContent({
 }: VaccinePageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
-  const [selectedVaccine, setSelectedVaccine] = React.useState<Vaccine | undefined>();
+  const [selectedVaccines, setSelectedVaccines] = React.useState<Vaccine[]>([]);
   const [isNewborn, setIsNewborn] = React.useState(false);
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
 
@@ -167,7 +167,7 @@ export default function VaccinePageContent({
         );
         setSelectedDate(undefined);
         setSelectedTime(undefined);
-        setSelectedVaccine(undefined);
+        setSelectedVaccines([]);
         setIsNewborn(false);
         setSelectedColoniaId(undefined);
       } catch (error) {
@@ -194,11 +194,11 @@ export default function VaccinePageContent({
     }
     setSelectedDate(date);
     setSelectedTime(undefined);
-    setSelectedVaccine(undefined);
+    setSelectedVaccines([]);
   };
   
-  const handleVaccineSelect = (vaccine: Vaccine) => {
-    setSelectedVaccine(vaccine);
+  const handleVaccineChange = (vaccines: Vaccine[]) => {
+    setSelectedVaccines(vaccines);
   }
 
   const handleTimeSelect = (time: string) => {
@@ -324,19 +324,19 @@ export default function VaccinePageContent({
                  <div>
                     <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                         <ShieldPlus className="h-6 w-6" />
-                        {isNewborn ? '3.' : '4.'} Selecciona la Vacuna
+                        {isNewborn ? '3.' : '4.'} Selecciona la(s) Vacuna(s)
                     </h3>
                     <VaccineSelector
                       allVaccines={allVaccines}
-                      onVaccineSelect={handleVaccineSelect}
-                      selectedVaccine={selectedVaccine}
+                      onSelectionChange={handleVaccineChange}
+                      selectedVaccines={selectedVaccines}
                     />
                   </div>
               )}
             </div>
 
             <div className="flex flex-col gap-8">
-              {selectedDate && (isNewborn || selectedColoniaId) && selectedVaccine && (
+              {selectedDate && (isNewborn || selectedColoniaId) && selectedVaccines.length > 0 && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                     <Clock className="h-6 w-6" />
@@ -386,7 +386,7 @@ export default function VaccinePageContent({
                 <VaccineBookingForm
                   selectedDate={selectedDate}
                   selectedTime={selectedTime}
-                  selectedVaccine={selectedVaccine}
+                  selectedVaccines={selectedVaccines}
                   isNewborn={isNewborn}
                   clinicId={selectedClinic?.id}
                   onBookingSuccess={refreshData}

@@ -2,68 +2,87 @@
 import React from 'react';
 import type { Vaccine } from '@/lib/definitions';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-  SelectLabel
-} from '@/components/ui/select';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '../ui/card';
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { ScrollArea } from '../ui/scroll-area';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
 
 type VaccineSelectorProps = {
   allVaccines: Vaccine[];
-  onVaccineSelect: (vaccine: Vaccine) => void;
-  selectedVaccine: Vaccine | undefined;
+  selectedVaccines: Vaccine[];
+  onSelectionChange: (vaccines: Vaccine[]) => void;
 };
 
 export function VaccineSelector({
   allVaccines,
-  onVaccineSelect,
-  selectedVaccine
+  selectedVaccines,
+  onSelectionChange,
 }: VaccineSelectorProps) {
-    const availableVaccines = allVaccines.filter(v => v.available);
+  const availableVaccines = allVaccines.filter((v) => v.available);
 
-    const handleSelect = (vaccineId: string) => {
-        const vaccine = availableVaccines.find(v => v.id === vaccineId);
-        if (vaccine) {
-            onVaccineSelect(vaccine);
-        }
+  const handleVaccineToggle = (vaccine: Vaccine) => {
+    const isSelected = selectedVaccines.some((v) => v.id === vaccine.id);
+    if (isSelected) {
+      onSelectionChange(selectedVaccines.filter((v) => v.id !== vaccine.id));
+    } else {
+      onSelectionChange([...selectedVaccines, vaccine]);
     }
+  };
+  
+  const selectedCount = selectedVaccines.length;
 
   return (
-    <div>
-        <Select onValueChange={handleSelect} value={selectedVaccine?.id}>
-            <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecciona una vacuna..." />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectGroup>
-                    <SelectLabel>Vacunas Disponibles</SelectLabel>
-                    {availableVaccines.map(vaccine => (
-                        <SelectItem key={vaccine.id} value={vaccine.id}>{vaccine.name}</SelectItem>
-                    ))}
-                </SelectGroup>
-            </SelectContent>
-        </Select>
-        {selectedVaccine && (
-            <Card className="mt-4 bg-accent/30">
-                <CardHeader>
-                    <CardTitle className="text-lg">Información de la Vacuna</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                    <p><strong>Descripción:</strong> {selectedVaccine.description}</p>
-                    <p><strong>Edad de Aplicación:</strong> {selectedVaccine.applicationAge}</p>
-                    <p><strong>Sexo:</strong> {selectedVaccine.sex}</p>
-                </CardContent>
-            </Card>
-        )}
-    </div>
+    <Card>
+       <CardHeader>
+        <CardTitle>Catálogo de Vacunas</CardTitle>
+        <CardDescription>
+          Selecciona las vacunas que necesitas. Has seleccionado{' '}
+          <span className="font-bold text-primary">{selectedCount}</span>{' '}
+          vacuna(s).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-72 w-full pr-4">
+           <div className="space-y-4">
+            {availableVaccines.map((vaccine) => (
+              <div
+                key={vaccine.id}
+                className="flex items-start gap-4 p-2 rounded-md hover:bg-accent/50 cursor-pointer"
+                onClick={() => handleVaccineToggle(vaccine)}
+              >
+                <Checkbox
+                  id={vaccine.id}
+                  checked={selectedVaccines.some((v) => v.id === vaccine.id)}
+                  onCheckedChange={() => handleVaccineToggle(vaccine)}
+                  className="mt-1"
+                />
+                <div className="grid gap-1.5 leading-none flex-1">
+                  <Label
+                    htmlFor={vaccine.id}
+                    className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {vaccine.name}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Protege contra:</strong> {vaccine.description}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Edad:</strong> {vaccine.applicationAge}
+                  </p>
+                   <p className="text-sm text-muted-foreground">
+                    <strong>Sexo:</strong> {vaccine.sex}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 }

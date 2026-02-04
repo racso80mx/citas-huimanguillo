@@ -153,10 +153,12 @@
         "time": { "type": "string" },
         "isNewborn": { "type": "boolean" },
         "clinicId": { "type": "string" },
-        "vaccineId": { "type": "string" },
-        "vaccineName": { "type": "string" }
+        "vaccines": {
+          "type": "array",
+          "items": { "$ref": "#/entities/Vaccine" }
+        }
       },
-      "required": ["id", "appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccineId", "vaccineName"]
+      "required": ["id", "appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccines"]
     },
     "Clinic": {
         "title": "Clinic",

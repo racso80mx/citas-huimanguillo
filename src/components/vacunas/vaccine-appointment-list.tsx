@@ -9,11 +9,11 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { VaccineAppointment, Patient } from '@/lib/definitions';
+import type { VaccineAppointment, Patient, Vaccine } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, Pencil, Baby } from 'lucide-react';
+import { Trash2, Pencil, Baby, ShieldPlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { EditPatientForm } from '../admin/edit-patient-form';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 
 
 type VaccineAppointmentListProps = {
@@ -54,6 +55,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
   }
 
   return (
+    <TooltipProvider>
     <div className="border rounded-lg">
       <Table>
         <TableCaption>
@@ -66,7 +68,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
             <TableHead>Paciente</TableHead>
             <TableHead>CURP</TableHead>
             <TableHead>Teléfono</TableHead>
-            <TableHead>Vacuna</TableHead>
+            <TableHead>Vacunas</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
@@ -84,7 +86,21 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
               </TableCell>
               <TableCell>{app.patient?.curp || 'N/A'}</TableCell>
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
-              <TableCell>{app.vaccineName}</TableCell>
+              <TableCell>
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon">
+                           <ShieldPlus className="h-4 w-4" />
+                       </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p className='font-bold mb-2'>Vacunas Solicitadas:</p>
+                        <ul className='list-disc pl-4'>
+                            {app.vaccines.map(vaccine => <li key={vaccine.id}>{vaccine.name}</li>)}
+                        </ul>
+                    </TooltipContent>
+                </Tooltip>
+              </TableCell>
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>
@@ -141,5 +157,6 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
         </Dialog>
       )}
     </div>
+    </TooltipProvider>
   );
 }

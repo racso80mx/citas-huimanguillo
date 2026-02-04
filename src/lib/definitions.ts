@@ -76,14 +76,16 @@ export type Report = {
     cancelled: number;
 }
 
-export type LabStudy = {
-    id: string;
-    section: string;
-    name: string;
-    sampleType: string;
-    fastingHours: string;
-    available: boolean;
-}
+export const LabStudySchema = z.object({
+    id: z.string(),
+    section: z.string().min(1, 'La sección es requerida.'),
+    name: z.string().min(1, 'El nombre es requerido.'),
+    sampleType: z.string().min(1, 'El tipo de muestra es requerido.'),
+    fastingHours: z.string(),
+    available: z.boolean(),
+});
+export type LabStudy = z.infer<typeof LabStudySchema>;
+
 
 export type LabAppointment = {
     id: string;
@@ -156,14 +158,16 @@ export type UltrasoundSettings = {
     password?: string;
 }
 
-export type Vaccine = {
-  id: string;
-  name: string;
-  applicationAge: string;
-  sex: string;
-  description: string;
-  available: boolean;
-};
+export const VaccineSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "El nombre es requerido"),
+  applicationAge: z.string(),
+  sex: z.string(),
+  description: z.string().min(1, "La descripción es requerida."),
+  available: z.boolean(),
+});
+export type Vaccine = z.infer<typeof VaccineSchema>;
+
 
 export type VaccineAppointment = {
   id: string;
@@ -173,8 +177,7 @@ export type VaccineAppointment = {
   time: string;
   isNewborn: boolean;
   clinicId?: string; // Optional for newborns
-  vaccineId: string;
-  vaccineName: string;
+  vaccines: Vaccine[];
   patient: Patient; // Patient data might be partial for newborns
 };
 

@@ -11,7 +11,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment | VaccineAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string, vaccineName?: string };
+type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment | VaccineAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string };
 
 export function downloadExcel(data: EnrichedAppointment[], filename: string) {
     const isLab = filename.includes('laboratorio');
@@ -41,7 +41,7 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
                  baseData['Estudio'] = ultrasoundItem.studyName;
             } else if (isVaccine) {
                 const vaccineItem = item as VaccineAppointment;
-                baseData['Vacuna'] = vaccineItem.vaccineName;
+                baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
                 baseData['Recién Nacido'] = vaccineItem.isNewborn ? 'Sí' : 'No';
             } else {
                 const regularItem = item as Appointment;
@@ -287,9 +287,9 @@ export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppo
 }
 
 
-export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment, vaccine: Vaccine) {
+export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment) {
     const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, isNewborn } = appointmentData;
+    const { patient, date, time, appointmentNumber, isNewborn, vaccines } = appointmentData;
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
@@ -329,12 +329,13 @@ export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointmen
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Vacuna a Aplicar:', 20, 165);
+    doc.text('Vacunas a Aplicar:', 20, 165);
     
+    const tableBody = vaccines.map(v => [v.name, v.description, v.applicationAge]);
     doc.autoTable({
         startY: 175,
         head: [['Vacuna', 'Protege contra', 'Edad recomendada']],
-        body: [[vaccine.name, vaccine.description, vaccine.applicationAge]],
+        body: tableBody,
         theme: 'grid',
         headStyles: { fillColor: [0, 102, 51] }, // Primary color
     });

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useTransition } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
   CardContent,
@@ -12,7 +13,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateLabSettings, getLabSettings, updateLabStudies, getLabStudies } from '@/lib/actions';
-import { Loader2, Save, FlaskConical, CalendarClock, Settings, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Save, FlaskConical, CalendarClock, Settings, Eye, EyeOff, PlusCircle, Trash2 } from 'lucide-react';
 import type { LabSettings, LabStudy } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -58,15 +59,35 @@ export function LabSettingsManager() {
         setSettings({ ...settings, [field]: value });
     }
   };
+  
+  const handleStudyChange = (id: string, field: keyof LabStudy, value: string | boolean) => {
+    setStudies(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+  
+  const addStudy = () => {
+    const newStudy: LabStudy = { id: uuidv4(), name: '', section: 'Nueva Sección', sampleType: '', fastingHours: '', available: true };
+    setStudies([...studies, newStudy]);
+  };
 
-  const handleStudyAvailabilityChange = (id: string, available: boolean) => {
-      setStudies(prev => prev.map(s => s.id === id ? {...s, available} : s));
-  }
+  const removeStudy = (id: string) => {
+    setStudies(studies.filter(s => s.id !== id));
+  };
+
 
   const handleSave = () => {
     if (!settings) return;
 
     startSavingTransition(async () => {
+      const validStudies = studies.filter(s => s.name.trim() !== '' && s.section.trim() !== '');
+       if (validStudies.length !== studies.length) {
+          toast({
+              title: 'Campos Requeridos',
+              description: 'El nombre y la sección del estudio no pueden estar vacíos.',
+              variant: 'destructive',
+          });
+          return;
+      }
+
       const results = await Promise.all([
           updateLabSettings(settings),
           updateLabStudies(studies)
@@ -111,11 +132,6 @@ export function LabSettingsManager() {
     );
   }
 
-  const groupedStudies = studies.reduce((acc, study) => {
-    (acc[study.section] = acc[study.section] || []).push(study);
-    return acc;
-  }, {} as Record<string, LabStudy[]>);
-
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -123,10 +139,10 @@ export function LabSettingsManager() {
           <Settings /> Configuración de Laboratorio
         </CardTitle>
         <CardDescription>
-          Gestiona los horarios y la disponibilidad de los estudios.
+          Gestiona los horarios y el catálogo de estudios.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid md:grid-cols-2 gap-8">
+      <CardContent className="space-y-8">
         <div className="space-y-6">
             <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Citas y Horarios</h3>
             <div className='space-y-2'>
@@ -173,27 +189,38 @@ export function LabSettingsManager() {
             </div>
         </div>
          <div className="space-y-4">
-            <h3 className="font-semibold text-lg flex items-center gap-2"><FlaskConical/> Estudios Disponibles</h3>
-            <ScrollArea className="h-72 w-full rounded-md border p-4">
-              {Object.entries(groupedStudies).map(([section, studiesInSection]) => (
-                <div key={section} className="mb-4">
-                  <h4 className="font-bold text-md mb-2 sticky top-0 bg-background py-1">{section}</h4>
-                  <div className="space-y-2">
-                    {studiesInSection.map(study => (
-                      <div key={study.id} className="flex items-center justify-between">
-                        <Label htmlFor={`study-${study.id}`} className="flex-1">
-                          {study.name}
-                        </Label>
-                        <Switch
-                          id={`study-${study.id}`}
-                          checked={study.available}
-                          onCheckedChange={(checked) => handleStudyAvailabilityChange(study.id, checked)}
-                        />
+            <h3 className="font-semibold text-lg flex items-center gap-2"><FlaskConical/> Gestionar Estudios</h3>
+            <ScrollArea className="h-72 w-full rounded-md border p-4 space-y-4">
+              {studies.map(study => (
+                 <div key={study.id} className="p-4 border rounded-lg space-y-4 relative bg-background/50">
+                    <Button variant="ghost" size="icon" onClick={() => removeStudy(study.id)} className="absolute top-2 right-2 h-6 w-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                     <div className='grid grid-cols-2 gap-4'>
+                         <div className='space-y-2'>
+                            <Label htmlFor={`lab-name-${study.id}`}>Nombre</Label>
+                            <Input id={`lab-name-${study.id}`} value={study.name} onChange={(e) => handleStudyChange(study.id, 'name', e.target.value)} placeholder="Ej. Biometría Hemática"/>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label htmlFor={`lab-section-${study.id}`}>Sección</Label>
+                            <Input id={`lab-section-${study.id}`} value={study.section} onChange={(e) => handleStudyChange(study.id, 'section', e.target.value)} placeholder="Ej. Hematología"/>
+                        </div>
+                     </div>
+                     <div className='grid grid-cols-2 gap-4'>
+                         <div className='space-y-2'>
+                            <Label htmlFor={`lab-sample-${study.id}`}>Tipo de Muestra</Label>
+                            <Input id={`lab-sample-${study.id}`} value={study.sampleType} onChange={(e) => handleStudyChange(study.id, 'sampleType', e.target.value)} placeholder="Ej. Sangre venosa"/>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label htmlFor={`lab-fasting-${study.id}`}>Ayuno</Label>
+                            <Input id={`lab-fasting-${study.id}`} value={study.fastingHours} onChange={(e) => handleStudyChange(study.id, 'fastingHours', e.target.value)} placeholder="Ej. 8 horas"/>
+                        </div>
+                     </div>
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Switch id={`lab-available-${study.id}`} checked={study.available} onCheckedChange={(checked) => handleStudyChange(study.id, 'available', checked)} />
+                        <Label htmlFor={`lab-available-${study.id}`}>Disponible</Label>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                 </div>
               ))}
+              <Button variant="outline" className="w-full mt-4" onClick={addStudy}><PlusCircle className="mr-2 h-4 w-4" />Agregar Estudio</Button>
             </ScrollArea>
         </div>
       </CardContent>

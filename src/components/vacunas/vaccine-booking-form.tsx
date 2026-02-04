@@ -58,7 +58,7 @@ type BookingFormValues = z.infer<typeof formSchema>;
 type VaccineBookingFormProps = {
   selectedDate: Date | undefined;
   selectedTime: string | undefined;
-  selectedVaccine: Vaccine | undefined;
+  selectedVaccines: Vaccine[];
   isNewborn: boolean;
   clinicId?: string;
   onBookingSuccess: () => void;
@@ -67,7 +67,7 @@ type VaccineBookingFormProps = {
 export function VaccineBookingForm({
   selectedDate,
   selectedTime,
-  selectedVaccine,
+  selectedVaccines,
   isNewborn,
   clinicId,
   onBookingSuccess,
@@ -131,10 +131,10 @@ export function VaccineBookingForm({
 
 
   const onSubmit = (data: BookingFormValues) => {
-    if (!selectedDate || !selectedTime || !selectedVaccine) {
+    if (!selectedDate || !selectedTime || selectedVaccines.length === 0) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona fecha, vacuna y hora.',
+        description: 'Por favor, selecciona fecha, vacuna(s) y hora.',
         variant: 'destructive',
       });
       return;
@@ -165,8 +165,7 @@ export function VaccineBookingForm({
         time: selectedTime,
         isNewborn,
         clinicId,
-        vaccineId: selectedVaccine.id,
-        vaccineName: selectedVaccine.name,
+        vaccines: selectedVaccines,
       };
 
       const result = await saveNewVaccineAppointment(newAppointment, patientData);
@@ -178,7 +177,7 @@ export function VaccineBookingForm({
             duration: 10000,
         });
 
-        generateVaccineAppointmentPDF(result.data, selectedVaccine);
+        generateVaccineAppointmentPDF(result.data);
 
         form.reset();
         onBookingSuccess();
@@ -192,7 +191,7 @@ export function VaccineBookingForm({
     });
   };
   
-  if (!selectedDate || !selectedTime || !selectedVaccine || (!isNewborn && !clinicId)) {
+  if (!selectedDate || !selectedTime || selectedVaccines.length === 0 || (!isNewborn && !clinicId)) {
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>
