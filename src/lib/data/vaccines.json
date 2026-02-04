@@ -45,7 +45,7 @@
     "applicationAge": "2 y 4 meses",
     "sex": "Ambos",
     "description": "Diarreas graves por rotavirus",
-    "available": true
+    "available": false
   },
   {
     "id": "srp",
@@ -93,7 +93,7 @@
     "applicationAge": "Adolescentes sin SRP",
     "sex": "Ambos",
     "description": "Sarampión y Rubéola",
-    "available": true
+    "available": false
   },
   {
     "id": "influenza",
@@ -101,7 +101,7 @@
     "applicationAge": "Anual (desde 6 meses)",
     "sex": "Ambos",
     "description": "Influenza estacional",
-    "available": true
+    "available": false
   },
   {
     "id": "covid-19",

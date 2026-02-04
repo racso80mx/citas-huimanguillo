@@ -590,7 +590,6 @@ export async function rescheduleAppointment(
         }
         
         // Find the first available slot after the original time
-        const originalTimeIndex = limitedSlots.indexOf(originalTime);
         let nextAvailableSlot = availableSlots.find(slot => limitedSlots.indexOf(slot) > originalTimeIndex);
         
         // If no slot is found after, take the first available one
@@ -745,12 +744,47 @@ export async function restoreBackupData(backupData: any): Promise<{success: bool
     if (!backupData.patients || !backupData.appointments || !backupData.labAppointments || !backupData.xRayAppointments || !backupData.ultrasoundAppointments || !backupData.vaccineAppointments) {
       throw new Error('El archivo de respaldo tiene un formato incorrecto.');
     }
-    await writeJsonFile('patients.json', backupData.patients);
-    await writeJsonFile('appointments.json', backupData.appointments);
-    await writeJsonFile('lab-appointments.json', backupData.labAppointments);
-    await writeJsonFile('x-ray-appointments.json', backupData.xRayAppointments);
-    await writeJsonFile('ultrasound-appointments.json', backupData.ultrasoundAppointments);
-    await writeJsonFile('vaccine-appointments.json', backupData.vaccineAppointments);
+
+    const mergeAndDeduplicate = <T extends { id: string }>(existingData: T[], backupData: T[]): T[] => {
+        const combined = [...existingData, ...backupData];
+        const map = new Map<string, T>();
+        for (const item of combined) {
+            // Backup data should overwrite existing data if IDs are the same
+            map.set(item.id, item);
+        }
+        return Array.from(map.values());
+    };
+
+    // Patients
+    const existingPatients = await readJsonFile<Patient[]>('patients.json', []);
+    const mergedPatients = mergeAndDeduplicate(existingPatients, backupData.patients);
+    await writeJsonFile('patients.json', mergedPatients);
+    
+    // Appointments
+    const existingAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
+    const mergedAppointments = mergeAndDeduplicate(existingAppointments, backupData.appointments);
+    await writeJsonFile('appointments.json', mergedAppointments);
+
+    // Lab Appointments
+    const existingLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+    const mergedLabAppointments = mergeAndDeduplicate(existingLabAppointments, backupData.labAppointments);
+    await writeJsonFile('lab-appointments.json', mergedLabAppointments);
+    
+    // XRay Appointments
+    const existingXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+    const mergedXRayAppointments = mergeAndDeduplicate(existingXRayAppointments, backupData.xRayAppointments);
+    await writeJsonFile('x-ray-appointments.json', mergedXRayAppointments);
+
+    // Ultrasound Appointments
+    const existingUltrasoundAppointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+    const mergedUltrasoundAppointments = mergeAndDeduplicate(existingUltrasoundAppointments, backupData.ultrasoundAppointments);
+    await writeJsonFile('ultrasound-appointments.json', mergedUltrasoundAppointments);
+
+    // Vaccine Appointments
+    const existingVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+    const mergedVaccineAppointments = mergeAndDeduplicate(existingVaccineAppointments, backupData.vaccineAppointments);
+    await writeJsonFile('vaccine-appointments.json', mergedVaccineAppointments);
+
     return { success: true };
   } catch (e: any) {
     console.error('Failed to restore backup', e);

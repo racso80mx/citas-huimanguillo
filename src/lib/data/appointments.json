@@ -1,105 +1,5 @@
 [
   {
-    "appointmentNumber": "CITA-6384",
-    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
-    "date": "2025-12-17T06:00:00.000Z",
-    "time": "10:30",
-    "patientType": "General",
-    "id": "561eb4aa-2ecf-4141-bc66-c9929b1df889",
-    "patientId": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
-    "patient": {
-      "id": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
-      "curp": "GALO800711HTCPRS04",
-      "name": "ASDF",
-      "paternalLastName": "ASD",
-      "maternalLastName": "ASDF",
-      "sex": "Hombre",
-      "age": 45,
-      "birthState": "TABASCO",
-      "phoneNumber": "2341234123"
-    }
-  },
-  {
-    "appointmentNumber": "CITA-5030",
-    "clinicId": "NB1",
-    "date": "2025-12-23T06:00:00.000Z",
-    "time": "07:00",
-    "patientType": "Crónico",
-    "id": "a36d8f78-f4c8-4c3e-8380-09889599ae9f",
-    "patientId": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
-    "patient": {
-      "id": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
-      "curp": "GALO800711HTCPRS04",
-      "name": "OSCAR ALBERTO",
-      "paternalLastName": "GARCIA",
-      "maternalLastName": "LOPEZ",
-      "sex": "Hombre",
-      "age": 45,
-      "birthState": "TABASCO",
-      "phoneNumber": "9371162730"
-    }
-  },
-  {
-    "appointmentNumber": "CITA-4631",
-    "clinicId": "NB1",
-    "date": "2025-12-25T06:00:00.000Z",
-    "time": "07:00",
-    "patientType": "3ra Edad",
-    "id": "ef15a4bb-997d-4f4c-ba1b-6e62a14b1e97",
-    "patientId": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
-    "patient": {
-      "id": "6a07a45a-41f4-4f0f-8cda-b85cded547c0",
-      "curp": "GALO800711HTCPRS04",
-      "name": "OSCAR ALBERTO",
-      "paternalLastName": "GARCIA",
-      "maternalLastName": "LOPEZ",
-      "sex": "Hombre",
-      "age": 45,
-      "birthState": "TABASCO",
-      "phoneNumber": "9371162730"
-    }
-  },
-  {
-    "appointmentNumber": "CITA-6676",
-    "clinicId": "NB1",
-    "date": "2026-01-22T06:00:00.000Z",
-    "time": "11:00",
-    "patientType": "Crónico",
-    "id": "323ab0f7-0d5f-4d46-a611-e9d627d78bd4",
-    "patientId": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
-    "patient": {
-      "id": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
-      "curp": "CABJ730816HTCDRS02",
-      "name": "OSCAR ALBERTO",
-      "paternalLastName": "GARCIA",
-      "maternalLastName": "LOPEZ",
-      "sex": "Hombre",
-      "age": 52,
-      "birthState": "TABASCO",
-      "phoneNumber": "9371162730"
-    }
-  },
-  {
-    "appointmentNumber": "CITA-4700",
-    "clinicId": "NB1",
-    "date": "2026-01-26T06:00:00.000Z",
-    "time": "11:00",
-    "patientType": "General",
-    "id": "bd6dcac2-f799-4a13-bd59-6eb549bcad4c",
-    "patientId": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
-    "patient": {
-      "id": "e8ec77f1-35d7-499d-9586-d1ad26f7da68",
-      "curp": "CABJ730816HTCDRS02",
-      "name": "OSCAR ALBERTO",
-      "paternalLastName": "GARCIA",
-      "maternalLastName": "LOPEZ",
-      "sex": "Hombre",
-      "age": 52,
-      "birthState": "TABASCO",
-      "phoneNumber": "9371162730"
-    }
-  },
-  {
     "appointmentNumber": "CITA-0198",
     "clinicId": "5fc4b85d-7954-440b-bb64-372a90e5d9b3",
     "date": "2026-02-05T06:00:00.000Z",
@@ -161,5 +61,194 @@
       "phoneNumber": "9321161478"
     },
     "status": "Asistió"
+  },
+  {
+    "appointmentNumber": "CITA-7957",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "07:30",
+    "patientType": "3ra Edad",
+    "id": "9411b12b-8b90-4500-9a6d-c7da311a4c6d",
+    "patientId": "036a3d78-aa9a-4a12-9a1e-a8ae061fc5f8",
+    "patient": {
+      "id": "036a3d78-aa9a-4a12-9a1e-a8ae061fc5f8",
+      "curp": "AERA740808MTCLMN04",
+      "name": "MARIA ANTONIA ",
+      "paternalLastName": "ALEGRIA ",
+      "maternalLastName": "RAMOS ",
+      "sex": "Mujer",
+      "age": 51,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171196489"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-0323",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "08:00",
+    "patientType": "3ra Edad",
+    "id": "5ea4d65e-9e21-4431-8a8f-fbc067ac6d93",
+    "patientId": "b7219903-1227-46f3-97cf-e74f30dd2f1f",
+    "patient": {
+      "id": "b7219903-1227-46f3-97cf-e74f30dd2f1f",
+      "curp": "SARM630402MCWSNMR0",
+      "name": "MARTHA ",
+      "paternalLastName": "SANCHES ",
+      "maternalLastName": "RAMIRES ",
+      "sex": "Mujer",
+      "age": 62,
+      "birthState": "NACIDO EN EL EXTRANJERO",
+      "phoneNumber": "9171098975"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-2531",
+    "clinicId": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "08:00",
+    "patientType": "3ra Edad",
+    "id": "e8b29271-88eb-4080-851e-4e199f73c9fc",
+    "patientId": "5688e1ec-1c11-48af-8fec-3cb5c5c3e4d1",
+    "patient": {
+      "id": "5688e1ec-1c11-48af-8fec-3cb5c5c3e4d1",
+      "curp": "SARV751209MTCRMR10",
+      "name": "VERONICA ",
+      "paternalLastName": "SARABIA ",
+      "maternalLastName": "RAMIMIRES ",
+      "sex": "Mujer",
+      "age": 50,
+      "birthState": "TABASCO",
+      "phoneNumber": "9933948393"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-4915",
+    "clinicId": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "08:30",
+    "patientType": "Crónico",
+    "id": "731168ad-e7e4-4639-8d59-28e59687d61d",
+    "patientId": "cecf15d2-ce71-437f-bb88-a3d4b0e1d26f",
+    "patient": {
+      "id": "cecf15d2-ce71-437f-bb88-a3d4b0e1d26f",
+      "curp": "HEGA740824HTCRRD07",
+      "name": "ADOLFO ",
+      "paternalLastName": "HERNANDES ",
+      "maternalLastName": "GARDUZA ",
+      "sex": "Hombre",
+      "age": 51,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171438479"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-7915",
+    "clinicId": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "09:00",
+    "patientType": "3ra Edad",
+    "id": "ad00e7c0-a4f2-4f12-a9f8-101ac3caf896",
+    "patientId": "f1ae58c6-e742-4dae-9958-a0d8e38f569b",
+    "patient": {
+      "id": "f1ae58c6-e742-4dae-9958-a0d8e38f569b",
+      "curp": "TOCC650927MTCRMR02",
+      "name": "MARIA CRISTINA ",
+      "paternalLastName": "TORRES ",
+      "maternalLastName": "CAMPOS ",
+      "sex": "Mujer",
+      "age": 60,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171405276"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-1426",
+    "clinicId": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "11:00",
+    "patientType": "General",
+    "id": "e05f7aa3-e2ff-4149-a8e4-db0bff9db7d4",
+    "patientId": "0f15f098-62dc-4779-961f-a51ba995494c",
+    "patient": {
+      "id": "0f15f098-62dc-4779-961f-a51ba995494c",
+      "curp": "PEGM200128MTCDRXA0",
+      "name": "MIA NAHOMI ",
+      "paternalLastName": "PEDRASA ",
+      "maternalLastName": "GARCIA ",
+      "sex": "Mujer",
+      "age": 6,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171148464"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-6242",
+    "clinicId": "2bd205fe-98eb-4234-a751-b4c7b533f16f",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "09:00",
+    "patientType": "Crónico",
+    "id": "938a9518-64bc-44fc-b7ae-df21462bfecd",
+    "patientId": "c9129386-fc6b-41e6-9200-9d74dc5a50e9",
+    "patient": {
+      "id": "c9129386-fc6b-41e6-9200-9d74dc5a50e9",
+      "curp": "PETE561126HCSRRR17",
+      "name": "ERNESTO ",
+      "paternalLastName": "PEREZ ",
+      "maternalLastName": "TORRES",
+      "sex": "Hombre",
+      "age": 69,
+      "birthState": "CHIAPAS",
+      "phoneNumber": "9171367591"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-7266",
+    "clinicId": "2bd205fe-98eb-4234-a751-b4c7b533f16f",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "09:30",
+    "patientType": "Crónico",
+    "id": "55357164-02c6-47d0-91cb-fc5b1447b6d3",
+    "patientId": "4a01d715-de61-444d-b0f9-ad9e1e74eb85",
+    "patient": {
+      "id": "4a01d715-de61-444d-b0f9-ad9e1e74eb85",
+      "curp": "LORB560104HTCPML00",
+      "name": "BALDEMAR",
+      "paternalLastName": "LOPES ",
+      "maternalLastName": "RAMOS ",
+      "sex": "Hombre",
+      "age": 70,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171659555"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-9610",
+    "clinicId": "5ab6735b-f2b6-48ea-8538-f27a1bb20b23",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "08:00",
+    "patientType": "Crónico",
+    "id": "e2b10cec-2d8b-4a32-9fcb-01272d77c8e1",
+    "patientId": "26381006-6441-40ce-b7fd-8ddbb2b43a8a",
+    "patient": {
+      "id": "26381006-6441-40ce-b7fd-8ddbb2b43a8a",
+      "curp": "ROOJ610723HTCSLL05",
+      "name": "JULIO BERNE ",
+      "paternalLastName": "ROSELLO",
+      "maternalLastName": "OLIVA",
+      "sex": "Hombre",
+      "age": 64,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171075708"
+    },
+    "status": "Agendada"
   }
 ]

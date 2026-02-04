@@ -1,1 +1,63 @@
-[]
+[
+  {
+    "appointmentNumber": "VAC-45811529",
+    "date": "2026-02-05T06:00:00.000Z",
+    "time": "09:20",
+    "isNewborn": true,
+    "vaccines": [
+      {
+        "id": "influenza",
+        "name": "Influenza",
+        "applicationAge": "Anual (desde 6 meses)",
+        "sex": "Ambos",
+        "description": "Influenza estacional",
+        "available": true
+      }
+    ],
+    "id": "f44355c5-6223-4be6-801b-7b7a5c8f0f41",
+    "patientId": "1581aac4-c7c6-47ef-a865-87c9756f8674",
+    "patient": {
+      "id": "1581aac4-c7c6-47ef-a865-87c9756f8674",
+      "curp": "RN-741780C8-938C-4997-9591-23837DB75CF5",
+      "name": "THIAGO ",
+      "paternalLastName": "Garcia",
+      "maternalLastName": "AGUILAR",
+      "sex": "Hombre",
+      "age": 1,
+      "birthState": "No especificado",
+      "phoneNumber": "5534437749"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "VAC-7A174329",
+    "date": "2026-02-12T06:00:00.000Z",
+    "time": "10:30",
+    "isNewborn": false,
+    "clinicId": "2bd205fe-98eb-4234-a751-b4c7b533f16f",
+    "vaccines": [
+      {
+        "id": "srp",
+        "name": "SRP",
+        "applicationAge": "12 y 18 meses (o 6 años)",
+        "sex": "Ambos",
+        "description": "Sarampión, Rubéola y Parotiditis",
+        "available": true
+      }
+    ],
+    "id": "b601acda-d4e7-43e8-8d4f-d83142bbc8ad",
+    "patientId": "56a0e167-bceb-4f15-b0a1-a460096e98a6",
+    "patient": {
+      "id": "56a0e167-bceb-4f15-b0a1-a460096e98a6",
+      "curp": "POBG131010MTCNTRA1",
+      "name": "Grecia Paulina",
+      "paternalLastName": "Pons",
+      "maternalLastName": "Baqueiro",
+      "sex": "Mujer",
+      "age": 12,
+      "birthState": "TABASCO",
+      "phoneNumber": "9934370236"
+    },
+    "status": "Agendada"
+  }
+]
