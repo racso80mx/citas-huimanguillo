@@ -349,15 +349,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         <TabsContent value="configuracion" className="mt-6">
             <div className="space-y-8">
                 <ModuleManager />
-                <div className="grid lg:grid-cols-2 gap-8">
-                  <ClinicsManager />
-                  <ColoniasManager />
-                </div>
+                <ColoniasManager />
                 <AnnouncementsManager />
             </div>
         </TabsContent>
 
-        <TabsContent value="citas" className="mt-6">
+        <TabsContent value="citas" className="mt-6 space-y-8">
             <Card className="w-full shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle>
@@ -389,6 +386,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </CardContent>
             </Card>
+            <ClinicsManager />
         </TabsContent>
 
         <TabsContent value="laboratorio" className="mt-6 space-y-8">
