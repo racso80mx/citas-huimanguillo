@@ -4,10 +4,12 @@ import {
   getLabAppointments,
   getXRayAppointments,
   getUltrasoundAppointments,
+  getVaccineAppointments,
   deleteAppointment,
   deleteLabAppointment,
   deleteXRayAppointment,
   deleteUltrasoundAppointment,
+  deleteVaccineAppointment,
   getAppointmentsForClinic,
 } from './actions';
 
@@ -16,9 +18,11 @@ export {
   getLabAppointments,
   getXRayAppointments,
   getUltrasoundAppointments,
+  getVaccineAppointments,
   deleteAppointment,
   deleteLabAppointment,
   deleteXRayAppointment,
   deleteUltrasoundAppointment,
+  deleteVaccineAppointment,
   getAppointmentsForClinic,
 };

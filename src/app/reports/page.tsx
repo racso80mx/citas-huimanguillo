@@ -1,7 +1,7 @@
 'use client';
-import { useState, useEffect, useTransition } from 'react';
-import type { Clinic, XRaySettings, UltrasoundSettings, LabSettings } from '@/lib/definitions';
-import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, getClinics } from '@/lib/actions';
+import { useState, useEffect } from 'react';
+import type { Clinic } from '@/lib/definitions';
+import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, verifyVaccinePassword, getClinics } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,7 +13,7 @@ import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 
-type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio';
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
 export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -71,6 +71,9 @@ export default function ReportsPage() {
     } else if (selectedReportType === 'laboratorio') {
         result = await verifyLabPassword(password);
         entityToAuth = { id: 'laboratorio', name: 'Laboratorio', doctorName: 'Responsable de Laboratorio' };
+    } else if (selectedReportType === 'vacunas') {
+        result = await verifyVaccinePassword(password);
+        entityToAuth = { id: 'vacunas', name: 'Vacunación', doctorName: 'Responsable de Vacunación' };
     }
 
     if (result?.success && entityToAuth) {
@@ -147,6 +150,7 @@ export default function ReportsPage() {
                         <SelectItem value="laboratorio">Laboratorio</SelectItem>
                         <SelectItem value="x-ray">Rayos X</SelectItem>
                         <SelectItem value="ultrasound">Ultrasonidos</SelectItem>
+                        <SelectItem value="vacunas">Vacunas</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

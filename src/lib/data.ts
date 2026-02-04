@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
@@ -128,13 +128,37 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]): Promi
     return await writeJsonFile('ultrasound-studies.json', studies);
 }
 
+// ========== Vaccine Settings & Vaccines ==========
+export async function getVaccineSettings(): Promise<VaccineSettings> {
+    return await readJsonFile<VaccineSettings>('vaccine-settings.json', {
+        dailySlots: 30,
+        startTime: "08:00",
+        endTime: "13:00",
+        weekendBookingEnabled: false,
+        password: "vacunas"
+    });
+}
+
+export async function updateVaccineSettings(settings: VaccineSettings): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('vaccine-settings.json', settings);
+}
+
+export async function getVaccines(): Promise<Vaccine[]> {
+    return await readJsonFile<Vaccine[]>('vaccines.json', []);
+}
+
+export async function updateVaccines(vaccines: Vaccine[]): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('vaccines.json', vaccines);
+}
+
 // ========== Module Settings ==========
 export async function getModuleSettings(): Promise<ModuleSettings> {
     return await readJsonFile<ModuleSettings>('module-settings.json', {
         citasMedicasEnabled: true,
         laboratorioEnabled: true,
         rayosXEnabled: true,
-        ultrasoundEnabled: true
+        ultrasoundEnabled: true,
+        vacunasEnabled: true,
     });
 }
 
@@ -359,29 +383,62 @@ export async function deleteUltrasoundAppointment(id: string): Promise<void> {
     await writeJsonFile('ultrasound-appointments.json', updatedAppointments);
 }
 
+// ========== Vaccine Appointments ==========
+export async function getVaccineAppointments(): Promise<(VaccineAppointment & { patient: Patient })[]> {
+    const appointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+    return await enrichAppointmentsWithPatients(appointments);
+}
+
+export async function getVaccineAppointmentsByDate(date: Date): Promise<(VaccineAppointment & { patient: Patient })[]> {
+    const appointments = await getVaccineAppointments();
+    const dateString = date.toISOString().split('T')[0];
+    return appointments.filter(app => app.date.startsWith(dateString));
+}
+
+export async function saveVaccineAppointment(
+  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>,
+): Promise<VaccineAppointment> {
+  const patients = await readJsonFile<Patient[]>('patients.json', []);
+  const appointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+
+  let patient: Patient | undefined;
+  if (!appointmentData.isNewborn) {
+      patient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
+  }
+
+  if (!patient) {
+      patient = { id: uuidv4(), ...patientData };
+      await writeJsonFile('patients.json', [...patients, patient]);
+  } else if (!appointmentData.isNewborn) { // If patient exists and not newborn, update their info
+      const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
+      await writeJsonFile('patients.json', updatedPatients);
+      patient = { ...patient, ...patientData };
+  }
+
+  const newAppointment: VaccineAppointment = {
+      ...appointmentData,
+      id: uuidv4(),
+      patientId: patient.id,
+      patient: patient,
+  };
+  
+  await writeJsonFile('vaccine-appointments.json', [...appointments, newAppointment]);
+
+  return newAppointment;
+}
+
+export async function deleteVaccineAppointment(id: string): Promise<void> {
+    const appointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+    const updatedAppointments = appointments.filter(app => app.id !== id);
+    await writeJsonFile('vaccine-appointments.json', updatedAppointments);
+}
+
 // ========== Universal Patient Search ==========
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {
     const upperCurp = curp.toUpperCase();
-    
-    // Combine all appointments from all sources
-    const allAppointments = [
-        ...(await getAppointments()),
-        ...(await getLabAppointments()),
-        ...(await getXRayAppointments()),
-        ...(await getUltrasoundAppointments()),
-    ];
-
-    // Filter for the specific CURP and sort by date to find the most recent
-    const patientAppointments = allAppointments
-        .filter(app => app.patient.curp.toUpperCase() === upperCurp)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    // Return the patient data from the most recent appointment
-    if (patientAppointments.length > 0) {
-        return patientAppointments[0].patient;
-    }
-
-    return null;
+    const patients = await readJsonFile<Patient[]>('patients.json', []);
+    return patients.find(p => p.curp.toUpperCase() === upperCurp) || null;
 }
 
 export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>): Promise<{ success: boolean, data?: Patient, message?: string }> {
@@ -466,6 +523,19 @@ export async function verifyUltrasoundPassword(passwordAttempt: string): Promise
         return { isValid: false, error: 'La contraseña es incorrecta.' };
     } catch (error) {
         console.error('Error verifying Ultrasound password', error);
+        return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
+    }
+}
+
+export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {
+    try {
+        const settings = await getVaccineSettings();
+        if (settings.password === passwordAttempt) {
+            return { isValid: true };
+        }
+        return { isValid: false, error: 'La contraseña es incorrecta.' };
+    } catch (error) {
+        console.error('Error verifying Vaccine password', error);
         return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
     }
 }

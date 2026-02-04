@@ -127,6 +127,37 @@
         },
         "required": ["id", "name", "indications", "available"]
     },
+    "Vaccine": {
+        "title": "Vaccine",
+        "type": "object",
+        "description": "Represents a single vaccine.",
+        "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "applicationAge": { "type": "string" },
+            "sex": { "type": "string" },
+            "description": { "type": "string" },
+            "available": { "type": "boolean" }
+        },
+        "required": ["id", "name", "applicationAge", "sex", "description", "available"]
+    },
+    "VaccineAppointment": {
+      "title": "Vaccine Appointment",
+      "type": "object",
+      "description": "Represents a scheduled vaccination appointment.",
+      "properties": {
+        "id": { "type": "string" },
+        "appointmentNumber": { "type": "string" },
+        "patientId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "time": { "type": "string" },
+        "isNewborn": { "type": "boolean" },
+        "clinicId": { "type": "string" },
+        "vaccineId": { "type": "string" },
+        "vaccineName": { "type": "string" }
+      },
+      "required": ["id", "appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccineId", "vaccineName"]
+    },
     "Clinic": {
         "title": "Clinic",
         "type": "object",
@@ -229,6 +260,13 @@
         "definition": {
             "entityName": "UltrasoundAppointment",
             "schema": { "$ref": "#/entities/UltrasoundAppointment" }
+        }
+      },
+       {
+        "path": "/vaccine-appointments/{vaccineAppointmentId}",
+        "definition": {
+            "entityName": "VaccineAppointment",
+            "schema": { "$ref": "#/entities/VaccineAppointment" }
         }
       },
       {

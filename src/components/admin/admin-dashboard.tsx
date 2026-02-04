@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment } from '@/lib/definitions';
-import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment } from '@/lib/actions';
-import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getClinics, getColonias } from '@/lib/data';
+import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
+import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment } from '@/lib/actions';
+import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics, getColonias } from '@/lib/data';
 import {
   Card,
   CardHeader,
@@ -15,6 +15,7 @@ import { AppointmentList } from '../appointment-list';
 import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
 import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
+import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
 import {
   LogOut,
   Download,
@@ -47,6 +48,7 @@ import { ColoniasManager } from './colonias-manager';
 import { LabSettingsManager } from './lab-settings-manager';
 import { XRaySettingsManager } from './x-ray-settings-manager';
 import { UltrasoundSettingsManager } from './ultrasound-settings-manager';
+import { VaccineSettingsManager } from './vaccine-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
 
@@ -62,6 +64,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [allLabAppointments, setAllLabAppointments] = useState<LabAppointment[]>([]);
   const [allXRayAppointments, setAllXRayAppointments] = useState<XRayAppointment[]>([]);
   const [allUltrasoundAppointments, setAllUltrasoundAppointments] = useState<UltrasoundAppointment[]>([]);
+  const [allVaccineAppointments, setAllVaccineAppointments] = useState<VaccineAppointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
 
@@ -79,6 +82,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           labAppointmentsData,
           xRayAppointmentsData,
           ultrasoundAppointmentsData,
+          vaccineAppointmentsData,
           clinicsData,
           coloniasData,
         ] = await Promise.all([
@@ -86,6 +90,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           getLabAppointments(),
           getXRayAppointments(),
           getUltrasoundAppointments(),
+          getVaccineAppointments(),
           getClinics(),
           getColonias(),
         ]);
@@ -93,6 +98,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         setAllLabAppointments(labAppointmentsData);
         setAllXRayAppointments(xRayAppointmentsData);
         setAllUltrasoundAppointments(ultrasoundAppointmentsData);
+        setAllVaccineAppointments(vaccineAppointmentsData);
         setClinics(clinicsData);
         setColonias(coloniasData);
       } catch (error) {
@@ -165,6 +171,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [activeFilter, dateRange, allLabAppointments]);
   const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [activeFilter, dateRange, allXRayAppointments]);
   const ultrasoundAppointmentsToDisplay = useMemo(() => getFilteredData(allUltrasoundAppointments), [activeFilter, dateRange, allUltrasoundAppointments]);
+  const vaccineAppointmentsToDisplay = useMemo(() => getFilteredData(allVaccineAppointments), [activeFilter, dateRange, allVaccineAppointments]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
@@ -188,6 +195,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     } else if (activeTab === 'ultrasonidos') {
         dataToDownload = ultrasoundAppointmentsToDisplay;
         filename = 'citas_ultrasonidos';
+    } else if (activeTab === 'vacunas') {
+        dataToDownload = vaccineAppointmentsToDisplay;
+        filename = 'citas_vacunas';
     }
 
 
@@ -280,6 +290,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       });
     }
   };
+  
+  const handleVaccineDelete = async (id: string) => {
+    try {
+      await deleteVaccineAppointment(id);
+      toast({
+        title: 'Cita de Vacunación Eliminada',
+        description: 'La cita ha sido eliminada.',
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la cita de vacunación.',
+        variant: 'destructive',
+      });
+    }
+  };
 
 
   return (
@@ -310,12 +337,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
           <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
           <TabsTrigger value="rayos-x">Rayos X</TabsTrigger>
           <TabsTrigger value="ultrasonidos">Ultrasonidos</TabsTrigger>
+          <TabsTrigger value="vacunas">Vacunas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="configuracion" className="mt-6">
@@ -330,7 +358,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <LabSettingsManager />
                   <XRaySettingsManager />
                 </div>
-                <UltrasoundSettingsManager />
+                <div className="grid lg:grid-cols-2 gap-8">
+                  <UltrasoundSettingsManager />
+                  <VaccineSettingsManager />
+                </div>
             </div>
         </TabsContent>
 
@@ -465,6 +496,40 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     </div>
                   ) : (
                     <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} onEditSuccess={fetchData} isAdmin />
+                  )}
+                </CardContent>
+            </Card>
+        </TabsContent>
+
+        <TabsContent value="vacunas">
+           <Card className="w-full shadow-lg mt-6">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Vacunación</CardTitle>
+                  <div className="flex flex-wrap items-center gap-2 pt-4">
+                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button id="date-vaccine" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                        </PopoverContent>
+                    </Popover>
+                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isPending ? (
+                    <div className="flex justify-center items-center h-40">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                    </div>
+                  ) : (
+                    <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={handleVaccineDelete} onEditSuccess={fetchData} isAdmin />
                   )}
                 </CardContent>
             </Card>

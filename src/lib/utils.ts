@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy } from "./definitions";
+import { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine } from "./definitions";
 import * as xlsx from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -11,16 +11,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string };
+type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment | VaccineAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string, vaccineName?: string };
 
 export function downloadExcel(data: EnrichedAppointment[], filename: string) {
     const isLab = filename.includes('laboratorio');
     const isXRay = filename.includes('rayos_x');
     const isUltrasound = filename.includes('ultrasonidos');
+    const isVaccine = filename.includes('vacunas');
     
     const worksheetData = data.map(
         (item) => {
-            const baseData = {
+            const baseData: any = {
                 'Folio': item.appointmentNumber,
                 'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
                 'Hora': item.time,
@@ -31,30 +32,23 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 
             if (isLab) {
                 const labItem = item as LabAppointment;
-                return {
-                    ...baseData,
-                    'Estudios': labItem.studies.map(s => s.name).join(', '),
-                };
+                baseData['Estudios'] = labItem.studies.map(s => s.name).join(', ');
             } else if (isXRay) {
                  const xrayItem = item as XRayAppointment;
-                 return {
-                     ...baseData,
-                     'Estudio': xrayItem.studyName,
-                 }
+                 baseData['Estudio'] = xrayItem.studyName;
             } else if (isUltrasound) {
                  const ultrasoundItem = item as UltrasoundAppointment;
-                 return {
-                     ...baseData,
-                     'Estudio': ultrasoundItem.studyName,
-                 }
+                 baseData['Estudio'] = ultrasoundItem.studyName;
+            } else if (isVaccine) {
+                const vaccineItem = item as VaccineAppointment;
+                baseData['Vacuna'] = vaccineItem.vaccineName;
+                baseData['Recién Nacido'] = vaccineItem.isNewborn ? 'Sí' : 'No';
             } else {
                 const regularItem = item as Appointment;
-                return {
-                    ...baseData,
-                    'Núcleo': (item as any).clinicName,
-                    'Tipo Paciente': regularItem.patientType,
-                }
+                baseData['Núcleo'] = (item as any).clinicName;
+                baseData['Tipo Paciente'] = regularItem.patientType;
             }
+            return baseData;
         }
     );
 

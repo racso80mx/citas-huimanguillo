@@ -1,0 +1,114 @@
+[
+  {
+    "id": "bcg",
+    "name": "BCG",
+    "applicationAge": "Al nacer (Dosis única)",
+    "sex": "Ambos",
+    "description": "Tuberculosis (formas graves)",
+    "available": true
+  },
+  {
+    "id": "hep-b",
+    "name": "Hepatitis B",
+    "applicationAge": "Al nacer, 2 y 6 meses",
+    "sex": "Ambos",
+    "description": "Infección por Hepatitis B",
+    "available": true
+  },
+  {
+    "id": "hexavalente",
+    "name": "Hexavalente",
+    "applicationAge": "2, 4, 6 y 18 meses",
+    "sex": "Ambos",
+    "description": "Difteria, Tétanos, Tos ferina, Hep B, Polio e Hib",
+    "available": true
+  },
+  {
+    "id": "neumo-13",
+    "name": "Neumo 13",
+    "applicationAge": "2, 4 y 12 meses",
+    "sex": "Ambos",
+    "description": "Neumonía y meningitis por neumococo",
+    "available": true
+  },
+  {
+    "id": "neumo-20",
+    "name": "Neumo 20",
+    "applicationAge": "Adultos 60+ (o factores de riesgo)",
+    "sex": "Ambos",
+    "description": "Protección ampliada contra neumococo",
+    "available": true
+  },
+  {
+    "id": "rotavirus",
+    "name": "Rotavirus",
+    "applicationAge": "2 y 4 meses",
+    "sex": "Ambos",
+    "description": "Diarreas graves por rotavirus",
+    "available": true
+  },
+  {
+    "id": "srp",
+    "name": "SRP",
+    "applicationAge": "12 y 18 meses (o 6 años)",
+    "sex": "Ambos",
+    "description": "Sarampión, Rubéola y Parotiditis",
+    "available": true
+  },
+  {
+    "id": "dpt",
+    "name": "DPT",
+    "applicationAge": "4 años (Refuerzo)",
+    "sex": "Ambos",
+    "description": "Difteria, Tétanos y Tos ferina",
+    "available": true
+  },
+  {
+    "id": "vph",
+    "name": "VPH",
+    "applicationAge": "11 años (5º de primaria)",
+    "sex": "Mujeres",
+    "description": "Virus del Papiloma Humano",
+    "available": true
+  },
+  {
+    "id": "td",
+    "name": "TD",
+    "applicationAge": "Cada 10 años (desde los 15)",
+    "sex": "Ambos",
+    "description": "Tétanos y Difteria",
+    "available": true
+  },
+  {
+    "id": "tdpa",
+    "name": "TDPA",
+    "applicationAge": "Embarazo (Semana 20+)",
+    "sex": "Mujeres",
+    "description": "Tétanos, Difteria y Tos ferina acelular",
+    "available": true
+  },
+  {
+    "id": "sr",
+    "name": "SR",
+    "applicationAge": "Adolescentes sin SRP",
+    "sex": "Ambos",
+    "description": "Sarampión y Rubéola",
+    "available": true
+  },
+  {
+    "id": "influenza",
+    "name": "Influenza",
+    "applicationAge": "Anual (desde 6 meses)",
+    "sex": "Ambos",
+    "description": "Influenza estacional",
+    "available": true
+  },
+  {
+    "id": "covid-19",
+    "name": "COVID-19",
+    "applicationAge": "Refuerzos estacionales",
+    "sex": "Ambos",
+    "description": "Según grupos de riesgo",
+    "available": true
+  }
+]

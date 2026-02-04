@@ -1,11 +1,12 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
   getLabAppointments,
   getXRayAppointments,
   getUltrasoundAppointments,
+  getVaccineAppointments,
 } from '@/lib/data-client';
 import {
   Card,
@@ -48,8 +49,9 @@ import { AppointmentList } from '../appointment-list';
 import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
 import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
+import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
 
-type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio';
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
 type ReportsDashboardProps = {
   entity: any;
@@ -78,6 +80,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             appointmentsData = await getUltrasoundAppointments();
         } else if (reportType === 'laboratorio') {
             appointmentsData = await getLabAppointments();
+        } else if (reportType === 'vacunas') {
+            appointmentsData = await getVaccineAppointments();
         }
         setAppointments(appointmentsData || []);
       } catch (error) {
@@ -166,6 +170,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     if (reportType === 'x-ray') filename = `reporte_rayos_x_${activeFilter}`;
     if (reportType === 'ultrasound') filename = `reporte_ultrasonidos_${activeFilter}`;
     if (reportType === 'laboratorio') filename = `reporte_laboratorio_${activeFilter}`;
+    if (reportType === 'vacunas') filename = `reporte_vacunas_${activeFilter}`;
 
     downloadExcel(appointmentsToDisplay, filename);
   };
@@ -189,13 +194,15 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const renderAppointmentList = () => {
     switch(reportType) {
         case 'clinic':
-            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} />;
+            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} onEditSuccess={fetchData} />;
         case 'laboratorio':
-            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} />;
+            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} onEditSuccess={fetchData} />;
         case 'x-ray':
-            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} />;
+            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} onEditSuccess={fetchData} />;
         case 'ultrasound':
-            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} />;
+            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} onEditSuccess={fetchData} />;
+        case 'vacunas':
+            return <VaccineAppointmentList appointments={appointmentsToDisplay as VaccineAppointment[]} onEditSuccess={fetchData} />;
         default:
             return <p>Tipo de reporte no reconocido.</p>
     }
@@ -290,11 +297,11 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                   {dateRange?.from ? (
                     dateRange.to ? (
                       <>
-                        {format(dateRange.from, 'LLL dd, y')} -{' '}
-                        {format(dateRange.to, 'LLL dd, y')}
+                        {format(dateRange.from, 'LLL dd, y', {locale: es})} -{' '}
+                        {format(dateRange.to, 'LLL dd, y', {locale: es})}
                       </>
                     ) : (
-                      format(dateRange.from, 'LLL dd, y')
+                      format(dateRange.from, 'LLL dd, y', {locale: es})
                     )
                   ) : (
                     <span>Seleccionar rango</span>

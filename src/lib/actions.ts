@@ -7,6 +7,7 @@ import {
   saveLabAppointment as dataSaveLabAppointment,
   saveXRayAppointment as dataSaveXRayAppointment,
   saveUltrasoundAppointment as dataSaveUltrasoundAppointment,
+  saveVaccineAppointment as dataSaveVaccineAppointment,
   getAppointments as dataGetAppointments,
   getAppointmentsByDate as dataGetAppointmentsByDate,
   getAppointmentsForClinic as dataGetAppointmentsForClinic,
@@ -16,14 +17,18 @@ import {
   getXRayAppointmentsByDate as dataGetXRayAppointmentsByDate,
   getUltrasoundAppointments as dataGetUltrasoundAppointments,
   getUltrasoundAppointmentsByDate as dataGetUltrasoundAppointmentsByDate,
+  getVaccineAppointments as dataGetVaccineAppointments,
+  getVaccineAppointmentsByDate as dataGetVaccineAppointmentsByDate,
   deleteAppointment as dataDeleteAppointment,
   deleteLabAppointment as dataDeleteLabAppointment,
   deleteXRayAppointment as dataDeleteXRayAppointment,
   deleteUltrasoundAppointment as dataDeleteUltrasoundAppointment,
+  deleteVaccineAppointment as dataDeleteVaccineAppointment,
   verifyClinicPassword as dataVerifyClinicPassword,
   verifyXRayPassword as dataVerifyXRayPassword,
   verifyUltrasoundPassword as dataVerifyUltrasoundPassword,
   verifyLabPassword as dataVerifyLabPassword,
+  verifyVaccinePassword as dataVerifyVaccinePassword,
   updateClinics as dataUpdateClinics,
   updateColonias as dataUpdateColonias,
   updateAnnouncements as dataUpdateAnnouncements,
@@ -42,6 +47,10 @@ import {
   getUltrasoundStudies as dataGetUltrasoundStudies,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
   updateUltrasoundSettings as dataUpdateUltrasoundSettings,
+  getVaccineSettings as dataGetVaccineSettings,
+  getVaccines as dataGetVaccines,
+  updateVaccineSettings as dataUpdateVaccineSettings,
+  updateVaccines as dataUpdateVaccines,
   updatePatient as dataUpdatePatient,
   getModuleSettings as dataGetModuleSettings,
   updateModuleSettings as dataUpdateModuleSettings,
@@ -62,6 +71,9 @@ import type {
   XRaySettings,
   XRayStudy,
   ModuleSettings,
+  Vaccine,
+  VaccineSettings,
+  VaccineAppointment,
 } from './definitions';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -123,6 +135,8 @@ export async function saveNewAppointment(
       patientData
     );
     revalidatePath('/citas-medicas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, data: { appointment: newAppointment, clinic: clinic } };
   } catch (e: any) {
     return { success: false, error: e.message || 'Error al guardar la cita.' };
@@ -157,6 +171,8 @@ export async function saveNewLabAppointment(
       patientData
     );
     revalidatePath('/laboratorio');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return {
@@ -206,6 +222,8 @@ export async function saveNewXRayAppointment(
       patientData
     );
     revalidatePath('/rayos-x');
+     revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return {
@@ -255,6 +273,8 @@ export async function saveNewUltrasoundAppointment(
       patientData
     );
     revalidatePath('/ultrasonidos');
+     revalidatePath('/admin');
+    revalidatePath('/reports');
     return { success: true, data: newAppointment };
   } catch (e: any) {
     return {
@@ -264,17 +284,66 @@ export async function saveNewUltrasoundAppointment(
   }
 }
 
+export async function saveNewVaccineAppointment(
+  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>
+): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
+  try {
+    const settings = await dataGetVaccineSettings();
+    const appointmentsOnDate = await dataGetVaccineAppointmentsByDate(
+      new Date(appointmentData.date)
+    );
+
+    if (appointmentsOnDate.length >= settings.dailySlots) {
+        throw new Error('No hay más cupos para Vacunación en la fecha seleccionada.');
+    }
+    
+    const isTimeSlotTaken = appointmentsOnDate.some(
+      (app) => app.time === appointmentData.time
+    );
+
+    if (isTimeSlotTaken) {
+      throw new Error(
+        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
+      );
+    }
+
+    if (!appointmentData.isNewborn) {
+      const curpExistsOnDate = appointmentsOnDate.some(
+        (app) => app.patient?.curp?.toUpperCase() === patientData.curp.toUpperCase()
+      );
+      if (curpExistsOnDate) {
+        throw new Error( 'Ya existe una cita de Vacunación agendada con esta CURP para el día seleccionado.');
+      }
+    }
+
+    const newAppointment = await dataSaveVaccineAppointment(
+      appointmentData,
+      patientData
+    );
+    revalidatePath('/vacunas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+    return { success: true, data: newAppointment };
+  } catch (e: any) {
+    return {
+      success: false,
+      error: e.message || 'Error al guardar la cita de Vacunación.',
+    };
+  }
+}
+
 export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {
     try {
         const result = await dataUpdatePatient(patientId, patientData);
         if (result.success) {
-            // Revalidate all pages that might show patient data
             revalidatePath('/admin');
             revalidatePath('/reports');
             revalidatePath('/citas-medicas');
             revalidatePath('/laboratorio');
             revalidatePath('/rayos-x');
             revalidatePath('/ultrasonidos');
+            revalidatePath('/vacunas');
         }
         return result;
     } catch (error: any) {
@@ -360,6 +429,26 @@ export async function deleteUltrasoundAppointment(id: string) {
   }
 }
 
+export async function deleteVaccineAppointment(id: string) {
+  try {
+    await dataDeleteVaccineAppointment(id);
+    revalidatePath('/vacunas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+    return {
+      success: true,
+      message: 'Cita de Vacunación eliminada con éxito.',
+    };
+  } catch (error: any) {
+    const errorMessage =
+      error.message || 'Error desconocido al eliminar la cita.';
+    return {
+      success: false,
+      message: errorMessage,
+    };
+  }
+}
+
 // =====================================================================
 // Config & Settings Actions
 // =====================================================================
@@ -399,6 +488,14 @@ export async function verifyUltrasoundPassword(passwordAttempt: string) {
   return { success: false, message: result.error || 'Contraseña incorrecta.' };
 }
 
+export async function verifyVaccinePassword(passwordAttempt: string) {
+  const result = await dataVerifyVaccinePassword(passwordAttempt);
+  if (result.isValid) {
+    return { success: true };
+  }
+  return { success: false, message: result.error || 'Contraseña incorrecta.' };
+}
+
 export async function updateClinics(clinics: Clinic[]) {
   const result = await dataUpdateClinics(clinics);
   if (result.success) {
@@ -426,6 +523,7 @@ export async function updateAnnouncements(announcements: string[]) {
     revalidatePath('/laboratorio');
     revalidatePath('/rayos-x');
     revalidatePath('/ultrasonidos');
+    revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
   }
@@ -495,6 +593,27 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return result;
 }
 
+// Vaccine
+export async function updateVaccineSettings(settings: VaccineSettings) {
+  const result = await dataUpdateVaccineSettings(settings);
+  if (result.success) {
+    revalidatePath('/vacunas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return result;
+}
+
+export async function updateVaccines(vaccines: Vaccine[]) {
+  const result = await dataUpdateVaccines(vaccines);
+  if (result.success) {
+    revalidatePath('/vacunas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return result;
+}
+
 export async function updateModuleSettings(settings: ModuleSettings) {
     const result = await dataUpdateModuleSettings(settings);
     if (result.success) {
@@ -503,9 +622,29 @@ export async function updateModuleSettings(settings: ModuleSettings) {
         revalidatePath('/laboratorio');
         revalidatePath('/rayos-x');
         revalidatePath('/ultrasonidos');
+        revalidatePath('/vacunas');
         revalidatePath('/admin');
     }
     return result;
 }
 
-export { dataGetClinics as getClinics, dataGetColonias as getColonias, dataGetAnnouncements as getAnnouncements, dataGetModuleSettings as getModuleSettings, dataGetLabSettings as getLabSettings, dataGetLabStudies as getLabStudies, dataGetXRaySettings as getXRaySettings, dataGetXRayStudies as getXRayStudies, dataGetUltrasoundSettings as getUltrasoundSettings, dataGetUltrasoundStudies as getUltrasoundStudies, dataGetAppointments as getAppointments, dataGetAppointmentsForClinic as getAppointmentsForClinic, dataGetLabAppointments as getLabAppointments, dataGetXRayAppointments as getXRayAppointments, dataGetUltrasoundAppointments as getUltrasoundAppointments };
+export { 
+    dataGetClinics as getClinics, 
+    dataGetColonias as getColonias, 
+    dataGetAnnouncements as getAnnouncements, 
+    dataGetModuleSettings as getModuleSettings, 
+    dataGetLabSettings as getLabSettings, 
+    dataGetLabStudies as getLabStudies, 
+    dataGetXRaySettings as getXRaySettings, 
+    dataGetXRayStudies as getXRayStudies, 
+    dataGetUltrasoundSettings as getUltrasoundSettings, 
+    dataGetUltrasoundStudies as getUltrasoundStudies, 
+    dataGetVaccineSettings as getVaccineSettings,
+    dataGetVaccines as getVaccines,
+    dataGetAppointments as getAppointments, 
+    dataGetAppointmentsForClinic as getAppointmentsForClinic, 
+    dataGetLabAppointments as getLabAppointments, 
+    dataGetXRayAppointments as getXRayAppointments, 
+    dataGetUltrasoundAppointments as getUltrasoundAppointments,
+    dataGetVaccineAppointments as getVaccineAppointments,
+};
