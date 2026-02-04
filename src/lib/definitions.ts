@@ -27,7 +27,7 @@ export enum PatientType {
     TerceraEdad = '3ra Edad'
 }
 
-export type AppointmentStatus = 'Agendada' | 'Asistió' | 'No Asistió';
+export type AppointmentStatus = 'Agendada' | 'Atendido' | 'No Atendido' | 'No Asistió';
 
 export type Appointment = {
   id: string; // UUID

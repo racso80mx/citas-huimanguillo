@@ -37,6 +37,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { updateAppointmentStatus } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -120,8 +121,10 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Asistió')}>Asistió</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Atendido')}>Atendido</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Agendada')}>Marcar como Agendada</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

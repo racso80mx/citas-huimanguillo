@@ -98,5 +98,68 @@
       "birthState": "TABASCO",
       "phoneNumber": "9371162730"
     }
+  },
+  {
+    "appointmentNumber": "CITA-0198",
+    "clinicId": "5fc4b85d-7954-440b-bb64-372a90e5d9b3",
+    "date": "2026-02-05T06:00:00.000Z",
+    "time": "08:00",
+    "patientType": "Crónico",
+    "id": "9193c76d-537c-471e-a55d-e44a6335adc6",
+    "patientId": "88bde731-d6eb-4352-a42e-5e4925a965ca",
+    "patient": {
+      "id": "88bde731-d6eb-4352-a42e-5e4925a965ca",
+      "curp": "LOCF630417HTCPLR04",
+      "name": "JOSE FRANCISCO",
+      "paternalLastName": "LOPEZ",
+      "maternalLastName": "CALLES",
+      "sex": "Hombre",
+      "age": 62,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171052353"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-8543",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "11:30",
+    "patientType": "Crónico",
+    "id": "34204f0d-142a-4ac3-b214-61dd1fab5fb1",
+    "patientId": "0c517e28-8d3b-42a0-bdec-41c368d4282b",
+    "patient": {
+      "id": "0c517e28-8d3b-42a0-bdec-41c368d4282b",
+      "curp": "AOML800611MTCCNT01",
+      "name": "LETICIA",
+      "paternalLastName": "ACOSTA",
+      "maternalLastName": "MENDEZ",
+      "sex": "Mujer",
+      "age": 45,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171369194"
+    },
+    "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-7017",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "date": "2026-02-04T06:00:00.000Z",
+    "time": "08:30",
+    "patientType": "Crónico",
+    "id": "db817ae9-54c5-4f51-976e-f15298fe613c",
+    "patientId": "271adc99-69ef-41e8-a396-451c4b10c7c8",
+    "patient": {
+      "id": "271adc99-69ef-41e8-a396-451c4b10c7c8",
+      "curp": "PUMG590114MVZCRD02",
+      "name": "GUADALUPE",
+      "paternalLastName": "PUCHETA",
+      "maternalLastName": "MARTINEZ",
+      "sex": "Mujer",
+      "age": 67,
+      "birthState": "VERACRUZ",
+      "phoneNumber": "9321161478"
+    },
+    "status": "Asistió"
   }
 ]

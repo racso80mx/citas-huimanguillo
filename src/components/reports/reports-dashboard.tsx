@@ -21,8 +21,9 @@ import {
   Loader2,
   Calendar as CalendarIcon,
   Download,
-  CalendarDays,
-  CalendarRange,
+  UserCheck,
+  Clock,
+  UserX,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -179,15 +180,14 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+
+    const todaysAppointments = appointments.filter(app => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd }));
 
     return {
-      today: appointments.filter(app => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd })).length,
-      week: appointments.filter(app => isWithinInterval(parseISO(app.date), { start: weekStart, end: weekEnd })).length,
-      month: appointments.filter(app => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd })).length,
+      total: todaysAppointments.length,
+      attended: todaysAppointments.filter(app => app.status === 'Atendido').length,
+      pending: todaysAppointments.filter(app => app.status === 'Agendada').length,
+      notAttended: todaysAppointments.filter(app => app.status === 'No Asistió' || app.status === 'No Atendido').length,
     }
   }, [appointments]);
 
@@ -229,37 +229,48 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         </CardHeader>
       </Card>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Citas del Día</CardTitle>
+            <CardTitle className="text-sm font-medium">Citas Totales (Hoy)</CardTitle>
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {summaryCounts.today}
+              {summaryCounts.total}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Citas de la Semana</CardTitle>
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Atendidos</CardTitle>
+            <UserCheck className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {summaryCounts.week}
+            <div className="text-2xl font-bold text-green-600">
+              {summaryCounts.attended}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Citas del Mes</CardTitle>
-            <CalendarRange className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {summaryCounts.month}
+            <div className="text-2xl font-bold text-yellow-600">
+              {summaryCounts.pending}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">No Asistieron / No Atendidos</CardTitle>
+            <UserX className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {summaryCounts.notAttended}
             </div>
           </CardContent>
         </Card>

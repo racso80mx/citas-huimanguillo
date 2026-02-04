@@ -53,5 +53,38 @@
     "age": 52,
     "birthState": "TABASCO",
     "phoneNumber": "9371162730"
+  },
+  {
+    "id": "88bde731-d6eb-4352-a42e-5e4925a965ca",
+    "curp": "LOCF630417HTCPLR04",
+    "name": "JOSE FRANCISCO",
+    "paternalLastName": "LOPEZ",
+    "maternalLastName": "CALLES",
+    "sex": "Hombre",
+    "age": 62,
+    "birthState": "TABASCO",
+    "phoneNumber": "9171052353"
+  },
+  {
+    "id": "0c517e28-8d3b-42a0-bdec-41c368d4282b",
+    "curp": "AOML800611MTCCNT01",
+    "name": "LETICIA",
+    "paternalLastName": "ACOSTA",
+    "maternalLastName": "MENDEZ",
+    "sex": "Mujer",
+    "age": 45,
+    "birthState": "TABASCO",
+    "phoneNumber": "9171369194"
+  },
+  {
+    "id": "271adc99-69ef-41e8-a396-451c4b10c7c8",
+    "curp": "PUMG590114MVZCRD02",
+    "name": "GUADALUPE",
+    "paternalLastName": "PUCHETA",
+    "maternalLastName": "MARTINEZ",
+    "sex": "Mujer",
+    "age": 67,
+    "birthState": "VERACRUZ",
+    "phoneNumber": "9321161478"
   }
 ]

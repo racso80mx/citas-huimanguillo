@@ -2,7 +2,7 @@
   {
     "id": "NB1",
     "name": "Núcleo Básico 1",
-    "doctorName": "Saray Hernadez",
+    "doctorName": "Saray Mendoza Hernadez ",
     "password": "1333176",
     "dailySlots": 12,
     "startTime": "08:00",
@@ -14,7 +14,7 @@
   {
     "id": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
     "name": "Nucleo Basico 2",
-    "doctorName": "Azamar",
+    "doctorName": "Isabel Azamar Leonardo",
     "password": "2657169",
     "dailySlots": 12,
     "startTime": "07:30",
@@ -38,7 +38,7 @@
   {
     "id": "5fc4b85d-7954-440b-bb64-372a90e5d9b3",
     "name": "Nucleo Basico 4",
-    "doctorName": "Gabriela",
+    "doctorName": "Gabriela Moreno Garcia",
     "password": "3266848",
     "dailySlots": 12,
     "startTime": "08:00",

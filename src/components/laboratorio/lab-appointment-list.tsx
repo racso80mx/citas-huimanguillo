@@ -43,6 +43,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { updateAppointmentStatus } from '@/lib/actions';
@@ -135,8 +136,10 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Asistió')}>Asistió</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Atendido')}>Atendido</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Agendada')}>Marcar como Agendada</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
