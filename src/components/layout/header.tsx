@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -99,6 +99,24 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               <Link href="/ultrasonidos">
                 <Waves className="h-4 w-4 mr-2" />
                 Ultrasonidos
+              </Link>
+            </Button>
+          )}
+           {moduleSettings.vacunasEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors',
+                pathname === '/vacunas'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/vacunas">
+                <ShieldPlus className="h-4 w-4 mr-2" />
+                Vacunas
               </Link>
             </Button>
           )}

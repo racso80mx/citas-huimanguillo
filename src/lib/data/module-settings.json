@@ -1,6 +1,7 @@
 {
   "citasMedicasEnabled": true,
-  "laboratorioEnabled": true,
-  "rayosXEnabled": true,
-  "ultrasoundEnabled": true
+  "laboratorioEnabled": false,
+  "rayosXEnabled": false,
+  "ultrasoundEnabled": false,
+  "vacunasEnabled": true
 }

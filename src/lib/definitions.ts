@@ -156,9 +156,41 @@ export type UltrasoundSettings = {
     password?: string;
 }
 
+export type Vaccine = {
+  id: string;
+  name: string;
+  applicationAge: string;
+  sex: string;
+  description: string;
+  available: boolean;
+};
+
+export type VaccineAppointment = {
+  id: string;
+  appointmentNumber: string;
+  patientId: string; // Can be a temporary ID for newborns
+  date: string;
+  time: string;
+  isNewborn: boolean;
+  clinicId?: string; // Optional for newborns
+  vaccineId: string;
+  vaccineName: string;
+  patient: Patient; // Patient data might be partial for newborns
+};
+
+export type VaccineSettings = {
+  dailySlots: number;
+  startTime: string;
+  endTime: string;
+  weekendBookingEnabled: boolean;
+  password?: string;
+};
+
+
 export type ModuleSettings = {
   citasMedicasEnabled: boolean;
   laboratorioEnabled: boolean;
   rayosXEnabled: boolean;
   ultrasoundEnabled: boolean;
+  vacunasEnabled: boolean;
 };

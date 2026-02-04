@@ -143,6 +143,16 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('ultrasoundEnabled', checked)}
           />
         </div>
+         <div className="flex items-center justify-between p-2 rounded-md bg-background">
+          <Label htmlFor="vacunas-enabled" className="flex items-center gap-2 text-base">
+            <ToggleRight className="h-5 w-5"/> Vacunas
+          </Label>
+          <Switch
+            id="vacunas-enabled"
+            checked={settings.vacunasEnabled}
+            onCheckedChange={(checked) => handleSettingsChange('vacunasEnabled', checked)}
+          />
+        </div>
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>
