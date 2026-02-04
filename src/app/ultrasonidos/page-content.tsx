@@ -54,43 +54,43 @@ export default function UltrasoundPageContent({
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
 
+  const getSlotsCount = (startTime: string, endTime: string, interval: number): number => {
+    if (!startTime || !endTime) return 0;
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    const totalStartMinutes = startHour * 60 + startMinute;
+    const totalEndMinutes = endHour * 60 + endMinute;
+    if (totalEndMinutes <= totalStartMinutes) return 0;
+    return Math.floor((totalEndMinutes - totalStartMinutes) / interval);
+  };
+
   const generateTimeSlots = (): string[] => {
     if (!settings) return [];
     const slots = [];
-    const [startHour, startMinute] = settings.startTime.split(':').map(Number);
-    const [endHour, endMinute] = settings.endTime.split(':').map(Number);
+    const { startTime, endTime, dailySlots } = settings;
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+
+    const slotsInTimeRange = getSlotsCount(startTime, endTime, 30);
+    const maxSlots = Math.min(dailySlots, slotsInTimeRange);
 
     let currentHour = startHour;
     let currentMinute = startMinute;
 
-    while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
-      slots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
-      
-      currentMinute += 30;
-      if (currentMinute >= 60) {
-        currentHour++;
-        currentMinute -= 60;
-      }
+    for (let i = 0; i < maxSlots; i++) {
+        slots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
+        currentMinute += 30;
+        if (currentMinute >= 60) {
+            currentHour++;
+            currentMinute -= 60;
+        }
     }
-    return slots.slice(0, settings.dailySlots);
+    return slots;
   };
 
   const allTimeSlots = React.useMemo(generateTimeSlots, [settings]);
 
   const fetchAvailability = React.useCallback(
     async (year: number, month: number) => {
-      const calculateSlotsInTimeRange = (startTime: string, endTime: string): number => {
-        if (!startTime || !endTime) return 0;
-        const [startHour, startMinute] = startTime.split(':').map(Number);
-        const [endHour, endMinute] = endTime.split(':').map(Number);
-        const startDate = new Date(0);
-        startDate.setHours(startHour, startMinute, 0, 0);
-        const endDate = new Date(0);
-        endDate.setHours(endHour, endMinute, 0, 0);
-        const diffMinutes = (endDate.getTime() - startDate.getTime()) / 60000;
-        return Math.floor(diffMinutes / 30);
-      };
-
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
@@ -108,7 +108,7 @@ export default function UltrasoundPageContent({
         
         let maxSlotsForDay = 0;
         if (!isWeekend || (isWeekend && settings.weekendBookingEnabled)) {
-            const slotsInTimeRange = calculateSlotsInTimeRange(settings.startTime, settings.endTime);
+            const slotsInTimeRange = getSlotsCount(settings.startTime, settings.endTime, 30);
             maxSlotsForDay = Math.min(settings.dailySlots, slotsInTimeRange);
         }
         
