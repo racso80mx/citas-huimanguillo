@@ -69,8 +69,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [colonias, setColonias] = useState<Colonia[]>([]);
 
   const [isPending, startTransition] = useTransition();
-  const [activeFilter, setActiveFilter] = useState<FilterType>('today');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [activeTab, setActiveTab] = useState("configuracion");
   const { toast } = useToast();
 
@@ -354,19 +352,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   <ColoniasManager />
                 </div>
                 <AnnouncementsManager />
-                <div className="grid lg:grid-cols-2 gap-8">
-                  <LabSettingsManager />
-                  <XRaySettingsManager />
-                </div>
-                <div className="grid lg:grid-cols-2 gap-8">
-                  <UltrasoundSettingsManager />
-                  <VaccineSettingsManager />
-                </div>
             </div>
         </TabsContent>
 
-        <TabsContent value="citas">
-            <Card className="w-full shadow-lg mt-6">
+        <TabsContent value="citas" className="mt-6">
+            <Card className="w-full shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle>
                   <div className="flex flex-wrap items-center gap-2 pt-4">
@@ -399,8 +389,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </Card>
         </TabsContent>
 
-        <TabsContent value="laboratorio">
-           <Card className="w-full shadow-lg mt-6">
+        <TabsContent value="laboratorio" className="mt-6 space-y-8">
+           <Card className="w-full shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Laboratorio</CardTitle>
                   <div className="flex flex-wrap items-center gap-2 pt-4">
@@ -431,10 +421,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </CardContent>
             </Card>
+            <LabSettingsManager />
         </TabsContent>
 
-        <TabsContent value="rayos-x">
-           <Card className="w-full shadow-lg mt-6">
+        <TabsContent value="rayos-x" className="mt-6 space-y-8">
+           <Card className="w-full shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Rayos X</CardTitle>
                   <div className="flex flex-wrap items-center gap-2 pt-4">
@@ -465,10 +456,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </CardContent>
             </Card>
+            <XRaySettingsManager />
         </TabsContent>
         
-        <TabsContent value="ultrasonidos">
-           <Card className="w-full shadow-lg mt-6">
+        <TabsContent value="ultrasonidos" className="mt-6 space-y-8">
+           <Card className="w-full shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Ultrasonido</CardTitle>
                   <div className="flex flex-wrap items-center gap-2 pt-4">
@@ -499,10 +491,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </CardContent>
             </Card>
+            <UltrasoundSettingsManager />
         </TabsContent>
 
-        <TabsContent value="vacunas">
-           <Card className="w-full shadow-lg mt-6">
+        <TabsContent value="vacunas" className="mt-6 space-y-8">
+           <Card className="w-full shadow-lg">
                 <CardHeader>
                   <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Vacunación</CardTitle>
                   <div className="flex flex-wrap items-center gap-2 pt-4">
@@ -533,6 +526,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </CardContent>
             </Card>
+            <VaccineSettingsManager />
         </TabsContent>
       </Tabs>
     </div>
