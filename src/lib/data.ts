@@ -584,6 +584,8 @@ export async function rescheduleAppointment(
         
         const limitedSlots = allPossibleSlots.slice(0, settings.dailySlots);
         const availableSlots = limitedSlots.filter(slot => !bookedTimesOnNewDate.includes(slot));
+        
+        const originalTimeIndex = limitedSlots.indexOf(originalTime);
 
         if (availableSlots.length === 0) {
             return { success: false, message: 'No hay horarios disponibles en la nueva fecha seleccionada.' };
@@ -738,54 +740,76 @@ export async function createBackupData(): Promise<any> {
 }
 
 
-export async function restoreBackupData(backupData: any): Promise<{success: boolean, message?: string}> {
+export async function restoreBackupData(backupData: any): Promise<{success: boolean, message?: string, stats?: any}> {
   try {
     // Basic validation of backup data structure
     if (!backupData.patients || !backupData.appointments || !backupData.labAppointments || !backupData.xRayAppointments || !backupData.ultrasoundAppointments || !backupData.vaccineAppointments) {
       throw new Error('El archivo de respaldo tiene un formato incorrecto.');
     }
+    
+    const stats = {
+        patients: { added: 0, updated: 0 },
+        appointments: { added: 0, updated: 0 },
+        labAppointments: { added: 0, updated: 0 },
+        xRayAppointments: { added: 0, updated: 0 },
+        ultrasoundAppointments: { added: 0, updated: 0 },
+        vaccineAppointments: { added: 0, updated: 0 },
+    };
 
-    const mergeAndDeduplicate = <T extends { id: string }>(existingData: T[], backupData: T[]): T[] => {
-        const combined = [...existingData, ...backupData];
-        const map = new Map<string, T>();
-        for (const item of combined) {
-            // Backup data should overwrite existing data if IDs are the same
-            map.set(item.id, item);
+    const mergeAndDeduplicate = <T extends { id: string }>(existingData: T[], backupItems: T[]): { mergedData: T[], added: number, updated: number } => {
+        const dataMap = new Map<string, T>(existingData.map(item => [item.id, item]));
+        let added = 0;
+        let updated = 0;
+
+        for (const item of backupItems) {
+            if (dataMap.has(item.id)) {
+                updated++;
+            } else {
+                added++;
+            }
+            dataMap.set(item.id, item);
         }
-        return Array.from(map.values());
+
+        return { mergedData: Array.from(dataMap.values()), added, updated };
     };
 
     // Patients
     const existingPatients = await readJsonFile<Patient[]>('patients.json', []);
-    const mergedPatients = mergeAndDeduplicate(existingPatients, backupData.patients);
-    await writeJsonFile('patients.json', mergedPatients);
+    const patientResult = mergeAndDeduplicate(existingPatients, backupData.patients || []);
+    stats.patients = { added: patientResult.added, updated: patientResult.updated };
+    await writeJsonFile('patients.json', patientResult.mergedData);
     
     // Appointments
     const existingAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
-    const mergedAppointments = mergeAndDeduplicate(existingAppointments, backupData.appointments);
-    await writeJsonFile('appointments.json', mergedAppointments);
+    const appointmentResult = mergeAndDeduplicate(existingAppointments, backupData.appointments || []);
+    stats.appointments = { added: appointmentResult.added, updated: appointmentResult.updated };
+    await writeJsonFile('appointments.json', appointmentResult.mergedData);
 
     // Lab Appointments
     const existingLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
-    const mergedLabAppointments = mergeAndDeduplicate(existingLabAppointments, backupData.labAppointments);
-    await writeJsonFile('lab-appointments.json', mergedLabAppointments);
+    const labResult = mergeAndDeduplicate(existingLabAppointments, backupData.labAppointments || []);
+    stats.labAppointments = { added: labResult.added, updated: labResult.updated };
+    await writeJsonFile('lab-appointments.json', labResult.mergedData);
     
     // XRay Appointments
     const existingXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
-    const mergedXRayAppointments = mergeAndDeduplicate(existingXRayAppointments, backupData.xRayAppointments);
-    await writeJsonFile('x-ray-appointments.json', mergedXRayAppointments);
+    const xrayResult = mergeAndDeduplicate(existingXRayAppointments, backupData.xRayAppointments || []);
+    stats.xRayAppointments = { added: xrayResult.added, updated: xrayResult.updated };
+    await writeJsonFile('x-ray-appointments.json', xrayResult.mergedData);
 
     // Ultrasound Appointments
     const existingUltrasoundAppointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
-    const mergedUltrasoundAppointments = mergeAndDeduplicate(existingUltrasoundAppointments, backupData.ultrasoundAppointments);
-    await writeJsonFile('ultrasound-appointments.json', mergedUltrasoundAppointments);
+    const ultrasoundResult = mergeAndDeduplicate(existingUltrasoundAppointments, backupData.ultrasoundAppointments || []);
+    stats.ultrasoundAppointments = { added: ultrasoundResult.added, updated: ultrasoundResult.updated };
+    await writeJsonFile('ultrasound-appointments.json', ultrasoundResult.mergedData);
 
     // Vaccine Appointments
     const existingVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
-    const mergedVaccineAppointments = mergeAndDeduplicate(existingVaccineAppointments, backupData.vaccineAppointments);
-    await writeJsonFile('vaccine-appointments.json', mergedVaccineAppointments);
+    const vaccineResult = mergeAndDeduplicate(existingVaccineAppointments, backupData.vaccineAppointments || []);
+    stats.vaccineAppointments = { added: vaccineResult.added, updated: vaccineResult.updated };
+    await writeJsonFile('vaccine-appointments.json', vaccineResult.mergedData);
 
-    return { success: true };
+    return { success: true, stats };
   } catch (e: any) {
     console.error('Failed to restore backup', e);
     return { success: false, message: e.message || 'Error al restaurar el respaldo.'};

@@ -23,7 +23,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-export function BackupManager() {
+export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => void }) {
   const [isDownloading, startDownloadTransition] = useTransition();
   const [isRestoring, startRestoreTransition] = useTransition();
   const [isCleaning, startCleanTransition] = useTransition();
@@ -72,14 +72,17 @@ export function BackupManager() {
       if (typeof content === 'string') {
         startRestoreTransition(async () => {
           const result = await restoreBackupAction(content);
-          if (result.success) {
+           if (result.success && result.stats) {
+            const { stats } = result;
+            const totalAdded = (stats.patients.added || 0) + (stats.appointments.added || 0) + (stats.labAppointments.added || 0) + (stats.xRayAppointments.added || 0) + (stats.ultrasoundAppointments.added || 0) + (stats.vaccineAppointments.added || 0);
+            const totalUpdated = (stats.patients.updated || 0) + (stats.appointments.updated || 0) + (stats.labAppointments.updated || 0) + (stats.xRayAppointments.updated || 0) + (stats.ultrasoundAppointments.updated || 0) + (stats.vaccineAppointments.updated || 0);
+
             toast({
               title: 'Respaldo Restaurado',
-              description: 'Los datos han sido restaurados exitosamente. La página se recargará.',
-              duration: 5000,
+              description: `Se agregaron ${totalAdded} registros y se actualizaron ${totalUpdated}.`,
+              duration: 8000,
             });
-            // Reload to reflect changes everywhere
-            window.location.reload();
+            onRestoreSuccess?.();
           } else {
             toast({
               title: 'Error al Restaurar',

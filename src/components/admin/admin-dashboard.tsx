@@ -352,7 +352,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ModuleManager />
                 <ColoniasManager />
                 <AnnouncementsManager />
-                <BackupManager />
+                <BackupManager onRestoreSuccess={fetchData} />
             </div>
         </TabsContent>
 

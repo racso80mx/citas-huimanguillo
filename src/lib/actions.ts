@@ -671,7 +671,7 @@ export async function downloadBackupAction(): Promise<{ success: boolean; data?:
   }
 }
 
-export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string }> {
+export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string; stats?: any }> {
   try {
     const backupData = JSON.parse(backupJsonString);
     const result = await restoreBackupData(backupData);
