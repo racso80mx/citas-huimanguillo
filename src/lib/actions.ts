@@ -55,6 +55,7 @@ import {
   getModuleSettings as dataGetModuleSettings,
   updateModuleSettings as dataUpdateModuleSettings,
   updateAppointmentStatus as dataUpdateAppointmentStatus,
+  rescheduleAppointment as dataRescheduleAppointment,
   createBackupData,
   restoreBackupData,
   cleanupOldAppointments,
@@ -641,6 +642,24 @@ export async function updateAppointmentStatus(appointmentId: string, status: App
     }
     return result;
 }
+
+export async function rescheduleAppointment(
+  appointmentId: string,
+  newDate: string,
+  type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'
+): Promise<{ success: boolean; message: string; newTime?: string }> {
+    try {
+        const result = await dataRescheduleAppointment(appointmentId, newDate, type);
+        if(result.success) {
+            revalidatePath('/admin');
+            revalidatePath('/reports');
+        }
+        return result;
+    } catch(e: any) {
+        return { success: false, message: e.message || 'Ocurrió un error inesperado.' };
+    }
+}
+
 
 // ========== Backup & Restore Actions ==========
 export async function downloadBackupAction(): Promise<{ success: boolean; data?: any; message?: string }> {

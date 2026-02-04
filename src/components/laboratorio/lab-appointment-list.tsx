@@ -13,7 +13,7 @@ import type { LabAppointment, Patient, AppointmentStatus } from '@/lib/definitio
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, FlaskConical, Pencil } from 'lucide-react';
+import { Trash2, FlaskConical, Pencil, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { EditPatientForm } from '../admin/edit-patient-form';
 import {
@@ -46,8 +47,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { updateAppointmentStatus } from '@/lib/actions';
+import { updateAppointmentStatus, rescheduleAppointment } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { Calendar } from '../ui/calendar';
 
 
 type LabAppointmentListProps = {
@@ -60,6 +62,9 @@ type LabAppointmentListProps = {
 export function LabAppointmentList({ appointments, isAdmin = false, onDelete, onEditSuccess }: LabAppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
+  const [reschedulingAppointment, setReschedulingAppointment] = useState<LabAppointment | null>(null);
+  const [newDate, setNewDate] = useState<Date | undefined>();
+  const [isRescheduling, startRescheduleTransition] = useTransition();
   const { toast } = useToast();
 
   const handleStatusChange = (appointmentId: string, status: AppointmentStatus) => {
@@ -71,6 +76,29 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
       } else {
         toast({ title: 'Error', description: result.message, variant: 'destructive' });
       }
+    });
+  };
+  
+  const handleRescheduleConfirm = () => {
+    if (!reschedulingAppointment || !newDate) return;
+
+    startRescheduleTransition(async () => {
+        const result = await rescheduleAppointment(reschedulingAppointment.id, newDate.toISOString(), 'lab');
+        if (result.success) {
+            toast({
+                title: 'Cita Reagendada',
+                description: result.message,
+            });
+            setReschedulingAppointment(null);
+            setNewDate(undefined);
+            onEditSuccess?.();
+        } else {
+            toast({
+                title: 'Error al Reagendar',
+                description: result.message,
+                variant: 'destructive',
+            });
+        }
     });
   };
 
@@ -140,7 +168,10 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Agendada')}>Marcar como Agendada</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                          setNewDate(new Date(app.date));
+                          setReschedulingAppointment(app);
+                      }}>Cambiar Fecha</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
@@ -199,6 +230,39 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
                         onEditSuccess?.(); 
                     }} 
                 />
+            </DialogContent>
+        </Dialog>
+      )}
+       {reschedulingAppointment && (
+        <Dialog open={!!reschedulingAppointment} onOpenChange={(open) => {
+            if (!open) {
+                setReschedulingAppointment(null);
+                setNewDate(undefined);
+            }
+        }}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Reagendar Cita de Laboratorio</DialogTitle>
+                    <DialogDescription>
+                        Selecciona una nueva fecha para la cita de <span className="font-bold">{reschedulingAppointment.patient.name}</span>.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-center py-4">
+                    <Calendar
+                        mode="single"
+                        selected={newDate}
+                        onSelect={setNewDate}
+                        initialFocus
+                        disabled={{ before: new Date() }}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setReschedulingAppointment(null)}>Cancelar</Button>
+                    <Button onClick={handleRescheduleConfirm} disabled={isRescheduling || !newDate}>
+                        {isRescheduling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirmar Nueva Fecha
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
       )}

@@ -489,6 +489,113 @@ export async function updateAppointmentStatus(appointmentId: string, status: App
     return result;
 }
 
+export async function rescheduleAppointment(
+  appointmentId: string,
+  newDate: string, // ISO string for the new date
+  type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'
+): Promise<{ success: boolean; message: string; newTime?: string }> {
+    const filename = `${type === 'medical' ? 'appointments' : type + '-appointments'}.json`;
+    const appointments = await readJsonFile<any[]>(filename, []);
+    
+    const appointmentIndex = appointments.findIndex(app => app.id === appointmentId);
+
+    if (appointmentIndex === -1) {
+        return { success: false, message: 'Cita no encontrada.' };
+    }
+
+    const appointmentToReschedule = appointments[appointmentIndex];
+    const originalTime = appointmentToReschedule.time;
+    const newDateString = new Date(newDate).toISOString().split('T')[0];
+
+    const appointmentsOnNewDate = appointments.filter(app => app.date.startsWith(newDateString));
+
+    let finalTime = originalTime;
+
+    if (type === 'lab') {
+        const labSettings = await getLabSettings();
+        if (appointmentsOnNewDate.length >= labSettings.dailySlots) {
+            return { success: false, message: 'No hay cupos disponibles en la nueva fecha para laboratorio.' };
+        }
+        finalTime = "Recepción de Muestras";
+    } else {
+        let bookedTimesOnNewDate: string[];
+        if (type === 'medical') {
+            const clinicId = appointmentToReschedule.clinicId;
+            bookedTimesOnNewDate = appointmentsOnNewDate
+                .filter(app => app.clinicId === clinicId)
+                .map(app => app.time);
+        } else {
+            bookedTimesOnNewDate = appointmentsOnNewDate.map(app => app.time);
+        }
+
+        const isOriginalTimeTaken = bookedTimesOnNewDate.includes(originalTime);
+
+        if (isOriginalTimeTaken) {
+            let settings: any;
+            let interval = 30; // default interval
+            if (type === 'medical') {
+                const clinics = await getClinics();
+                settings = clinics.find(c => c.id === appointmentToReschedule.clinicId);
+            } else if (type === 'xray') {
+                settings = await getXRaySettings();
+            } else if (type === 'ultrasound') {
+                settings = await getUltrasoundSettings();
+            } else if (type === 'vaccine') {
+                settings = await getVaccineSettings();
+                interval = 10;
+            }
+
+            if (!settings) {
+                return { success: false, message: 'No se encontró la configuración para este servicio.' };
+            }
+
+            const allPossibleSlots = [];
+            const [startHour, startMinute] = settings.startTime.split(':').map(Number);
+            const [endHour, endMinute] = settings.endTime.split(':').map(Number);
+            let currentHour = startHour;
+            let currentMinute = startMinute;
+
+            while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+                allPossibleSlots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
+                currentMinute += interval;
+                if (currentMinute >= 60) {
+                    currentHour++;
+                    currentMinute -= 60;
+                }
+            }
+            
+            const limitedSlots = allPossibleSlots.slice(0, settings.dailySlots);
+            const availableSlots = limitedSlots.filter(slot => !bookedTimesOnNewDate.includes(slot));
+
+            if (availableSlots.length === 0) {
+                return { success: false, message: 'No hay horarios disponibles en la nueva fecha seleccionada.' };
+            }
+            
+            const originalTimeIndex = limitedSlots.indexOf(originalTime);
+            let nextAvailableSlot = availableSlots.find(slot => limitedSlots.indexOf(slot) > originalTimeIndex);
+            
+            if (!nextAvailableSlot) {
+                nextAvailableSlot = availableSlots[0];
+            }
+            finalTime = nextAvailableSlot;
+        }
+    }
+    
+    appointments[appointmentIndex].date = new Date(newDate).toISOString();
+    appointments[appointmentIndex].time = finalTime;
+    appointments[appointmentIndex].status = 'Agendada';
+
+    const result = await writeJsonFile(filename, appointments);
+    if(result.success) {
+        let message = 'La cita ha sido reagendada con éxito.';
+        if (finalTime !== originalTime && type !== 'lab') {
+            message = `Horario original ocupado. La cita se reagendó a las ${finalTime}.`;
+        }
+        return { success: true, message, newTime: finalTime };
+    }
+    return { success: false, message: result.message || 'No se pudo guardar la cita.' };
+}
+
 
 // ========== Reports Auth ==========
 export async function verifyClinicPassword(
