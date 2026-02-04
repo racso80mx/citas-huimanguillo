@@ -285,3 +285,67 @@ export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppo
 
     doc.save(`recibo_ultrasonido_${patient.curp}.pdf`);
 }
+
+
+export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment, vaccine: Vaccine) {
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber, isNewborn } = appointmentData;
+
+    doc.setFont('Helvetica');
+    doc.setFontSize(22);
+    doc.text('Confirmación de Cita de Vacunación', 40, 25);
+    doc.setFontSize(10);
+    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33);
+    doc.setFontSize(14);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
+
+    doc.setLineWidth(0.5);
+    doc.line(20, 55, 190, 55);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Datos del Paciente:', 20, 65);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
+    if (!isNewborn) {
+        doc.text(`CURP: ${patient.curp}`, 20, 85);
+        doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
+    } else {
+        doc.text(`Teléfono del Tutor: ${patient.phoneNumber}`, 20, 85);
+    }
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Detalles de la Cita:', 20, 115);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+    doc.text(`Fecha: ${formattedDate}`, 20, 125);
+    doc.text(`Hora: ${time} hrs`, 20, 135);
+    doc.text('Lugar: Área de Vacunación del Centro de Salud', 20, 145);
+
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Vacuna a Aplicar:', 20, 165);
+    
+    doc.autoTable({
+        startY: 175,
+        head: [['Vacuna', 'Protege contra', 'Edad recomendada']],
+        body: [[vaccine.name, vaccine.description, vaccine.applicationAge]],
+        theme: 'grid',
+        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+    });
+
+    const finalY = doc.lastAutoTable.finalY || 210;
+
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY + 10);
+    doc.text('No olvide traer la Cartilla Nacional de Salud.', 20, finalY + 15);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
+
+    doc.save(`recibo_vacuna_${patient.name.split(' ')[0]}_${patient.paternalLastName}.pdf`);
+}
