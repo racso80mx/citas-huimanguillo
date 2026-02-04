@@ -70,6 +70,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState("configuracion");
+  const [activeFilter, setActiveFilter] = useState<FilterType>('today');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { toast } = useToast();
 
   const fetchData = useCallback(() => {
