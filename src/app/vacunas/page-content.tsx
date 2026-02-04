@@ -49,6 +49,7 @@ export default function VaccinePageContent({
   const [isNewborn, setIsNewborn] = React.useState(false);
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
 
+  const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allVaccines] = React.useState<Vaccine[]>(initialVaccines);
   const [settings] = React.useState<VaccineSettings>(initialSettings);
   const [colonias] = React.useState<Colonia[]>(initialColonias);
