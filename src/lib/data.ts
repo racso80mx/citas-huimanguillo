@@ -567,3 +567,91 @@ export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ 
         return { isValid: false, error: 'Ocurrió un error al verificar la contraseña.' };
     }
 }
+
+
+// ========== Backup & Restore Data ==========
+export async function createBackupData(): Promise<any> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
+  const allLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+  const allXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+  const allUltrasoundAppointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+  const allVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+  const allPatients = await readJsonFile<Patient[]>('patients.json', []);
+
+  const filterFutureAppointments = <T extends { date: string }>(items: T[]) => 
+    items.filter(item => new Date(item.date) >= today);
+
+  const futureAppointments = filterFutureAppointments(allAppointments);
+  const futureLabAppointments = filterFutureAppointments(allLabAppointments);
+  const futureXRayAppointments = filterFutureAppointments(allXRayAppointments);
+  const futureUltrasoundAppointments = filterFutureAppointments(allUltrasoundAppointments);
+  const futureVaccineAppointments = filterFutureAppointments(allVaccineAppointments);
+
+  const allFutureAppointments = [
+    ...futureAppointments,
+    ...futureLabAppointments,
+    ...futureXRayAppointments,
+    ...futureUltrasoundAppointments,
+    ...futureVaccineAppointments
+  ];
+
+  const activePatientIds = new Set(allFutureAppointments.map(app => app.patientId));
+  const activePatients = allPatients.filter(p => activePatientIds.has(p.id));
+
+  return {
+    appointments: futureAppointments,
+    labAppointments: futureLabAppointments,
+    xRayAppointments: futureXRayAppointments,
+    ultrasoundAppointments: futureUltrasoundAppointments,
+    vaccineAppointments: futureVaccineAppointments,
+    patients: activePatients,
+  };
+}
+
+
+export async function restoreBackupData(backupData: any): Promise<{success: boolean, message?: string}> {
+  try {
+    // Basic validation of backup data structure
+    if (!backupData.patients || !backupData.appointments || !backupData.labAppointments || !backupData.xRayAppointments || !backupData.ultrasoundAppointments || !backupData.vaccineAppointments) {
+      throw new Error('El archivo de respaldo tiene un formato incorrecto.');
+    }
+    await writeJsonFile('patients.json', backupData.patients);
+    await writeJsonFile('appointments.json', backupData.appointments);
+    await writeJsonFile('lab-appointments.json', backupData.labAppointments);
+    await writeJsonFile('x-ray-appointments.json', backupData.xRayAppointments);
+    await writeJsonFile('ultrasound-appointments.json', backupData.ultrasoundAppointments);
+    await writeJsonFile('vaccine-appointments.json', backupData.vaccineAppointments);
+    return { success: true };
+  } catch (e: any) {
+    console.error('Failed to restore backup', e);
+    return { success: false, message: e.message || 'Error al restaurar el respaldo.'};
+  }
+}
+
+export async function cleanupOldAppointments(): Promise<{deletedCount: number}> {
+    const today = new Date();
+    const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    const appointmentFiles = [
+        'appointments.json',
+        'lab-appointments.json',
+        'x-ray-appointments.json',
+        'ultrasound-appointments.json',
+        'vaccine-appointments.json'
+    ];
+
+    let totalDeleted = 0;
+
+    for (const filename of appointmentFiles) {
+        const appointments = await readJsonFile<any[]>(filename, []);
+        const originalCount = appointments.length;
+        const recentAppointments = appointments.filter(app => new Date(app.date) >= firstDayOfCurrentMonth);
+        await writeJsonFile(filename, recentAppointments);
+        totalDeleted += originalCount - recentAppointments.length;
+    }
+    
+    return { deletedCount: totalDeleted };
+}

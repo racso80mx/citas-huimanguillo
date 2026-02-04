@@ -55,6 +55,9 @@ import {
   getModuleSettings as dataGetModuleSettings,
   updateModuleSettings as dataUpdateModuleSettings,
   updateAppointmentStatus as dataUpdateAppointmentStatus,
+  createBackupData,
+  restoreBackupData,
+  cleanupOldAppointments,
 } from './data';
 
 import type {
@@ -637,6 +640,39 @@ export async function updateAppointmentStatus(appointmentId: string, status: App
         revalidatePath('/reports');
     }
     return result;
+}
+
+// ========== Backup & Restore Actions ==========
+export async function downloadBackupAction(): Promise<{ success: boolean; data?: any; message?: string }> {
+  try {
+    const backupData = await createBackupData();
+    return { success: true, data: backupData };
+  } catch (e: any) {
+    return { success: false, message: e.message || 'Error al crear el respaldo.' };
+  }
+}
+
+export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const backupData = JSON.parse(backupJsonString);
+    const result = await restoreBackupData(backupData);
+    if(result.success) {
+      revalidatePath('/admin', 'layout');
+    }
+    return result;
+  } catch (e: any) {
+    return { success: false, message: 'El archivo de respaldo no es un JSON válido.' };
+  }
+}
+
+export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {
+    try {
+        const { deletedCount } = await cleanupOldAppointments();
+        revalidatePath('/admin', 'layout');
+        return { success: true, deletedCount };
+    } catch (e: any) {
+        return { success: false, message: e.message || 'Error durante la limpieza de registros.' };
+    }
 }
 
 export { 

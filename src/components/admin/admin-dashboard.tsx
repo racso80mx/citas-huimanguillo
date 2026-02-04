@@ -51,6 +51,7 @@ import { UltrasoundSettingsManager } from './ultrasound-settings-manager';
 import { VaccineSettingsManager } from './vaccine-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
+import { BackupManager } from './backup-manager';
 
 
 type AdminDashboardProps = {
@@ -351,6 +352,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ModuleManager />
                 <ColoniasManager />
                 <AnnouncementsManager />
+                <BackupManager />
             </div>
         </TabsContent>
 
