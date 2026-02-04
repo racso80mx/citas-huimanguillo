@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
@@ -204,7 +204,7 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<(Appoi
 }
 
 export async function saveAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
 ): Promise<Appointment> {
   const patients = await readJsonFile<Patient[]>('patients.json', []);
@@ -226,6 +226,7 @@ export async function saveAppointment(
       id: uuidv4(),
       patientId: patient.id,
       patient: patient,
+      status: 'Agendada',
   };
   
   await writeJsonFile('appointments.json', [...appointments, newAppointment]);
@@ -253,7 +254,7 @@ export async function getLabAppointmentsByDate(date: Date): Promise<(LabAppointm
 }
 
 export async function saveLabAppointment(
-  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
 ): Promise<LabAppointment> {
   const patients = await readJsonFile<Patient[]>('patients.json', []);
@@ -274,6 +275,7 @@ export async function saveLabAppointment(
       id: uuidv4(),
       patientId: patient.id,
       patient: patient,
+      status: 'Agendada',
   };
   
   await writeJsonFile('lab-appointments.json', [...appointments, newAppointment]);
@@ -301,7 +303,7 @@ export async function getXRayAppointmentsByDate(date: Date): Promise<(XRayAppoin
 }
 
 export async function saveXRayAppointment(
-  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
 ): Promise<XRayAppointment> {
   const patients = await readJsonFile<Patient[]>('patients.json', []);
@@ -322,6 +324,7 @@ export async function saveXRayAppointment(
       id: uuidv4(),
       patientId: patient.id,
       patient: patient,
+      status: 'Agendada',
   };
   
   await writeJsonFile('x-ray-appointments.json', [...appointments, newAppointment]);
@@ -349,7 +352,7 @@ export async function getUltrasoundAppointmentsByDate(date: Date): Promise<(Ultr
 }
 
 export async function saveUltrasoundAppointment(
-  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
 ): Promise<UltrasoundAppointment> {
   const patients = await readJsonFile<Patient[]>('patients.json', []);
@@ -370,6 +373,7 @@ export async function saveUltrasoundAppointment(
       id: uuidv4(),
       patientId: patient.id,
       patient: patient,
+      status: 'Agendada',
   };
   
   await writeJsonFile('ultrasound-appointments.json', [...appointments, newAppointment]);
@@ -396,7 +400,7 @@ export async function getVaccineAppointmentsByDate(date: Date): Promise<(Vaccine
 }
 
 export async function saveVaccineAppointment(
-  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
 ): Promise<VaccineAppointment> {
   const patients = await readJsonFile<Patient[]>('patients.json', []);
@@ -421,6 +425,7 @@ export async function saveVaccineAppointment(
       id: uuidv4(),
       patientId: patient.id,
       patient: patient,
+      status: 'Agendada',
   };
   
   await writeJsonFile('vaccine-appointments.json', [...appointments, newAppointment]);
@@ -459,6 +464,29 @@ export async function updatePatient(patientId: string, patientData: Partial<Omit
     } else {
         return { success: false, message: result.message };
     }
+}
+
+export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean, message?: string }> {
+    let filename;
+    switch(type) {
+        case 'medical': filename = 'appointments.json'; break;
+        case 'lab': filename = 'lab-appointments.json'; break;
+        case 'xray': filename = 'x-ray-appointments.json'; break;
+        case 'ultrasound': filename = 'ultrasound-appointments.json'; break;
+        case 'vaccine': filename = 'vaccine-appointments.json'; break;
+    }
+
+    const appointments = await readJsonFile<any[]>(filename, []);
+    const appointmentIndex = appointments.findIndex(app => app.id === appointmentId);
+
+    if (appointmentIndex === -1) {
+        return { success: false, message: 'Cita no encontrada.' };
+    }
+    
+    appointments[appointmentIndex].status = status;
+
+    const result = await writeJsonFile(filename, appointments);
+    return result;
 }
 
 

@@ -25,6 +25,7 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
                 'Folio': item.appointmentNumber,
                 'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
                 'Hora': item.time,
+                'Estado': item.status,
                 'Paciente': item.patient ? `${item.patient.name} ${item.patient.paternalLastName} ${item.patient.maternalLastName}`: 'N/A',
                 'CURP': item.patient?.curp || 'N/A',
                 'Teléfono': item.patient?.phoneNumber || 'N/A',

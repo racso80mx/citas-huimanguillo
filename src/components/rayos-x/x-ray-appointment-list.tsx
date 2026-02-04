@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import {
   Table,
   TableBody,
@@ -9,7 +9,7 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { XRayAppointment, Patient } from '@/lib/definitions';
+import type { XRayAppointment, Patient, AppointmentStatus } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
@@ -33,6 +33,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { EditPatientForm } from '../admin/edit-patient-form';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { updateAppointmentStatus } from '@/lib/actions';
+import { useToast } from '../ui/use-toast';
 
 
 type XRayAppointmentListProps = {
@@ -44,6 +52,20 @@ type XRayAppointmentListProps = {
 
 export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, onEditSuccess }: XRayAppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [isUpdating, startUpdateTransition] = useTransition();
+  const { toast } = useToast();
+
+  const handleStatusChange = (appointmentId: string, status: AppointmentStatus) => {
+    startUpdateTransition(async () => {
+      const result = await updateAppointmentStatus(appointmentId, status, 'xray');
+      if (result.success) {
+        toast({ title: 'Estado actualizado' });
+        onEditSuccess?.();
+      } else {
+        toast({ title: 'Error', description: result.message, variant: 'destructive' });
+      }
+    });
+  };
 
   if (!appointments || appointments.length === 0) {
     return (
@@ -67,6 +89,7 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
             <TableHead>CURP</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Estudio</TableHead>
+            <TableHead>Estado</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
@@ -82,6 +105,24 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
               <TableCell>{app.patient?.curp || 'N/A'}</TableCell>
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
               <TableCell>{app.studyName}</TableCell>
+              <TableCell>
+                {onEditSuccess ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-28" disabled={isUpdating}>
+                        {app.status || 'Agendada'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Asistió')}>Asistió</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Agendada')}>Marcar como Agendada</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  app.status || 'Agendada'
+                )}
+              </TableCell>
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>

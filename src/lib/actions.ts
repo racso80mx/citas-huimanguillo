@@ -54,10 +54,12 @@ import {
   updatePatient as dataUpdatePatient,
   getModuleSettings as dataGetModuleSettings,
   updateModuleSettings as dataUpdateModuleSettings,
+  updateAppointmentStatus as dataUpdateAppointmentStatus,
 } from './data';
 
 import type {
   Appointment,
+  AppointmentStatus,
   Clinic,
   Colonia,
   LabAppointment,
@@ -89,7 +91,7 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 }
 
 export async function saveNewAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
@@ -144,7 +146,7 @@ export async function saveNewAppointment(
 }
 
 export async function saveNewLabAppointment(
-  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
   settings: { dailySlots: number; weekendBookingEnabled: boolean }
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
@@ -183,7 +185,7 @@ export async function saveNewLabAppointment(
 }
 
 export async function saveNewXRayAppointment(
-  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
@@ -234,7 +236,7 @@ export async function saveNewXRayAppointment(
 }
 
 export async function saveNewUltrasoundAppointment(
-  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
@@ -285,7 +287,7 @@ export async function saveNewUltrasoundAppointment(
 }
 
 export async function saveNewVaccineAppointment(
-  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
@@ -624,6 +626,15 @@ export async function updateModuleSettings(settings: ModuleSettings) {
         revalidatePath('/ultrasonidos');
         revalidatePath('/vacunas');
         revalidatePath('/admin');
+    }
+    return result;
+}
+
+export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
+    const result = await dataUpdateAppointmentStatus(appointmentId, status, type);
+    if (result.success) {
+        revalidatePath('/admin');
+        revalidatePath('/reports');
     }
     return result;
 }

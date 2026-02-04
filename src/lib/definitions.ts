@@ -27,6 +27,8 @@ export enum PatientType {
     TerceraEdad = '3ra Edad'
 }
 
+export type AppointmentStatus = 'Agendada' | 'Asistió' | 'No Asistió';
+
 export type Appointment = {
   id: string; // UUID
   appointmentNumber: string;
@@ -35,6 +37,7 @@ export type Appointment = {
   date: string; // ISO string for serializability
   time: string; // HH:mm format
   patientType: PatientType;
+  status: AppointmentStatus;
   patient: Patient; 
 };
 
@@ -94,6 +97,7 @@ export type LabAppointment = {
     date: string; // ISO string
     time: string; // HH:mm
     studies: LabStudy[];
+    status: AppointmentStatus;
     patient: Patient;
 }
 
@@ -120,6 +124,7 @@ export type XRayAppointment = {
     time: string; // HH:mm
     studyId: string;
     studyName: string;
+    status: AppointmentStatus;
     patient: Patient;
 }
 
@@ -147,6 +152,7 @@ export type UltrasoundAppointment = {
     time: string; // HH:mm
     studyId: string;
     studyName: string;
+    status: AppointmentStatus;
     patient: Patient;
 }
 
@@ -178,6 +184,7 @@ export type VaccineAppointment = {
   isNewborn: boolean;
   clinicId?: string; // Optional for newborns
   vaccines: Vaccine[];
+  status: AppointmentStatus;
   patient: Patient; // Patient data might be partial for newborns
 };
 

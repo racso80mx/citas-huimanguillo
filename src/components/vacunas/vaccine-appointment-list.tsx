@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import {
   Table,
   TableBody,
@@ -9,7 +9,7 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { VaccineAppointment, Patient, Vaccine } from '@/lib/definitions';
+import type { VaccineAppointment, Patient, AppointmentStatus } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
@@ -34,6 +34,14 @@ import {
 } from '@/components/ui/dialog';
 import { EditPatientForm } from '../admin/edit-patient-form';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { updateAppointmentStatus } from '@/lib/actions';
+import { useToast } from '../ui/use-toast';
 
 
 type VaccineAppointmentListProps = {
@@ -45,6 +53,20 @@ type VaccineAppointmentListProps = {
 
 export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete, onEditSuccess }: VaccineAppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [isUpdating, startUpdateTransition] = useTransition();
+  const { toast } = useToast();
+
+  const handleStatusChange = (appointmentId: string, status: AppointmentStatus) => {
+    startUpdateTransition(async () => {
+      const result = await updateAppointmentStatus(appointmentId, status, 'vaccine');
+      if (result.success) {
+        toast({ title: 'Estado actualizado' });
+        onEditSuccess?.();
+      } else {
+        toast({ title: 'Error', description: result.message, variant: 'destructive' });
+      }
+    });
+  };
 
   if (!appointments || appointments.length === 0) {
     return (
@@ -69,6 +91,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
             <TableHead>CURP</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Vacunas</TableHead>
+            <TableHead>Estado</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
@@ -100,6 +123,24 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
                         </ul>
                     </TooltipContent>
                 </Tooltip>
+              </TableCell>
+              <TableCell>
+                {onEditSuccess ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-28" disabled={isUpdating}>
+                        {app.status || 'Agendada'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Asistió')}>Asistió</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Agendada')}>Marcar como Agendada</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  app.status || 'Agendada'
+                )}
               </TableCell>
                {isAdmin && app.patient && (
                 <TableCell className="text-right">

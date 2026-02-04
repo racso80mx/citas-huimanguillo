@@ -40,9 +40,10 @@
         "clinicId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "time": { "type": "string" },
-        "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] }
+        "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] },
+        "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType"]
+      "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType", "status"]
     },
     "LabAppointment": {
       "title": "Lab Appointment",
@@ -57,9 +58,10 @@
         "studies": { 
           "type": "array", 
           "items": { "$ref": "#/entities/LabStudy" }
-        }
+        },
+        "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "date", "time", "studies"]
+      "required": ["id", "appointmentNumber", "patientId", "date", "time", "studies", "status"]
     },
      "LabStudy": {
       "title": "Lab Study",
@@ -85,9 +87,10 @@
             "patientId": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
             "time": { "type": "string" },
-            "studyId": { "type": "string" }
+            "studyId": { "type": "string" },
+            "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
         },
-        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId"]
+        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId", "status"]
     },
     "XRayStudy": {
         "title": "X-Ray Study",
@@ -111,9 +114,10 @@
             "patientId": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
             "time": { "type": "string" },
-            "studyId": { "type": "string" }
+            "studyId": { "type": "string" },
+            "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
         },
-        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId"]
+        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId", "status"]
     },
     "UltrasoundStudy": {
         "title": "Ultrasound Study",
@@ -156,9 +160,10 @@
         "vaccines": {
           "type": "array",
           "items": { "$ref": "#/entities/Vaccine" }
-        }
+        },
+        "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccines"]
+      "required": ["id", "appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccines", "status"]
     },
     "Clinic": {
         "title": "Clinic",
