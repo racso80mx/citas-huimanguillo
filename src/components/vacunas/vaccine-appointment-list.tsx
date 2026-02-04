@@ -41,7 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { updateAppointmentStatus } from '@/lib/actions';
-import { useToast } from '../ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 
 type VaccineAppointmentListProps = {
