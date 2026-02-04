@@ -496,7 +496,6 @@ export async function rescheduleAppointment(
 ): Promise<{ success: boolean; message: string; newTime?: string }> {
     const filename = `${type === 'medical' ? 'appointments' : type + '-appointments'}.json`;
     const appointments = await readJsonFile<any[]>(filename, []);
-    
     const appointmentIndex = appointments.findIndex(app => app.id === appointmentId);
 
     if (appointmentIndex === -1) {
@@ -505,90 +504,111 @@ export async function rescheduleAppointment(
 
     const appointmentToReschedule = appointments[appointmentIndex];
     const originalTime = appointmentToReschedule.time;
-    const newDateString = new Date(newDate).toISOString().split('T')[0];
+    const newDateObj = new Date(newDate);
+    const newDateString = newDateObj.toISOString().split('T')[0];
+    const newDayOfWeek = newDateObj.getDay();
+    const isWeekend = newDayOfWeek === 6 || newDayOfWeek === 0; // 6: Sat, 0: Sun
+    const dayOfWeekMap: { [key: string]: number } = { "Domingo": 0, "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6 };
+
+    // --- Validation Section ---
+    if (type === 'medical') {
+        const clinics = await getClinics();
+        const clinicSettings = clinics.find(c => c.id === appointmentToReschedule.clinicId);
+        if (!clinicSettings) return { success: false, message: 'No se encontró la configuración de la clínica.' };
+
+        if (isWeekend && !clinicSettings.weekendBookingEnabled) return { success: false, message: 'No se puede agendar en fin de semana para este núcleo.' };
+        if (clinicSettings.unavailableDates?.includes(newDateString)) return { success: false, message: 'La fecha seleccionada no está disponible (periodo vacacional).' };
+        if (clinicSettings.dayOfAction && dayOfWeekMap[clinicSettings.dayOfAction] === newDayOfWeek) return { success: false, message: `No se puede agendar en ${clinicSettings.dayOfAction}, es día de acción para este núcleo.` };
+    } else {
+        let generalSettings: { weekendBookingEnabled: boolean };
+        if (type === 'lab') generalSettings = await getLabSettings();
+        else if (type === 'xray') generalSettings = await getXRaySettings();
+        else if (type === 'ultrasound') generalSettings = await getUltrasoundSettings();
+        else if (type === 'vaccine') generalSettings = await getVaccineSettings();
+        else return { success: false, message: 'Tipo de cita no válido.' };
+
+        if (isWeekend && !generalSettings.weekendBookingEnabled) return { success: false, message: 'Las citas en fin de semana no están habilitadas para este servicio.' };
+    }
+    // --- End Validation Section ---
 
     const appointmentsOnNewDate = appointments.filter(app => app.date.startsWith(newDateString));
 
-    let finalTime = originalTime;
-
+    // Special handling for Lab
     if (type === 'lab') {
         const labSettings = await getLabSettings();
         if (appointmentsOnNewDate.length >= labSettings.dailySlots) {
             return { success: false, message: 'No hay cupos disponibles en la nueva fecha para laboratorio.' };
         }
-        finalTime = "Recepción de Muestras";
+        appointments[appointmentIndex].date = newDateObj.toISOString();
+        appointments[appointmentIndex].status = 'Agendada'; // Reset status
+        const result = await writeJsonFile(filename, appointments);
+        return { success: result.success, message: result.success ? 'Cita reagendada con éxito.' : result.message || 'Error al guardar.' };
+    }
+
+    // --- Time Slot Logic for other types ---
+    let finalTime = originalTime;
+    let bookedTimesOnNewDate: string[];
+    let settings: any;
+    let interval = 30;
+
+    if (type === 'medical') {
+        const clinics = await getClinics();
+        settings = clinics.find(c => c.id === appointmentToReschedule.clinicId);
+        bookedTimesOnNewDate = appointmentsOnNewDate.filter(app => app.clinicId === settings.id).map(app => app.time);
     } else {
-        let bookedTimesOnNewDate: string[];
-        if (type === 'medical') {
-            const clinicId = appointmentToReschedule.clinicId;
-            bookedTimesOnNewDate = appointmentsOnNewDate
-                .filter(app => app.clinicId === clinicId)
-                .map(app => app.time);
-        } else {
-            bookedTimesOnNewDate = appointmentsOnNewDate.map(app => app.time);
+        if (type === 'xray') settings = await getXRaySettings();
+        else if (type === 'ultrasound') settings = await getUltrasoundSettings();
+        else if (type === 'vaccine') { settings = await getVaccineSettings(); interval = 10; }
+        bookedTimesOnNewDate = appointmentsOnNewDate.map(app => app.time);
+    }
+
+    if (!settings) {
+        return { success: false, message: 'No se encontró la configuración para este servicio.' };
+    }
+
+    const isOriginalTimeTaken = bookedTimesOnNewDate.includes(originalTime);
+
+    if (isOriginalTimeTaken) {
+        // Find next available slot
+        const allPossibleSlots = [];
+        const [startHour, startMinute] = settings.startTime.split(':').map(Number);
+        const [endHour, endMinute] = settings.endTime.split(':').map(Number);
+        let currentHour = startHour;
+        let currentMinute = startMinute;
+
+        while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
+            allPossibleSlots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
+            currentMinute += interval;
+            if (currentMinute >= 60) { currentHour++; currentMinute -= 60; }
         }
+        
+        const limitedSlots = allPossibleSlots.slice(0, settings.dailySlots);
+        const availableSlots = limitedSlots.filter(slot => !bookedTimesOnNewDate.includes(slot));
 
-        const isOriginalTimeTaken = bookedTimesOnNewDate.includes(originalTime);
-
-        if (isOriginalTimeTaken) {
-            let settings: any;
-            let interval = 30; // default interval
-            if (type === 'medical') {
-                const clinics = await getClinics();
-                settings = clinics.find(c => c.id === appointmentToReschedule.clinicId);
-            } else if (type === 'xray') {
-                settings = await getXRaySettings();
-            } else if (type === 'ultrasound') {
-                settings = await getUltrasoundSettings();
-            } else if (type === 'vaccine') {
-                settings = await getVaccineSettings();
-                interval = 10;
-            }
-
-            if (!settings) {
-                return { success: false, message: 'No se encontró la configuración para este servicio.' };
-            }
-
-            const allPossibleSlots = [];
-            const [startHour, startMinute] = settings.startTime.split(':').map(Number);
-            const [endHour, endMinute] = settings.endTime.split(':').map(Number);
-            let currentHour = startHour;
-            let currentMinute = startMinute;
-
-            while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
-                allPossibleSlots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
-                currentMinute += interval;
-                if (currentMinute >= 60) {
-                    currentHour++;
-                    currentMinute -= 60;
-                }
-            }
-            
-            const limitedSlots = allPossibleSlots.slice(0, settings.dailySlots);
-            const availableSlots = limitedSlots.filter(slot => !bookedTimesOnNewDate.includes(slot));
-
-            if (availableSlots.length === 0) {
-                return { success: false, message: 'No hay horarios disponibles en la nueva fecha seleccionada.' };
-            }
-            
-            const originalTimeIndex = limitedSlots.indexOf(originalTime);
-            let nextAvailableSlot = availableSlots.find(slot => limitedSlots.indexOf(slot) > originalTimeIndex);
-            
-            if (!nextAvailableSlot) {
-                nextAvailableSlot = availableSlots[0];
-            }
-            finalTime = nextAvailableSlot;
+        if (availableSlots.length === 0) {
+            return { success: false, message: 'No hay horarios disponibles en la nueva fecha seleccionada.' };
         }
+        
+        // Find the first available slot after the original time
+        const originalTimeIndex = limitedSlots.indexOf(originalTime);
+        let nextAvailableSlot = availableSlots.find(slot => limitedSlots.indexOf(slot) > originalTimeIndex);
+        
+        // If no slot is found after, take the first available one
+        if (!nextAvailableSlot) {
+            nextAvailableSlot = availableSlots[0];
+        }
+        finalTime = nextAvailableSlot;
     }
     
-    appointments[appointmentIndex].date = new Date(newDate).toISOString();
+    // Update appointment
+    appointments[appointmentIndex].date = newDateObj.toISOString();
     appointments[appointmentIndex].time = finalTime;
     appointments[appointmentIndex].status = 'Agendada';
 
     const result = await writeJsonFile(filename, appointments);
     if(result.success) {
         let message = 'La cita ha sido reagendada con éxito.';
-        if (finalTime !== originalTime && type !== 'lab') {
+        if (finalTime !== originalTime) {
             message = `Horario original ocupado. La cita se reagendó a las ${finalTime}.`;
         }
         return { success: true, message, newTime: finalTime };
