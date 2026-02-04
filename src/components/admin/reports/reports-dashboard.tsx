@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, Patient } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
   getLabAppointments,
@@ -189,13 +189,13 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const renderAppointmentList = () => {
     switch(reportType) {
         case 'clinic':
-            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} />;
+            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} isAdmin onEditSuccess={fetchData} />;
         case 'laboratorio':
-            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} />;
+            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} isAdmin onEditSuccess={fetchData} />;
         case 'x-ray':
-            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} />;
+            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} isAdmin onEditSuccess={fetchData} />;
         case 'ultrasound':
-            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} />;
+            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} isAdmin onEditSuccess={fetchData} />;
         default:
             return <p>Tipo de reporte no reconocido.</p>
     }

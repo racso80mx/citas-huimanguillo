@@ -371,6 +371,26 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
     return null;
 }
 
+export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>): Promise<{ success: boolean, data?: Patient, message?: string }> {
+    const patients = await readJsonFile<Patient[]>('patients.json', []);
+    const patientIndex = patients.findIndex(p => p.id === patientId);
+
+    if (patientIndex === -1) {
+        return { success: false, message: 'Patient not found.' };
+    }
+
+    // Preserve existing fields not included in patientData
+    const updatedPatient = { ...patients[patientIndex], ...patientData };
+    patients[patientIndex] = updatedPatient;
+
+    const result = await writeJsonFile('patients.json', patients);
+    if (result.success) {
+        return { success: true, data: updatedPatient };
+    } else {
+        return { success: false, message: result.message };
+    }
+}
+
 
 // ========== Reports Auth ==========
 export async function verifyClinicPassword(

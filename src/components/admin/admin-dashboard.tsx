@@ -360,7 +360,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
                       </div>
                   ) : (
-                      <AppointmentList appointments={appointmentsToDisplay} onDelete={handleDelete} isAdmin clinics={clinics} />
+                      <AppointmentList appointments={appointmentsToDisplay} onDelete={handleDelete} onEditSuccess={fetchData} isAdmin clinics={clinics} />
                   )}
                 </CardContent>
             </Card>
@@ -394,7 +394,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
                     </div>
                   ) : (
-                    <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={handleLabDelete} isAdmin />
+                    <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={handleLabDelete} onEditSuccess={fetchData} isAdmin />
                   )}
                 </CardContent>
             </Card>
@@ -428,7 +428,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
                     </div>
                   ) : (
-                    <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={handleXRayDelete} isAdmin />
+                    <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={handleXRayDelete} onEditSuccess={fetchData} isAdmin />
                   )}
                 </CardContent>
             </Card>
@@ -462,7 +462,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
                     </div>
                   ) : (
-                    <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} isAdmin />
+                    <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} onEditSuccess={fetchData} isAdmin />
                   )}
                 </CardContent>
             </Card>

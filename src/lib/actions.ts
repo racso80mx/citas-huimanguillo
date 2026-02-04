@@ -42,6 +42,7 @@ import {
   getUltrasoundStudies as dataGetUltrasoundStudies,
   updateUltrasoundStudies as dataUpdateUltrasoundStudies,
   updateUltrasoundSettings as dataUpdateUltrasoundSettings,
+  updatePatient as dataUpdatePatient,
 } from './data';
 
 import type {
@@ -258,6 +259,24 @@ export async function saveNewUltrasoundAppointment(
       error: e.message || 'Error al guardar la cita de Ultrasonido.',
     };
   }
+}
+
+export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {
+    try {
+        const result = await dataUpdatePatient(patientId, patientData);
+        if (result.success) {
+            // Revalidate all pages that might show patient data
+            revalidatePath('/admin');
+            revalidatePath('/reports');
+            revalidatePath('/citas-medicas');
+            revalidatePath('/laboratorio');
+            revalidatePath('/rayos-x');
+            revalidatePath('/ultrasonidos');
+        }
+        return result;
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Error updating patient.' };
+    }
 }
 
 // =====================================================================
