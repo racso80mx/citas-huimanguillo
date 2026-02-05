@@ -73,7 +73,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState("configuracion");
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const fetchData = useCallback(() => {
     startTransition(async () => {
@@ -119,7 +124,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   }, [fetchData]);
 
   const getFilteredData = (appointments: any[]) => {
-    if (!appointments || appointments.length === 0) {
+    if (!isClient || !appointments || appointments.length === 0) {
       return [];
     }
 
@@ -168,11 +173,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     return appointments.filter(filterFn);
   };
   
-  const appointmentsToDisplay = useMemo(() => getFilteredData(allAppointments), [activeFilter, dateRange, allAppointments]);
-  const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [activeFilter, dateRange, allLabAppointments]);
-  const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [activeFilter, dateRange, allXRayAppointments]);
-  const ultrasoundAppointmentsToDisplay = useMemo(() => getFilteredData(allUltrasoundAppointments), [activeFilter, dateRange, allUltrasoundAppointments]);
-  const vaccineAppointmentsToDisplay = useMemo(() => getFilteredData(allVaccineAppointments), [activeFilter, dateRange, allVaccineAppointments]);
+  const appointmentsToDisplay = useMemo(() => getFilteredData(allAppointments), [isClient, activeFilter, dateRange, allAppointments]);
+  const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [isClient, activeFilter, dateRange, allLabAppointments]);
+  const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [isClient, activeFilter, dateRange, allXRayAppointments]);
+  const ultrasoundAppointmentsToDisplay = useMemo(() => getFilteredData(allUltrasoundAppointments), [isClient, activeFilter, dateRange, allUltrasoundAppointments]);
+  const vaccineAppointmentsToDisplay = useMemo(() => getFilteredData(allVaccineAppointments), [isClient, activeFilter, dateRange, allVaccineAppointments]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {

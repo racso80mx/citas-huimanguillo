@@ -67,7 +67,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [isDataLoading, startDataTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const fetchData = useCallback(() => {
     startDataTransition(async () => {
@@ -101,7 +106,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   }, [fetchData]);
 
   const appointmentsToDisplay = useMemo(() => {
-    if (!appointments || appointments.length === 0) {
+    if (!isClient || !appointments || appointments.length === 0) {
       return [];
     }
 
@@ -150,7 +155,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     return appointments
       .filter(filterFn)
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [appointments, activeFilter, dateRange]);
+  }, [isClient, appointments, activeFilter, dateRange]);
 
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -177,6 +182,9 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   };
 
   const summaryCounts = useMemo(() => {
+    if (!isClient) {
+        return { total: 0, attended: 0, pending: 0, notAttended: 0 };
+    }
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
@@ -189,7 +197,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       pending: todaysAppointments.filter(app => app.status === 'Agendada').length,
       notAttended: todaysAppointments.filter(app => app.status === 'No Asistió' || app.status === 'No Atendido').length,
     }
-  }, [appointments]);
+  }, [isClient, appointments]);
 
   const renderAppointmentList = () => {
     switch(reportType) {
