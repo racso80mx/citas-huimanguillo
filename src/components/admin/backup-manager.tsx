@@ -73,13 +73,11 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
         startRestoreTransition(async () => {
           const result = await restoreBackupAction(content);
            if (result.success && result.stats) {
-            const { stats } = result;
-            const totalAdded = (stats.patients.added || 0) + (stats.appointments.added || 0) + (stats.labAppointments.added || 0) + (stats.xRayAppointments.added || 0) + (stats.ultrasoundAppointments.added || 0) + (stats.vaccineAppointments.added || 0);
-            const totalUpdated = (stats.patients.updated || 0) + (stats.appointments.updated || 0) + (stats.labAppointments.updated || 0) + (stats.xRayAppointments.updated || 0) + (stats.ultrasoundAppointments.updated || 0) + (stats.vaccineAppointments.updated || 0);
-
+            const { restored } = result.stats;
+            const totalRestored = restored.patients + restored.appointments + restored.labAppointments + restored.xRayAppointments + restored.ultrasoundAppointments + restored.vaccineAppointments;
             toast({
-              title: 'Respaldo Restaurado',
-              description: `Se agregaron ${totalAdded} registros y se actualizaron ${totalUpdated}.`,
+              title: 'Respaldo Restaurado con Éxito',
+              description: `Se restauraron un total de ${totalRestored} registros.`,
               duration: 8000,
             });
             onRestoreSuccess?.();
@@ -104,10 +102,10 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
           if (result.success) {
               toast({
                   title: 'Limpieza Completada',
-                  description: `Se eliminaron ${result.deletedCount || 0} registros antiguos. La página se recargará.`,
+                  description: `Se eliminaron ${result.deletedCount || 0} registros antiguos.`,
                   duration: 5000,
               });
-              window.location.reload();
+              onRestoreSuccess?.();
           } else {
               toast({
                 title: 'Error en la Limpieza',

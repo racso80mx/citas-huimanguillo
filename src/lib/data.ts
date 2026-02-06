@@ -699,9 +699,6 @@ export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ 
 
 // ========== Backup & Restore Data ==========
 export async function createBackupData(): Promise<any> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
   const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
   const allLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
   const allXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
@@ -709,33 +706,13 @@ export async function createBackupData(): Promise<any> {
   const allVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
   const allPatients = await readJsonFile<Patient[]>('patients.json', []);
 
-  const filterFutureAppointments = <T extends { date: string }>(items: T[]) => 
-    items.filter(item => new Date(item.date) >= today);
-
-  const futureAppointments = filterFutureAppointments(allAppointments);
-  const futureLabAppointments = filterFutureAppointments(allLabAppointments);
-  const futureXRayAppointments = filterFutureAppointments(allXRayAppointments);
-  const futureUltrasoundAppointments = filterFutureAppointments(allUltrasoundAppointments);
-  const futureVaccineAppointments = filterFutureAppointments(allVaccineAppointments);
-
-  const allFutureAppointments = [
-    ...futureAppointments,
-    ...futureLabAppointments,
-    ...futureXRayAppointments,
-    ...futureUltrasoundAppointments,
-    ...futureVaccineAppointments
-  ];
-
-  const activePatientIds = new Set(allFutureAppointments.map(app => app.patientId));
-  const activePatients = allPatients.filter(p => activePatientIds.has(p.id));
-
   return {
-    appointments: futureAppointments,
-    labAppointments: futureLabAppointments,
-    xRayAppointments: futureXRayAppointments,
-    ultrasoundAppointments: futureUltrasoundAppointments,
-    vaccineAppointments: futureVaccineAppointments,
-    patients: activePatients,
+    appointments: allAppointments,
+    labAppointments: allLabAppointments,
+    xRayAppointments: allXRayAppointments,
+    ultrasoundAppointments: allUltrasoundAppointments,
+    vaccineAppointments: allVaccineAppointments,
+    patients: allPatients,
   };
 }
 
@@ -747,67 +724,24 @@ export async function restoreBackupData(backupData: any): Promise<{success: bool
       throw new Error('El archivo de respaldo tiene un formato incorrecto.');
     }
     
+    // Simple overwrite
+    await writeJsonFile('patients.json', backupData.patients || []);
+    await writeJsonFile('appointments.json', backupData.appointments || []);
+    await writeJsonFile('lab-appointments.json', backupData.labAppointments || []);
+    await writeJsonFile('x-ray-appointments.json', backupData.xRayAppointments || []);
+    await writeJsonFile('ultrasound-appointments.json', backupData.ultrasoundAppointments || []);
+    await writeJsonFile('vaccine-appointments.json', backupData.vaccineAppointments || []);
+    
     const stats = {
-        patients: { added: 0, updated: 0 },
-        appointments: { added: 0, updated: 0 },
-        labAppointments: { added: 0, updated: 0 },
-        xRayAppointments: { added: 0, updated: 0 },
-        ultrasoundAppointments: { added: 0, updated: 0 },
-        vaccineAppointments: { added: 0, updated: 0 },
-    };
-
-    const mergeAndDeduplicate = <T extends { id: string }>(existingData: T[], backupItems: T[]): { mergedData: T[], added: number, updated: number } => {
-        const dataMap = new Map<string, T>(existingData.map(item => [item.id, item]));
-        let added = 0;
-        let updated = 0;
-
-        for (const item of backupItems) {
-            if (dataMap.has(item.id)) {
-                updated++;
-            } else {
-                added++;
-            }
-            dataMap.set(item.id, item);
+        restored: {
+            patients: (backupData.patients || []).length,
+            appointments: (backupData.appointments || []).length,
+            labAppointments: (backupData.labAppointments || []).length,
+            xRayAppointments: (backupData.xRayAppointments || []).length,
+            ultrasoundAppointments: (backupData.ultrasoundAppointments || []).length,
+            vaccineAppointments: (backupData.vaccineAppointments || []).length,
         }
-
-        return { mergedData: Array.from(dataMap.values()), added, updated };
     };
-
-    // Patients
-    const existingPatients = await readJsonFile<Patient[]>('patients.json', []);
-    const patientResult = mergeAndDeduplicate(existingPatients, backupData.patients || []);
-    stats.patients = { added: patientResult.added, updated: patientResult.updated };
-    await writeJsonFile('patients.json', patientResult.mergedData);
-    
-    // Appointments
-    const existingAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
-    const appointmentResult = mergeAndDeduplicate(existingAppointments, backupData.appointments || []);
-    stats.appointments = { added: appointmentResult.added, updated: appointmentResult.updated };
-    await writeJsonFile('appointments.json', appointmentResult.mergedData);
-
-    // Lab Appointments
-    const existingLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
-    const labResult = mergeAndDeduplicate(existingLabAppointments, backupData.labAppointments || []);
-    stats.labAppointments = { added: labResult.added, updated: labResult.updated };
-    await writeJsonFile('lab-appointments.json', labResult.mergedData);
-    
-    // XRay Appointments
-    const existingXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
-    const xrayResult = mergeAndDeduplicate(existingXRayAppointments, backupData.xRayAppointments || []);
-    stats.xRayAppointments = { added: xrayResult.added, updated: xrayResult.updated };
-    await writeJsonFile('x-ray-appointments.json', xrayResult.mergedData);
-
-    // Ultrasound Appointments
-    const existingUltrasoundAppointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
-    const ultrasoundResult = mergeAndDeduplicate(existingUltrasoundAppointments, backupData.ultrasoundAppointments || []);
-    stats.ultrasoundAppointments = { added: ultrasoundResult.added, updated: ultrasoundResult.updated };
-    await writeJsonFile('ultrasound-appointments.json', ultrasoundResult.mergedData);
-
-    // Vaccine Appointments
-    const existingVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
-    const vaccineResult = mergeAndDeduplicate(existingVaccineAppointments, backupData.vaccineAppointments || []);
-    stats.vaccineAppointments = { added: vaccineResult.added, updated: vaccineResult.updated };
-    await writeJsonFile('vaccine-appointments.json', vaccineResult.mergedData);
 
     return { success: true, stats };
   } catch (e: any) {

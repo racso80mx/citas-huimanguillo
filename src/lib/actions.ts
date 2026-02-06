@@ -675,7 +675,7 @@ export async function restoreBackupAction(backupJsonString: string): Promise<{ s
   try {
     const backupData = JSON.parse(backupJsonString);
     const result = await restoreBackupData(backupData);
-    if(result.success) {
+    if (result.success) {
       revalidatePath('/admin', 'layout');
     }
     return result;
