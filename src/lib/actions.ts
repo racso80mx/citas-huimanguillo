@@ -51,6 +51,8 @@ import {
   getVaccines as dataGetVaccines,
   updateVaccineSettings as dataUpdateVaccineSettings,
   updateVaccines as dataUpdateVaccines,
+  getUsers as dataGetUsers,
+  updateUsers as dataUpdateUsers,
   updatePatient as dataUpdatePatient,
   getModuleSettings as dataGetModuleSettings,
   updateModuleSettings as dataUpdateModuleSettings,
@@ -80,6 +82,7 @@ import type {
   Vaccine,
   VaccineSettings,
   VaccineAppointment,
+  User,
 } from './definitions';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -663,26 +666,28 @@ export async function rescheduleAppointment(
 
 // ========== Backup & Restore Actions ==========
 export async function downloadBackupAction(): Promise<{ success: boolean; data?: any; message?: string }> {
-  try {
-    const backupData = await createBackupData();
-    return { success: true, data: backupData };
-  } catch (e: any) {
-    return { success: false, message: e.message || 'Error al crear el respaldo.' };
-  }
-}
-
-export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string; stats?: any }> {
-  try {
-    const backupData = JSON.parse(backupJsonString);
-    const result = await restoreBackupData(backupData);
-    if (result.success) {
-      revalidatePath('/admin', 'layout');
+    try {
+      const backupData = await createBackupData();
+      return { success: true, data: backupData };
+    } catch (e: any) {
+      return { success: false, message: e.message || 'Error al crear el respaldo.' };
     }
-    return result;
-  } catch (e: any) {
-    return { success: false, message: 'El archivo de respaldo no es un JSON válido.' };
   }
-}
+  
+  export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string; stats?: any }> {
+    try {
+      const backupData = JSON.parse(backupJsonString);
+      const result = await restoreBackupData(backupData);
+      if (result.success) {
+        // No longer reloading, just revalidating
+        revalidatePath('/admin', 'layout'); 
+      }
+      return result;
+    } catch (e: any) {
+      return { success: false, message: 'El archivo de respaldo no es un JSON válido.' };
+    }
+  }
+  
 
 export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {
     try {
@@ -698,6 +703,8 @@ export {
     dataGetClinics as getClinics, 
     dataGetColonias as getColonias, 
     dataGetAnnouncements as getAnnouncements, 
+    dataGetUsers as getUsers,
+    dataUpdateUsers as updateUsers,
     dataGetModuleSettings as getModuleSettings, 
     dataGetLabSettings as getLabSettings, 
     dataGetLabStudies as getLabStudies, 

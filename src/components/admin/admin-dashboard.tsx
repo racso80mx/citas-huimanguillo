@@ -52,6 +52,7 @@ import { VaccineSettingsManager } from './vaccine-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
 import { BackupManager } from './backup-manager';
+import { UsersManager } from './users-manager';
 
 
 type AdminDashboardProps = {
@@ -343,8 +344,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+          <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
           <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
           <TabsTrigger value="rayos-x">Rayos X</TabsTrigger>
@@ -359,6 +361,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
             </div>
+        </TabsContent>
+        
+        <TabsContent value="usuarios" className="mt-6">
+            <UsersManager />
         </TabsContent>
 
         <TabsContent value="citas" className="mt-6 space-y-8">

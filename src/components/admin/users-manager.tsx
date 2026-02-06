@@ -21,8 +21,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { getUsers, getClinics } from '@/lib/data';
-import { updateUsers } from '@/lib/actions';
+import { getUsers, getClinics, updateUsers } from '@/lib/actions';
 import { Loader2, Trash2, PlusCircle, Users, Save, Eye, EyeOff } from 'lucide-react';
 import type { User, Clinic } from '@/lib/definitions';
 import {
@@ -49,7 +48,6 @@ const formSchema = z.object({
 
 
 export function UsersManager() {
-  const [users, setUsers] = useState<User[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
@@ -61,31 +59,32 @@ export function UsersManager() {
     defaultValues: { users: [] },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: 'users',
   });
+  
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [usersData, clinicsData] = await Promise.all([getUsers(), getClinics()]);
+      replace(usersData);
+      setClinics(clinicsData);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudieron cargar los usuarios y clínicas.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [replace, toast]);
+
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [usersData, clinicsData] = await Promise.all([getUsers(), getClinics()]);
-        setUsers(usersData);
-        setClinics(clinicsData);
-        form.reset({ users: usersData });
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'No se pudieron cargar los usuarios y clínicas.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchData();
-  }, [form, toast]);
+  }, [fetchData]);
   
   const toggleShowPassword = (id: string) => {
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
@@ -96,8 +95,7 @@ export function UsersManager() {
       const result = await updateUsers(data.users);
       if (result.success) {
         toast({ title: 'Usuarios Guardados', description: 'Los usuarios se han actualizado.' });
-        const usersData = await getUsers();
-        form.reset({ users: usersData });
+        fetchData();
       } else {
         toast({ title: 'Error', description: result.message, variant: 'destructive' });
       }
@@ -201,7 +199,7 @@ export function UsersManager() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Rol</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Selecciona un rol" />
@@ -223,7 +221,7 @@ export function UsersManager() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Asignar a Núcleo Básico</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un núcleo" />

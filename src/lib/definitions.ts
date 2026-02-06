@@ -2,10 +2,12 @@
 import { z } from 'zod';
 
 export type User = {
-  id: string; // Firebase UID
+  id: string; // Firebase UID or generated UUID
   email: string;
   name: string;
-  role: 'admin';
+  role: 'admin' | 'doctor';
+  clinicId?: string; // Only for doctors
+  password?: string; // Only for creation/update
 };
 
 export type Patient = {

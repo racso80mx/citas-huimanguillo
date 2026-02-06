@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus, User } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
@@ -30,6 +30,15 @@ async function writeJsonFile(filename: string, data: any): Promise<{success: boo
         console.error(`Failed to write to static file ${filename}`, e);
         return { success: false, message: `Failed to write to static file ${filename}: ${e.message}` };
     }
+}
+
+// ========== Users ==========
+export async function getUsers(): Promise<User[]> {
+    return await readJsonFile<User[]>('users.json', []);
+}
+
+export async function updateUsers(users: User[]): Promise<{ success: boolean; message?: string }> {
+    return await writeJsonFile('users.json', users);
 }
 
 // ========== Announcements ==========
@@ -699,56 +708,57 @@ export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ 
 
 // ========== Backup & Restore Data ==========
 export async function createBackupData(): Promise<any> {
-  const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
-  const allLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
-  const allXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
-  const allUltrasoundAppointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
-  const allVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
-  const allPatients = await readJsonFile<Patient[]>('patients.json', []);
-
-  return {
-    appointments: allAppointments,
-    labAppointments: allLabAppointments,
-    xRayAppointments: allXRayAppointments,
-    ultrasoundAppointments: allUltrasoundAppointments,
-    vaccineAppointments: allVaccineAppointments,
-    patients: allPatients,
-  };
-}
-
-
-export async function restoreBackupData(backupData: any): Promise<{success: boolean, message?: string, stats?: any}> {
-  try {
-    // Basic validation of backup data structure
-    if (!backupData.patients || !backupData.appointments || !backupData.labAppointments || !backupData.xRayAppointments || !backupData.ultrasoundAppointments || !backupData.vaccineAppointments) {
-      throw new Error('El archivo de respaldo tiene un formato incorrecto.');
-    }
-    
-    // Simple overwrite
-    await writeJsonFile('patients.json', backupData.patients || []);
-    await writeJsonFile('appointments.json', backupData.appointments || []);
-    await writeJsonFile('lab-appointments.json', backupData.labAppointments || []);
-    await writeJsonFile('x-ray-appointments.json', backupData.xRayAppointments || []);
-    await writeJsonFile('ultrasound-appointments.json', backupData.ultrasoundAppointments || []);
-    await writeJsonFile('vaccine-appointments.json', backupData.vaccineAppointments || []);
-    
-    const stats = {
-        restored: {
-            patients: (backupData.patients || []).length,
-            appointments: (backupData.appointments || []).length,
-            labAppointments: (backupData.labAppointments || []).length,
-            xRayAppointments: (backupData.xRayAppointments || []).length,
-            ultrasoundAppointments: (backupData.ultrasoundAppointments || []).length,
-            vaccineAppointments: (backupData.vaccineAppointments || []).length,
-        }
+    const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []);
+    const allLabAppointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+    const allXRayAppointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+    const allUltrasoundAppointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+    const allVaccineAppointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+    const allPatients = await readJsonFile<Patient[]>('patients.json', []);
+  
+    return {
+      appointments: allAppointments,
+      labAppointments: allLabAppointments,
+      xRayAppointments: allXRayAppointments,
+      ultrasoundAppointments: allUltrasoundAppointments,
+      vaccineAppointments: allVaccineAppointments,
+      patients: allPatients,
     };
-
-    return { success: true, stats };
-  } catch (e: any) {
-    console.error('Failed to restore backup', e);
-    return { success: false, message: e.message || 'Error al restaurar el respaldo.'};
   }
-}
+  
+  
+  export async function restoreBackupData(backupData: any): Promise<{success: boolean, message?: string, stats?: any}> {
+    try {
+      // Basic validation of backup data structure
+      if (!backupData.patients || !backupData.appointments || !backupData.labAppointments || !backupData.xRayAppointments || !backupData.ultrasoundAppointments || !backupData.vaccineAppointments) {
+        throw new Error('El archivo de respaldo tiene un formato incorrecto.');
+      }
+      
+      // Simple overwrite
+      await writeJsonFile('patients.json', backupData.patients || []);
+      await writeJsonFile('appointments.json', backupData.appointments || []);
+      await writeJsonFile('lab-appointments.json', backupData.labAppointments || []);
+      await writeJsonFile('x-ray-appointments.json', backupData.xRayAppointments || []);
+      await writeJsonFile('ultrasound-appointments.json', backupData.ultrasoundAppointments || []);
+      await writeJsonFile('vaccine-appointments.json', backupData.vaccineAppointments || []);
+      
+      const stats = {
+          restored: {
+              patients: (backupData.patients || []).length,
+              appointments: (backupData.appointments || []).length,
+              labAppointments: (backupData.labAppointments || []).length,
+              xRayAppointments: (backupData.xRayAppointments || []).length,
+              ultrasoundAppointments: (backupData.ultrasoundAppointments || []).length,
+              vaccineAppointments: (backupData.vaccineAppointments || []).length,
+          }
+      };
+  
+      return { success: true, stats };
+    } catch (e: any) {
+      console.error('Failed to restore backup', e);
+      return { success: false, message: e.message || 'Error al restaurar el respaldo.'};
+    }
+  }
+  
 
 export async function cleanupOldAppointments(): Promise<{deletedCount: number}> {
     const today = new Date();
