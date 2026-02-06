@@ -2,7 +2,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus, User } from './definitions';
+import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus, User, ActivityLog } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
@@ -30,6 +30,28 @@ async function writeJsonFile(filename: string, data: any): Promise<{success: boo
         console.error(`Failed to write to static file ${filename}`, e);
         return { success: false, message: `Failed to write to static file ${filename}: ${e.message}` };
     }
+}
+
+// ========== Activity Log ==========
+const LOG_LIMIT = 500;
+export async function logActivity(action: string, details: string): Promise<void> {
+    try {
+        const logs = await readJsonFile<ActivityLog[]>('activity-log.json', []);
+        const newLog: ActivityLog = {
+            id: uuidv4(),
+            timestamp: new Date().toISOString(),
+            action,
+            details,
+        };
+        const updatedLogs = [newLog, ...logs].slice(0, LOG_LIMIT);
+        await writeJsonFile('activity-log.json', updatedLogs);
+    } catch (error) {
+        console.error('Failed to log activity:', error);
+    }
+}
+
+export async function getLogs(): Promise<ActivityLog[]> {
+    return await readJsonFile<ActivityLog[]>('activity-log.json', []);
 }
 
 // ========== Users ==========
@@ -177,6 +199,11 @@ export async function updateModuleSettings(settings: ModuleSettings): Promise<{ 
 
 // ========== Appointments ==========
 
+async function getPatientById(id: string): Promise<Patient | null> {
+    const patients = await readJsonFile<Patient[]>('patients.json', []);
+    return patients.find(p => p.id === id) || null;
+}
+
 const getPatientsFromAppointments = async <T extends { patientId: string }>(appointments: T[]): Promise<Record<string, Patient>> => {
     const patients = await readJsonFile<Patient[]>('patients.json', []);
     const patientMap: Record<string, Patient> = {};
@@ -224,6 +251,7 @@ export async function saveAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+      await logActivity('Creación de Paciente', `Nuevo paciente ${patient.name} con CURP ${patient.curp}`);
   } else { // If patient exists, update their info
       const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
       await writeJsonFile('patients.json', updatedPatients);
@@ -239,14 +267,19 @@ export async function saveAppointment(
   };
   
   await writeJsonFile('appointments.json', [...appointments, newAppointment]);
+  await logActivity('Creación Cita Médica', `Folio ${newAppointment.appointmentNumber} para ${patient.name} ${patient.paternalLastName}.`);
 
   return newAppointment;
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
     const appointments = await readJsonFile<Appointment[]>('appointments.json', []);
+    const appToDelete = appointments.find(app => app.id === id);
     const updatedAppointments = appointments.filter(app => app.id !== id);
     await writeJsonFile('appointments.json', updatedAppointments);
+    if(appToDelete){
+        await logActivity('Eliminación Cita Médica', `Folio: ${appToDelete.appointmentNumber}, Paciente ID: ${appToDelete.patientId}`);
+    }
 }
 
 
@@ -273,6 +306,7 @@ export async function saveLabAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+      await logActivity('Creación de Paciente', `Nuevo paciente ${patient.name} con CURP ${patient.curp}`);
   } else {
       const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
       await writeJsonFile('patients.json', updatedPatients);
@@ -288,14 +322,19 @@ export async function saveLabAppointment(
   };
   
   await writeJsonFile('lab-appointments.json', [...appointments, newAppointment]);
+  await logActivity('Creación Cita Laboratorio', `Folio ${newAppointment.appointmentNumber} para ${patient.name} ${patient.paternalLastName}.`);
 
   return newAppointment;
 }
 
 export async function deleteLabAppointment(id: string): Promise<void> {
     const appointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []);
+    const appToDelete = appointments.find(app => app.id === id);
     const updatedAppointments = appointments.filter(app => app.id !== id);
     await writeJsonFile('lab-appointments.json', updatedAppointments);
+    if(appToDelete){
+        await logActivity('Eliminación Cita Laboratorio', `Folio: ${appToDelete.appointmentNumber}, Paciente ID: ${appToDelete.patientId}`);
+    }
 }
 
 
@@ -322,6 +361,7 @@ export async function saveXRayAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+      await logActivity('Creación de Paciente', `Nuevo paciente ${patient.name} con CURP ${patient.curp}`);
   } else {
       const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
       await writeJsonFile('patients.json', updatedPatients);
@@ -337,14 +377,19 @@ export async function saveXRayAppointment(
   };
   
   await writeJsonFile('x-ray-appointments.json', [...appointments, newAppointment]);
+  await logActivity('Creación Cita Rayos X', `Folio ${newAppointment.appointmentNumber} para ${patient.name} ${patient.paternalLastName}.`);
 
   return newAppointment;
 }
 
 export async function deleteXRayAppointment(id: string): Promise<void> {
     const appointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []);
+    const appToDelete = appointments.find(app => app.id === id);
     const updatedAppointments = appointments.filter(app => app.id !== id);
     await writeJsonFile('x-ray-appointments.json', updatedAppointments);
+    if(appToDelete){
+        await logActivity('Eliminación Cita Rayos X', `Folio: ${appToDelete.appointmentNumber}, Paciente ID: ${appToDelete.patientId}`);
+    }
 }
 
 
@@ -371,6 +416,7 @@ export async function saveUltrasoundAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+       await logActivity('Creación de Paciente', `Nuevo paciente ${patient.name} con CURP ${patient.curp}`);
   } else {
       const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
       await writeJsonFile('patients.json', updatedPatients);
@@ -386,14 +432,19 @@ export async function saveUltrasoundAppointment(
   };
   
   await writeJsonFile('ultrasound-appointments.json', [...appointments, newAppointment]);
+  await logActivity('Creación Cita Ultrasonido', `Folio ${newAppointment.appointmentNumber} para ${patient.name} ${patient.paternalLastName}.`);
 
   return newAppointment;
 }
 
 export async function deleteUltrasoundAppointment(id: string): Promise<void> {
     const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []);
+    const appToDelete = appointments.find(app => app.id === id);
     const updatedAppointments = appointments.filter(app => app.id !== id);
     await writeJsonFile('ultrasound-appointments.json', updatedAppointments);
+     if(appToDelete){
+        await logActivity('Eliminación Cita Ultrasonido', `Folio: ${appToDelete.appointmentNumber}, Paciente ID: ${appToDelete.patientId}`);
+    }
 }
 
 // ========== Vaccine Appointments ==========
@@ -423,6 +474,7 @@ export async function saveVaccineAppointment(
   if (!patient) {
       patient = { id: uuidv4(), ...patientData };
       await writeJsonFile('patients.json', [...patients, patient]);
+       await logActivity('Creación de Paciente', `Nuevo paciente ${patient.name} con CURP ${patient.curp}`);
   } else if (!appointmentData.isNewborn) { // If patient exists and not newborn, update their info
       const updatedPatients = patients.map(p => p.id === patient!.id ? { ...patient!, ...patientData } : p);
       await writeJsonFile('patients.json', updatedPatients);
@@ -438,19 +490,25 @@ export async function saveVaccineAppointment(
   };
   
   await writeJsonFile('vaccine-appointments.json', [...appointments, newAppointment]);
+  await logActivity('Creación Cita Vacunación', `Folio ${newAppointment.appointmentNumber} para ${patient.name} ${patient.paternalLastName}.`);
 
   return newAppointment;
 }
 
 export async function deleteVaccineAppointment(id: string): Promise<void> {
     const appointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []);
+    const appToDelete = appointments.find(app => app.id === id);
     const updatedAppointments = appointments.filter(app => app.id !== id);
     await writeJsonFile('vaccine-appointments.json', updatedAppointments);
+    if(appToDelete){
+        await logActivity('Eliminación Cita Vacunación', `Folio: ${appToDelete.appointmentNumber}, Paciente ID: ${appToDelete.patientId}`);
+    }
 }
 
 // ========== Universal Patient Search ==========
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {
     const upperCurp = curp.toUpperCase();
+    if (!upperCurp) return null;
     const patients = await readJsonFile<Patient[]>('patients.json', []);
     return patients.find(p => p.curp.toUpperCase() === upperCurp) || null;
 }
@@ -469,6 +527,7 @@ export async function updatePatient(patientId: string, patientData: Partial<Omit
 
     const result = await writeJsonFile('patients.json', patients);
     if (result.success) {
+         await logActivity('Actualización de Paciente', `Datos del paciente ${updatedPatient.name} (CURP: ${updatedPatient.curp}) actualizados.`);
         return { success: true, data: updatedPatient };
     } else {
         return { success: false, message: result.message };
@@ -495,6 +554,10 @@ export async function updateAppointmentStatus(appointmentId: string, status: App
     appointments[appointmentIndex].status = status;
 
     const result = await writeJsonFile(filename, appointments);
+    if (result.success) {
+        const appointment = appointments[appointmentIndex];
+        await logActivity('Actualización de Estado', `Folio ${appointment.appointmentNumber} (${type}) actualizado a: ${status}.`);
+    }
     return result;
 }
 
@@ -551,6 +614,9 @@ export async function rescheduleAppointment(
         appointments[appointmentIndex].date = newDateObj.toISOString();
         appointments[appointmentIndex].status = 'Agendada'; // Reset status
         const result = await writeJsonFile(filename, appointments);
+        if (result.success) {
+            await logActivity('Reagendamiento Cita', `Folio ${appointmentToReschedule.appointmentNumber} (laboratorio) movido a ${newDateString}.`);
+        }
         return { success: result.success, message: result.success ? 'Cita reagendada con éxito.' : result.message || 'Error al guardar.' };
     }
 
@@ -617,6 +683,10 @@ export async function rescheduleAppointment(
 
     const result = await writeJsonFile(filename, appointments);
     if(result.success) {
+        await logActivity(
+            'Reagendamiento Cita',
+            `Folio ${appointmentToReschedule.appointmentNumber} (${type}) movido a ${newDateString} a las ${finalTime}.`
+        );
         let message = 'La cita ha sido reagendada con éxito.';
         if (finalTime !== originalTime) {
             message = `Horario original ocupado. La cita se reagendó a las ${finalTime}.`;
@@ -751,6 +821,8 @@ export async function createBackupData(): Promise<any> {
               vaccineAppointments: (backupData.vaccineAppointments || []).length,
           }
       };
+      const totalRestored = Object.values(stats.restored).reduce((a, b) => a + b, 0);
+      await logActivity('Restauración de Respaldo', `Se restauraron un total de ${totalRestored} registros.`);
   
       return { success: true, stats };
     } catch (e: any) {
@@ -782,5 +854,9 @@ export async function cleanupOldAppointments(): Promise<{deletedCount: number}> 
         totalDeleted += originalCount - recentAppointments.length;
     }
     
+    if (totalDeleted > 0) {
+        await logActivity('Limpieza de Registros', `Se eliminaron ${totalDeleted} citas antiguas de meses anteriores.`);
+    }
+
     return { deletedCount: totalDeleted };
 }

@@ -1,6 +1,13 @@
 'use client';
 import { z } from 'zod';
 
+export type ActivityLog = {
+  id: string;
+  timestamp: string; // ISO string
+  action: string;
+  details: string;
+};
+
 export type User = {
   id: string; // Firebase UID or generated UUID
   email: string;

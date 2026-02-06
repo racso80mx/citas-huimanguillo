@@ -52,6 +52,7 @@ import { VaccineSettingsManager } from './vaccine-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
 import { BackupManager } from './backup-manager';
+import { ActivityLogViewer } from './activity-log-viewer';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -353,6 +354,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
         <TabsContent value="configuracion" className="mt-6">
             <div className="space-y-8">
+                <ActivityLogViewer />
                 <ModuleManager />
                 <ColoniasManager />
                 <AnnouncementsManager />

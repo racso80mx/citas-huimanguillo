@@ -61,6 +61,7 @@ import {
   createBackupData,
   restoreBackupData,
   cleanupOldAppointments,
+  getLogs as dataGetLogs,
 } from './data';
 
 import type {
@@ -83,6 +84,7 @@ import type {
   VaccineSettings,
   VaccineAppointment,
   User,
+  ActivityLog,
 } from './definitions';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -679,7 +681,6 @@ export async function downloadBackupAction(): Promise<{ success: boolean; data?:
       const backupData = JSON.parse(backupJsonString);
       const result = await restoreBackupData(backupData);
       if (result.success) {
-        // No longer reloading, just revalidating
         revalidatePath('/admin', 'layout'); 
       }
       return result;
@@ -700,6 +701,7 @@ export async function cleanupOldRecordsAction(): Promise<{ success: boolean; del
 }
 
 export { 
+    dataGetLogs as getLogs,
     dataGetClinics as getClinics, 
     dataGetColonias as getColonias, 
     dataGetAnnouncements as getAnnouncements, 
