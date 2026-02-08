@@ -51,6 +51,10 @@ import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
 import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
 import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
+import { LabSettingsManager } from '../admin/lab-settings-manager';
+import { XRaySettingsManager } from '../admin/x-ray-settings-manager';
+import { UltrasoundSettingsManager } from '../admin/ultrasound-settings-manager';
+import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -216,6 +220,21 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   }
 
+  const renderSettingsManager = () => {
+    switch(reportType) {
+        case 'laboratorio':
+            return <LabSettingsManager />;
+        case 'x-ray':
+            return <XRaySettingsManager />;
+        case 'ultrasound':
+            return <UltrasoundSettingsManager />;
+        case 'vacunas':
+            return <VaccineSettingsManager />;
+        default:
+            return null;
+    }
+  }
+
 
   return (
     <div className="space-y-8 container mx-auto px-4 py-8 md:py-12">
@@ -369,6 +388,9 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
           )}
         </CardContent>
       </Card>
+      <div className="w-full max-w-7xl mx-auto mt-8">
+        {renderSettingsManager()}
+      </div>
     </div>
   );
 }
