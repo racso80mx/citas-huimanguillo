@@ -362,179 +362,209 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </div>
         </TabsContent>
         
-        <TabsContent value="citas" className="mt-6 space-y-8">
-            <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                      <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+        <TabsContent value="citas" className="mt-6">
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+             <div className="lg:col-span-2 space-y-8">
+                <Card className="w-full shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2 pt-4">
+                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                            </PopoverContent>
+                        </Popover>
+                        <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
                       </div>
-                  ) : (
-                      <AppointmentList appointments={appointmentsToDisplay} onDelete={handleDelete} onEditSuccess={fetchData} isAdmin clinics={clinics} />
-                  )}
-                </CardContent>
-            </Card>
-            <ClinicsManager />
+                    </CardHeader>
+                    <CardContent>
+                      {isPending ? (
+                          <div className="flex justify-center items-center h-40">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                          </div>
+                      ) : (
+                          <AppointmentList appointments={appointmentsToDisplay} onDelete={handleDelete} onEditSuccess={fetchData} isAdmin clinics={clinics} />
+                      )}
+                    </CardContent>
+                </Card>
+              </div>
+              <div className="space-y-8">
+                <ClinicsManager />
+              </div>
+           </div>
         </TabsContent>
 
-        <TabsContent value="laboratorio" className="mt-6 space-y-8">
-           <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Laboratorio</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-lab" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={handleLabDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <LabSettingsManager />
+        <TabsContent value="laboratorio" className="mt-6">
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              <div className="lg:col-span-2 space-y-8">
+                <Card className="w-full shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Laboratorio</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2 pt-4">
+                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date-lab" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                            </PopoverContent>
+                        </Popover>
+                        <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {isPending ? (
+                        <div className="flex justify-center items-center h-40">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                        </div>
+                      ) : (
+                        <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={handleLabDelete} onEditSuccess={fetchData} isAdmin />
+                      )}
+                    </CardContent>
+                </Card>
+              </div>
+               <div className="space-y-8">
+                <LabSettingsManager />
+               </div>
+           </div>
         </TabsContent>
 
-        <TabsContent value="rayos-x" className="mt-6 space-y-8">
-           <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Rayos X</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-xray" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={handleXRayDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <XRaySettingsManager />
+        <TabsContent value="rayos-x" className="mt-6">
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+             <div className="lg:col-span-2 space-y-8">
+                <Card className="w-full shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Rayos X</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2 pt-4">
+                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date-xray" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                            </PopoverContent>
+                        </Popover>
+                        <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {isPending ? (
+                        <div className="flex justify-center items-center h-40">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                        </div>
+                      ) : (
+                        <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={handleXRayDelete} onEditSuccess={fetchData} isAdmin />
+                      )}
+                    </CardContent>
+                </Card>
+              </div>
+              <div className="space-y-8">
+                <XRaySettingsManager />
+              </div>
+            </div>
         </TabsContent>
         
-        <TabsContent value="ultrasonidos" className="mt-6 space-y-8">
-           <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Ultrasonido</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-ultrasound" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <UltrasoundSettingsManager />
+        <TabsContent value="ultrasonidos" className="mt-6">
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              <div className="lg:col-span-2 space-y-8">
+                <Card className="w-full shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Ultrasonido</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2 pt-4">
+                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date-ultrasound" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                            </PopoverContent>
+                        </Popover>
+                        <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {isPending ? (
+                        <div className="flex justify-center items-center h-40">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                        </div>
+                      ) : (
+                        <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} onEditSuccess={fetchData} isAdmin />
+                      )}
+                    </CardContent>
+                </Card>
+              </div>
+              <div className="space-y-8">
+                <UltrasoundSettingsManager />
+              </div>
+            </div>
         </TabsContent>
 
-        <TabsContent value="vacunas" className="mt-6 space-y-8">
-           <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Vacunación</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-vaccine" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={handleVaccineDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <VaccineSettingsManager />
+        <TabsContent value="vacunas" className="mt-6">
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              <div className="lg:col-span-2 space-y-8">
+                <Card className="w-full shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Vacunación</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2 pt-4">
+                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
+                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
+                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date-vaccine" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                            </PopoverContent>
+                        </Popover>
+                        <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {isPending ? (
+                        <div className="flex justify-center items-center h-40">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
+                        </div>
+                      ) : (
+                        <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={handleVaccineDelete} onEditSuccess={fetchData} isAdmin />
+                      )}
+                    </CardContent>
+                </Card>
+              </div>
+              <div className="space-y-8">
+                <VaccineSettingsManager />
+              </div>
+            </div>
         </TabsContent>
       </Tabs>
     </div>

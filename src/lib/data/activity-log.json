@@ -1,1 +1,14 @@
+[
+  {
+    "id": "3e0e5b2b-8ba1-4a4d-8367-b18010329814",
+    "timestamp": "2026-02-06T14:50:01.029Z",
+    "action": "Restauración de Respaldo",
+    "details": "Se restauraron un total de 84 registros."
+  },
+  {
+    "id": "c7e53eb4-89d4-4c45-8ca1-2b521fdfd058",
+    "timestamp": "2026-02-06T14:49:01.229Z",
+    "action": "Restauración de Respaldo",
+    "details": "Se restauraron un total de 122 registros."
+  }
 ]
