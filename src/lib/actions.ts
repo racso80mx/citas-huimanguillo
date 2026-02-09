@@ -58,6 +58,7 @@ import {
   updateModuleSettings as dataUpdateModuleSettings,
   updateAppointmentStatus as dataUpdateAppointmentStatus,
   rescheduleAppointment as dataRescheduleAppointment,
+  getAppointmentById as dataGetAppointmentById,
   createBackupData,
   restoreBackupData,
   cleanupOldAppointments,
@@ -341,6 +342,90 @@ export async function saveNewVaccineAppointment(
       success: false,
       error: e.message || 'Error al guardar la cita de Vacunación.',
     };
+  }
+}
+
+export async function cloneAppointment(
+  originalAppointmentId: string,
+  newDate: string,
+  type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'
+): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const originalAppointment = await dataGetAppointmentById(originalAppointmentId, type);
+    if (!originalAppointment) {
+        throw new Error('Cita original no encontrada.');
+    }
+
+    const patientData = originalAppointment.patient;
+    if (!patientData) {
+        throw new Error('Paciente no encontrado.');
+    }
+
+    const newAppointmentBase = { ...originalAppointment, date: newDate };
+    let result: { success: boolean; data?: any; error?: string };
+
+    if (type === 'medical') {
+        const payload: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'> = {
+            appointmentNumber: '', // will be regenerated
+            clinicId: newAppointmentBase.clinicId,
+            date: newAppointmentBase.date,
+            time: newAppointmentBase.time,
+            patientType: newAppointmentBase.patientType,
+        };
+        result = await saveNewAppointment(payload, patientData);
+    } else if (type === 'lab') {
+        const payload: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
+            appointmentNumber: '',
+            date: newAppointmentBase.date,
+            time: newAppointmentBase.time,
+            studies: newAppointmentBase.studies
+        };
+        const settings = await getLabSettings();
+        result = await saveNewLabAppointment(payload, patientData, settings);
+    } else if (type === 'xray') {
+         const payload: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
+            appointmentNumber: '',
+            date: newAppointmentBase.date,
+            time: newAppointmentBase.time,
+            studyId: newAppointmentBase.studyId,
+            studyName: newAppointmentBase.studyName,
+        };
+        result = await saveNewXRayAppointment(payload, patientData);
+    } else if (type === 'ultrasound') {
+        const payload: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
+            appointmentNumber: '',
+            date: newAppointmentBase.date,
+            time: newAppointmentBase.time,
+            studyId: newAppointmentBase.studyId,
+            studyName: newAppointmentBase.studyName,
+        };
+        result = await saveNewUltrasoundAppointment(payload, patientData);
+    } else if (type === 'vaccine') {
+         const payload: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
+            appointmentNumber: '',
+            date: newAppointmentBase.date,
+            time: newAppointmentBase.time,
+            isNewborn: newAppointmentBase.isNewborn,
+            clinicId: newAppointmentBase.clinicId,
+            vaccines: newAppointmentBase.vaccines,
+        };
+        result = await saveNewVaccineAppointment(payload, patientData);
+    } else {
+        throw new Error('Tipo de cita no válido para clonación.');
+    }
+
+    if (!result.success) {
+        throw new Error(result.error || 'No se pudo crear la nueva cita clonada.');
+    }
+    
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+    
+    const newAppointmentNumber = result.data?.appointment?.appointmentNumber || result.data?.appointmentNumber;
+    return { success: true, message: `Nueva cita asignada con folio ${newAppointmentNumber}`, data: result.data };
+
+  } catch (e: any) {
+    return { success: false, message: e.message };
   }
 }
 

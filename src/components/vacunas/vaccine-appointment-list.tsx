@@ -42,7 +42,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { updateAppointmentStatus, rescheduleAppointment } from '@/lib/actions';
+import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
 
@@ -57,9 +57,15 @@ type VaccineAppointmentListProps = {
 export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete, onEditSuccess }: VaccineAppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
+
   const [reschedulingAppointment, setReschedulingAppointment] = useState<VaccineAppointment | null>(null);
   const [newDate, setNewDate] = useState<Date | undefined>();
   const [isRescheduling, startRescheduleTransition] = useTransition();
+
+  const [cloningAppointment, setCloningAppointment] = useState<VaccineAppointment | null>(null);
+  const [newCloneDate, setNewCloneDate] = useState<Date | undefined>();
+  const [isCloning, startCloneTransition] = useTransition();
+
   const { toast } = useToast();
 
   const handleStatusChange = (appointmentId: string, status: AppointmentStatus) => {
@@ -90,6 +96,29 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
         } else {
             toast({
                 title: 'Error al Cambiar Fecha',
+                description: result.message,
+                variant: 'destructive',
+            });
+        }
+    });
+  };
+
+  const handleCloneConfirm = () => {
+    if (!cloningAppointment || !newCloneDate) return;
+
+    startCloneTransition(async () => {
+        const result = await cloneAppointment(cloningAppointment.id, newCloneDate.toISOString(), 'vaccine');
+        if (result.success) {
+            toast({
+                title: 'Nueva Cita Asignada',
+                description: result.message,
+            });
+            setCloningAppointment(null);
+            setNewCloneDate(undefined);
+            onEditSuccess?.();
+        } else {
+            toast({
+                title: 'Error al Asignar Cita',
                 description: result.message,
                 variant: 'destructive',
             });
@@ -166,6 +195,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => { setNewCloneDate(undefined); setCloningAppointment(app); }}>Asignar Nueva Cita</DropdownMenuItem>
                        <DropdownMenuItem onSelect={() => {
                           setNewDate(new Date(app.date));
                           setReschedulingAppointment(app);
@@ -260,6 +290,34 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
                     <Button onClick={handleRescheduleConfirm} disabled={isRescheduling || !newDate}>
                         {isRescheduling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Confirmar Nueva Fecha
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+      {cloningAppointment && (
+        <Dialog open={!!cloningAppointment} onOpenChange={(open) => !open && setCloningAppointment(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Asignar Nueva Cita (Clonar)</DialogTitle>
+                    <DialogDescription>
+                        Selecciona una nueva fecha para la cita de <span className="font-bold">{cloningAppointment.patient.name}</span>. Se clonarán los detalles de la cita actual.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-center py-4">
+                    <Calendar
+                        mode="single"
+                        selected={newCloneDate}
+                        onSelect={setNewCloneDate}
+                        initialFocus
+                        disabled={{ before: new Date() }}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setCloningAppointment(null)}>Cancelar</Button>
+                    <Button onClick={handleCloneConfirm} disabled={isCloning || !newCloneDate}>
+                        {isCloning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirmar Nueva Cita
                     </Button>
                 </DialogFooter>
             </DialogContent>

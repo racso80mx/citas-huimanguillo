@@ -199,7 +199,7 @@ export async function updateModuleSettings(settings: ModuleSettings): Promise<{ 
 
 // ========== Appointments ==========
 
-async function getPatientById(id: string): Promise<Patient | null> {
+export async function getPatientById(id: string): Promise<Patient | null> {
     const patients = await readJsonFile<Patient[]>('patients.json', []);
     return patients.find(p => p.id === id) || null;
 }
@@ -859,4 +859,25 @@ export async function cleanupOldAppointments(): Promise<{deletedCount: number}> 
     }
 
     return { deletedCount: totalDeleted };
+}
+
+export async function getAppointmentById(
+  id: string,
+  type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'
+): Promise<any | null> {
+    const filename = `${type === 'medical' ? 'appointments' : type + '-appointments'}.json`;
+    const appointments = await readJsonFile<any[]>(filename, []);
+    const appointment = appointments.find(app => app.id === id);
+
+    if (!appointment) {
+        return null;
+    }
+
+    const patient = await getPatientById(appointment.patientId);
+    if (patient) {
+        // Important: return a copy, not the original mutable object from the "cache"
+        return { ...appointment, patient: { ...patient } };
+    }
+    
+    return appointment;
 }
