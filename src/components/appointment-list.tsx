@@ -1,3 +1,4 @@
+'use client';
 import { useState, useTransition } from 'react';
 import {
   Table,
@@ -37,8 +38,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { updateAppointmentStatus, rescheduleAppointment } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -80,7 +81,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         const result = await rescheduleAppointment(reschedulingAppointment.id, newDate.toISOString(), 'medical');
         if (result.success) {
             toast({
-                title: 'Cita Reagendada',
+                title: 'Fecha Actualizada',
                 description: result.message,
             });
             setReschedulingAppointment(null);
@@ -88,7 +89,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             onEditSuccess?.();
         } else {
             toast({
-                title: 'Error al Reagendar',
+                title: 'Error al Cambiar Fecha',
                 description: result.message,
                 variant: 'destructive',
             });
@@ -227,10 +228,10 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         }}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Reagendar Cita</DialogTitle>
+                    <DialogTitle>Cambiar Fecha de la Cita</DialogTitle>
                     <DialogDescription>
                         Selecciona una nueva fecha para la cita de <span className="font-bold">{reschedulingAppointment.patient.name}</span>.
-                        El sistema asignará la misma hora o la más próxima disponible.
+                        La hora original se conservará si está disponible. De lo contrario, se asignará la más próxima.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-center py-4">

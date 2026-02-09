@@ -86,7 +86,7 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
         const result = await rescheduleAppointment(reschedulingAppointment.id, newDate.toISOString(), 'lab');
         if (result.success) {
             toast({
-                title: 'Cita Reagendada',
+                title: 'Fecha Actualizada',
                 description: result.message,
             });
             setReschedulingAppointment(null);
@@ -94,7 +94,7 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
             onEditSuccess?.();
         } else {
             toast({
-                title: 'Error al Reagendar',
+                title: 'Error al Cambiar Fecha',
                 description: result.message,
                 variant: 'destructive',
             });
@@ -242,7 +242,7 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
         }}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Reagendar Cita de Laboratorio</DialogTitle>
+                    <DialogTitle>Cambiar Fecha de Cita de Laboratorio</DialogTitle>
                     <DialogDescription>
                         Selecciona una nueva fecha para la cita de <span className="font-bold">{reschedulingAppointment.patient.name}</span>.
                     </DialogDescription>

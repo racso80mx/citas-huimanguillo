@@ -80,7 +80,7 @@ export function UltrasoundAppointmentList({ appointments, isAdmin = false, onDel
         const result = await rescheduleAppointment(reschedulingAppointment.id, newDate.toISOString(), 'ultrasound');
         if (result.success) {
             toast({
-                title: 'Cita Reagendada',
+                title: 'Fecha Actualizada',
                 description: result.message,
             });
             setReschedulingAppointment(null);
@@ -88,7 +88,7 @@ export function UltrasoundAppointmentList({ appointments, isAdmin = false, onDel
             onEditSuccess?.();
         } else {
             toast({
-                title: 'Error al Reagendar',
+                title: 'Error al Cambiar Fecha',
                 description: result.message,
                 variant: 'destructive',
             });
@@ -221,10 +221,10 @@ export function UltrasoundAppointmentList({ appointments, isAdmin = false, onDel
         }}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Reagendar Cita</DialogTitle>
+                    <DialogTitle>Cambiar Fecha de la Cita</DialogTitle>
                     <DialogDescription>
                         Selecciona una nueva fecha para la cita de <span className="font-bold">{reschedulingAppointment.patient.name}</span>.
-                        El sistema asignará la misma hora o la más próxima disponible.
+                        La hora original se conservará si está disponible. De lo contrario, se asignará la más próxima.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-center py-4">

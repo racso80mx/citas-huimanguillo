@@ -615,9 +615,9 @@ export async function rescheduleAppointment(
         appointments[appointmentIndex].status = 'Agendada'; // Reset status
         const result = await writeJsonFile(filename, appointments);
         if (result.success) {
-            await logActivity('Reagendamiento Cita', `Folio ${appointmentToReschedule.appointmentNumber} (laboratorio) movido a ${newDateString}.`);
+            await logActivity('Cambio de Fecha Cita', `Folio ${appointmentToReschedule.appointmentNumber} (laboratorio) movido a ${newDateString}.`);
         }
-        return { success: result.success, message: result.success ? 'Cita reagendada con éxito.' : result.message || 'Error al guardar.' };
+        return { success: result.success, message: result.success ? 'Fecha de cita actualizada con éxito.' : result.message || 'Error al guardar.' };
     }
 
     // --- Time Slot Logic for other types ---
@@ -684,12 +684,12 @@ export async function rescheduleAppointment(
     const result = await writeJsonFile(filename, appointments);
     if(result.success) {
         await logActivity(
-            'Reagendamiento Cita',
+            'Cambio de Fecha Cita',
             `Folio ${appointmentToReschedule.appointmentNumber} (${type}) movido a ${newDateString} a las ${finalTime}.`
         );
-        let message = 'La cita ha sido reagendada con éxito.';
+        let message = 'La fecha de la cita ha sido actualizada con éxito.';
         if (finalTime !== originalTime) {
-            message = `Horario original ocupado. La cita se reagendó a las ${finalTime}.`;
+            message = `El horario original estaba ocupado. Se asignó la nueva hora: ${finalTime}.`;
         }
         return { success: true, message, newTime: finalTime };
     }
