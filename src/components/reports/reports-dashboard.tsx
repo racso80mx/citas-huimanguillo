@@ -378,12 +378,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               </PopoverContent>
             </Popover>
             <div className="ml-auto flex items-center gap-2">
-                 <Button asChild>
-                    <Link href={newAppointmentPath}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Agendar Nueva Cita
-                    </Link>
-                </Button>
                 <Button
                     onClick={handleDownload}
                     variant="secondary"
