@@ -63,6 +63,7 @@ import {
   restoreBackupData,
   cleanupOldAppointments,
   getLogs as dataGetLogs,
+  cloneAppointment as dataCloneAppointment,
 } from './data';
 
 import type {
@@ -105,47 +106,18 @@ export async function saveNewAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
-    const clinics = await dataGetClinics();
-    const clinic = clinics.find(c => c.id === appointmentData.clinicId);
     
-    if (!clinic) {
-      throw new Error("La clínica seleccionada no es válida.");
-    }
-
-    const appointmentsOnDate = await dataGetAppointmentsByDate(
-      new Date(appointmentData.date)
-    );
-
-    const appointmentsInClinicOnDate = appointmentsOnDate.filter(app => app.clinicId === appointmentData.clinicId);
-    if (appointmentsInClinicOnDate.length >= clinic.dailySlots) {
-        throw new Error("No hay más cupos disponibles en este núcleo para la fecha seleccionada.");
-    }
-
-    const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) =>
-        app.clinicId === appointmentData.clinicId &&
-        app.time === appointmentData.time
-    );
-    if (isTimeSlotTaken) {
-      throw new Error(
-        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
-      );
-    }
-
-    const curpExistsOnDate = appointmentsOnDate.some(
-      (app) =>
-        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
-    );
-    if (curpExistsOnDate) {
-      throw new Error(
-        'Ya existe una cita agendada con esta CURP para el día seleccionado.'
-      );
-    }
-
     const newAppointment = await dataSaveAppointment(
       appointmentData,
       patientData
     );
+    const clinics = await dataGetClinics();
+    const clinic = clinics.find(c => c.id === newAppointment.clinicId);
+    if (!clinic) {
+        // This case should ideally not happen if validation is correct before saving
+        throw new Error('Clinic data not found for the created appointment.');
+    }
+
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -157,26 +129,9 @@ export async function saveNewAppointment(
 
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>,
-  settings: { dailySlots: number; weekendBookingEnabled: boolean }
+  patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-    const appointmentsOnDate = await dataGetLabAppointmentsByDate(
-      new Date(appointmentData.date)
-    );
-    if (appointmentsOnDate.length >= settings.dailySlots) {
-      throw new Error('No hay más cupos para este día.');
-    }
-
-    const curpExistsOnDate = appointmentsOnDate.some(
-      (app) =>
-        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
-    );
-    if (curpExistsOnDate) {
-      throw new Error(
-        'Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.'
-      );
-    }
 
     const newAppointment = await dataSaveLabAppointment(
       appointmentData,
@@ -199,36 +154,6 @@ export async function saveNewXRayAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
-    const settings = await dataGetXRaySettings();
-    const appointmentsOnDate = await dataGetXRayAppointmentsByDate(
-      new Date(appointmentData.date)
-    );
-
-    if (appointmentsOnDate.length >= settings.dailySlots) {
-      throw new Error('No hay más cupos para Rayos X en la fecha seleccionada.');
-    }
-
-    const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) => app.time === appointmentData.time
-    );
-
-    if (isTimeSlotTaken) {
-      throw new Error(
-        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
-      );
-    }
-
-    const curpExistsOnDate = appointmentsOnDate.some(
-      (app) =>
-        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
-    );
-
-    if (curpExistsOnDate) {
-      throw new Error(
-        'Ya existe una cita de Rayos X agendada con esta CURP para el día seleccionado.'
-      );
-    }
-
     const newAppointment = await dataSaveXRayAppointment(
       appointmentData,
       patientData
@@ -250,35 +175,6 @@ export async function saveNewUltrasoundAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
-    const settings = await dataGetUltrasoundSettings();
-    const appointmentsOnDate = await dataGetUltrasoundAppointmentsByDate(
-      new Date(appointmentData.date)
-    );
-
-    if (appointmentsOnDate.length >= settings.dailySlots) {
-        throw new Error('No hay más cupos para Ultrasonidos en la fecha seleccionada.');
-    }
-    
-    const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) => app.time === appointmentData.time
-    );
-
-    if (isTimeSlotTaken) {
-      throw new Error(
-        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
-      );
-    }
-
-    const curpExistsOnDate = appointmentsOnDate.some(
-      (app) =>
-        app.patient.curp.toUpperCase() === patientData.curp.toUpperCase()
-    );
-
-    if (curpExistsOnDate) {
-      throw new Error(
-        'Ya existe una cita de Ultrasonido agendada con esta CURP para el día seleccionado.'
-      );
-    }
 
     const newAppointment = await dataSaveUltrasoundAppointment(
       appointmentData,
@@ -301,34 +197,6 @@ export async function saveNewVaccineAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
-    const settings = await dataGetVaccineSettings();
-    const appointmentsOnDate = await dataGetVaccineAppointmentsByDate(
-      new Date(appointmentData.date)
-    );
-
-    if (appointmentsOnDate.length >= settings.dailySlots) {
-        throw new Error('No hay más cupos para Vacunación en la fecha seleccionada.');
-    }
-    
-    const isTimeSlotTaken = appointmentsOnDate.some(
-      (app) => app.time === appointmentData.time
-    );
-
-    if (isTimeSlotTaken) {
-      throw new Error(
-        `El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`
-      );
-    }
-
-    if (!appointmentData.isNewborn) {
-      const curpExistsOnDate = appointmentsOnDate.some(
-        (app) => app.patient?.curp?.toUpperCase() === patientData.curp.toUpperCase()
-      );
-      if (curpExistsOnDate) {
-        throw new Error( 'Ya existe una cita de Vacunación agendada con esta CURP para el día seleccionado.');
-      }
-    }
-
     const newAppointment = await dataSaveVaccineAppointment(
       appointmentData,
       patientData
@@ -350,83 +218,7 @@ export async function cloneAppointment(
   newDate: string,
   type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'
 ): Promise<{ success: boolean; message: string; data?: any }> {
-  try {
-    const originalAppointment = await dataGetAppointmentById(originalAppointmentId, type);
-    if (!originalAppointment) {
-        throw new Error('Cita original no encontrada.');
-    }
-
-    const patientData = originalAppointment.patient;
-    if (!patientData) {
-        throw new Error('Paciente no encontrado.');
-    }
-
-    const newAppointmentBase = { ...originalAppointment, date: newDate };
-    let result: { success: boolean; data?: any; error?: string };
-
-    if (type === 'medical') {
-        const payload: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'> = {
-            appointmentNumber: '', // will be regenerated
-            clinicId: newAppointmentBase.clinicId,
-            date: newAppointmentBase.date,
-            time: newAppointmentBase.time,
-            patientType: newAppointmentBase.patientType,
-        };
-        result = await saveNewAppointment(payload, patientData);
-    } else if (type === 'lab') {
-        const payload: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
-            appointmentNumber: '',
-            date: newAppointmentBase.date,
-            time: newAppointmentBase.time,
-            studies: newAppointmentBase.studies
-        };
-        const settings = await getLabSettings();
-        result = await saveNewLabAppointment(payload, patientData, settings);
-    } else if (type === 'xray') {
-         const payload: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
-            appointmentNumber: '',
-            date: newAppointmentBase.date,
-            time: newAppointmentBase.time,
-            studyId: newAppointmentBase.studyId,
-            studyName: newAppointmentBase.studyName,
-        };
-        result = await saveNewXRayAppointment(payload, patientData);
-    } else if (type === 'ultrasound') {
-        const payload: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
-            appointmentNumber: '',
-            date: newAppointmentBase.date,
-            time: newAppointmentBase.time,
-            studyId: newAppointmentBase.studyId,
-            studyName: newAppointmentBase.studyName,
-        };
-        result = await saveNewUltrasoundAppointment(payload, patientData);
-    } else if (type === 'vaccine') {
-         const payload: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
-            appointmentNumber: '',
-            date: newAppointmentBase.date,
-            time: newAppointmentBase.time,
-            isNewborn: newAppointmentBase.isNewborn,
-            clinicId: newAppointmentBase.clinicId,
-            vaccines: newAppointmentBase.vaccines,
-        };
-        result = await saveNewVaccineAppointment(payload, patientData);
-    } else {
-        throw new Error('Tipo de cita no válido para clonación.');
-    }
-
-    if (!result.success) {
-        throw new Error(result.error || 'No se pudo crear la nueva cita clonada.');
-    }
-    
-    revalidatePath('/admin');
-    revalidatePath('/reports');
-    
-    const newAppointmentNumber = result.data?.appointment?.appointmentNumber || result.data?.appointmentNumber;
-    return { success: true, message: `Nueva cita asignada con folio ${newAppointmentNumber}`, data: result.data };
-
-  } catch (e: any) {
-    return { success: false, message: e.message };
-  }
+    return dataCloneAppointment(originalAppointmentId, newDate, type);
 }
 
 export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {

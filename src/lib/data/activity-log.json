@@ -1,5 +1,17 @@
 [
   {
+    "id": "780853d6-9902-4687-8f96-0f27a526f3bd",
+    "timestamp": "2026-02-09T18:58:37.389Z",
+    "action": "Restauración de Respaldo",
+    "details": "Se restauraron un total de 228 registros."
+  },
+  {
+    "id": "5acfd3a3-c669-4d97-9032-762f97f27b24",
+    "timestamp": "2026-02-09T18:58:08.535Z",
+    "action": "Restauración de Respaldo",
+    "details": "Se restauraron un total de 220 registros."
+  },
+  {
     "id": "e9b30a14-7b04-4a8d-b15a-aee4474e0c53",
     "timestamp": "2026-02-09T18:34:12.811Z",
     "action": "Creación Cita Médica",

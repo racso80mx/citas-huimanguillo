@@ -716,7 +716,7 @@
   {
     "appointmentNumber": "CITA-7796",
     "clinicId": "2bd205fe-98eb-4234-a751-b4c7b533f16f",
-    "date": "2026-02-09T06:00:00.000Z",
+    "date": "2026-03-09T06:00:00.000Z",
     "time": "11:00",
     "patientType": "Crónico",
     "id": "12ec2a36-6ad0-417f-b38e-bdc3a0b4825b",
@@ -732,12 +732,12 @@
       "birthState": "TABASCO",
       "phoneNumber": "9171268757"
     },
-    "status": "Atendido"
+    "status": "Agendada"
   },
   {
     "appointmentNumber": "CITA-3483",
     "clinicId": "2bd205fe-98eb-4234-a751-b4c7b533f16f",
-    "date": "2026-02-09T06:00:00.000Z",
+    "date": "2026-02-20T06:00:00.000Z",
     "time": "11:30",
     "patientType": "General",
     "id": "1ec89e0a-b4c2-4452-91cf-6d3c9a87929a",
@@ -1218,44 +1218,23 @@
     "status": "Agendada"
   },
   {
-    "appointmentNumber": "",
-    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
-    "date": "2026-03-09T06:00:00.000Z",
-    "time": "07:30",
-    "patientType": "Embarazada",
-    "id": "c3ce678f-93b7-48f7-9fe2-be18c8a4db34",
-    "patientId": "d50ee22c-24f5-465a-86d5-29da5f4e875f",
-    "patient": {
-      "id": "d50ee22c-24f5-465a-86d5-29da5f4e875f",
-      "curp": "JUMA070126MTCRCNA8",
-      "name": "ANA GABRIELA",
-      "paternalLastName": "JUAREZ",
-      "maternalLastName": "MACDONEL",
-      "sex": "Mujer",
-      "age": 19,
-      "birthState": "TABASCO",
-      "phoneNumber": "9171909692"
-    },
-    "status": "Agendada"
-  },
-  {
-    "appointmentNumber": "",
-    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "appointmentNumber": "CITA-0111",
+    "clinicId": "45f18537-b20d-4021-bc78-dd10ab9e82e9",
     "date": "2026-02-10T06:00:00.000Z",
-    "time": "07:30",
-    "patientType": "Embarazada",
-    "id": "f5a62d90-3b4f-43a5-9652-c83a857efa28",
-    "patientId": "d50ee22c-24f5-465a-86d5-29da5f4e875f",
+    "time": "08:30",
+    "patientType": "Crónico",
+    "id": "e0e877a4-81dd-4420-8ea8-a9c678145785",
+    "patientId": "c6418991-7bfe-4c99-9703-5639b348ad3a",
     "patient": {
-      "id": "d50ee22c-24f5-465a-86d5-29da5f4e875f",
-      "curp": "JUMA070126MTCRCNA8",
-      "name": "ANA GABRIELA",
-      "paternalLastName": "JUAREZ",
-      "maternalLastName": "MACDONEL",
-      "sex": "Mujer",
-      "age": 19,
+      "id": "c6418991-7bfe-4c99-9703-5639b348ad3a",
+      "curp": "HEHR541016HTCRRF01",
+      "name": "RAFAEL ",
+      "paternalLastName": "HERNANDEZ",
+      "maternalLastName": "HERNANDEZ ",
+      "sex": "Hombre",
+      "age": 71,
       "birthState": "TABASCO",
-      "phoneNumber": "9171909692"
+      "phoneNumber": "9173749029"
     },
     "status": "Agendada"
   }
