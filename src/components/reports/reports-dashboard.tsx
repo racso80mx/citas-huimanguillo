@@ -24,6 +24,7 @@ import {
   UserCheck,
   Clock,
   UserX,
+  PlusCircle,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -55,6 +56,7 @@ import { LabSettingsManager } from '../admin/lab-settings-manager';
 import { XRaySettingsManager } from '../admin/x-ray-settings-manager';
 import { UltrasoundSettingsManager } from '../admin/ultrasound-settings-manager';
 import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
+import Link from 'next/link';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -161,6 +163,24 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [isClient, appointments, activeFilter, dateRange]);
 
+  const newAppointmentPath = useMemo(() => {
+    switch (reportType) {
+      case 'clinic':
+        return '/citas-medicas';
+      case 'laboratorio':
+        return '/laboratorio';
+      case 'x-ray':
+        return '/rayos-x';
+      case 'ultrasound':
+        return '/ultrasonidos';
+      case 'vacunas':
+        return '/vacunas';
+      default:
+        return '/';
+    }
+  }, [reportType]);
+
+
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
     setActiveFilter('range');
@@ -198,7 +218,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     return {
       total: todaysAppointments.length,
       attended: todaysAppointments.filter(app => app.status === 'Atendido').length,
-      pending: todaysAppointments.filter(app => app.status === 'Agendada').length,
+      pending: todaysAppointments.filter(app => app.status === 'Agendada' || !app.status).length,
       notAttended: todaysAppointments.filter(app => app.status === 'No Asistió' || app.status === 'No Atendido').length,
     }
   }, [isClient, appointments]);
@@ -357,14 +377,21 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                 />
               </PopoverContent>
             </Popover>
-            <Button
-              onClick={handleDownload}
-              variant="secondary"
-              className="ml-auto"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Descargar Excel
-            </Button>
+            <div className="ml-auto flex items-center gap-2">
+                 <Button asChild>
+                    <Link href={newAppointmentPath}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Agendar Nueva Cita
+                    </Link>
+                </Button>
+                <Button
+                    onClick={handleDownload}
+                    variant="secondary"
+                    >
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar Excel
+                </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
