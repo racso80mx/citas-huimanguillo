@@ -125,7 +125,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return appDate >= weekStart && appDate <= weekEnd;
+          return isWithinInterval(appDate, { start: weekStart, end: weekEnd });
         };
         break;
       case 'month':
@@ -133,7 +133,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const monthEnd = endOfMonth(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return appDate >= monthStart && appDate <= monthEnd;
+          return isWithinInterval(appDate, { start: monthStart, end: monthEnd });
         };
         break;
       case 'range':
@@ -142,7 +142,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
           const rangeEnd = endOfDay(dateRange.to);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
-            return appDate >= rangeStart && appDate <= rangeEnd;
+            return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
           };
         } else {
           return [];
@@ -154,7 +154,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const todayEnd = endOfDay(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return appDate >= todayStart && appDate <= todayEnd;
+          return isWithinInterval(appDate, { start: todayStart, end: todayEnd });
         };
         break;
     }

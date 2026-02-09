@@ -1,5 +1,11 @@
 [
   {
+    "id": "e9b30a14-7b04-4a8d-b15a-aee4474e0c53",
+    "timestamp": "2026-02-09T18:34:12.811Z",
+    "action": "Creación Cita Médica",
+    "details": "Folio  para ANA GABRIELA JUAREZ."
+  },
+  {
     "id": "523a8435-b662-4b4b-a5be-3972be9f6acc",
     "timestamp": "2026-02-09T18:30:37.963Z",
     "action": "Creación Cita Médica",

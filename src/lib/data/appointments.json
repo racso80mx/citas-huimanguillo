@@ -1237,5 +1237,26 @@
       "phoneNumber": "9171909692"
     },
     "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "",
+    "clinicId": "a059641b-87f1-4af8-bf2a-eb691e8aa898",
+    "date": "2026-02-10T06:00:00.000Z",
+    "time": "07:30",
+    "patientType": "Embarazada",
+    "id": "f5a62d90-3b4f-43a5-9652-c83a857efa28",
+    "patientId": "d50ee22c-24f5-465a-86d5-29da5f4e875f",
+    "patient": {
+      "id": "d50ee22c-24f5-465a-86d5-29da5f4e875f",
+      "curp": "JUMA070126MTCRCNA8",
+      "name": "ANA GABRIELA",
+      "paternalLastName": "JUAREZ",
+      "maternalLastName": "MACDONEL",
+      "sex": "Mujer",
+      "age": 19,
+      "birthState": "TABASCO",
+      "phoneNumber": "9171909692"
+    },
+    "status": "Agendada"
   }
 ]

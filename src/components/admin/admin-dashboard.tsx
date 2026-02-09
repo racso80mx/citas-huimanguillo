@@ -31,6 +31,7 @@ import {
   startOfMonth,
   endOfMonth,
   parseISO,
+  isWithinInterval,
 } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
@@ -137,7 +138,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return appDate >= weekStart && appDate <= weekEnd;
+          return isWithinInterval(appDate, { start: weekStart, end: weekEnd });
         };
         break;
       case 'month':
@@ -145,7 +146,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         const monthEnd = endOfMonth(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return appDate >= monthStart && appDate <= monthEnd;
+          return isWithinInterval(appDate, { start: monthStart, end: monthEnd });
         };
         break;
       case 'range':
@@ -154,7 +155,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           const rangeEnd = endOfDay(dateRange.to);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
-            return appDate >= rangeStart && appDate <= rangeEnd;
+            return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
           };
         } else {
           return []; // No range selected, show nothing
@@ -166,7 +167,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         const todayEnd = endOfDay(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return appDate >= todayStart && appDate <= todayEnd;
+          return isWithinInterval(appDate, { start: todayStart, end: todayEnd });
         };
         break;
     }
