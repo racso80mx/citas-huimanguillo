@@ -53,7 +53,14 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
 
   const onSubmit = (data: EditPatientFormValues) => {
     startTransition(async () => {
-      const result = await updatePatient(patient.id, data);
+      const uppercasedData = {
+        ...data,
+        curp: data.curp.toUpperCase(),
+        name: data.name.toUpperCase(),
+        paternalLastName: data.paternalLastName.toUpperCase(),
+        maternalLastName: data.maternalLastName.toUpperCase(),
+      };
+      const result = await updatePatient(patient.id, uppercasedData);
       if (result.success) {
         toast({
           title: 'Paciente Actualizado',
@@ -80,7 +87,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
             <FormItem>
               <FormLabel>Nombre(s)</FormLabel>
               <FormControl>
-                <Input placeholder="Nombre(s) del paciente" {...field} />
+                <Input placeholder="Nombre(s) del paciente" {...field} className="uppercase" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -94,7 +101,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
               <FormItem>
                 <FormLabel>Apellido Paterno</FormLabel>
                 <FormControl>
-                  <Input placeholder="Apellido paterno" {...field} />
+                  <Input placeholder="Apellido paterno" {...field} className="uppercase" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -107,7 +114,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
               <FormItem>
                 <FormLabel>Apellido Materno</FormLabel>
                 <FormControl>
-                  <Input placeholder="Apellido materno" {...field} />
+                  <Input placeholder="Apellido materno" {...field} className="uppercase" />
                 </FormControl>
                 <FormMessage />
               </FormItem>

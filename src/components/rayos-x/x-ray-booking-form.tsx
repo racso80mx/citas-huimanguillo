@@ -123,9 +123,9 @@ export function XRayBookingForm({
     startTransition(async () => {
       const patientData: Omit<Patient, 'id'> = {
           curp: data.curp.toUpperCase(),
-          name: data.name,
-          paternalLastName: data.paternalLastName,
-          maternalLastName: data.maternalLastName,
+          name: data.name.toUpperCase(),
+          paternalLastName: data.paternalLastName.toUpperCase(),
+          maternalLastName: data.maternalLastName.toUpperCase(),
           sex: data.sex,
           age: data.age,
           birthState: data.birthState,
@@ -207,7 +207,7 @@ export function XRayBookingForm({
                     <FormItem>
                       <FormLabel>Nombre(s)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Tu(s) nombre(s)" {...field} />
+                        <Input placeholder="Tu(s) nombre(s)" {...field} className="uppercase" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -220,7 +220,7 @@ export function XRayBookingForm({
                     <FormItem>
                       <FormLabel>Apellido Paterno</FormLabel>
                       <FormControl>
-                        <Input placeholder="Tu apellido paterno" {...field} />
+                        <Input placeholder="Tu apellido paterno" {...field} className="uppercase" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -234,7 +234,7 @@ export function XRayBookingForm({
                 <FormItem>
                   <FormLabel>Apellido Materno</FormLabel>
                   <FormControl>
-                    <Input placeholder="Tu apellido materno" {...field} />
+                    <Input placeholder="Tu apellido materno" {...field} className="uppercase" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

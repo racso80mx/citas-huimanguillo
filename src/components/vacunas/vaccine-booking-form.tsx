@@ -148,9 +148,9 @@ export function VaccineBookingForm({
     startTransition(async () => {
       const patientData: Omit<Patient, 'id'> = {
           curp: (data.curp || `RN-${uuidv4()}`).toUpperCase(),
-          name: data.name,
-          paternalLastName: data.paternalLastName,
-          maternalLastName: data.maternalLastName,
+          name: data.name.toUpperCase(),
+          paternalLastName: data.paternalLastName.toUpperCase(),
+          maternalLastName: data.maternalLastName.toUpperCase(),
           sex: data.sex,
           age: data.age,
           birthState: data.birthState || "No especificado",
@@ -236,7 +236,7 @@ export function VaccineBookingForm({
                     <FormItem>
                       <FormLabel>Nombre(s) del paciente</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nombre(s)" {...field} />
+                        <Input placeholder="Nombre(s)" {...field} className="uppercase" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -249,7 +249,7 @@ export function VaccineBookingForm({
                     <FormItem>
                       <FormLabel>Apellido Paterno</FormLabel>
                       <FormControl>
-                        <Input placeholder="Apellido paterno" {...field} />
+                        <Input placeholder="Apellido paterno" {...field} className="uppercase" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -263,7 +263,7 @@ export function VaccineBookingForm({
                 <FormItem>
                   <FormLabel>Apellido Materno</FormLabel>
                   <FormControl>
-                    <Input placeholder="Apellido materno" {...field} />
+                    <Input placeholder="Apellido materno" {...field} className="uppercase" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
