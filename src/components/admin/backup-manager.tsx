@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import * as xlsx from 'xlsx';
 
 export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => void }) {
   const [isDownloading, startDownloadTransition] = useTransition();
@@ -34,20 +35,38 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
     startDownloadTransition(async () => {
       const result = await downloadBackupAction();
       if (result.success && result.data) {
-        const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const date = new Date().toISOString().split('T')[0];
-        a.download = `respaldo_citas_${date}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast({
-          title: 'Respaldo Descargado',
-          description: 'El archivo de respaldo ha sido generado y descargado.',
-        });
+        try {
+            const workbook = xlsx.utils.book_new();
+            for (const sheetName in result.data) {
+                if (Object.prototype.hasOwnProperty.call(result.data, sheetName) && Array.isArray(result.data[sheetName]) && result.data[sheetName].length > 0) {
+                    const dataForSheet = result.data[sheetName].map((item: any) => {
+                        const newItem = {...item};
+                        if (newItem.studies && Array.isArray(newItem.studies)) {
+                            newItem.studies = newItem.studies.map((s: any) => s.name).join(', ');
+                        }
+                        if (newItem.vaccines && Array.isArray(newItem.vaccines)) {
+                            newItem.vaccines = newItem.vaccines.map((v: any) => v.name).join(', ');
+                        }
+                        return newItem;
+                    });
+                    const worksheet = xlsx.utils.json_to_sheet(dataForSheet);
+                    xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+                }
+            }
+            const date = new Date().toISOString().split('T')[0];
+            xlsx.writeFile(workbook, `respaldo_citas_${date}.xlsx`);
+
+            toast({
+              title: 'Respaldo Descargado',
+              description: 'El archivo de respaldo ha sido generado en formato Excel.',
+            });
+        } catch (excelError: any) {
+             toast({
+              title: 'Error al generar Excel',
+              description: excelError.message || 'No se pudo crear el archivo Excel.',
+              variant: 'destructive',
+            });
+        }
       } else {
         toast({
           title: 'Error',
@@ -73,11 +92,10 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
         startRestoreTransition(async () => {
           const result = await restoreBackupAction(content);
            if (result.success && result.stats) {
-            const { restored } = result.stats;
-            const totalRestored = restored.patients + restored.appointments + restored.labAppointments + restored.xRayAppointments + restored.ultrasoundAppointments + restored.vaccineAppointments;
+            const totalAdded = Object.values(result.stats.added).reduce((acc: number, count: any) => acc + count, 0);
             toast({
               title: 'Respaldo Restaurado con Éxito',
-              description: `Se restauraron un total de ${totalRestored} registros.`,
+              description: `Se agregaron ${totalAdded} nuevos registros. Los registros existentes no fueron modificados.`,
               duration: 8000,
             });
             onRestoreSuccess?.();
@@ -121,17 +139,17 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>Gestión de Datos</CardTitle>
         <CardDescription>
-          Realiza respaldos de seguridad, restaura datos y limpia registros antiguos.
+          Realiza respaldos de seguridad, restaura datos y limpia registros antiguos. El archivo de respaldo para restaurar debe estar en formato JSON.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid sm:grid-cols-3 gap-4">
         <Button onClick={handleDownload} disabled={isDownloading} variant="outline">
           {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          Descargar Respaldo
+          Descargar Respaldo (Excel)
         </Button>
         <Button onClick={handleRestoreClick} disabled={isRestoring} variant="outline">
           {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          Cargar Respaldo
+          Cargar Respaldo (JSON)
         </Button>
         <input
             type="file"

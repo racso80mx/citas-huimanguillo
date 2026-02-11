@@ -398,6 +398,7 @@ export async function rescheduleAppointment(appointmentId: string, newDate: stri
     }
 }
 
+
 // ========== Backup & Restore Data ==========
 export async function createBackupData(): Promise<any> {
     return {
@@ -415,28 +416,39 @@ export async function restoreBackupData(backupData: any): Promise<{success: bool
 
     for(const file of filesToLock) { await acquireLock(file); }
     try {
-      if (!backupData.patients || !backupData.appointments) { throw new Error('El archivo de respaldo tiene un formato incorrecto.'); }
+      if (!backupData.patients) { throw new Error('El archivo de respaldo tiene un formato incorrecto (falta la hoja de pacientes).'); }
 
-      const stats = { restored: {
-          patients: (backupData.patients || []).length,
-          appointments: (backupData.appointments || []).length,
-          labAppointments: (backupData.labAppointments || []).length,
-          xRayAppointments: (backupData.xRayAppointments || []).length,
-          ultrasoundAppointments: (backupData.ultrasoundAppointments || []).length,
-          vaccineAppointments: (backupData.vaccineAppointments || []).length,
-      }};
-      const totalRestored = Object.values(stats.restored).reduce((a, b) => a + b, 0);
-
-      await logTransaction({ type: 'UPDATE', entity: 'system', timestamp: new Date().toISOString(), details: `Restored from backup. ${totalRestored} records written.`, data: stats });
-
-      await unsafeWriteJsonFile('patients.json', backupData.patients || []);
-      await unsafeWriteJsonFile('appointments.json', backupData.appointments || []);
-      await unsafeWriteJsonFile('lab-appointments.json', backupData.labAppointments || []);
-      await unsafeWriteJsonFile('x-ray-appointments.json', backupData.xRayAppointments || []);
-      await unsafeWriteJsonFile('ultrasound-appointments.json', backupData.ultrasoundAppointments || []);
-      await unsafeWriteJsonFile('vaccine-appointments.json', backupData.vaccineAppointments || []);
+      const allExistingPatients = await readJsonFile<Patient[]>('patients.json', []);
+      const existingPatientCurps = new Set(allExistingPatients.map(p => p.curp.toUpperCase()));
+      const newPatients = backupData.patients.filter((p: Patient) => !existingPatientCurps.has(p.curp.toUpperCase()));
+      const finalPatients = [...allExistingPatients, ...newPatients];
       
-      await logActivity('Restauración de Respaldo', `Se restauraron un total de ${totalRestored} registros.`);
+      const stats: any = { added: { patients: newPatients.length } };
+
+      const appointmentFiles = {
+          appointments: 'appointments.json',
+          labAppointments: 'lab-appointments.json',
+          xRayAppointments: 'x-ray-appointments.json',
+          ultrasoundAppointments: 'ultrasound-appointments.json',
+          vaccineAppointments: 'vaccine-appointments.json',
+      };
+
+      for (const [key, filename] of Object.entries(appointmentFiles)) {
+          if(backupData[key]) {
+              const existingAppointments = await readJsonFile<any[]>(filename, []);
+              const existingAppointmentIds = new Set(existingAppointments.map(a => a.id));
+              const newAppointments = backupData[key].filter((a: any) => !existingAppointmentIds.has(a.id));
+              stats.added[key] = newAppointments.length;
+              await unsafeWriteJsonFile(filename, [...existingAppointments, ...newAppointments]);
+          }
+      }
+      
+      await unsafeWriteJsonFile('patients.json', finalPatients);
+      
+      const totalAdded = Object.values(stats.added).reduce((a: number, b: any) => a + b, 0);
+      await logActivity('Restauración de Respaldo', `Se agregaron ${totalAdded} nuevos registros desde el respaldo.`);
+      await logTransaction({ type: 'UPDATE', entity: 'system', timestamp: new Date().toISOString(), details: `Restored (merged) from backup. ${totalAdded} new records added.`, data: stats });
+
       revalidatePath('/admin', 'layout');
       return { success: true, stats };
     } catch (e: any) {
@@ -446,6 +458,7 @@ export async function restoreBackupData(backupData: any): Promise<{success: bool
         for(const file of filesToLock) { await releaseLock(file); }
     }
 }
+  
 
 export async function cleanupOldAppointments(): Promise<{deletedCount: number}> {
     const appointmentFiles = ['appointments.json', 'lab-appointments.json', 'x-ray-appointments.json', 'ultrasound-appointments.json', 'vaccine-appointments.json'];

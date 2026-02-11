@@ -1237,5 +1237,26 @@
       "phoneNumber": "9173749029"
     },
     "status": "Agendada"
+  },
+  {
+    "appointmentNumber": "CITA-5982",
+    "clinicId": "NB1",
+    "date": "2026-02-10T06:00:00.000Z",
+    "time": "11:00",
+    "patientType": "General",
+    "id": "3ba12fdf-3fb8-4a94-b90b-5e93cf256ad0",
+    "patientId": "313a10e2-3e2d-470e-b7ea-3363afb92fee",
+    "patient": {
+      "id": "313a10e2-3e2d-470e-b7ea-3363afb92fee",
+      "curp": "GALO800711HTCRPS04",
+      "name": "OSCAR",
+      "paternalLastName": "GARCIA",
+      "maternalLastName": "LOPEZ",
+      "sex": "Hombre",
+      "age": 45,
+      "birthState": "TABASCO",
+      "phoneNumber": "9371154234"
+    },
+    "status": "Agendada"
   }
 ]

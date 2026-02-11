@@ -1230,5 +1230,16 @@
     "age": 6,
     "birthState": "TABASCO",
     "phoneNumber": "9171299535"
+  },
+  {
+    "id": "313a10e2-3e2d-470e-b7ea-3363afb92fee",
+    "curp": "GALO800711HTCRPS04",
+    "name": "OSCAR",
+    "paternalLastName": "GARCIA",
+    "maternalLastName": "LOPEZ",
+    "sex": "Hombre",
+    "age": 45,
+    "birthState": "TABASCO",
+    "phoneNumber": "9371154234"
   }
 ]
