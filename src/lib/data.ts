@@ -411,8 +411,18 @@ export async function createBackupData(): Promise<any> {
     };
 }
 
-export async function restoreBackupData(backupData: any): Promise<{success: boolean, message?: string, stats?: any}> {
+export async function restoreBackupData(backupJsonString: string): Promise<{success: boolean, message?: string, stats?: any}> {
+    let backupData: any;
+    try {
+      backupData = JSON.parse(backupJsonString);
+    } catch (e) {
+        throw new Error('El archivo de respaldo no es un JSON válido o está corrupto.');
+    }
+    
     const filesToLock = ['patients.json', 'appointments.json', 'lab-appointments.json', 'x-ray-appointments.json', 'ultrasound-appointments.json', 'vaccine-appointments.json'].sort();
+
+    const allLabStudies = await getLabStudies();
+    const allVaccines = await getVaccines();
 
     for(const file of filesToLock) { await acquireLock(file); }
     try {
@@ -437,7 +447,23 @@ export async function restoreBackupData(backupData: any): Promise<{success: bool
           if(backupData[key]) {
               const existingAppointments = await readJsonFile<any[]>(filename, []);
               const existingAppointmentIds = new Set(existingAppointments.map(a => a.id));
-              const newAppointments = backupData[key].filter((a: any) => !existingAppointmentIds.has(a.id));
+              
+              const newAppointments = backupData[key]
+                .filter((a: any) => !existingAppointmentIds.has(a.id))
+                .map((a: any) => {
+                    const newApp = {...a};
+                    // Reconstruct complex objects from strings
+                    if (key === 'labAppointments' && newApp.studies && typeof newApp.studies === 'string') {
+                        const studyNames = newApp.studies.split(', ');
+                        newApp.studies = allLabStudies.filter(s => studyNames.includes(s.name));
+                    }
+                    if (key === 'vaccineAppointments' && newApp.vaccines && typeof newApp.vaccines === 'string') {
+                        const vaccineNames = newApp.vaccines.split(', ');
+                        newApp.vaccines = allVaccines.filter(v => vaccineNames.includes(v.name));
+                    }
+                    return newApp;
+                });
+
               stats.added[key] = newAppointments.length;
               await unsafeWriteJsonFile(filename, [...existingAppointments, ...newAppointments]);
           }

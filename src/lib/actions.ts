@@ -555,14 +555,13 @@ export async function downloadBackupAction(): Promise<{ success: boolean; data?:
   
   export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string; stats?: any }> {
     try {
-      const backupData = JSON.parse(backupJsonString);
-      const result = await restoreBackupData(backupData);
+      const result = await restoreBackupData(backupJsonString);
       if (result.success) {
         revalidatePath('/admin', 'layout'); 
       }
       return result;
     } catch (e: any) {
-      return { success: false, message: 'El archivo de respaldo no es un JSON válido.' };
+      return { success: false, message: 'El archivo de respaldo no es un JSON válido o está corrupto.' };
     }
   }
   

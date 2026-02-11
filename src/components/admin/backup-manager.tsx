@@ -87,31 +87,49 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const content = e.target?.result;
-      if (typeof content === 'string') {
-        startRestoreTransition(async () => {
-          const result = await restoreBackupAction(content);
-           if (result.success && result.stats) {
-            const totalAdded = Object.values(result.stats.added).reduce((acc: number, count: any) => acc + count, 0);
-            toast({
-              title: 'Respaldo Restaurado con Éxito',
-              description: `Se agregaron ${totalAdded} nuevos registros. Los registros existentes no fueron modificados.`,
-              duration: 8000,
+        const content = e.target?.result;
+        if (content instanceof ArrayBuffer) {
+            startRestoreTransition(async () => {
+                try {
+                    const workbook = xlsx.read(content, { type: 'buffer' });
+                    const backupData: { [key: string]: any[] } = {};
+
+                    for (const sheetName of workbook.SheetNames) {
+                        const worksheet = workbook.Sheets[sheetName];
+                        if (!worksheet) continue;
+                        const jsonData = xlsx.utils.sheet_to_json(worksheet);
+                        backupData[sheetName] = jsonData;
+                    }
+
+                    const result = await restoreBackupAction(JSON.stringify(backupData));
+                    
+                    if (result.success && result.stats) {
+                        const totalAdded = Object.values(result.stats.added).reduce((acc: number, count: any) => acc + count, 0);
+                        toast({
+                            title: 'Respaldo Restaurado con Éxito',
+                            description: `Se agregaron ${totalAdded} nuevos registros. Los registros existentes no fueron modificados.`,
+                            duration: 8000,
+                        });
+                        onRestoreSuccess?.();
+                    } else {
+                        toast({
+                            title: 'Error al Restaurar',
+                            description: result.message || 'El archivo de respaldo parece ser inválido o está corrupto.',
+                            variant: 'destructive',
+                        });
+                    }
+                } catch (parseError: any) {
+                    toast({
+                        title: 'Error al Leer Archivo',
+                        description: 'No se pudo procesar el archivo Excel. Asegúrate que tiene el formato correcto.',
+                        variant: 'destructive',
+                    });
+                }
             });
-            onRestoreSuccess?.();
-          } else {
-            toast({
-              title: 'Error al Restaurar',
-              description: result.message || 'El archivo de respaldo parece ser inválido o está corrupto.',
-              variant: 'destructive',
-            });
-          }
-        });
-      }
+        }
     };
-    reader.readAsText(file);
-    // Reset file input
-    event.target.value = '';
+    reader.readAsArrayBuffer(file);
+    if (event.target) event.target.value = '';
   };
   
   const handleCleanup = () => {
@@ -139,7 +157,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>Gestión de Datos</CardTitle>
         <CardDescription>
-          Realiza respaldos de seguridad, restaura datos y limpia registros antiguos. El archivo de respaldo para restaurar debe estar en formato JSON.
+          Realiza respaldos de seguridad en Excel, restaura datos desde un archivo Excel y limpia registros antiguos.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid sm:grid-cols-3 gap-4">
@@ -149,13 +167,13 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
         </Button>
         <Button onClick={handleRestoreClick} disabled={isRestoring} variant="outline">
           {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          Cargar Respaldo (JSON)
+          Cargar Respaldo (Excel)
         </Button>
         <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="application/json"
+            accept=".xlsx, .xls"
             className="hidden"
         />
         <AlertDialog>
