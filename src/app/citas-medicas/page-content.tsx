@@ -230,12 +230,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   }
 
   const handleTimeSelect = (time: string) => {
-    const slotIndex = allTimeSlots.indexOf(time);
-
-    if (patientType === PatientType.General && slotIndex < 6) {
-        toast({ title: "Horario prioritario", description: "Este horario es para pacientes prioritarios. Por favor, selecciona a partir del séptimo horario.", variant: "destructive"});
-        return;
-    }
     setSelectedTime(time);
   }
 
@@ -361,7 +355,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                         <UserCheck className="h-5 w-5 text-primary" />
                                         Tipo de Paciente
                                     </CardTitle>
-                                    <CardDescription>Esto nos ayuda a asignarte un horario preferencial si es necesario.</CardDescription>
+                                    <CardDescription>Selecciona tu tipo de paciente para nuestros registros.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                      <Form {...form}>
@@ -384,9 +378,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                                         <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
                                                         </SelectContent>
                                                     </Select>
-                                                    <FormDescription className='pt-2'>
-                                                        Pacientes generales solo pueden agendar después de los primeros 6 horarios del día.
-                                                    </FormDescription>
                                                     <FormMessage />
                                                     </FormItem>
                                                 )}
