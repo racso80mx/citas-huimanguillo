@@ -84,7 +84,6 @@ import type {
   VaccineAppointment,
   User,
 } from './definitions';
-import { getDoc } from 'firebase/firestore';
 import { generateAppointmentPDF, generateLabAppointmentPDF, generateXRayAppointmentPDF, generateUltrasoundAppointmentPDF, generateVaccineAppointmentPDF } from './utils';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -102,36 +101,21 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 export async function saveNewAppointment(
   appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>
-): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
+) {
   try {
-    const transactionResult = await dataSaveAppointment(
-      appointmentData,
-      patientData,
-    );
+    const result = await dataSaveAppointment(appointmentData, patientData);
     
-    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
-        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    if (!result.success || !result.data) {
+        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
     
-    const clinic = await getClinicById(appointmentData.clinicId);
-    if (!clinic) throw new Error("La clínica seleccionada no es válida.");
-
-    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
-    const finalPatientSnap = await getDoc(transactionResult.patientRef);
-
-    const fullAppointment = { 
-        ...finalAppointmentSnap.data(), 
-        id: finalAppointmentSnap.id, 
-        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
-    } as Appointment;
-
-    generateAppointmentPDF(fullAppointment, clinic);
+    generateAppointmentPDF(result.data.appointment, result.data.clinic);
     
-    await logActivity('Creación Cita Médica', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
+    await logActivity('Creación Cita Médica', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: { appointment: fullAppointment, clinic } };
+    return { success: true, data: result.data.appointment };
   } catch (e: any) {
     console.error("Action Error: saveNewAppointment", e);
     return { success: false, error: e.message || 'Error al guardar la cita.' };
@@ -141,34 +125,21 @@ export async function saveNewAppointment(
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
-  settings: LabSettings,
-): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
+) {
   try {
-    const transactionResult = await dataSaveLabAppointment(
-      appointmentData,
-      patientData,
-      settings,
-    );
-     if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
-        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    const result = await dataSaveLabAppointment(appointmentData, patientData);
+    
+     if (!result.success || !result.data) {
+        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
 
-    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
-    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+    generateLabAppointmentPDF(result.data);
 
-    const fullAppointment = { 
-        ...finalAppointmentSnap.data(), 
-        id: finalAppointmentSnap.id, 
-        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
-    } as LabAppointment;
-    
-    generateLabAppointmentPDF(fullAppointment);
-
-    await logActivity('Creación Cita Laboratorio', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
+    await logActivity('Creación Cita Laboratorio', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: fullAppointment };
+    return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewLabAppointment", e);
     return {
@@ -181,36 +152,21 @@ export async function saveNewLabAppointment(
 export async function saveNewXRayAppointment(
   appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
-  study: XRayStudy,
-  settings: XRaySettings
-): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
+) {
   try {
-    const transactionResult = await dataSaveXRayAppointment(
-      appointmentData,
-      patientData,
-      settings
-    );
+    const result = await dataSaveXRayAppointment(appointmentData, patientData);
     
-    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
-        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    if (!result.success || !result.data) {
+        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
     
-    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
-    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+    generateXRayAppointmentPDF(result.data.appointment, result.data.study);
 
-    const fullAppointment = { 
-        ...finalAppointmentSnap.data(), 
-        id: finalAppointmentSnap.id, 
-        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
-    } as XRayAppointment;
-    
-    generateXRayAppointmentPDF(fullAppointment, study);
-
-    await logActivity('Creación Cita Rayos X', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
+    await logActivity('Creación Cita Rayos X', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: fullAppointment };
+    return { success: true, data: result.data.appointment };
   } catch (e: any) {
     console.error("Action Error: saveNewXRayAppointment", e);
     return {
@@ -223,36 +179,21 @@ export async function saveNewXRayAppointment(
 export async function saveNewUltrasoundAppointment(
   appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
-  study: UltrasoundStudy,
-  settings: UltrasoundSettings
-): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
+) {
   try {
-    const transactionResult = await dataSaveUltrasoundAppointment(
-      appointmentData,
-      patientData,
-      settings
-    );
+    const result = await dataSaveUltrasoundAppointment(appointmentData, patientData);
     
-    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
-        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    if (!result.success || !result.data) {
+        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
-    
-    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
-    const finalPatientSnap = await getDoc(transactionResult.patientRef);
 
-    const fullAppointment = { 
-        ...finalAppointmentSnap.data(), 
-        id: finalAppointmentSnap.id, 
-        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
-    } as UltrasoundAppointment;
-
-    generateUltrasoundAppointmentPDF(fullAppointment, study);
+    generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study);
     
-    await logActivity('Creación Cita Ultrasonido', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
+    await logActivity('Creación Cita Ultrasonido', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: fullAppointment };
+    return { success: true, data: result.data.appointment };
   } catch (e: any) {
     console.error("Action Error: saveNewUltrasoundAppointment", e);
     return {
@@ -265,35 +206,21 @@ export async function saveNewUltrasoundAppointment(
 export async function saveNewVaccineAppointment(
   appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
-  settings: VaccineSettings
-): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
+) {
   try {
-    const transactionResult = await dataSaveVaccineAppointment(
-      appointmentData,
-      patientData,
-      settings,
-    );
+    const result = await dataSaveVaccineAppointment(appointmentData, patientData);
 
-    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
-        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    if (!result.success || !result.data) {
+        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
     
-    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
-    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+    generateVaccineAppointmentPDF(result.data);
 
-    const fullAppointment = { 
-        ...finalAppointmentSnap.data(), 
-        id: finalAppointmentSnap.id, 
-        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
-    } as VaccineAppointment;
-
-    generateVaccineAppointmentPDF(fullAppointment);
-
-    await logActivity('Creación Cita Vacunación', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
+    await logActivity('Creación Cita Vacunación', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: fullAppointment };
+    return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewVaccineAppointment", e);
     return {

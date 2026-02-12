@@ -27,10 +27,8 @@ import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
-import { generateLabAppointmentPDF } from '@/lib/utils';
 import type { LabAppointment, Patient, LabStudy } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { isSaturday, isSunday } from 'date-fns';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -61,8 +59,6 @@ export function LabBookingForm({
   selectedDate,
   selectedStudies,
   onBookingSuccess,
-  dailySlots,
-  weekendBookingEnabled,
 }: LabBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -123,12 +119,6 @@ export function LabBookingForm({
       return;
     }
     
-    const isWeekend = isSaturday(selectedDate) || isSunday(selectedDate);
-    if (isWeekend && !weekendBookingEnabled) {
-        toast({ title: "Citas en Fin de Semana", description: 'No se permiten citas en fin de semana para laboratorio.', variant: "destructive" });
-        return;
-    }
-
     startTransition(async () => {
        const patientData: Omit<Patient, 'id'> = {
             curp: data.curp.toUpperCase(),
@@ -148,9 +138,10 @@ export function LabBookingForm({
           date: selectedDate.toISOString(),
           time: "Recepción de Muestras",
           studies: selectedStudies,
+          status: 'Agendada',
         };
 
-      const result = await saveNewLabAppointment(newAppointment, patientData, { dailySlots, weekendBookingEnabled });
+      const result = await saveNewLabAppointment(newAppointment, patientData);
 
       if (result.success && result.data) {
           toast({
@@ -159,7 +150,6 @@ export function LabBookingForm({
               duration: 10000,
           });
 
-          generateLabAppointmentPDF(result.data);
           form.reset();
           onBookingSuccess();
       } else {

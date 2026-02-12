@@ -27,7 +27,6 @@ import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
-import { generateVaccineAppointmentPDF } from '@/lib/utils';
 import type { VaccineAppointment, Patient, Vaccine } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -166,6 +165,7 @@ export function VaccineBookingForm({
         isNewborn,
         clinicId,
         vaccines: selectedVaccines,
+        status: 'Agendada',
       };
 
       const result = await saveNewVaccineAppointment(newAppointment, patientData);
@@ -176,8 +176,6 @@ export function VaccineBookingForm({
             description: `Tu cita de Vacunación ha sido agendada. Folio: ${result.data.appointmentNumber}`,
             duration: 10000,
         });
-
-        generateVaccineAppointmentPDF(result.data);
 
         form.reset();
         onBookingSuccess();

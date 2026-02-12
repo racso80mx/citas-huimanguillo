@@ -142,11 +142,15 @@ export function UltrasoundBookingForm({
         studyName: selectedStudy.name,
       };
 
-      const result = await saveNewUltrasoundAppointment(newAppointment, patientData, selectedStudy);
+      const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
       
       if (result.success) {
         form.reset();
         onBookingSuccess();
+        toast({
+          title: 'Cita Agendada',
+          description: `Tu cita de Ultrasonido con folio ${result.data?.appointmentNumber} ha sido agendada con éxito.`
+        })
       } else {
          toast({
           title: 'Error al Agendar',

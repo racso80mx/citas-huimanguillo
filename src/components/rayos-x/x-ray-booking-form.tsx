@@ -141,11 +141,15 @@ export function XRayBookingForm({
         studyName: selectedStudy.name,
       };
 
-      const result = await saveNewXRayAppointment(newAppointment, patientData, selectedStudy);
+      const result = await saveNewXRayAppointment(newAppointment, patientData);
 
       if (result.success) {
         form.reset();
         onBookingSuccess();
+        toast({
+          title: 'Cita Agendada',
+          description: `Tu cita de Rayos X con folio ${result.data?.appointmentNumber} ha sido agendada con éxito.`
+        })
       } else {
         toast({
           title: 'Error al Agendar',
