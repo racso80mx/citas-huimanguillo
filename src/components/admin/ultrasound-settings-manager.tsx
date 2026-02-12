@@ -19,6 +19,8 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { ScrollArea } from '../ui/scroll-area';
 import { Textarea } from '../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { timeSlots30Min } from '@/lib/time-slots';
 
 export function UltrasoundSettingsManager() {
   const [settings, setSettings] = useState<UltrasoundSettings | null>(null);
@@ -157,21 +159,17 @@ export function UltrasoundSettingsManager() {
                 </div>
                 <div className='space-y-2'>
                     <Label htmlFor="ultrasound-start">Hora Inicio</Label>
-                    <Input
-                    id="ultrasound-start"
-                    type="time"
-                    value={settings.startTime}
-                    onChange={(e) => handleSettingsChange('startTime', e.target.value)}
-                    />
+                     <Select value={settings.startTime} onValueChange={(value) => handleSettingsChange('startTime', value)}>
+                        <SelectTrigger id="ultrasound-start"><SelectValue /></SelectTrigger>
+                        <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
+                    </Select>
                 </div>
                 <div className='space-y-2'>
                     <Label htmlFor="ultrasound-end">Hora Fin</Label>
-                    <Input
-                    id="ultrasound-end"
-                    type="time"
-                    value={settings.endTime}
-                    onChange={(e) => handleSettingsChange('endTime', e.target.value)}
-                    />
+                    <Select value={settings.endTime} onValueChange={(value) => handleSettingsChange('endTime', value)}>
+                        <SelectTrigger id="ultrasound-end"><SelectValue /></SelectTrigger>
+                        <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
+                    </Select>
                 </div>
             </div>
             <div className="flex items-center space-x-2">

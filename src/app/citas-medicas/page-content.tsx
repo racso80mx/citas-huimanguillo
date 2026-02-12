@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { Combobox } from '@/components/ui/combobox';
+import { timeSlots30Min } from '@/lib/time-slots';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -72,36 +73,17 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
   const form = useForm();
 
-  const getSlotsCount = (startTime: string, endTime: string, interval: number): number => {
-    if (!startTime || !endTime) return 0;
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    const totalStartMinutes = startHour * 60 + startMinute;
-    const totalEndMinutes = endHour * 60 + endMinute;
-    if (totalEndMinutes <= totalStartMinutes) return 0;
-    return Math.floor((totalEndMinutes - totalStartMinutes) / interval);
-  };
-
   const generateTimeSlots = (clinic: Clinic | undefined): string[] => {
-    if (!clinic) return [];
-    const slots = [];
-    const [startHour, startMinute] = clinic.startTime.split(':').map(Number);
+    if (!clinic || !clinic.startTime || !clinic.endTime) return [];
     
-    const slotsInTimeRange = getSlotsCount(clinic.startTime, clinic.endTime, 30);
-    const maxSlots = Math.min(clinic.dailySlots, slotsInTimeRange);
+    const startIndex = timeSlots30Min.findIndex(slot => slot.value === clinic.startTime);
+    const endIndex = timeSlots30Min.findIndex(slot => slot.value === clinic.endTime);
 
-    let currentHour = startHour;
-    let currentMinute = startMinute;
+    if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return [];
 
-    for (let i = 0; i < maxSlots; i++) {
-        slots.push(`${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`);
-        currentMinute += 30;
-        if (currentMinute >= 60) {
-            currentHour++;
-            currentMinute -= 60;
-        }
-    }
-    return slots;
+    const slotsInRange = timeSlots30Min.slice(startIndex, endIndex).map(slot => slot.value);
+    
+    return slotsInRange.slice(0, clinic.dailySlots);
   };
 
   const fetchAvailability = React.useCallback(async (year: number, month: number) => {
@@ -140,14 +122,13 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                 takenTimesByClinic[clinic.id] = [];
                 continue;
             }
-
-            const slotsInTimeRange = getSlotsCount(clinic.startTime, clinic.endTime, 30);
-            const maxSlots = Math.min(clinic.dailySlots, slotsInTimeRange);
+            
+            const allSlotsForClinic = generateTimeSlots(clinic);
             const bookedAppointments = appointmentsOnDate.filter(
                 (app) => app.clinicId === clinic.id
             );
             
-            const available = Math.max(0, maxSlots - bookedAppointments.length);
+            const available = Math.max(0, allSlotsForClinic.length - bookedAppointments.length);
             availabilityByClinic[clinic.id] = available;
             totalAvailableSlots += available;
             takenTimesByClinic[clinic.id] = bookedAppointments.map(app => app.time);
@@ -251,8 +232,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     return availability.find((d) => d.date === dateString) || null;
   }, [selectedDate, availability]);
   
-  const isNewbornFlow = patientType === PatientType.RecienNacido;
-
   const coloniaOptions = React.useMemo(() => {
     if (!selectedDayAvailability) return [];
     return colonias.map(colonia => {

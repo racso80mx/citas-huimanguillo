@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { timeSlots30Min } from '@/lib/time-slots';
 
 const daysOfWeek = ["Ninguno", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -203,21 +204,25 @@ export function ClinicsManager() {
                 </div>
                 <div className='space-y-2'>
                     <Label htmlFor={`start-${clinic.id}`}>Hora Inicio</Label>
-                    <Input
-                    id={`start-${clinic.id}`}
-                    type="time"
-                    value={clinic.startTime}
-                    onChange={(e) => handleClinicChange(clinic.id, 'startTime', e.target.value)}
-                    />
+                    <Select value={clinic.startTime} onValueChange={(value) => handleClinicChange(clinic.id, 'startTime', value)}>
+                        <SelectTrigger id={`start-${clinic.id}`}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div className='space-y-2'>
                     <Label htmlFor={`end-${clinic.id}`}>Hora Fin</Label>
-                    <Input
-                    id={`end-${clinic.id}`}
-                    type="time"
-                    value={clinic.endTime}
-                    onChange={(e) => handleClinicChange(clinic.id, 'endTime', e.target.value)}
-                    />
+                     <Select value={clinic.endTime} onValueChange={(value) => handleClinicChange(clinic.id, 'endTime', value)}>
+                        <SelectTrigger id={`end-${clinic.id}`}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
              <div className='grid sm:grid-cols-2 gap-4'>
