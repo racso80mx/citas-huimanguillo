@@ -58,7 +58,6 @@ import {
   cleanupOldRecords,
   getLogs as dataGetLogs,
   cloneAppointment as dataCloneAppointment,
-  runDataMigration,
 } from './data';
 
 import type {
@@ -554,16 +553,6 @@ export async function restoreBackupAction(backupData: any): Promise<{ success: b
   } catch (e: any) {
     return { success: false, message: e.message || 'Error al restaurar el respaldo.' };
   }
-}
-
-export async function runMigrationAction() {
-    try {
-        const result = await runDataMigration();
-        revalidatePath('/', 'layout'); // Revalidate everything after migration
-        return result;
-    } catch (e: any) {
-        return { success: false, message: e.message || 'Error desconocido durante la migración.' };
-    }
 }
   
 

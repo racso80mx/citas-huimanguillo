@@ -1,8 +1,6 @@
 'use server';
 
 import { adminDb } from '@/firebase/server-config';
-import fs from 'fs/promises';
-import path from 'path';
 import {
   collection,
   doc,
@@ -500,104 +498,6 @@ export async function restoreBackupData(backup: any) {
     return { addedCount };
 }
   
-export async function runDataMigration() {
-  const dataDir = path.join(process.cwd(), 'src', 'lib', 'data');
-  const stats = {
-    clinics: 0,
-    colonias: 0,
-    patients: 0,
-    appointments: 0,
-    labAppointments: 0,
-    xRayAppointments: 0,
-    ultrasoundAppointments: 0,
-    vaccineAppointments: 0,
-    labStudies: 0,
-    xrayStudies: 0,
-    ultrasoundStudies: 0,
-    vaccines: 0,
-    users: 0,
-  };
-
-  type StatsKeys = keyof typeof stats;
-
-  const migrateCollection = async (fileName: string, collectionName: string, statsKey: StatsKeys) => {
-    try {
-      const filePath = path.join(dataDir, fileName);
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      const items = JSON.parse(fileContent);
-
-      if (!Array.isArray(items) || items.length === 0) return;
-      
-      const collRef = collection(adminDb, collectionName);
-      const existingDocs = await getDocs(collRef);
-      const existingIds = new Set(existingDocs.docs.map(d => d.id));
-
-      const batch = writeBatch(adminDb);
-      let newDocs = 0;
-
-      for (const item of items) {
-        if (!item.id || existingIds.has(item.id)) continue;
-        
-        const { id, ...data } = item;
-        
-        if (data.date) {
-          data.date = Timestamp.fromDate(new Date(data.date));
-        }
-
-        batch.set(doc(collRef, id), data);
-        newDocs++;
-      }
-
-      await batch.commit();
-      stats[statsKey] = newDocs;
-    } catch (error) {
-      console.error(`Error migrating ${fileName}:`, error);
-    }
-  };
-  
-  const migrateSettingsDoc = async (fileName: string, docId: string) => {
-    try {
-        const filePath = path.join(dataDir, fileName);
-        const fileContent = await fs.readFile(filePath, 'utf-8');
-        const data = JSON.parse(fileContent);
-        const docRef = doc(adminDb, 'settings', docId);
-        await setDoc(docRef, data, { merge: true });
-    } catch (error) {
-        console.error(`Error migrating settings file ${fileName}:`, error);
-    }
-  };
-
-  // Run migrations for collections
-  await migrateCollection('clinics.json', 'clinics', 'clinics');
-  await migrateCollection('colonias.json', 'colonias', 'colonias');
-  await migrateCollection('patients.json', 'patients', 'patients');
-  await migrateCollection('appointments.json', 'appointments', 'appointments');
-  await migrateCollection('lab-appointments.json', 'labAppointments', 'labAppointments');
-  await migrateCollection('x-ray-appointments.json', 'xrayAppointments', 'xRayAppointments');
-  await migrateCollection('ultrasound-appointments.json', 'ultrasoundAppointments', 'ultrasoundAppointments');
-  await migrateCollection('vaccine-appointments.json', 'vaccineAppointments', 'vaccineAppointments');
-  await migrateCollection('users.json', 'users', 'users');
-  
-  // Run migrations for catalogs (which are also collections)
-  await migrateCollection('lab-studies.json', 'labStudies', 'labStudies');
-  await migrateCollection('x-ray-studies.json', 'xrayStudies', 'xrayStudies');
-  await migrateCollection('ultrasound-studies.json', 'ultrasoundStudies', 'ultrasoundStudies');
-  await migrateCollection('vaccines.json', 'vaccines', 'vaccines');
-  
-  // Run migrations for settings documents
-  await migrateSettingsDoc('announcements.json', 'announcements');
-  await migrateSettingsDoc('lab-settings.json', 'labSettings');
-  await migrateSettingsDoc('x-ray-settings.json', 'xraySettings');
-  await migrateSettingsDoc('ultrasound-settings.json', 'ultrasoundSettings');
-  await migrateSettingsDoc('vaccine-settings.json', 'vaccineSettings');
-  await migrateSettingsDoc('module-settings.json', 'moduleSettings');
-
-  await logActivity('Migración de Datos', `Se migraron datos de archivos JSON a Firestore. Estadísticas: ${JSON.stringify(stats)}`);
-
-  return { success: true, stats };
-}
-
-
 export async function cleanupOldRecords() {
     let totalDeleted = 0;
     const collectionsToClean = [
