@@ -23,6 +23,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import * as xlsx from 'xlsx';
+import { format, parseISO } from 'date-fns';
+import type { Clinic, Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
+
 
 export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => void }) {
   const [isDownloading, startDownloadTransition] = useTransition();
@@ -37,24 +40,65 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
       if (result.success && result.data) {
         try {
             const workbook = xlsx.utils.book_new();
-            for (const sheetName in result.data) {
-                if (Object.prototype.hasOwnProperty.call(result.data, sheetName) && Array.isArray(result.data[sheetName]) && result.data[sheetName].length > 0) {
-                    const dataForSheet = result.data[sheetName].map((item: any) => {
-                        const newItem = {...item};
-                        if (newItem.studies && Array.isArray(newItem.studies)) {
-                            newItem.studies = newItem.studies.map((s: any) => s.name).join(', ');
-                        }
-                        if (newItem.vaccines && Array.isArray(newItem.vaccines)) {
-                            newItem.vaccines = newItem.vaccines.map((v: any) => v.name).join(', ');
-                        }
-                        return newItem;
-                    });
-                    const worksheet = xlsx.utils.json_to_sheet(dataForSheet);
-                    xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+            const clinics: Clinic[] = result.data.clinics || [];
+            const clinicMap = new Map(clinics.map(c => [c.id, c.name]));
+
+            const createSheet = (sheetName: string, appointments: any[], type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') => {
+                if (!appointments || appointments.length === 0) return;
+
+                const worksheetData = appointments.map((item) => {
+                    const baseData: any = {
+                        'Folio': item.appointmentNumber,
+                        'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
+                        'Hora': item.time,
+                        'Estado': item.status,
+                        'Paciente': item.patient ? `${item.patient.name} ${item.patient.paternalLastName} ${item.patient.maternalLastName}`: 'N/A',
+                        'CURP': item.patient?.curp || 'N/A',
+                        'Teléfono': item.patient?.phoneNumber || 'N/A',
+                    };
+
+                    if (type === 'lab') {
+                        baseData['Estudios'] = (item as LabAppointment).studies.map(s => s.name).join(', ');
+                    } else if (type === 'xray') {
+                        baseData['Estudio'] = (item as XRayAppointment).studyName;
+                    } else if (type === 'ultrasound') {
+                        baseData['Estudio'] = (item as UltrasoundAppointment).studyName;
+                    } else if (type === 'vaccine') {
+                        baseData['Vacunas'] = (item as VaccineAppointment).vaccines.map(v => v.name).join(', ');
+                        baseData['Recién Nacido'] = (item as VaccineAppointment).isNewborn ? 'Sí' : 'No';
+                    } else { // medical
+                        const regularItem = item as Appointment;
+                        baseData['Núcleo'] = clinicMap.get(regularItem.clinicId) || 'N/A';
+                        baseData['Tipo Paciente'] = regularItem.patientType;
+                    }
+                    return baseData;
+                });
+                
+                const worksheet = xlsx.utils.json_to_sheet(worksheetData);
+                if (worksheetData.length > 0) {
+                    const cols = Object.keys(worksheetData[0]);
+                    const colWidths = cols.map(col => ({
+                        wch: Math.max(...worksheetData.map(row => (row[col as keyof typeof row] ?? '').toString().length), col.length) + 1
+                    }));
+                    worksheet['!cols'] = colWidths;
                 }
+                xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
+            };
+
+            createSheet('Citas Médicas', result.data.appointments, 'medical');
+            createSheet('Laboratorio', result.data.labAppointments, 'lab');
+            createSheet('Rayos X', result.data.xRayAppointments, 'xray');
+            createSheet('Ultrasonidos', result.data.ultrasoundAppointments, 'ultrasound');
+            createSheet('Vacunación', result.data.vaccineAppointments, 'vaccine');
+
+            // Also add patients sheet
+            if (result.data.patients && result.data.patients.length > 0) {
+                 const worksheet = xlsx.utils.json_to_sheet(result.data.patients);
+                 xlsx.utils.book_append_sheet(workbook, worksheet, 'Pacientes');
             }
+            
             const date = new Date().toISOString().split('T')[0];
-            xlsx.writeFile(workbook, `respaldo_citas_${date}.xlsx`);
+            xlsx.writeFile(workbook, `respaldo_completo_${date}.xlsx`);
 
             toast({
               title: 'Respaldo Descargado',
@@ -91,7 +135,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
         if (content instanceof ArrayBuffer) {
             startRestoreTransition(async () => {
                 try {
-                    const workbook = xlsx.read(content, { type: 'buffer' });
+                    const workbook = xlsx.read(content, { type: 'buffer', cellDates: true });
                     const backupData: { [key: string]: any[] } = {};
 
                     for (const sheetName of workbook.SheetNames) {

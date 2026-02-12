@@ -5,6 +5,8 @@ import path from 'path';
 import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus, User, ActivityLog } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
+import { format, parse } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 // --- START: TRANSACTION LOG & LOCKING MECHANISM ---
 const LOCK_DIR = path.join(process.cwd(), 'src', 'lib', 'data', '.locks');
@@ -402,79 +404,139 @@ export async function rescheduleAppointment(appointmentId: string, newDate: stri
 // ========== Backup & Restore Data ==========
 export async function createBackupData(): Promise<any> {
     return {
-      appointments: await readJsonFile<Appointment[]>('appointments.json', []),
-      labAppointments: await readJsonFile<LabAppointment[]>('lab-appointments.json', []),
-      xRayAppointments: await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []),
-      ultrasoundAppointments: await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []),
-      vaccineAppointments: await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []),
+      appointments: await getAppointments(),
+      labAppointments: await getLabAppointments(),
+      xRayAppointments: await getXRayAppointments(),
+      ultrasoundAppointments: await getUltrasoundAppointments(),
+      vaccineAppointments: await getVaccineAppointments(),
       patients: await readJsonFile<Patient[]>('patients.json', []),
+      clinics: await getClinics(),
     };
 }
-
+  
 export async function restoreBackupData(backupJsonString: string): Promise<{success: boolean, message?: string, stats?: any}> {
-    let backupData: any;
+    let workbookData: { [key: string]: any[] };
     try {
-      backupData = JSON.parse(backupJsonString);
+      workbookData = JSON.parse(backupJsonString);
     } catch (e) {
         throw new Error('El archivo de respaldo no es un JSON válido o está corrupto.');
     }
     
     const filesToLock = ['patients.json', 'appointments.json', 'lab-appointments.json', 'x-ray-appointments.json', 'ultrasound-appointments.json', 'vaccine-appointments.json'].sort();
 
+    // Get all reference data
+    const allClinics = await getClinics();
+    const clinicNameMap = new Map(allClinics.map(c => [c.name.toUpperCase(), c.id]));
     const allLabStudies = await getLabStudies();
+    const labStudyNameMap = new Map(allLabStudies.map(s => [s.name.toUpperCase(), s]));
+    const allXRayStudies = await getXRayStudies();
+    const xRayStudyNameMap = new Map(allXRayStudies.map(s => [s.name.toUpperCase(), s]));
+    const allUltrasoundStudies = await getUltrasoundStudies();
+    const ultrasoundStudyNameMap = new Map(allUltrasoundStudies.map(s => [s.name.toUpperCase(), s]));
     const allVaccines = await getVaccines();
+    const vaccineNameMap = new Map(allVaccines.map(v => [v.name.toUpperCase(), v]));
 
     for(const file of filesToLock) { await acquireLock(file); }
     try {
-      if (!backupData.patients) { throw new Error('El archivo de respaldo tiene un formato incorrecto (falta la hoja de pacientes).'); }
+        const stats: any = { added: { patients: 0, appointments: 0, labAppointments: 0, xRayAppointments: 0, ultrasoundAppointments: 0, vaccineAppointments: 0 }, errors: [] };
+        
+        // 1. Process Patients
+        const allExistingPatients = await readJsonFile<Patient[]>('patients.json', []);
+        const patientCurpMap = new Map(allExistingPatients.map(p => [p.curp.toUpperCase(), p]));
+        const newPatients: Patient[] = [];
 
-      const allExistingPatients = await readJsonFile<Patient[]>('patients.json', []);
-      const existingPatientCurps = new Set(allExistingPatients.map(p => p.curp.toUpperCase()));
-      const newPatients = backupData.patients.filter((p: Patient) => !existingPatientCurps.has(p.curp.toUpperCase()));
-      const finalPatients = [...allExistingPatients, ...newPatients];
-      
-      const stats: any = { added: { patients: newPatients.length } };
+        if (workbookData['Pacientes']) {
+             for (const row of workbookData['Pacientes']) {
+                if (row.CURP && !patientCurpMap.has(row.CURP.toUpperCase())) {
+                    const newPatient: Patient = {
+                        id: row.id || uuidv4(),
+                        curp: row.CURP,
+                        name: row.Nombre,
+                        paternalLastName: row['Apellido_Paterno'],
+                        maternalLastName: row['Apellido_Materno'],
+                        sex: row.Sexo,
+                        age: row.Edad,
+                        birthState: row['Estado_Nacimiento'],
+                        phoneNumber: row['Teléfono'],
+                    };
+                    newPatients.push(newPatient);
+                    patientCurpMap.set(newPatient.curp.toUpperCase(), newPatient);
+                }
+             }
+        }
+        if (newPatients.length > 0) {
+            stats.added.patients = newPatients.length;
+            await unsafeWriteJsonFile('patients.json', [...allExistingPatients, ...newPatients]);
+        }
+        
+        // 2. Process Appointments
+        const sheetMapping = {
+            'Citas Médicas': { filename: 'appointments.json', type: 'medical'},
+            'Laboratorio': { filename: 'lab-appointments.json', type: 'lab'},
+            'Rayos X': { filename: 'x-ray-appointments.json', type: 'xray'},
+            'Ultrasonidos': { filename: 'ultrasound-appointments.json', type: 'ultrasound'},
+            'Vacunación': { filename: 'vaccine-appointments.json', type: 'vaccine'},
+        };
 
-      const appointmentFiles = {
-          appointments: 'appointments.json',
-          labAppointments: 'lab-appointments.json',
-          xRayAppointments: 'x-ray-appointments.json',
-          ultrasoundAppointments: 'ultrasound-appointments.json',
-          vaccineAppointments: 'vaccine-appointments.json',
-      };
+        for (const [sheetName, { filename, type }] of Object.entries(sheetMapping)) {
+            if (!workbookData[sheetName]) continue;
 
-      for (const [key, filename] of Object.entries(appointmentFiles)) {
-          if(backupData[key]) {
-              const existingAppointments = await readJsonFile<any[]>(filename, []);
-              const existingAppointmentIds = new Set(existingAppointments.map(a => a.id));
-              
-              const newAppointments = backupData[key]
-                .filter((a: any) => !existingAppointmentIds.has(a.id))
-                .map((a: any) => {
-                    const newApp = {...a};
-                    // Reconstruct complex objects from strings
-                    if (key === 'labAppointments' && newApp.studies && typeof newApp.studies === 'string') {
-                        const studyNames = newApp.studies.split(', ');
-                        newApp.studies = allLabStudies.filter(s => studyNames.includes(s.name));
+            const existingAppointments = await readJsonFile<any[]>(filename, []);
+            const existingAppointmentFolios = new Set(existingAppointments.map(a => a.appointmentNumber));
+            const appointmentsToAdd = [];
+
+            for (const row of workbookData[sheetName]) {
+                try {
+                    if (!row.Folio || existingAppointmentFolios.has(row.Folio)) continue;
+
+                    const patient = patientCurpMap.get(row.CURP?.toUpperCase());
+                    if (!patient) {
+                        stats.errors.push(`Paciente con CURP ${row.CURP} no encontrado para la cita ${row.Folio}.`);
+                        continue;
                     }
-                    if (key === 'vaccineAppointments' && newApp.vaccines && typeof newApp.vaccines === 'string') {
-                        const vaccineNames = newApp.vaccines.split(', ');
-                        newApp.vaccines = allVaccines.filter(v => vaccineNames.includes(v.name));
-                    }
-                    return newApp;
-                });
+                    
+                    const dateObj = typeof row.Fecha === 'object' ? row.Fecha : parse(row.Fecha, 'dd/MM/yyyy', new Date());
 
-              stats.added[key] = newAppointments.length;
-              await unsafeWriteJsonFile(filename, [...existingAppointments, ...newAppointments]);
-          }
-      }
-      
-      await unsafeWriteJsonFile('patients.json', finalPatients);
-      
+                    const baseAppointment: any = {
+                        id: uuidv4(),
+                        appointmentNumber: row.Folio,
+                        patientId: patient.id,
+                        date: dateObj.toISOString(),
+                        time: row.Hora,
+                        status: row.Estado,
+                    };
+
+                    if (type === 'medical') {
+                        baseAppointment.clinicId = clinicNameMap.get(row['Núcleo']?.toUpperCase());
+                        baseAppointment.patientType = row['Tipo Paciente'];
+                    } else if (type === 'lab') {
+                        baseAppointment.studies = (row.Estudios || '').split(', ').map((name: string) => labStudyNameMap.get(name.toUpperCase())).filter(Boolean);
+                    } else if (type === 'xray') {
+                        baseAppointment.studyId = xRayStudyNameMap.get(row.Estudio?.toUpperCase())?.id;
+                        baseAppointment.studyName = row.Estudio;
+                    } else if (type === 'ultrasound') {
+                        baseAppointment.studyId = ultrasoundStudyNameMap.get(row.Estudio?.toUpperCase())?.id;
+                        baseAppointment.studyName = row.Estudio;
+                    } else if (type === 'vaccine') {
+                        baseAppointment.vaccines = (row.Vacunas || '').split(', ').map((name: string) => vaccineNameMap.get(name.toUpperCase())).filter(Boolean);
+                        baseAppointment.isNewborn = row['Recién Nacido'] === 'Sí';
+                        baseAppointment.clinicId = clinicNameMap.get(row['Núcleo']?.toUpperCase());
+                    }
+
+                    appointmentsToAdd.push(baseAppointment);
+                    await logTransaction({ type: 'CREATE', entity: filename.replace('.json', ''), timestamp: new Date().toISOString(), data: baseAppointment });
+                } catch(e: any) {
+                    stats.errors.push(`Error procesando fila para cita ${row.Folio}: ${e.message}`);
+                }
+            }
+            if (appointmentsToAdd.length > 0) {
+                stats.added[filename.split('-')[0]] = appointmentsToAdd.length;
+                await unsafeWriteJsonFile(filename, [...existingAppointments, ...appointmentsToAdd]);
+            }
+        }
+        
       const totalAdded = Object.values(stats.added).reduce((a: number, b: any) => a + b, 0);
       await logActivity('Restauración de Respaldo', `Se agregaron ${totalAdded} nuevos registros desde el respaldo.`);
-      await logTransaction({ type: 'UPDATE', entity: 'system', timestamp: new Date().toISOString(), details: `Restored (merged) from backup. ${totalAdded} new records added.`, data: stats });
-
       revalidatePath('/admin', 'layout');
       return { success: true, stats };
     } catch (e: any) {
