@@ -124,6 +124,7 @@ async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<a
 
     const patients: Record<string, Patient> = {};
     
+    // Firestore 'in' queries are limited to 30 items
     for (let i = 0; i < patientIds.length; i += 30) {
         const batchIds = patientIds.slice(i, i + 30);
         if (batchIds.length > 0) {
@@ -223,25 +224,6 @@ export async function updateVaccines(vaccines: Vaccine[]) { return updateCatalog
 // CORE DATA LOGIC
 // =====================================================================
 
-async function findOrCreatePatient(transaction: Transaction, patientData: Omit<Patient, 'id'>): Promise<DocumentReference> {
-    const patientsCollRef = collection(adminDb, 'patients');
-    // Only search by CURP if it's not a newborn placeholder
-    if (patientData.curp && !patientData.curp.startsWith('RN-')) {
-        const q = query(patientsCollRef, where('curp', '==', patientData.curp.toUpperCase()), limit(1));
-        const patientSnap = await transaction.get(q);
-
-        if (!patientSnap.empty) {
-            const patientRef = patientSnap.docs[0].ref;
-            transaction.update(patientRef, patientData);
-            return patientRef;
-        }
-    }
-    // If it's a newborn or not found, create a new one.
-    const patientRef = doc(patientsCollRef, uuidv4());
-    transaction.set(patientRef, patientData);
-    return patientRef;
-}
-
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {
   const q = query(collection(adminDb, 'patients'), where('curp', '==', curp.toUpperCase()), limit(1));
   const snapshot = await getDocs(q);
@@ -257,32 +239,6 @@ export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment
 export async function getVaccineAppointments(): Promise<VaccineAppointment[]> { const snapshot = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId)); const snapshot = await getDocs(q); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 
-async function validateClinicAvailability(collectionName: string, date: Date, time: string, clinicId: string | undefined): Promise<{ clinic: Clinic | null, appointmentsForDay: DocumentSnapshot[] }> {
-    let clinic: Clinic | null = null;
-    if (clinicId) {
-        const clinicRef = doc(adminDb, 'clinics', clinicId);
-        const clinicSnap = await getDoc(clinicRef);
-        if (!clinicSnap.exists()) throw new Error("La clínica no existe.");
-        clinic = { id: clinicSnap.id, ...clinicSnap.data() } as Clinic;
-
-        const dayOfWeek = date.getUTCDay();
-        const dayOfWeekMap: { [key: string]: number } = { "Domingo": 0, "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6 };
-
-        if (clinic.dayOfAction && clinic.dayOfAction !== 'Ninguno' && dayOfWeekMap[clinic.dayOfAction] === dayOfWeek) throw new Error(`El ${clinic.dayOfAction} es día de acción y no se pueden agendar citas.`);
-        if (clinic.unavailableDates?.includes(date.toISOString().split('T')[0])) throw new Error('La fecha seleccionada no está disponible (día inhábil).');
-        const isWeekend = isSaturday(date) || isSunday(date);
-        if (isWeekend && !clinic.weekendBookingEnabled) throw new Error('No se permiten citas en fin de semana para este núcleo.');
-    }
-    
-    const startOfDay = Timestamp.fromDate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0));
-    const endOfDay = Timestamp.fromDate(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999));
-    
-    const qAppointments = query(collection(adminDb, collectionName), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
-    const appointmentsSnap = await getDocs(qAppointments);
-
-    return { clinic, appointmentsForDay: appointmentsSnap.docs };
-}
-
 async function saveAppointmentBase(
     collectionName: string,
     appointmentData: any,
@@ -294,22 +250,63 @@ async function saveAppointmentBase(
     if (!date || !time) throw new Error("La fecha y la hora son requeridas.");
     const appointmentDate = new Date(date);
 
-    const { clinic, appointmentsForDay } = await validateClinicAvailability(collectionName, appointmentDate, time, clinicId);
-    
-    const relevantAppointments = clinicId ? appointmentsForDay.filter(doc => doc.data().clinicId === clinicId) : appointmentsForDay;
-    const dailyLimit = clinicId && clinic ? clinic.dailySlots : settings.dailySlots;
+    const result = await runTransaction(adminDb, async (transaction) => {
+        // --- 1. VALIDATION (READS) ---
+        let clinic: Clinic | null = null;
+        if (clinicId) {
+            const clinicRef = doc(adminDb, 'clinics', clinicId);
+            const clinicSnap = await transaction.get(clinicRef);
+            if (!clinicSnap.exists()) throw new Error("La clínica seleccionada ya no existe.");
+            clinic = { id: clinicSnap.id, ...clinicSnap.data() } as Clinic;
 
-    if (relevantAppointments.length >= dailyLimit) {
-        throw new Error(`No hay más cupos disponibles para este servicio en la fecha seleccionada.`);
-    }
+            const dayOfWeek = appointmentDate.getUTCDay();
+            const dayOfWeekMap: { [key: string]: number } = { "Domingo": 0, "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6 };
 
-    if (relevantAppointments.some(doc => doc.data().time === time)) {
-        throw new Error(`El horario de ${time} ya no está disponible.`);
-    }
+            if (clinic.dayOfAction && clinic.dayOfAction !== 'Ninguno' && dayOfWeekMap[clinic.dayOfAction] === dayOfWeek) throw new Error(`El ${clinic.dayOfAction} es día de acción y no se pueden agendar citas.`);
+            if (clinic.unavailableDates?.includes(appointmentDate.toISOString().split('T')[0])) throw new Error('La fecha seleccionada no está disponible (día inhábil).');
+            const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
+            if (isWeekend && !clinic.weekendBookingEnabled) throw new Error('No se permiten citas en fin de semana para este núcleo.');
+        }
 
-    const newAppointmentRef = await runTransaction(adminDb, async (transaction) => {
-        const patientRef = await findOrCreatePatient(transaction, patientData);
-        const appointmentRef = doc(collection(adminDb, collectionName), uuidv4());
+        const startOfDay = Timestamp.fromDate(new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), appointmentDate.getDate(), 0, 0, 0));
+        const endOfDay = Timestamp.fromDate(new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), appointmentDate.getDate(), 23, 59, 59, 999));
+        
+        const appointmentsCollRef = collection(adminDb, collectionName);
+        const qAppointments = query(appointmentsCollRef, where('date', '>=', startOfDay), where('date', '<=', endOfDay));
+        const appointmentsSnap = await transaction.get(qAppointments);
+        
+        const relevantAppointments = clinicId ? appointmentsSnap.docs.filter(doc => doc.data().clinicId === clinicId) : appointmentsSnap.docs;
+        const dailyLimit = clinic ? clinic.dailySlots : settings.dailySlots;
+
+        if (relevantAppointments.length >= dailyLimit) {
+            throw new Error(`No hay más cupos disponibles para este servicio en la fecha seleccionada.`);
+        }
+        if (relevantAppointments.some(doc => doc.data().time === time)) {
+            throw new Error(`El horario de ${time} ya no está disponible.`);
+        }
+
+        // --- 2. PATIENT CREATION/UPDATE (WRITES) ---
+        let patientRef: DocumentReference;
+        const patientsCollRef = collection(adminDb, 'patients');
+
+        if (patientData.curp && !patientData.curp.startsWith('RN-')) {
+            const qPatient = query(patientsCollRef, where('curp', '==', patientData.curp.toUpperCase()), limit(1));
+            const patientSnap = await transaction.get(qPatient);
+
+            if (!patientSnap.empty) {
+                patientRef = patientSnap.docs[0].ref;
+                transaction.update(patientRef, patientData);
+            } else {
+                patientRef = doc(patientsCollRef); // Let Firestore generate ID
+                transaction.set(patientRef, patientData);
+            }
+        } else {
+            patientRef = doc(patientsCollRef); // Let Firestore generate ID
+            transaction.set(patientRef, patientData);
+        }
+
+        // --- 3. APPOINTMENT CREATION (WRITE) ---
+        const appointmentRef = doc(appointmentsCollRef);
         const finalAppointmentData = { 
             ...appointmentData,
             date: Timestamp.fromDate(appointmentDate),
@@ -317,26 +314,27 @@ async function saveAppointmentBase(
             status: 'Agendada'
         };
         transaction.set(appointmentRef, finalAppointmentData);
-        return appointmentRef;
+
+        return { appointmentRef, clinic };
     });
 
-    const finalAppointmentSnap = await getDoc(newAppointmentRef);
-    const finalData = { ...finalAppointmentSnap.data(), id: finalAppointmentSnap.id };
+    // --- 4. POST-TRANSACTION ---
+    const finalAppointmentSnap = await getDoc(result.appointmentRef);
+    const finalData = { ...finalAppointmentSnap.data(), id: finalAppointmentSnap.id, patient: patientData };
     
-    return { appointment: finalData, clinic };
+    return { appointment: finalData, clinic: result.clinic };
 }
 
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id'|'patient'|'patientId'|'status'>, patientData: Omit<Patient, 'id'>) {
     if (!appointmentData.clinicId) throw new Error("Clínica no proporcionada.");
-    const clinic = await getDoc(doc(adminDb, 'clinics', appointmentData.clinicId)).then(d => d.data() as Clinic);
-    if (!clinic) throw new Error("La clínica no existe.");
+    const clinicSettings = await getDoc(doc(adminDb, 'clinics', appointmentData.clinicId)).then(d => d.data() as Clinic);
+    if (!clinicSettings) throw new Error("La clínica no existe.");
     
-    const result = await saveAppointmentBase('appointments', appointmentData, patientData, clinic, appointmentData.clinicId);
-    
+    const result = await saveAppointmentBase('appointments', appointmentData, patientData, clinicSettings, appointmentData.clinicId);
     await logActivity('Creación Cita Médica', `Folio ${result.appointment.appointmentNumber} para ${patientData.name}.`);
 
     return { 
-        appointment: { ...result.appointment, patient: patientData } as Appointment, 
+        appointment: result.appointment as Appointment, 
         clinic: result.clinic as Clinic 
     };
 }
@@ -344,28 +342,28 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id'|'p
 export async function saveLabAppointment(appointmentData: any, patientData: any, settings: LabSettings) {
     const result = await saveAppointmentBase('labAppointments', appointmentData, patientData, settings);
     await logActivity('Creación Cita Laboratorio', `Folio ${result.appointment.appointmentNumber} para ${patientData.name}.`);
-    return { appointment: { ...result.appointment, patient: patientData } as LabAppointment };
+    return { appointment: result.appointment as LabAppointment };
 }
 
 export async function saveXRayAppointment(appointmentData: any, patientData: any) { 
     const settings = await getXRaySettings();
     const result = await saveAppointmentBase('xrayAppointments', appointmentData, patientData, settings);
     await logActivity('Creación Cita Rayos X', `Folio ${result.appointment.appointmentNumber} para ${patientData.name}.`);
-    return { appointment: { ...result.appointment, patient: patientData } as XRayAppointment };
+    return { appointment: result.appointment as XRayAppointment };
 }
 
 export async function saveUltrasoundAppointment(appointmentData: any, patientData: any) { 
     const settings = await getUltrasoundSettings();
     const result = await saveAppointmentBase('ultrasoundAppointments', appointmentData, patientData, settings);
     await logActivity('Creación Cita Ultrasonido', `Folio ${result.appointment.appointmentNumber} para ${patientData.name}.`);
-    return { appointment: { ...result.appointment, patient: patientData } as UltrasoundAppointment };
+    return { appointment: result.appointment as UltrasoundAppointment };
 }
 
 export async function saveVaccineAppointment(appointmentData: any, patientData: any) { 
     const settings = await getVaccineSettings();
     const result = await saveAppointmentBase('vaccineAppointments', appointmentData, patientData, settings, appointmentData.clinicId);
     await logActivity('Creación Cita Vacunación', `Folio ${result.appointment.appointmentNumber} para ${patientData.name}.`);
-    return { appointment: { ...result.appointment, patient: patientData } as VaccineAppointment };
+    return { appointment: result.appointment as VaccineAppointment };
 }
 
 export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) { const patientRef = doc(adminDb, 'patients', patientId); await updateDoc(patientRef, patientData); return { success: true };}
@@ -391,18 +389,9 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     const patientData = patientDoc.data() as Omit<Patient, 'id'>;
     
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, patientId, date, status, appointmentNumber: oldNumber, ...payload } = originalAppointment;
+    const { id, patientId, date, status, appointmentNumber, ...payload } = originalAppointment;
     
-    let newAppointmentNumber = '';
-    switch (type) {
-        case 'medical': newAppointmentNumber = `CITA-${Date.now().toString().slice(-4)}`; break;
-        case 'lab': newAppointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`; break;
-        case 'xray': newAppointmentNumber = `RX-${uuidv4().split('-')[0].toUpperCase()}`; break;
-        case 'ultrasound': newAppointmentNumber = `US-${uuidv4().split('-')[0].toUpperCase()}`; break;
-        case 'vaccine': newAppointmentNumber = `VAC-${uuidv4().split('-')[0].toUpperCase()}`; break;
-    }
-
-    const newAppointmentData = { ...payload, appointmentNumber: newAppointmentNumber, date: newDate };
+    const newAppointmentData = { ...payload, date: newDate };
     
     let result: any;
     if (type === 'medical') { result = await saveAppointment(newAppointmentData, patientData); }
@@ -412,7 +401,7 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     else if (type === 'vaccine') { result = await saveVaccineAppointment(newAppointmentData, patientData); }
     else throw new Error('Tipo de cita no válido.');
 
-    return { success: true, message: `Nueva cita asignada con folio ${result.appointment.appointmentNumber}`, data: result.appointment, originalFolio: oldNumber };
+    return { success: true, message: `Nueva cita asignada con folio ${result.appointment.appointmentNumber}`, data: result.appointment, originalFolio: appointmentNumber };
 }
 
 // Passwords
@@ -488,11 +477,5 @@ export async function cleanupOldRecords() {
 }
 
 export async function migrateDataFromLocal() {
-    // This is a one-time migration function.
-    // Be careful running this.
-    // const localData = await readAllLocalData();
-    // const stats = await restoreBackupData(localData);
-    // return { success: true, stats };
-    return { success: false, message: "Migration from local is disabled."}
+    return { success: false, message: "La migración desde archivos locales ya fue completada y está deshabilitada."};
 }
-

@@ -101,18 +101,21 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 export async function saveNewAppointment(
   appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
-    const { appointment, clinic } = await dataSaveAppointment(
+    const result = await dataSaveAppointment(
       appointmentData,
       patientData
     );
-    generateAppointmentPDF(appointment, clinic);
+    if (result.clinic) {
+      generateAppointmentPDF(result.appointment, result.clinic);
+    }
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true };
+    return { success: true, data: result };
   } catch (e: any) {
+    console.error("Action Error: saveNewAppointment", e);
     return { success: false, error: e.message || 'Error al guardar la cita.' };
   }
 }
@@ -121,7 +124,7 @@ export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
   settings: { dailySlots: number, weekendBookingEnabled: boolean }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
     const { appointment: newAppointment } = await dataSaveLabAppointment(
       appointmentData,
@@ -132,8 +135,9 @@ export async function saveNewLabAppointment(
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true };
+    return { success: true, data: newAppointment };
   } catch (e: any) {
+    console.error("Action Error: saveNewLabAppointment", e);
     return {
       success: false,
       error: e.message || 'Error al guardar la cita de laboratorio.',
@@ -145,7 +149,7 @@ export async function saveNewXRayAppointment(
   appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
   study: XRayStudy
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
     const { appointment: newAppointment } = await dataSaveXRayAppointment(
       appointmentData,
@@ -155,8 +159,9 @@ export async function saveNewXRayAppointment(
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true };
+    return { success: true, data: newAppointment };
   } catch (e: any) {
+    console.error("Action Error: saveNewXRayAppointment", e);
     return {
       success: false,
       error: e.message || 'Error al guardar la cita de Rayos X.',
@@ -168,7 +173,7 @@ export async function saveNewUltrasoundAppointment(
   appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
   study: UltrasoundStudy,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
     const { appointment: newAppointment } = await dataSaveUltrasoundAppointment(
       appointmentData,
@@ -178,8 +183,9 @@ export async function saveNewUltrasoundAppointment(
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true };
+    return { success: true, data: newAppointment };
   } catch (e: any) {
+    console.error("Action Error: saveNewUltrasoundAppointment", e);
     return {
       success: false,
       error: e.message || 'Error al guardar la cita de Ultrasonido.',
@@ -190,7 +196,7 @@ export async function saveNewUltrasoundAppointment(
 export async function saveNewVaccineAppointment(
   appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
     const { appointment: newAppointment } = await dataSaveVaccineAppointment(
       appointmentData,
@@ -200,8 +206,9 @@ export async function saveNewVaccineAppointment(
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true };
+    return { success: true, data: newAppointment };
   } catch (e: any) {
+    console.error("Action Error: saveNewVaccineAppointment", e);
     return {
       success: false,
       error: e.message || 'Error al guardar la cita de Vacunación.',
