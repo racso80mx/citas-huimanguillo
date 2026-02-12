@@ -1,0 +1,155 @@
+{
+  "schema": {
+    "collections": {
+      "patients": {
+        "description": "Stores individual patient records.",
+        "documents": {
+          "$patientId": {
+            "fields": {
+              "curp": { "type": "string", "description": "Unique CURP identifier." },
+              "name": { "type": "string" },
+              "paternalLastName": { "type": "string" },
+              "maternalLastName": { "type": "string" },
+              "sex": { "type": "string", "enum": ["Hombre", "Mujer"] },
+              "age": { "type": "number" },
+              "birthState": { "type": "string" },
+              "phoneNumber": { "type": "string" }
+            }
+          }
+        }
+      },
+      "appointments": {
+        "description": "Stores general medical appointments.",
+        "documents": {
+          "$appointmentId": {
+            "fields": {
+              "appointmentNumber": { "type": "string" },
+              "patientId": { "type": "reference", "collection": "patients" },
+              "clinicId": { "type": "reference", "collection": "clinics" },
+              "date": { "type": "timestamp" },
+              "time": { "type": "string" },
+              "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] },
+              "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
+            }
+          }
+        }
+      },
+       "labAppointments": {
+        "description": "Stores laboratory appointments.",
+        "documents": {
+          "$appointmentId": {
+            "fields": {
+                "appointmentNumber": { "type": "string" },
+                "patientId": { "type": "reference", "collection": "patients" },
+                "date": { "type": "timestamp" },
+                "time": { "type": "string" },
+                "studies": { "type": "array", "items": { "type": "map" } },
+                "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
+            }
+          }
+        }
+      },
+       "xrayAppointments": {
+        "description": "Stores X-Ray appointments.",
+        "documents": {
+          "$appointmentId": {
+            "fields": {
+              "appointmentNumber": { "type": "string" },
+              "patientId": { "type": "reference", "collection": "patients" },
+              "date": { "type": "timestamp" },
+              "time": { "type": "string" },
+              "studyId": { "type": "string" },
+              "studyName": { "type": "string" },
+              "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
+            }
+          }
+        }
+      },
+      "ultrasoundAppointments": {
+        "description": "Stores Ultrasound appointments.",
+        "documents": {
+          "$appointmentId": {
+            "fields": {
+               "appointmentNumber": { "type": "string" },
+              "patientId": { "type": "reference", "collection": "patients" },
+              "date": { "type": "timestamp" },
+              "time": { "type": "string" },
+              "studyId": { "type": "string" },
+              "studyName": { "type": "string" },
+              "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
+            }
+          }
+        }
+      },
+      "vaccineAppointments": {
+        "description": "Stores vaccination appointments.",
+        "documents": {
+          "$appointmentId": {
+            "fields": {
+                "appointmentNumber": { "type": "string" },
+                "patientId": { "type": "reference", "collection": "patients" },
+                "date": { "type": "timestamp" },
+                "time": { "type": "string" },
+                "isNewborn": { "type": "boolean" },
+                "clinicId": { "type": "reference", "collection": "clinics" },
+                "vaccines": { "type": "array", "items": { "type": "map" } },
+                "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
+            }
+          }
+        }
+      },
+      "clinics": {
+        "description": "Configuration for each clinic (Núcleo Básico).",
+        "documents": {
+          "$clinicId": {
+            "fields": {
+              "name": { "type": "string" },
+              "doctorName": { "type": "string" },
+              "password": { "type": "string" },
+              "dailySlots": { "type": "number" },
+              "startTime": { "type": "string" },
+              "endTime": { "type": "string" },
+              "weekendBookingEnabled": { "type": "boolean" },
+              "dayOfAction": { "type": "string" },
+              "unavailableDates": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "colonias": {
+        "description": "Neighborhoods and their assigned clinics.",
+        "documents": {
+          "$coloniaId": {
+            "fields": {
+              "name": { "type": "string" },
+              "clinicId": { "type": "reference", "collection": "clinics" }
+            }
+          }
+        }
+      },
+      "settings": {
+        "description": "Global application settings.",
+        "documents": {
+          "announcements": { "fields": { "messages": { "type": "array", "items": { "type": "string" } } } },
+          "labSettings": { "fields": { "dailySlots": { "type": "number" }, "studies": { "type": "array" } } },
+          "xraySettings": { "fields": { "dailySlots": { "type": "number" }, "studies": { "type": "array" } } },
+          "ultrasoundSettings": { "fields": { "dailySlots": { "type": "number" }, "studies": { "type": "array" } } },
+          "vaccineSettings": { "fields": { "dailySlots": { "type": "number" }, "vaccines": { "type": "array" } } },
+          "moduleSettings": { "fields": { "citasMedicasEnabled": { "type": "boolean" }, "laboratorioEnabled": { "type": "boolean" } } }
+        }
+      },
+      "activityLog": {
+        "description": "Logs of system activities.",
+        "documents": {
+          "$logId": {
+            "fields": {
+              "timestamp": { "type": "timestamp" },
+              "action": { "type": "string" },
+              "details": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

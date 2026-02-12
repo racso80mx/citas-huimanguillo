@@ -9,16 +9,11 @@ import {
   saveUltrasoundAppointment as dataSaveUltrasoundAppointment,
   saveVaccineAppointment as dataSaveVaccineAppointment,
   getAppointments as dataGetAppointments,
-  getAppointmentsByDate as dataGetAppointmentsByDate,
   getAppointmentsForClinic as dataGetAppointmentsForClinic,
   getLabAppointments as dataGetLabAppointments,
-  getLabAppointmentsByDate as dataGetLabAppointmentsByDate,
   getXRayAppointments as dataGetXRayAppointments,
-  getXRayAppointmentsByDate as dataGetXRayAppointmentsByDate,
   getUltrasoundAppointments as dataGetUltrasoundAppointments,
-  getUltrasoundAppointmentsByDate as dataGetUltrasoundAppointmentsByDate,
   getVaccineAppointments as dataGetVaccineAppointments,
-  getVaccineAppointmentsByDate as dataGetVaccineAppointmentsByDate,
   deleteAppointment as dataDeleteAppointment,
   deleteLabAppointment as dataDeleteLabAppointment,
   deleteXRayAppointment as dataDeleteXRayAppointment,
@@ -60,7 +55,7 @@ import {
   rescheduleAppointment as dataRescheduleAppointment,
   createBackupData,
   restoreBackupData,
-  cleanupOldAppointments,
+  cleanupOldRecords,
   getLogs as dataGetLogs,
   cloneAppointment as dataCloneAppointment,
 } from './data';
@@ -85,7 +80,6 @@ import type {
   VaccineSettings,
   VaccineAppointment,
   User,
-  ActivityLog,
 } from './definitions';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -106,12 +100,11 @@ export async function saveNewAppointment(
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
     
-    const newAppointment = await dataSaveAppointment(
+    const { appointment: newAppointment, clinic } = await dataSaveAppointment(
       appointmentData,
       patientData
     );
-    const clinics = await dataGetClinics();
-    const clinic = clinics.find(c => c.id === newAppointment.clinicId);
+
     if (!clinic) {
         throw new Error('Clinic data not found for the created appointment.');
     }
@@ -127,14 +120,12 @@ export async function saveNewAppointment(
 
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>,
-  settings: { dailySlots: number, weekendBookingEnabled: boolean }
+  patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-    const newAppointment = await dataSaveLabAppointment(
+    const { appointment: newAppointment } = await dataSaveLabAppointment(
       appointmentData,
-      patientData,
-      settings
+      patientData
     );
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
@@ -153,7 +144,7 @@ export async function saveNewXRayAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
-    const newAppointment = await dataSaveXRayAppointment(
+    const { appointment: newAppointment } = await dataSaveXRayAppointment(
       appointmentData,
       patientData
     );
@@ -175,7 +166,7 @@ export async function saveNewUltrasoundAppointment(
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
 
-    const newAppointment = await dataSaveUltrasoundAppointment(
+    const { appointment: newAppointment } = await dataSaveUltrasoundAppointment(
       appointmentData,
       patientData
     );
@@ -196,7 +187,7 @@ export async function saveNewVaccineAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
-    const newAppointment = await dataSaveVaccineAppointment(
+    const { appointment: newAppointment } = await dataSaveVaccineAppointment(
       appointmentData,
       patientData
     );
@@ -565,7 +556,7 @@ export async function restoreBackupAction(backupData: any): Promise<{ success: b
 
 export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {
     try {
-        const { deletedCount } = await cleanupOldAppointments();
+        const { deletedCount } = await cleanupOldRecords();
         revalidatePath('/admin', 'layout');
         return { success: true, deletedCount };
     } catch (e: any) {
