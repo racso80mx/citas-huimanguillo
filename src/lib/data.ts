@@ -45,6 +45,7 @@ import type {
   ModuleSettings,
   PatientType,
 } from './definitions';
+import { generateAppointmentPDF, generateLabAppointmentPDF, generateXRayAppointmentPDF, generateUltrasoundAppointmentPDF, generateVaccineAppointmentPDF } from './utils';
 
 // =====================================================================
 // HELPERS
@@ -253,18 +254,24 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'El núcleo básico no labora en la fecha seleccionada por vacaciones.' };
     }
 
-    const startOfDay = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateOnly}T23:59:59.999Z`);
+    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
     
-    const dayAppointmentsQuery = query(
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return { isValid: false, message: 'Error interno al procesar la fecha.' };
+    }
+    
+    const allDayAppointmentsQuery = query(
         collection(adminDb, 'appointments'), 
-        where('clinicId', '==', clinic.id),
-        where('date', '>=', startOfDay), 
-        where('date', '<=', endOfDay)
+        where('date', '>=', startDate), 
+        where('date', '<=', endDate)
     );
-    const dayAppointmentsSnap = await getDocs(dayAppointmentsQuery);
+    const allDayAppointmentsSnap = await getDocs(allDayAppointmentsQuery);
 
-    const appointmentsForClinicOnDate = dayAppointmentsSnap.docs;
+    const appointmentsForClinicOnDate = allDayAppointmentsSnap.docs.filter(
+        d => d.data().clinicId === clinic.id
+    );
+
     if (appointmentsForClinicOnDate.length >= clinic.dailySlots) return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
     if (appointmentsForClinicOnDate.some(d => d.data().time === time)) return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
 
@@ -283,10 +290,14 @@ async function validateLabAvailability(settings: LabSettings, date: string) {
       return { isValid: false, message: 'No se permiten citas de laboratorio en fin de semana.' };
     }
 
-    const startOfDay = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateOnly}T23:59:59.999Z`);
+    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
 
-    const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return { isValid: false, message: 'Error interno al procesar la fecha.' };
+    }
+
+    const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para laboratorio en la fecha seleccionada.' };
@@ -306,10 +317,14 @@ async function validateXRayAvailability(settings: XRaySettings, date: string, ti
       return { isValid: false, message: 'No se permiten citas de Rayos X en fin de semana.' };
     }
     
-    const startOfDay = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateOnly}T23:59:59.999Z`);
+    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
     
-    const q = query(collection(adminDb, 'xrayAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return { isValid: false, message: 'Error interno al procesar la fecha.' };
+    }
+    
+    const q = query(collection(adminDb, 'xrayAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para Rayos X en la fecha seleccionada.' };
@@ -330,10 +345,14 @@ async function validateUltrasoundAvailability(settings: UltrasoundSettings, date
       return { isValid: false, message: 'No se permiten citas de Ultrasonido en fin de semana.' };
     }
     
-    const startOfDay = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateOnly}T23:59:59.999Z`);
+    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
     
-    const q = query(collection(adminDb, 'ultrasoundAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return { isValid: false, message: 'Error interno al procesar la fecha.' };
+    }
+    
+    const q = query(collection(adminDb, 'ultrasoundAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para Ultrasonido en la fecha seleccionada.' };
@@ -354,10 +373,14 @@ async function validateVaccineAvailability(settings: VaccineSettings, date: stri
       return { isValid: false, message: 'No se permiten citas de vacunación en fin de semana.' };
     }
     
-    const startOfDay = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateOnly}T23:59:59.999Z`);
+    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
     
-    const q = query(collection(adminDb, 'vaccineAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return { isValid: false, message: 'Error interno al procesar la fecha.' };
+    }
+    
+    const q = query(collection(adminDb, 'vaccineAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para vacunación en la fecha seleccionada.' };
