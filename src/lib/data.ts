@@ -1,6 +1,8 @@
 'use server';
 
 import { adminDb } from '@/firebase/server-config';
+import fs from 'fs/promises';
+import path from 'path';
 import {
   collection,
   doc,
@@ -78,12 +80,15 @@ async function updateCatalog<T extends { id: string }>(collectionName: string, i
 
   const snapshot = await getDocs(collRef);
   const existingIds = new Set(snapshot.docs.map(doc => doc.id));
-  const incomingIds = new Set(items.map(item => item.id.startsWith('new-') ? uuidv4() : item.id));
+  const incomingIds = new Set();
 
   items.forEach(item => {
-      const isNew = item.id.startsWith('new-');
-      const docId = isNew ? uuidv4() : item.id;
-      if (isNew) item.id = docId;
+      let docId = item.id;
+      if (item.id.startsWith('new-')) {
+          docId = uuidv4();
+          item.id = docId; // Mutate the item to reflect its new ID for caller
+      }
+      incomingIds.add(docId);
 
       const { id, ...data } = item;
       const docRef = doc(collRef, docId);
@@ -91,7 +96,7 @@ async function updateCatalog<T extends { id: string }>(collectionName: string, i
   });
   
   for (const id of existingIds) {
-    if (!incomingIds.has(id) && !items.some(item => item.id === id)) {
+    if (!incomingIds.has(id)) {
       batch.delete(doc(collRef, id));
     }
   }
@@ -298,7 +303,7 @@ async function saveAppointmentBase(collectionName: string, appointmentData: any,
             patientRef = patientSnap.docs[0].ref;
             transaction.update(patientRef, patientData);
         } else {
-            patientRef = doc(patientsRef);
+            patientRef = doc(patientsRef, uuidv4());
             transaction.set(patientRef, patientData);
         }
 
@@ -307,7 +312,6 @@ async function saveAppointmentBase(collectionName: string, appointmentData: any,
         
         await logActivity(logAction, `Folio ${newAppointmentData.appointmentNumber} para ${patientData.name}.`);
 
-        // Return rich data for PDF generation
         const clinic = newAppointmentData.clinicId ? await getDoc(doc(adminDb, 'clinics', newAppointmentData.clinicId)).then(d => d.data() as Clinic) : undefined;
         const finalAppointment = { ...newAppointmentData, id: appointmentRef.id, patientId: patientRef.id, patient: { id: patientRef.id, ...patientData}, status: 'Agendada' };
         
@@ -343,7 +347,20 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id'|'p
     });
 }
 
-export async function saveLabAppointment(appointmentData: any, patientData: any) { return saveAppointmentBase('labAppointments', appointmentData, patientData, 'Creación Cita Laboratorio', async () => {}); }
+export async function saveLabAppointment(appointmentData: any, patientData: any, settings: { dailySlots: number, weekendBookingEnabled: boolean }) { 
+    return saveAppointmentBase('labAppointments', appointmentData, patientData, 'Creación Cita Laboratorio', async (transaction, date) => {
+        const isWeekend = isSaturday(date) || isSunday(date);
+        if (isWeekend && !settings.weekendBookingEnabled) throw new Error("No se permiten citas en fin de semana para laboratorio.");
+        
+        const startOfDay = Timestamp.fromDate(new Date(date.setUTCHours(0, 0, 0, 0)));
+        const endOfDay = Timestamp.fromDate(new Date(date.setUTCHours(23, 59, 59, 999)));
+
+        const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
+        const appointmentsSnap = await transaction.get(q);
+
+        if (appointmentsSnap.size >= settings.dailySlots) throw new Error("No hay más cupos disponibles para laboratorio en la fecha seleccionada.");
+    }); 
+}
 export async function saveXRayAppointment(appointmentData: any, patientData: any) { return saveAppointmentBase('xrayAppointments', appointmentData, patientData, 'Creación Cita Rayos X', async () => {}); }
 export async function saveUltrasoundAppointment(appointmentData: any, patientData: any) { return saveAppointmentBase('ultrasoundAppointments', appointmentData, patientData, 'Creación Cita Ultrasonido', async () => {}); }
 export async function saveVaccineAppointment(appointmentData: any, patientData: any) { return saveAppointmentBase('vaccineAppointments', appointmentData, patientData, 'Creación Cita Vacunación', async () => {}); }
@@ -404,7 +421,10 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     
     let result: any;
     if (type === 'medical') result = await saveAppointment(newAppointmentData, patientData);
-    else if (type === 'lab') result = await saveLabAppointment(newAppointmentData, patientData);
+    else if (type === 'lab') {
+        const settings = await getLabSettings();
+        result = await saveLabAppointment(newAppointmentData, patientData, settings);
+    }
     else if (type === 'xray') result = await saveXRayAppointment(newAppointmentData, patientData);
     else if (type === 'ultrasound') result = await saveUltrasoundAppointment(newAppointmentData, patientData);
     else if (type === 'vaccine') result = await saveVaccineAppointment(newAppointmentData, patientData);
@@ -480,6 +500,103 @@ export async function restoreBackupData(backup: any) {
     return { addedCount };
 }
   
+export async function runDataMigration() {
+  const dataDir = path.join(process.cwd(), 'src', 'lib', 'data');
+  const stats = {
+    clinics: 0,
+    colonias: 0,
+    patients: 0,
+    appointments: 0,
+    labAppointments: 0,
+    xRayAppointments: 0,
+    ultrasoundAppointments: 0,
+    vaccineAppointments: 0,
+    labStudies: 0,
+    xrayStudies: 0,
+    ultrasoundStudies: 0,
+    vaccines: 0,
+    users: 0,
+  };
+
+  type StatsKeys = keyof typeof stats;
+
+  const migrateCollection = async (fileName: string, collectionName: string, statsKey: StatsKeys) => {
+    try {
+      const filePath = path.join(dataDir, fileName);
+      const fileContent = await fs.readFile(filePath, 'utf-8');
+      const items = JSON.parse(fileContent);
+
+      if (!Array.isArray(items) || items.length === 0) return;
+      
+      const collRef = collection(adminDb, collectionName);
+      const existingDocs = await getDocs(collRef);
+      const existingIds = new Set(existingDocs.docs.map(d => d.id));
+
+      const batch = writeBatch(adminDb);
+      let newDocs = 0;
+
+      for (const item of items) {
+        if (!item.id || existingIds.has(item.id)) continue;
+        
+        const { id, ...data } = item;
+        
+        if (data.date) {
+          data.date = Timestamp.fromDate(new Date(data.date));
+        }
+
+        batch.set(doc(collRef, id), data);
+        newDocs++;
+      }
+
+      await batch.commit();
+      stats[statsKey] = newDocs;
+    } catch (error) {
+      console.error(`Error migrating ${fileName}:`, error);
+    }
+  };
+  
+  const migrateSettingsDoc = async (fileName: string, docId: string) => {
+    try {
+        const filePath = path.join(dataDir, fileName);
+        const fileContent = await fs.readFile(filePath, 'utf-8');
+        const data = JSON.parse(fileContent);
+        const docRef = doc(adminDb, 'settings', docId);
+        await setDoc(docRef, data, { merge: true });
+    } catch (error) {
+        console.error(`Error migrating settings file ${fileName}:`, error);
+    }
+  };
+
+  // Run migrations for collections
+  await migrateCollection('clinics.json', 'clinics', 'clinics');
+  await migrateCollection('colonias.json', 'colonias', 'colonias');
+  await migrateCollection('patients.json', 'patients', 'patients');
+  await migrateCollection('appointments.json', 'appointments', 'appointments');
+  await migrateCollection('lab-appointments.json', 'labAppointments', 'labAppointments');
+  await migrateCollection('x-ray-appointments.json', 'xrayAppointments', 'xRayAppointments');
+  await migrateCollection('ultrasound-appointments.json', 'ultrasoundAppointments', 'ultrasoundAppointments');
+  await migrateCollection('vaccine-appointments.json', 'vaccineAppointments', 'vaccineAppointments');
+  await migrateCollection('users.json', 'users', 'users');
+  
+  // Run migrations for catalogs (which are also collections)
+  await migrateCollection('lab-studies.json', 'labStudies', 'labStudies');
+  await migrateCollection('x-ray-studies.json', 'xrayStudies', 'xrayStudies');
+  await migrateCollection('ultrasound-studies.json', 'ultrasoundStudies', 'ultrasoundStudies');
+  await migrateCollection('vaccines.json', 'vaccines', 'vaccines');
+  
+  // Run migrations for settings documents
+  await migrateSettingsDoc('announcements.json', 'announcements');
+  await migrateSettingsDoc('lab-settings.json', 'labSettings');
+  await migrateSettingsDoc('x-ray-settings.json', 'xraySettings');
+  await migrateSettingsDoc('ultrasound-settings.json', 'ultrasoundSettings');
+  await migrateSettingsDoc('vaccine-settings.json', 'vaccineSettings');
+  await migrateSettingsDoc('module-settings.json', 'moduleSettings');
+
+  await logActivity('Migración de Datos', `Se migraron datos de archivos JSON a Firestore. Estadísticas: ${JSON.stringify(stats)}`);
+
+  return { success: true, stats };
+}
+
 
 export async function cleanupOldRecords() {
     let totalDeleted = 0;

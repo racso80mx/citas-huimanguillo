@@ -54,6 +54,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
 import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
+import { MigrationManager } from './migration-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -355,6 +356,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
         <TabsContent value="configuracion" className="mt-6">
             <div className="space-y-8">
+                <MigrationManager onMigrationSuccess={fetchData} />
                 <ActivityLogViewer />
                 <ModuleManager />
                 <ColoniasManager />

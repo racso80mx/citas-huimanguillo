@@ -95,55 +95,12 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      startRestoreTransition(async () => {
-        try {
-          const data = await file.arrayBuffer();
-          const workbook = xlsx.read(data);
-          const backupData: Record<string, any[]> = {};
-          
-          for (const sheetName of workbook.SheetNames) {
-              const worksheet = workbook.Sheets[sheetName];
-              const json = xlsx.utils.sheet_to_json(worksheet);
-              
-              const keyMap: Record<string, string> = {
-                  'Citas Médicas': 'appointments',
-                  'Laboratorio': 'labAppointments',
-                  'Rayos X': 'xRayAppointments',
-                  'Ultrasonidos': 'ultrasoundAppointments',
-                  'Vacunación': 'vaccineAppointments',
-                  'Pacientes': 'patients',
-                  'Clinicas': 'clinics',
-              };
-              const collectionKey = keyMap[sheetName];
-              if (collectionKey) {
-                backupData[collectionKey] = json;
-              }
-          }
-
-          const result = await restoreBackupAction(backupData);
-          if (result.success) {
-            toast({
-              title: 'Restauración Completada',
-              description: `Se agregaron ${result.stats.addedCount} nuevos registros. Los datos existentes no fueron modificados.`,
-            });
-            onRestoreSuccess?.();
-          } else {
-            throw new Error(result.message);
-          }
-        } catch (error: any) {
-          toast({
-            title: 'Error en la Restauración',
-            description: error.message || 'No se pudo procesar el archivo de respaldo.',
-            variant: 'destructive',
-          });
-        }
-      });
-    }
-     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    // This functionality is temporarily disabled.
+    toast({
+        title: 'Función Deshabilitada',
+        description: 'La restauración desde un archivo está deshabilitada en este momento.',
+        variant: 'destructive',
+    });
   };
   
   const handleCleanup = () => {
@@ -171,7 +128,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
         <CardHeader>
           <CardTitle className='flex items-center gap-2'>Gestión de Datos</CardTitle>
           <CardDescription>
-            Realiza respaldos de seguridad en Excel, restaura desde un archivo y limpia registros antiguos.
+            Realiza respaldos de seguridad en Excel y limpia registros antiguos.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-3 gap-4">
@@ -180,10 +137,11 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
             Descargar Respaldo (Excel)
           </Button>
 
-          <Button onClick={() => fileInputRef.current?.click()} disabled={isRestoring} variant="outline">
+          <Button onClick={() => fileInputRef.current?.click()} disabled={true} variant="outline">
             {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-            Cargar Respaldo (Excel)
+            Cargar Respaldo (Deshabilitado)
           </Button>
+          <p className="text-xs text-muted-foreground col-span-1 sm:col-span-3 -mt-2">La restauración desde Excel está deshabilitada temporalmente por la migración a la base de datos en la nube.</p>
           <input
             type="file"
             ref={fileInputRef}

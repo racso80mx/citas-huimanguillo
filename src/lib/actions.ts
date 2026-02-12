@@ -58,6 +58,7 @@ import {
   cleanupOldRecords,
   getLogs as dataGetLogs,
   cloneAppointment as dataCloneAppointment,
+  runDataMigration,
 } from './data';
 
 import type {
@@ -120,12 +121,14 @@ export async function saveNewAppointment(
 
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>
+  patientData: Omit<Patient, 'id'>,
+  settings: { dailySlots: number, weekendBookingEnabled: boolean }
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
     const { appointment: newAppointment } = await dataSaveLabAppointment(
       appointmentData,
-      patientData
+      patientData,
+      settings
     );
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
@@ -506,7 +509,7 @@ export async function updateModuleSettings(settings: ModuleSettings) {
     return result;
 }
 
-export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
+export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message?: string }> {
     const result = await dataUpdateAppointmentStatus(appointmentId, status, type);
     if (result.success) {
         revalidatePath('/admin');
@@ -551,6 +554,16 @@ export async function restoreBackupAction(backupData: any): Promise<{ success: b
   } catch (e: any) {
     return { success: false, message: e.message || 'Error al restaurar el respaldo.' };
   }
+}
+
+export async function runMigrationAction() {
+    try {
+        const result = await runDataMigration();
+        revalidatePath('/', 'layout'); // Revalidate everything after migration
+        return result;
+    } catch (e: any) {
+        return { success: false, message: e.message || 'Error desconocido durante la migración.' };
+    }
 }
   
 
