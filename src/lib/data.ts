@@ -12,7 +12,6 @@ import {
   deleteDoc, 
   query, 
   where, 
-  runTransaction, 
   writeBatch, 
   Timestamp, 
   orderBy, 
@@ -21,7 +20,6 @@ import {
   addDoc
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
-import { isSaturday, isSunday } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
@@ -236,21 +234,26 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
 
 async function validateClinicAvailability(clinic: Clinic, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
+    
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
 
-    const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
-    if (isWeekend && !clinic.weekendBookingEnabled) return { isValid: false, message: 'No se permiten citas en fin de semana para este núcleo.' };
-
-    const year = appointmentDate.getUTCFullYear();
-    const month = appointmentDate.getUTCMonth();
-    const day = appointmentDate.getUTCDate();
-    const sDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-    const eDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+    const dayOfWeek = appointmentDate.getUTCDay(); // 0 for Sunday, 6 for Saturday
+    if ((dayOfWeek === 6 || dayOfWeek === 0) && !clinic.weekendBookingEnabled) {
+      return { isValid: false, message: 'No se permiten citas en fin de semana para este núcleo.' };
+    }
     
-    if (isNaN(sDay.getTime()) || isNaN(eDay.getTime())) return { isValid: false, message: 'La fecha calculada de inicio/fin del día no es válida.' };
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const dayAppointmentsQuery = query(collection(adminDb, 'appointments'), where('date', '>=', sDay), where('date', '<=', eDay));
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    
+    const dayAppointmentsQuery = query(
+        collection(adminDb, 'appointments'), 
+        where('date', '>=', startOfDay), 
+        where('date', '<=', endOfDay)
+    );
     const dayAppointmentsSnap = await getDocs(dayAppointmentsQuery);
 
     const appointmentsForClinicOnDate = dayAppointmentsSnap.docs.filter(d => d.data().clinicId === clinic.id);
@@ -265,18 +268,18 @@ async function validateLabAvailability(settings: LabSettings, date: string) {
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
-    const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
-    if (isWeekend && !settings.weekendBookingEnabled) return { isValid: false, message: 'No se permiten citas de laboratorio en fin de semana.' };
+    const dayOfWeek = appointmentDate.getUTCDay();
+    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
+      return { isValid: false, message: 'No se permiten citas de laboratorio en fin de semana.' };
+    }
     
-    const year = appointmentDate.getUTCFullYear();
-    const month = appointmentDate.getUTCMonth();
-    const day = appointmentDate.getUTCDate();
-    const sDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-    const eDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
-    if (isNaN(sDay.getTime()) || isNaN(eDay.getTime())) return { isValid: false, message: 'La fecha calculada de inicio/fin del día no es válida.' };
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
 
-    const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', sDay), where('date', '<=', eDay));
+    const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para laboratorio en la fecha seleccionada.' };
@@ -289,18 +292,18 @@ async function validateXRayAvailability(settings: XRaySettings, date: string, ti
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
 
-    const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
-    if (isWeekend && !settings.weekendBookingEnabled) return { isValid: false, message: 'No se permiten citas de Rayos X en fin de semana.' };
+    const dayOfWeek = appointmentDate.getUTCDay();
+    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
+      return { isValid: false, message: 'No se permiten citas de Rayos X en fin de semana.' };
+    }
     
-    const year = appointmentDate.getUTCFullYear();
-    const month = appointmentDate.getUTCMonth();
-    const day = appointmentDate.getUTCDate();
-    const sDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-    const eDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
-    
-    if (isNaN(sDay.getTime()) || isNaN(eDay.getTime())) return { isValid: false, message: 'La fecha calculada de inicio/fin del día no es válida.' };
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
-    const q = query(collection(adminDb, 'xrayAppointments'), where('date', '>=', sDay), where('date', '<=', eDay));
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    
+    const q = query(collection(adminDb, 'xrayAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para Rayos X en la fecha seleccionada.' };
@@ -314,18 +317,18 @@ async function validateUltrasoundAvailability(settings: UltrasoundSettings, date
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
-    const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
-    if (isWeekend && !settings.weekendBookingEnabled) return { isValid: false, message: 'No se permiten citas de Ultrasonido en fin de semana.' };
+    const dayOfWeek = appointmentDate.getUTCDay();
+    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
+      return { isValid: false, message: 'No se permiten citas de Ultrasonido en fin de semana.' };
+    }
     
-    const year = appointmentDate.getUTCFullYear();
-    const month = appointmentDate.getUTCMonth();
-    const day = appointmentDate.getUTCDate();
-    const sDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-    const eDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
-    if (isNaN(sDay.getTime()) || isNaN(eDay.getTime())) return { isValid: false, message: 'La fecha calculada de inicio/fin del día no es válida.' };
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
     
-    const q = query(collection(adminDb, 'ultrasoundAppointments'), where('date', '>=', sDay), where('date', '<=', eDay));
+    const q = query(collection(adminDb, 'ultrasoundAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para Ultrasonido en la fecha seleccionada.' };
@@ -339,18 +342,18 @@ async function validateVaccineAvailability(settings: VaccineSettings, date: stri
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
-    const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
-    if (isWeekend && !settings.weekendBookingEnabled) return { isValid: false, message: 'No se permiten citas de vacunación en fin de semana.' };
+    const dayOfWeek = appointmentDate.getUTCDay();
+    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
+      return { isValid: false, message: 'No se permiten citas de vacunación en fin de semana.' };
+    }
     
-    const year = appointmentDate.getUTCFullYear();
-    const month = appointmentDate.getUTCMonth();
-    const day = appointmentDate.getUTCDate();
-    const sDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-    const eDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+    const startOfDay = new Date(appointmentDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
 
-    if (isNaN(sDay.getTime()) || isNaN(eDay.getTime())) return { isValid: false, message: 'La fecha calculada de inicio/fin del día no es válida.' };
+    const endOfDay = new Date(appointmentDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
     
-    const q = query(collection(adminDb, 'vaccineAppointments'), where('date', '>=', sDay), where('date', '<=', eDay));
+    const q = query(collection(adminDb, 'vaccineAppointments'), where('date', '>=', startOfDay), where('date', '<=', endOfDay));
     const dayAppointmentsSnap = await getDocs(q);
 
     if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para vacunación en la fecha seleccionada.' };
@@ -382,18 +385,24 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
 
 async function findOrCreatePatient(patientData: Omit<Patient, 'id'>): Promise<DocumentReference> {
     if (!adminDb) throw new Error("Database not initialized.");
+    
+    let patientRef: DocumentReference;
+    
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const qPatient = query(collection(adminDb, 'patients'), where('curp', '==', patientData.curp.toUpperCase()), limit(1));
         const patientSnap = await getDocs(qPatient);
+        
         if (!patientSnap.empty) {
-            const patientDocRef = patientSnap.docs[0].ref;
-            await updateDoc(patientDocRef, patientData);
-            return patientDocRef;
+            patientRef = patientSnap.docs[0].ref;
+            await updateDoc(patientRef, patientData);
+            return patientRef;
         }
     }
-    const newPatientRef = doc(collection(adminDb, 'patients'), uuidv4());
-    await setDoc(newPatientRef, patientData);
-    return newPatientRef;
+    
+    // If we are here, patient doesn't exist or is a newborn
+    patientRef = doc(collection(adminDb, 'patients'));
+    await setDoc(patientRef, patientData);
+    return patientRef;
 }
 
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
@@ -409,6 +418,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 
     const newAppointmentData = { ...appointmentData, patientId: patientDocRef.id, date: new Date(appointmentData.date) };
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
+    
     const appointmentSnap = await getDoc(newAppointmentRef);
     const patientSnap = await getDoc(patientDocRef);
 
