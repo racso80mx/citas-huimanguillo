@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia, Clinic } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getAppointments } from '@/lib/data';
+import { getAppointments, getClinics } from '@/lib/data';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';
@@ -64,7 +64,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [announcements] = React.useState<string[]>(initialAnnouncements);
   const [colonias] = React.useState<Colonia[]>(initialColonias);
-  const [clinics] = React.useState<Clinic[]>(initialClinics);
+  const [clinics, setClinics] = React.useState<Clinic[]>(initialClinics);
   
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -108,7 +108,11 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const allAppointments = await getAppointments();
+      const [allAppointments, freshClinics] = await Promise.all([
+        getAppointments(),
+        getClinics()
+      ]);
+      setClinics(freshClinics);
       
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -123,7 +127,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         const availabilityByClinic: { [key: string]: number } = {};
         const takenTimesByClinic: { [key: string]: string[] } = {};
 
-        for (const clinic of clinics) {
+        for (const clinic of freshClinics) {
             const isWeekend = isSaturday(day) || isSunday(day);
             const dayOfWeek = day.getDay();
             
@@ -157,7 +161,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         });
       }
       setAvailability(availabilityResult);
-  }, [clinics]);
+  }, []);
 
   React.useEffect(() => {
     async function fetchInitialData() {

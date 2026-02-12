@@ -5,7 +5,7 @@ import path from 'path';
 import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus, User, ActivityLog } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 import { revalidatePath } from 'next/cache';
-import { format, parse } from 'date-fns';
+import { format, parse, isSaturday, isSunday } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 // --- START: TRANSACTION LOG & LOCKING MECHANISM ---
@@ -267,11 +267,44 @@ async function saveNewAppointmentBase<T extends { id: string; patientId: string;
 }
 
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<Appointment> {
-  const clinics = await getClinics(); const clinic = clinics.find(c => c.id === appointmentData.clinicId); if (!clinic) throw new Error("La clínica seleccionada no es válida.");
-  const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []); const allPatients = await readJsonFile<Patient[]>('patients.json', []); const appointmentsOnDate = allAppointments.map(app => ({...app, patient: allPatients.find(p => p.id === app.patientId)})).filter(app => app.patient && app.date.startsWith(new Date(appointmentData.date).toISOString().split('T')[0]));
-  const appointmentsInClinicOnDate = appointmentsOnDate.filter(app => app.clinicId === appointmentData.clinicId); if (appointmentsInClinicOnDate.length >= clinic.dailySlots) { throw new Error("No hay más cupos disponibles en este núcleo para la fecha seleccionada."); }
-  if (appointmentsOnDate.some(app => app.clinicId === appointmentData.clinicId && app.time === appointmentData.time)) { throw new Error(`El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`); }
-  if (appointmentsOnDate.some(app => app.patient?.curp.toUpperCase() === patientData.curp.toUpperCase())) { throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.'); }
+  const clinics = await getClinics(); 
+  const clinic = clinics.find(c => c.id === appointmentData.clinicId); 
+  if (!clinic) throw new Error("La clínica seleccionada no es válida.");
+
+  const appointmentDate = new Date(appointmentData.date);
+  const dateString = appointmentDate.toISOString().split('T')[0];
+  const dayOfWeek = appointmentDate.getDay();
+  const dayOfWeekMap: { [key: string]: number } = { "Domingo": 0, "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6 };
+
+  const isDayOfAction = clinic.dayOfAction ? dayOfWeekMap[clinic.dayOfAction] === dayOfWeek : false;
+  if (isDayOfAction) {
+    throw new Error(`El núcleo ${clinic.name} no ofrece citas los días de acción (${clinic.dayOfAction}).`);
+  }
+
+  if (clinic.unavailableDates?.includes(dateString)) {
+      throw new Error(`El núcleo ${clinic.name} no está disponible en la fecha seleccionada.`);
+  }
+
+  const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
+  if (isWeekend && !clinic.weekendBookingEnabled) {
+      throw new Error(`El núcleo ${clinic.name} no permite citas en fin de semana.`);
+  }
+  
+  const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []); 
+  const allPatients = await readJsonFile<Patient[]>('patients.json', []); 
+  const appointmentsOnDate = allAppointments.map(app => ({...app, patient: allPatients.find(p => p.id === app.patientId)})).filter(app => app.patient && app.date.startsWith(new Date(appointmentData.date).toISOString().split('T')[0]));
+  const appointmentsInClinicOnDate = appointmentsOnDate.filter(app => app.clinicId === appointmentData.clinicId); 
+
+  if (appointmentsInClinicOnDate.length >= clinic.dailySlots) { 
+    throw new Error("No hay más cupos disponibles en este núcleo para la fecha seleccionada."); 
+  }
+  if (appointmentsOnDate.some(app => app.clinicId === appointmentData.clinicId && app.time === appointmentData.time)) { 
+    throw new Error(`El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`); 
+  }
+  if (appointmentsOnDate.some(app => app.patient?.curp.toUpperCase() === patientData.curp.toUpperCase())) { 
+    throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.'); 
+  }
+
   return saveNewAppointmentBase<Appointment>('appointments.json', appointmentData, patientData, 'Creación Cita Médica', ['/citas-medicas', '/admin', '/reports']);
 }
 
