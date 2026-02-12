@@ -27,7 +27,6 @@ import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
-import { generateUltrasoundAppointmentPDF } from '@/lib/utils';
 import type { UltrasoundAppointment, Patient, UltrasoundStudy } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -135,7 +134,7 @@ export function UltrasoundBookingForm({
 
       const appointmentNumber = `US-${uuidv4().split('-')[0].toUpperCase()}`;
 
-      const newAppointment: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'> = {
+      const newAppointment: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
         appointmentNumber,
         date: selectedDate.toISOString(),
         time: selectedTime,
@@ -143,17 +142,9 @@ export function UltrasoundBookingForm({
         studyName: selectedStudy.name,
       };
 
-      const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
+      const result = await saveNewUltrasoundAppointment(newAppointment, patientData, selectedStudy);
       
-      if (result.success && result.data) {
-        toast({
-            title: 'Cita Confirmada',
-            description: `Tu cita de Ultrasonido ha sido agendada. Folio: ${result.data.appointmentNumber}`,
-            duration: 10000,
-        });
-
-        generateUltrasoundAppointmentPDF(result.data, selectedStudy);
-
+      if (result.success) {
         form.reset();
         onBookingSuccess();
       } else {

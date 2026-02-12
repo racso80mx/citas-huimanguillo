@@ -58,6 +58,7 @@ import {
   cleanupOldRecords,
   getLogs as dataGetLogs,
   cloneAppointment as dataCloneAppointment,
+  logActivity
 } from './data';
 
 import type {
@@ -81,6 +82,8 @@ import type {
   VaccineAppointment,
   User,
 } from './definitions';
+import { toast } from '@/hooks/use-toast';
+import { generateAppointmentPDF, generateLabAppointmentPDF, generateXRayAppointmentPDF, generateUltrasoundAppointmentPDF, generateVaccineAppointmentPDF } from './utils';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
   try {
@@ -100,19 +103,25 @@ export async function saveNewAppointment(
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
     
-    const { appointment: newAppointment, clinic } = await dataSaveAppointment(
+    const { appointment, clinic } = await dataSaveAppointment(
       appointmentData,
       patientData
     );
 
-    if (!clinic) {
-        throw new Error('Clinic data not found for the created appointment.');
-    }
+    await logActivity('Creación Cita Médica', `Folio ${appointment.appointmentNumber} para ${patientData.name}.`);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita ha sido agendada con éxito. Folio: ${appointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateAppointmentPDF(appointment, clinic);
 
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: { appointment: newAppointment, clinic: clinic } };
+    return { success: true, data: { appointment: appointment, clinic: clinic } };
   } catch (e: any) {
     return { success: false, error: e.message || 'Error al guardar la cita.' };
   }
@@ -129,6 +138,17 @@ export async function saveNewLabAppointment(
       patientData,
       settings
     );
+
+    await logActivity('Creación Cita Laboratorio', `Folio ${newAppointment.appointmentNumber} para ${patientData.name}.`);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita de laboratorio ha sido agendada. Folio: ${newAppointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateLabAppointmentPDF(newAppointment);
+
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -143,15 +163,27 @@ export async function saveNewLabAppointment(
 
 export async function saveNewXRayAppointment(
   appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>
+  patientData: Omit<Patient, 'id'>,
+  study: XRayStudy
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
     const { appointment: newAppointment } = await dataSaveXRayAppointment(
       appointmentData,
       patientData
     );
+    
+    await logActivity('Creación Cita Rayos X', `Folio ${newAppointment.appointmentNumber} para ${patientData.name}.`);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita de Rayos X ha sido agendada. Folio: ${newAppointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateXRayAppointmentPDF(newAppointment, study);
+
     revalidatePath('/rayos-x');
-     revalidatePath('/admin');
+    revalidatePath('/admin');
     revalidatePath('/reports');
     return { success: true, data: newAppointment };
   } catch (e: any) {
@@ -164,7 +196,8 @@ export async function saveNewXRayAppointment(
 
 export async function saveNewUltrasoundAppointment(
   appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>
+  patientData: Omit<Patient, 'id'>,
+  study: UltrasoundStudy,
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
 
@@ -172,8 +205,19 @@ export async function saveNewUltrasoundAppointment(
       appointmentData,
       patientData
     );
+    
+    await logActivity('Creación Cita Ultrasonido', `Folio ${newAppointment.appointmentNumber} para ${patientData.name}.`);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita de Ultrasonido ha sido agendada. Folio: ${newAppointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateUltrasoundAppointmentPDF(newAppointment, study);
+
     revalidatePath('/ultrasonidos');
-     revalidatePath('/admin');
+    revalidatePath('/admin');
     revalidatePath('/reports');
     return { success: true, data: newAppointment };
   } catch (e: any) {
@@ -193,6 +237,17 @@ export async function saveNewVaccineAppointment(
       appointmentData,
       patientData
     );
+
+    await logActivity('Creación Cita Vacunación', `Folio ${newAppointment.appointmentNumber} para ${patientData.name}.`);
+
+    toast({
+        title: 'Cita Confirmada',
+        description: `Tu cita de Vacunación ha sido agendada. Folio: ${newAppointment.appointmentNumber}`,
+        duration: 10000,
+    });
+
+    generateVaccineAppointmentPDF(newAppointment);
+
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -210,13 +265,18 @@ export async function cloneAppointment(
   newDate: string,
   type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'
 ): Promise<{ success: boolean; message: string; data?: any }> {
-    return dataCloneAppointment(originalAppointmentId, newDate, type);
+    const result = await dataCloneAppointment(originalAppointmentId, newDate, type);
+    if(result.success) {
+      await logActivity('Clonación de Cita', `Folio original ${result.originalFolio} clonado a nuevo folio ${result.data.appointmentNumber}.`);
+    }
+    return result;
 }
 
 export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {
     try {
         const result = await dataUpdatePatient(patientId, patientData);
         if (result.success) {
+            await logActivity('Actualización de Paciente', `Datos del paciente con ID ${patientId} actualizados.`);
             revalidatePath('/admin');
             revalidatePath('/reports');
             revalidatePath('/citas-medicas');
@@ -237,95 +297,66 @@ export async function updatePatient(patientId: string, patientData: Partial<Omit
 
 export async function deleteAppointment(id: string) {
   try {
-    await dataDeleteAppointment(id);
+    const deletedFolio = await dataDeleteAppointment(id);
+    await logActivity('Eliminación Cita Médica', `Se eliminó el folio: ${deletedFolio}.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
     return { success: true, message: 'Cita eliminada con éxito.' };
   } catch (error: any) {
-    const errorMessage =
-      error.message || 'Error desconocido al eliminar la cita.';
-    return {
-      success: false,
-      message: errorMessage,
-    };
+    return { success: false, message: error.message || 'Error desconocido al eliminar la cita.' };
   }
 }
 
 export async function deleteLabAppointment(id: string) {
   try {
-    await dataDeleteLabAppointment(id);
+    const deletedFolio = await dataDeleteLabAppointment(id);
+    await logActivity('Eliminación Cita Laboratorio', `Se eliminó el folio: ${deletedFolio}.`);
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return {
-      success: true,
-      message: 'Cita de laboratorio eliminada con éxito.',
-    };
+    return { success: true, message: 'Cita de laboratorio eliminada con éxito.' };
   } catch (error: any) {
-    const errorMessage =
-      error.message || 'Error desconocido al eliminar la cita.';
-    return {
-      success: false,
-      message: errorMessage,
-    };
+    return { success: false, message: error.message || 'Error desconocido al eliminar la cita.' };
   }
 }
 
 export async function deleteXRayAppointment(id: string) {
   try {
-    await dataDeleteXRayAppointment(id);
+    const deletedFolio = await dataDeleteXRayAppointment(id);
+    await logActivity('Eliminación Cita Rayos X', `Se eliminó el folio: ${deletedFolio}.`);
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
     return { success: true, message: 'Cita de Rayos X eliminada con éxito.' };
   } catch (error: any) {
-    const errorMessage =
-      error.message || 'Error desconocido al eliminar la cita.';
-    return {
-      success: false,
-      message: errorMessage,
-    };
+    return { success: false, message: error.message || 'Error desconocido al eliminar la cita.' };
   }
 }
 
 export async function deleteUltrasoundAppointment(id: string) {
   try {
-    await dataDeleteUltrasoundAppointment(id);
+    const deletedFolio = await dataDeleteUltrasoundAppointment(id);
+    await logActivity('Eliminación Cita Ultrasonido', `Se eliminó el folio: ${deletedFolio}.`);
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return {
-      success: true,
-      message: 'Cita de Ultrasonido eliminada con éxito.',
-    };
+    return { success: true, message: 'Cita de Ultrasonido eliminada con éxito.' };
   } catch (error: any) {
-    const errorMessage =
-      error.message || 'Error desconocido al eliminar la cita.';
-    return {
-      success: false,
-      message: errorMessage,
-    };
+    return { success: false, message: error.message || 'Error desconocido al eliminar la cita.' };
   }
 }
 
 export async function deleteVaccineAppointment(id: string) {
   try {
-    await dataDeleteVaccineAppointment(id);
+    const deletedFolio = await dataDeleteVaccineAppointment(id);
+    await logActivity('Eliminación Cita Vacunación', `Se eliminó el folio: ${deletedFolio}.`);
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return {
-      success: true,
-      message: 'Cita de Vacunación eliminada con éxito.',
-    };
+    return { success: true, message: 'Cita de Vacunación eliminada con éxito.' };
   } catch (error: any) {
-    const errorMessage =
-      error.message || 'Error desconocido al eliminar la cita.';
-    return {
-      success: false,
-      message: errorMessage,
-    };
+    return { success: false, message: error.message || 'Error desconocido al eliminar la cita.' };
   }
 }
 
@@ -379,6 +410,7 @@ export async function verifyVaccinePassword(passwordAttempt: string) {
 export async function updateClinics(clinics: Clinic[]) {
   const result = await dataUpdateClinics(clinics);
   if (result.success) {
+    await logActivity('Actualización de Clínicas', `Se actualizó el catálogo de clínicas.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -389,6 +421,7 @@ export async function updateClinics(clinics: Clinic[]) {
 export async function updateColonias(colonias: Colonia[]) {
   const result = await dataUpdateColonias(colonias);
   if (result.success) {
+    await logActivity('Actualización de Colonias', `Se actualizó el catálogo de colonias.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -399,6 +432,7 @@ export async function updateColonias(colonias: Colonia[]) {
 export async function updateAnnouncements(announcements: string[]) {
   const result = await dataUpdateAnnouncements(announcements);
   if (result.success) {
+    await logActivity('Actualización de Avisos', `Avisos actualizados.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/laboratorio');
     revalidatePath('/rayos-x');
@@ -414,6 +448,7 @@ export async function updateAnnouncements(announcements: string[]) {
 export async function updateLabSettings(settings: LabSettings) {
   const result = await dataUpdateLabSettings(settings);
   if (result.success) {
+    await logActivity('Actualización Configuración Laboratorio', `Ajustes del laboratorio actualizados.`);
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -424,6 +459,7 @@ export async function updateLabSettings(settings: LabSettings) {
 export async function updateLabStudies(studies: LabStudy[]) {
   const result = await dataUpdateLabStudies(studies);
   if (result.success) {
+    await logActivity('Actualización Estudios de Laboratorio', `Catálogo de estudios de lab actualizado.`);
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -435,6 +471,7 @@ export async function updateLabStudies(studies: LabStudy[]) {
 export async function updateXRaySettings(settings: XRaySettings) {
   const result = await dataUpdateXRaySettings(settings);
   if (result.success) {
+    await logActivity('Actualización Configuración Rayos X', `Ajustes de Rayos X actualizados.`);
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -445,6 +482,7 @@ export async function updateXRaySettings(settings: XRaySettings) {
 export async function updateXRayStudies(studies: XRayStudy[]) {
   const result = await dataUpdateXRayStudies(studies);
   if (result.success) {
+    await logActivity('Actualización Estudios de Rayos X', `Catálogo de estudios de Rayos X actualizado.`);
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -456,6 +494,7 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
 export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
   const result = await dataUpdateUltrasoundSettings(settings);
   if (result.success) {
+    await logActivity('Actualización Configuración Ultrasonido', `Ajustes de Ultrasonido actualizados.`);
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -466,6 +505,7 @@ export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
 export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   const result = await dataUpdateUltrasoundStudies(studies);
   if (result.success) {
+    await logActivity('Actualización Estudios de Ultrasonido', `Catálogo de estudios de ultrasonido actualizado.`);
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -477,6 +517,7 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
 export async function updateVaccineSettings(settings: VaccineSettings) {
   const result = await dataUpdateVaccineSettings(settings);
   if (result.success) {
+    await logActivity('Actualización Configuración Vacunación', `Ajustes de Vacunación actualizados.`);
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -487,6 +528,7 @@ export async function updateVaccineSettings(settings: VaccineSettings) {
 export async function updateVaccines(vaccines: Vaccine[]) {
   const result = await dataUpdateVaccines(vaccines);
   if (result.success) {
+    await logActivity('Actualización de Vacunas', `Catálogo de vacunas actualizado.`);
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
@@ -497,13 +539,8 @@ export async function updateVaccines(vaccines: Vaccine[]) {
 export async function updateModuleSettings(settings: ModuleSettings) {
     const result = await dataUpdateModuleSettings(settings);
     if (result.success) {
+        await logActivity('Actualización de Módulos', `Configuración de módulos actualizada.`);
         revalidatePath('/', 'layout');
-        revalidatePath('/citas-medicas');
-        revalidatePath('/laboratorio');
-        revalidatePath('/rayos-x');
-        revalidatePath('/ultrasonidos');
-        revalidatePath('/vacunas');
-        revalidatePath('/admin');
     }
     return result;
 }
@@ -511,6 +548,7 @@ export async function updateModuleSettings(settings: ModuleSettings) {
 export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message?: string }> {
     const result = await dataUpdateAppointmentStatus(appointmentId, status, type);
     if (result.success) {
+        await logActivity('Actualización de Estado', `Cita en ${type} con ID ${appointmentId} actualizada a: ${status}.`);
         revalidatePath('/admin');
         revalidatePath('/reports');
     }
@@ -525,6 +563,7 @@ export async function rescheduleAppointment(
     try {
         const result = await dataRescheduleAppointment(appointmentId, newDate, type);
         if(result.success) {
+            await logActivity('Cambio de Fecha Cita', `Cita ${appointmentId} movida a ${newDate}.`);
             revalidatePath('/admin');
             revalidatePath('/reports');
         }
@@ -548,6 +587,7 @@ export async function downloadBackupAction(): Promise<{ success: boolean; data?:
 export async function restoreBackupAction(backupData: any): Promise<{ success: boolean; message?: string; stats?: any }> {
   try {
     const stats = await restoreBackupData(backupData);
+    await logActivity('Restauración de Respaldo', `Se restauraron un total de ${stats.addedCount} registros.`);
     revalidatePath('/', 'layout');
     return { success: true, stats, message: 'Restauración completada.' };
   } catch (e: any) {
@@ -559,6 +599,9 @@ export async function restoreBackupAction(backupData: any): Promise<{ success: b
 export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {
     try {
         const { deletedCount } = await cleanupOldRecords();
+        if (deletedCount > 0) {
+            await logActivity('Limpieza de Registros', `Se eliminaron ${deletedCount} citas antiguas de meses anteriores.`);
+        }
         revalidatePath('/admin', 'layout');
         return { success: true, deletedCount };
     } catch (e: any) {

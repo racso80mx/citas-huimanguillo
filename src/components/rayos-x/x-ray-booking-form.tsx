@@ -27,7 +27,6 @@ import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
-import { generateXRayAppointmentPDF } from '@/lib/utils';
 import type { XRayAppointment, Patient, XRayStudy } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -134,7 +133,7 @@ export function XRayBookingForm({
 
       const appointmentNumber = `RX-${uuidv4().split('-')[0].toUpperCase()}`;
 
-      const newAppointment: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'> = {
+      const newAppointment: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'> = {
         appointmentNumber,
         date: selectedDate.toISOString(),
         time: selectedTime,
@@ -142,17 +141,9 @@ export function XRayBookingForm({
         studyName: selectedStudy.name,
       };
 
-      const result = await saveNewXRayAppointment(newAppointment, patientData);
+      const result = await saveNewXRayAppointment(newAppointment, patientData, selectedStudy);
 
-      if (result.success && result.data) {
-        toast({
-            title: 'Cita Confirmada',
-            description: `Tu cita de Rayos X ha sido agendada. Folio: ${result.data.appointmentNumber}`,
-            duration: 10000,
-        });
-
-        generateXRayAppointmentPDF(result.data, selectedStudy);
-
+      if (result.success) {
         form.reset();
         onBookingSuccess();
       } else {
