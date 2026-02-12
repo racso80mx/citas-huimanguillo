@@ -178,10 +178,10 @@ export async function updateAnnouncements(newAnnouncements: string[]) {
 export async function getModuleSettings(): Promise<ModuleSettings> {
     const defaults = {
         citasMedicasEnabled: true,
-        laboratorioEnabled: false,
-        rayosXEnabled: false,
-        ultrasoundEnabled: false,
-        vacunasEnabled: false,
+        laboratorioEnabled: true,
+        rayosXEnabled: true,
+        ultrasoundEnabled: true,
+        vacunasEnabled: true,
     };
     const settings = await getSettingsDoc<ModuleSettings>('moduleSettings', defaults);
     return { ...defaults, ...settings };
@@ -413,24 +413,49 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     if (!patientDoc.exists()) throw new Error('Paciente no encontrado.');
 
     const patientData = patientDoc.data() as Omit<Patient, 'id'>;
-    const { id, patientId, date, status, ...payload } = originalAppointment;
     
-    const newAppointmentData = { ...payload, date: Timestamp.fromDate(new Date(newDate)) };
+    // EXCLUDE appointmentNumber from the payload
+    const { id, patientId, date, status, appointmentNumber, ...payload } = originalAppointment;
+    
+    // GENERATE a new appointmentNumber
+    let newAppointmentNumber = '';
+    switch (type) {
+        case 'medical': newAppointmentNumber = `CITA-${Date.now().toString().slice(-4)}`; break;
+        case 'lab': newAppointmentNumber = `LAB-${uuidv4().split('-')[0].toUpperCase()}`; break;
+        case 'xray': newAppointmentNumber = `RX-${uuidv4().split('-')[0].toUpperCase()}`; break;
+        case 'ultrasound': newAppointmentNumber = `US-${uuidv4().split('-')[0].toUpperCase()}`; break;
+        case 'vaccine': newAppointmentNumber = `VAC-${uuidv4().split('-')[0].toUpperCase()}`; break;
+    }
+
+    const newAppointmentData = { 
+        ...payload, 
+        appointmentNumber: newAppointmentNumber,
+        date: Timestamp.fromDate(new Date(newDate)) 
+    };
     
     let result: any;
-    if (type === 'medical') result = await saveAppointment(newAppointmentData, patientData);
+    if (type === 'medical') {
+        result = await saveAppointment(newAppointmentData, patientData);
+    }
     else if (type === 'lab') {
         const settings = await getLabSettings();
         result = await saveLabAppointment(newAppointmentData, patientData, settings);
     }
-    else if (type === 'xray') result = await saveXRayAppointment(newAppointmentData, patientData);
-    else if (type === 'ultrasound') result = await saveUltrasoundAppointment(newAppointmentData, patientData);
-    else if (type === 'vaccine') result = await saveVaccineAppointment(newAppointmentData, patientData);
+    else if (type === 'xray') {
+        result = await saveXRayAppointment(newAppointmentData, patientData);
+    }
+    else if (type === 'ultrasound') {
+        result = await saveUltrasoundAppointment(newAppointmentData, patientData);
+    }
+    else if (type === 'vaccine') {
+        result = await saveVaccineAppointment(newAppointmentData, patientData);
+    }
     else throw new Error('Tipo de cita no válido.');
 
     await logActivity('Clonación de Cita', `Folio original ${originalAppointment.appointmentNumber} clonado a nuevo folio ${result.appointment.appointmentNumber}.`);
     return { success: true, message: `Nueva cita asignada con folio ${result.appointment.appointmentNumber}`, data: result.appointment };
 }
+
 
 // Passwords
 export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { 
@@ -528,4 +553,67 @@ export async function cleanupOldRecords() {
     }
     
     return { deletedCount: totalDeleted };
+}
+
+// =====================================================================
+// Migration
+// =====================================================================
+async function readLocalData<T>(fileName: string): Promise<T[]> {
+    try {
+        const fileContent = require(`fs`).readFileSync(`src/lib/data/${fileName}.json`, 'utf-8');
+        return JSON.parse(fileContent);
+    } catch (error) {
+        console.warn(`Could not read local data file: ${fileName}.json`);
+        return [];
+    }
+}
+
+export async function migrateLocalDataToFirestore() {
+    const migrationStats: { [key: string]: number } = {
+        appointments: 0,
+        labAppointments: 0,
+        xRayAppointments: 0,
+        ultrasoundAppointments: 0,
+        vaccineAppointments: 0,
+        patients: 0,
+        clinics: 0,
+        colonias: 0,
+    };
+
+    const migrateCollection = async <T extends { id: string }>(collectionName: string, fileName: string) => {
+        const localItems = await readLocalData<T>(fileName);
+        if (localItems.length === 0) return;
+
+        const collRef = collection(adminDb, collectionName);
+        const snapshot = await getDocs(collRef);
+        const existingIds = new Set(snapshot.docs.map(doc => doc.id));
+        const batch = writeBatch(adminDb);
+        let newItemsCount = 0;
+
+        for (const item of localItems) {
+            if (!existingIds.has(item.id)) {
+                const { id, ...data } = item;
+                 if ((data as any).date) {
+                    (data as any).date = Timestamp.fromDate(new Date((data as any).date));
+                }
+                batch.set(doc(collRef, id), data);
+                newItemsCount++;
+            }
+        }
+        await batch.commit();
+        migrationStats[collectionName] = newItemsCount;
+    };
+
+    await migrateCollection('appointments', 'appointments');
+    await migrateCollection('labAppointments', 'lab-appointments');
+    await migrateCollection('xRayAppointments', 'x-ray-appointments');
+    await migrateCollection('ultrasoundAppointments', 'ultrasound-appointments');
+    await migrateCollection('vaccineAppointments', 'vaccine-appointments');
+    await migrateCollection('patients', 'patients');
+    await migrateCollection('clinics', 'clinics');
+    await migrateCollection('colonias', 'colonias');
+
+    await logActivity('Migración de Datos', `Migración de archivos locales a Firestore completada. Estadísticas: ${JSON.stringify(migrationStats)}`);
+
+    return { success: true, stats: migrationStats };
 }
