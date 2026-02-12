@@ -60,10 +60,7 @@ import {
   getLogs as dataGetLogs,
   cloneAppointment as dataCloneAppointment,
   logActivity,
-  migrateDataFromLocal as dataMigrateDataFromLocal,
   getClinicById,
-  getXRayStudies as dataGetXRayStudyById,
-  getUltrasoundStudies as dataGetUltrasoundStudyById,
 } from './data';
 
 import type {
@@ -107,15 +104,18 @@ export async function saveNewAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
-    const clinic = await getClinicById(appointmentData.clinicId);
-    if (!clinic) throw new Error("La clínica seleccionada no es válida.");
-
     const transactionResult = await dataSaveAppointment(
       appointmentData,
       patientData,
-      clinic
     );
     
+    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
+        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    }
+    
+    const clinic = await getClinicById(appointmentData.clinicId);
+    if (!clinic) throw new Error("La clínica seleccionada no es válida.");
+
     const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
     const finalPatientSnap = await getDoc(transactionResult.patientRef);
 
@@ -141,13 +141,18 @@ export async function saveNewAppointment(
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
+  settings: LabSettings,
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
     const transactionResult = await dataSaveLabAppointment(
       appointmentData,
-      patientData
+      patientData,
+      settings,
     );
-    
+     if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
+        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    }
+
     const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
     const finalPatientSnap = await getDoc(transactionResult.patientRef);
 
@@ -174,15 +179,21 @@ export async function saveNewLabAppointment(
 }
 
 export async function saveNewXRayAppointment(
-  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
-  study: XRayStudy
+  study: XRayStudy,
+  settings: XRaySettings
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
     const transactionResult = await dataSaveXRayAppointment(
       appointmentData,
-      patientData
+      patientData,
+      settings
     );
+    
+    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
+        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    }
     
     const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
     const finalPatientSnap = await getDoc(transactionResult.patientRef);
@@ -210,15 +221,21 @@ export async function saveNewXRayAppointment(
 }
 
 export async function saveNewUltrasoundAppointment(
-  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
   patientData: Omit<Patient, 'id'>,
-  study: UltrasoundStudy
+  study: UltrasoundStudy,
+  settings: UltrasoundSettings
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
     const transactionResult = await dataSaveUltrasoundAppointment(
       appointmentData,
-      patientData
+      patientData,
+      settings
     );
+    
+    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
+        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    }
     
     const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
     const finalPatientSnap = await getDoc(transactionResult.patientRef);
@@ -247,14 +264,20 @@ export async function saveNewUltrasoundAppointment(
 
 export async function saveNewVaccineAppointment(
   appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>
+  patientData: Omit<Patient, 'id'>,
+  settings: VaccineSettings
 ): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
     const transactionResult = await dataSaveVaccineAppointment(
       appointmentData,
-      patientData
+      patientData,
+      settings,
     );
 
+    if (!transactionResult.success || !transactionResult.appointmentRef || !transactionResult.patientRef) {
+        throw new Error(transactionResult.error || "La transacción no devolvió las referencias esperadas.");
+    }
+    
     const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
     const finalPatientSnap = await getDoc(transactionResult.patientRef);
 
@@ -369,14 +392,6 @@ export async function restoreBackupAction(backupData: any): Promise<{ success: b
   }
 }
 
-export async function migrateFromLocalAction() {
-    const result = await dataMigrateDataFromLocal();
-    if(result.success){
-        await logActivity('Migración de Datos', `Se migraron ${result.stats.addedCount} registros desde archivos locales a la nube.`);
-        revalidatePath('/', 'layout');
-    }
-    return result;
-}
   
 export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {
     try {
