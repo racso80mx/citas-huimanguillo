@@ -1,655 +1,590 @@
 'use server';
 
-import fs from 'fs/promises';
+import { promises as fs, readFileSync } from 'fs';
 import path from 'path';
-import type { Clinic, Colonia, LabSettings, LabStudy, XRaySettings, XRayStudy, UltrasoundSettings, UltrasoundStudy, Appointment, Patient, LabAppointment, XRayAppointment, UltrasoundAppointment, ModuleSettings, Vaccine, VaccineSettings, VaccineAppointment, AppointmentStatus, User, ActivityLog } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { revalidatePath } from 'next/cache';
-import { format, parse, isSaturday, isSunday } from 'date-fns';
-import { es } from 'date-fns/locale';
+import type { Clinic, Colonia, Appointment, Patient, LabAppointment, LabStudy, LabSettings, XRayAppointment, XRayStudy, XRaySettings, UltrasoundAppointment, UltrasoundStudy, UltrasoundSettings, VaccineAppointment, Vaccine, VaccineSettings, ModuleSettings, User, ActivityLog, AppointmentStatus } from './definitions';
+import { fileURLToPath } from 'url';
+import { format, isSaturday, isSunday, startOfMonth } from 'date-fns';
 
-// --- START: TRANSACTION LOG & LOCKING MECHANISM ---
-const LOCK_DIR = path.join(process.cwd(), 'src', 'lib', 'data', '.locks');
-const RETRY_DELAY = 100;
-const MAX_RETRIES = 20;
-const TRANSACTION_LOG_FILE = 'transaction_log.jsonl';
+// Since we're in a server component, we need to resolve paths differently.
+const dataPath = path.join(process.cwd(), 'src', 'lib', 'data');
 
-const initializeLockDirectory = async () => {
-  try {
-    await fs.mkdir(LOCK_DIR, { recursive: true });
-  } catch (error) {
-    console.error('CRITICAL: Could not create lock directory.', error);
-  }
+const paths = {
+  clinics: path.join(dataPath, 'clinics.json'),
+  colonias: path.join(dataPath, 'colonias.json'),
+  announcements: path.join(dataPath, 'announcements.json'),
+  appointments: path.join(dataPath, 'appointments.json'),
+  patients: path.join(dataPath, 'patients.json'),
+  labAppointments: path.join(dataPath, 'lab-appointments.json'),
+  labStudies: path.join(dataPath, 'lab-studies.json'),
+  labSettings: path.join(dataPath, 'lab-settings.json'),
+  xrayAppointments: path.join(dataPath, 'x-ray-appointments.json'),
+  xrayStudies: path.join(dataPath, 'x-ray-studies.json'),
+  xraySettings: path.join(dataPath, 'x-ray-settings.json'),
+  ultrasoundAppointments: path.join(dataPath, 'ultrasound-appointments.json'),
+  ultrasoundStudies: path.join(dataPath, 'ultrasound-studies.json'),
+  ultrasoundSettings: path.join(dataPath, 'ultrasound-settings.json'),
+  vaccineAppointments: path.join(dataPath, 'vaccine-appointments.json'),
+  vaccines: path.join(dataPath, 'vaccines.json'),
+  vaccineSettings: path.join(dataPath, 'vaccine-settings.json'),
+  moduleSettings: path.join(dataPath, 'module-settings.json'),
+  users: path.join(dataPath, 'users.json'),
+  activityLog: path.join(dataPath, 'activity-log.json'),
+  transactionLog: path.join(dataPath, 'transaction_log.jsonl'),
+  lockFile: path.join(process.cwd(), '.data.lock'),
 };
-initializeLockDirectory();
 
-async function acquireLock(filename: string, retries = MAX_RETRIES): Promise<void> {
-    const lockFile = path.join(LOCK_DIR, `${filename}.lock`);
-    try {
-        await fs.writeFile(lockFile, process.pid.toString(), { flag: 'wx' });
-    } catch (error: any) {
-        if (error.code === 'EEXIST' && retries > 0) {
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-            return acquireLock(filename, retries - 1);
+type DataType = keyof typeof paths;
+
+// --- Transaction Log and Locking Mechanism ---
+
+let isLocking = false;
+const lockQueue: (() => void)[] = [];
+
+async function acquireLock(): Promise<void> {
+    return new Promise(resolve => {
+        if (!isLocking) {
+            isLocking = true;
+            resolve();
+        } else {
+            lockQueue.push(resolve);
         }
-        throw new Error(`Could not acquire lock for ${filename} after ${MAX_RETRIES} attempts.`);
-    }
+    });
 }
 
-async function releaseLock(filename: string): Promise<void> {
-    const lockFile = path.join(LOCK_DIR, `${filename}.lock`);
-    try {
-        await fs.unlink(lockFile);
-    } catch (error: any) {
-        if (error.code !== 'ENOENT') {
-            console.error(`[Locking Error] Could not release lock for ${filename}.`, error);
-        }
-    }
-}
-
-/**
- * Logs a transaction to the immutable transaction log file.
- * This acts as the source of truth for all data modification operations.
- * @param transaction The transaction details to log.
- */
-async function logTransaction(transaction: { type: 'CREATE' | 'UPDATE' | 'DELETE', entity: string, timestamp: string, data: any, details?: string }) {
-    const logEntry = JSON.stringify(transaction) + '\n';
-    try {
-        await fs.appendFile(dataFilePath(TRANSACTION_LOG_FILE), logEntry, 'utf-8');
-    } catch (e) {
-        console.error('CRITICAL: FAILED TO WRITE TO TRANSACTION LOG! DATA INTEGRITY AT RISK.', e);
-    }
-}
-
-// --- END: TRANSACTION LOG & LOCKING MECHANISM ---
-
-const dataFilePath = (filename: string) => path.join(process.cwd(), 'src', 'lib', 'data', filename);
-
-async function readJsonFile<T>(filename: string, defaultValue: T): Promise<T> {
-  try {
-    const filePath = dataFilePath(filename);
-    const fileContent = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(fileContent);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      await acquireLock(filename);
-      try {
-        await fs.writeFile(dataFilePath(filename), JSON.stringify(defaultValue, null, 2), 'utf-8');
-        return defaultValue;
-      } finally {
-        await releaseLock(filename);
-      }
-    }
-    console.error(`Failed to read static file ${filename}`, error);
-    return defaultValue;
-  }
-}
-
-async function unsafeWriteJsonFile(filename: string, data: any): Promise<void> {
-    await fs.writeFile(dataFilePath(filename), JSON.stringify(data, null, 2), 'utf-8');
-}
-
-
-// ========== Activity Log (for UI display) ==========
-const LOG_LIMIT = 500;
-export async function logActivity(action: string, details: string): Promise<void> {
-    try {
-        const logs = await readJsonFile<ActivityLog[]>('activity-log.json', []);
-        const newLog: ActivityLog = { id: uuidv4(), timestamp: new Date().toISOString(), action, details };
-        const updatedLogs = [newLog, ...logs].slice(0, LOG_LIMIT);
-        await unsafeWriteJsonFile('activity-log.json', updatedLogs);
-    } catch (error) {
-        console.error('Failed to log UI activity:', error);
-    }
-}
-
-async function handleSimpleUpdate<T>(filename: string, data: T, entityName: string): Promise<{ success: boolean; message?: string }> {
-    await acquireLock(filename);
-    try {
-        await unsafeWriteJsonFile(filename, data);
-        await logTransaction({
-            type: 'UPDATE',
-            entity: entityName,
-            timestamp: new Date().toISOString(),
-            data: data,
-            details: `Configuration file ${filename} updated.`
-        });
-        return { success: true };
-    } catch (e: any) {
-        console.error(`Failed to write to static file ${filename}`, e);
-        return { success: false, message: `Failed to write to static file ${filename}: ${e.message}` };
-    } finally {
-        await releaseLock(filename);
-    }
-}
-
-
-// ========== Users ==========
-export async function getUsers(): Promise<User[]> {
-    return await readJsonFile<User[]>('users.json', []);
-}
-
-export async function updateUsers(users: User[]): Promise<{ success: boolean; message?: string }> {
-    return handleSimpleUpdate('users.json', users, 'users');
-}
-
-// ========== Announcements ==========
-export const getAnnouncements = async (): Promise<string[]> => {
-  const data = await readJsonFile<{ messages: string[] }>('announcements.json', { messages: [] });
-  return data.messages;
-};
-
-export const updateAnnouncements = async (newAnnouncements: string[]): Promise<{ success: boolean; message?: string }> => {
-  const data = { messages: newAnnouncements.slice(0, 4) };
-  const res = await handleSimpleUpdate('announcements.json', data, 'announcements');
-   if (res.success) {
-    revalidatePath('/', 'layout');
-  }
-  return res;
-};
-
-// ========== Clinics, Colonias, and various Settings ==========
-export async function getClinics(): Promise<Clinic[]> { return await readJsonFile<Clinic[]>('clinics.json', []); }
-export async function updateClinics(clinics: Clinic[]): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('clinics.json', clinics, 'clinics'); }
-
-export async function getColonias(): Promise<Colonia[]> { return await readJsonFile<Colonia[]>('colonias.json', []); }
-export async function updateColonias(colonias: Colonia[]): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('colonias.json', colonias, 'colonias'); }
-
-export async function getLabSettings(): Promise<LabSettings> { return await readJsonFile<LabSettings>('lab-settings.json', { dailySlots: 20, weekendBookingEnabled: false, password: "lab" }); }
-export async function updateLabSettings(settings: LabSettings): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('lab-settings.json', settings, 'lab-settings'); }
-
-export async function getLabStudies(): Promise<LabStudy[]> { return await readJsonFile<LabStudy[]>('lab-studies.json', []); }
-export async function updateLabStudies(studies: LabStudy[]): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('lab-studies.json', studies, 'lab-studies'); }
-
-export async function getXRaySettings(): Promise<XRaySettings> { return await readJsonFile<XRaySettings>('x-ray-settings.json', { dailySlots: 15, startTime: "08:00", endTime: "14:00", weekendBookingEnabled: false, password: "xray" }); }
-export async function updateXRaySettings(settings: XRaySettings): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('x-ray-settings.json', settings, 'x-ray-settings'); }
-
-export async function getXRayStudies(): Promise<XRayStudy[]> { return await readJsonFile<XRayStudy[]>('x-ray-studies.json', []); }
-export async function updateXRayStudies(studies: XRayStudy[]): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('x-ray-studies.json', studies, 'x-ray-studies'); }
-
-export async function getUltrasoundSettings(): Promise<UltrasoundSettings> { return await readJsonFile<UltrasoundSettings>('ultrasound-settings.json', { dailySlots: 15, startTime: "08:00", endTime: "14:00", weekendBookingEnabled: false, password: "ultrasound" }); }
-export async function updateUltrasoundSettings(settings: UltrasoundSettings): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('ultrasound-settings.json', settings, 'ultrasound-settings'); }
-
-export async function getUltrasoundStudies(): Promise<UltrasoundStudy[]> { return await readJsonFile<UltrasoundStudy[]>('ultrasound-studies.json', []); }
-export async function updateUltrasoundStudies(studies: UltrasoundStudy[]): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('ultrasound-studies.json', studies, 'ultrasound-studies'); }
-
-export async function getVaccineSettings(): Promise<VaccineSettings> { return await readJsonFile<VaccineSettings>('vaccine-settings.json', { dailySlots: 30, startTime: "08:00", endTime: "13:00", weekendBookingEnabled: false, password: "vacunas" }); }
-export async function updateVaccineSettings(settings: VaccineSettings): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('vaccine-settings.json', settings, 'vaccine-settings'); }
-
-export async function getVaccines(): Promise<Vaccine[]> { return await readJsonFile<Vaccine[]>('vaccines.json', []); }
-export async function updateVaccines(vaccines: Vaccine[]): Promise<{ success: boolean; message?: string }> { return handleSimpleUpdate('vaccines.json', vaccines, 'vaccines'); }
-
-export async function getModuleSettings(): Promise<ModuleSettings> { return await readJsonFile<ModuleSettings>('module-settings.json', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true }); }
-export async function updateModuleSettings(settings: ModuleSettings): Promise<{ success: boolean; message?: string }> { const res = await handleSimpleUpdate('module-settings.json', settings, 'module-settings'); if (res.success) { revalidatePath('/', 'layout'); } return res; }
-
-// Passwords can be read without locking.
-export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const clinics = await getClinics(); const clinic = clinics.find((c) => c.id === clinicId); if (!clinic) return { isValid: false, error: 'El núcleo básico seleccionado no existe.' }; return { isValid: clinic.password === passwordAttempt, error: clinic.password !== passwordAttempt ? 'La contraseña es incorrecta.' : undefined }; }
-export async function verifyLabPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getLabSettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'La contraseña es incorrecta.' : undefined }; }
-export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getXRaySettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'La contraseña es incorrecta.' : undefined }; }
-export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getUltrasoundSettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'La contraseña es incorrecta.' : undefined }; }
-export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getVaccineSettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'La contraseña es incorrecta.' : undefined }; }
-
-// ========== Patient & Appointment Data (Locked Operations) ==========
-export async function getPatientById(id: string): Promise<Patient | null> { const patients = await readJsonFile<Patient[]>('patients.json', []); return patients.find(p => p.id === id) || null; }
-
-const enrichAppointmentsWithPatients = async <T extends { patientId: string }>(appointments: T[]): Promise<(T & { patient: Patient })[]> => {
-    const patients = await readJsonFile<Patient[]>('patients.json', []);
-    const patientMap: Record<string, Patient> = {};
-    patients.forEach(p => { patientMap[p.id] = p; });
-    return appointments.map((app) => ({ ...app, patient: patients.find(p => p.id === app.patientId)!, })).filter((app) => app.patient);
-};
-
-export async function getAppointments(): Promise<(Appointment & { patient: Patient })[]> { const appointments = await readJsonFile<Appointment[]>('appointments.json', []); return await enrichAppointmentsWithPatients(appointments); }
-export async function getAppointmentsByDate(date: Date): Promise<(Appointment & { patient: Patient })[]> { const appointments = await getAppointments(); const dateString = date.toISOString().split('T')[0]; return appointments.filter(app => app.date.startsWith(dateString)); }
-export async function getAppointmentsForClinic(clinicId: string): Promise<(Appointment & { patient: Patient })[]> { const appointments = await getAppointments(); return appointments.filter(app => app.clinicId === clinicId); }
-export async function getLabAppointments(): Promise<(LabAppointment & { patient: Patient })[]> { const appointments = await readJsonFile<LabAppointment[]>('lab-appointments.json', []); return await enrichAppointmentsWithPatients(appointments); }
-export async function getLabAppointmentsByDate(date: Date): Promise<(LabAppointment & { patient: Patient })[]> { const appointments = await getLabAppointments(); return appointments.filter(app => app.date.startsWith(date.toISOString().split('T')[0])); }
-export async function getXRayAppointments(): Promise<(XRayAppointment & { patient: Patient })[]> { const appointments = await readJsonFile<XRayAppointment[]>('x-ray-appointments.json', []); return await enrichAppointmentsWithPatients(appointments); }
-export async function getXRayAppointmentsByDate(date: Date): Promise<(XRayAppointment & { patient: Patient })[]> { const appointments = await getXRayAppointments(); return appointments.filter(app => app.date.startsWith(date.toISOString().split('T')[0])); }
-export async function getUltrasoundAppointments(): Promise<(UltrasoundAppointment & { patient: Patient })[]> { const appointments = await readJsonFile<UltrasoundAppointment[]>('ultrasound-appointments.json', []); return await enrichAppointmentsWithPatients(appointments); }
-export async function getUltrasoundAppointmentsByDate(date: Date): Promise<(UltrasoundAppointment & { patient: Patient })[]> { const appointments = await getUltrasoundAppointments(); return appointments.filter(app => app.date.startsWith(date.toISOString().split('T')[0])); }
-export async function getVaccineAppointments(): Promise<(VaccineAppointment & { patient: Patient })[]> { const appointments = await readJsonFile<VaccineAppointment[]>('vaccine-appointments.json', []); return await enrichAppointmentsWithPatients(appointments); }
-export async function getVaccineAppointmentsByDate(date: Date): Promise<(VaccineAppointment & { patient: Patient })[]> { const appointments = await getVaccineAppointments(); return appointments.filter(app => app.date.startsWith(date.toISOString().split('T')[0])); }
-export async function getPatientByCURP(curp: string): Promise<Patient | null> { const upperCurp = curp.toUpperCase(); if (!upperCurp) return null; const patients = await readJsonFile<Patient[]>('patients.json', []); return patients.find(p => p.curp.toUpperCase() === upperCurp) || null; }
-
-
-async function saveNewAppointmentBase<T extends { id: string; patientId: string; patient: Patient; appointmentNumber: string; date: string }>(
-  appointmentFilename: string,
-  appointmentData: Omit<T, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>,
-  logAction: string,
-  revalidationPaths: string[]
-): Promise<T> {
-  const filesToLock = [appointmentFilename, 'patients.json'].sort();
-  await acquireLock(filesToLock[0]);
-  await acquireLock(filesToLock[1]);
-
-  try {
-    const appointments = await readJsonFile<T[]>(appointmentFilename, []);
-    const patients = await readJsonFile<Patient[]>('patients.json', []);
-
-    let patient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
-    let isNewPatient = false;
-    if (!patient) {
-        isNewPatient = true;
-        patient = { id: uuidv4(), ...patientData };
+function releaseLock(): void {
+    const next = lockQueue.shift();
+    if (next) {
+        next();
     } else {
-        patient = { ...patient, ...patientData };
+        isLocking = false;
     }
-    
-    const newAppointment = { ...appointmentData, id: uuidv4(), patientId: patient.id, patient: patient, status: 'Agendada' } as T;
-
-    // Log transaction first for maximum safety
-    await logTransaction({ type: 'CREATE', entity: appointmentFilename.replace('.json', ''), timestamp: new Date().toISOString(), data: newAppointment });
-    if(isNewPatient) {
-        await logTransaction({ type: 'CREATE', entity: 'patients', timestamp: new Date().toISOString(), data: patient });
-    } else {
-        await logTransaction({ type: 'UPDATE', entity: 'patients', timestamp: new Date().toISOString(), data: patient, details: 'Patient data updated on new appointment booking' });
-    }
-
-    // Write to files
-    if (isNewPatient) {
-        await unsafeWriteJsonFile('patients.json', [...patients, patient]);
-    } else {
-        const updatedPatients = patients.map(p => p.id === patient!.id ? patient! : p);
-        await unsafeWriteJsonFile('patients.json', updatedPatients);
-    }
-    await unsafeWriteJsonFile(appointmentFilename, [...appointments, newAppointment]);
-    
-    await logActivity(logAction, `Folio ${newAppointment.appointmentNumber} para ${patient.name} ${patient.paternalLastName}.`);
-
-    revalidationPaths.forEach(p => revalidatePath(p, 'layout'));
-    return newAppointment;
-  } finally {
-    await releaseLock(filesToLock[0]);
-    await releaseLock(filesToLock[1]);
-  }
 }
 
-export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<Appointment> {
-  const clinics = await getClinics(); 
-  const clinic = clinics.find(c => c.id === appointmentData.clinicId); 
-  if (!clinic) throw new Error("La clínica seleccionada no es válida.");
-
-  const appointmentDate = new Date(appointmentData.date);
-  const dateString = appointmentDate.toISOString().split('T')[0];
-  const dayOfWeek = appointmentDate.getDay();
-  const dayOfWeekMap: { [key: string]: number } = { "Domingo": 0, "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6 };
-
-  const isDayOfAction = clinic.dayOfAction ? dayOfWeekMap[clinic.dayOfAction] === dayOfWeek : false;
-  if (isDayOfAction) {
-    throw new Error(`El núcleo ${clinic.name} no ofrece citas los días de acción (${clinic.dayOfAction}).`);
-  }
-
-  if (clinic.unavailableDates?.includes(dateString)) {
-      throw new Error(`El núcleo ${clinic.name} no está disponible en la fecha seleccionada.`);
-  }
-
-  const isWeekend = isSaturday(appointmentDate) || isSunday(appointmentDate);
-  if (isWeekend && !clinic.weekendBookingEnabled) {
-      throw new Error(`El núcleo ${clinic.name} no permite citas en fin de semana.`);
-  }
-  
-  const allAppointments = await readJsonFile<Appointment[]>('appointments.json', []); 
-  const allPatients = await readJsonFile<Patient[]>('patients.json', []); 
-  const appointmentsOnDate = allAppointments.map(app => ({...app, patient: allPatients.find(p => p.id === app.patientId)})).filter(app => app.patient && app.date.startsWith(new Date(appointmentData.date).toISOString().split('T')[0]));
-  const appointmentsInClinicOnDate = appointmentsOnDate.filter(app => app.clinicId === appointmentData.clinicId); 
-
-  if (appointmentsInClinicOnDate.length >= clinic.dailySlots) { 
-    throw new Error("No hay más cupos disponibles en este núcleo para la fecha seleccionada."); 
-  }
-  if (appointmentsOnDate.some(app => app.clinicId === appointmentData.clinicId && app.time === appointmentData.time)) { 
-    throw new Error(`El horario de ${appointmentData.time} ya no está disponible. Por favor, selecciona otro.`); 
-  }
-  if (appointmentsOnDate.some(app => app.patient?.curp.toUpperCase() === patientData.curp.toUpperCase())) { 
-    throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.'); 
-  }
-
-  return saveNewAppointmentBase<Appointment>('appointments.json', appointmentData, patientData, 'Creación Cita Médica', ['/citas-medicas', '/admin', '/reports']);
-}
-
-export async function saveLabAppointment(appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<LabAppointment> {
-  const settings = await getLabSettings(); const appointmentsOnDate = await getLabAppointmentsByDate(new Date(appointmentData.date)); if (appointmentsOnDate.length >= settings.dailySlots) { throw new Error('No hay más cupos para este día.'); }
-  if (appointmentsOnDate.some(app => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase())) { throw new Error('Ya existe una cita de laboratorio agendada con esta CURP para el día seleccionado.'); }
-  return saveNewAppointmentBase<LabAppointment>('lab-appointments.json', appointmentData, patientData, 'Creación Cita Laboratorio', ['/laboratorio', '/admin', '/reports']);
-}
-
-export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<XRayAppointment> {
-    const settings = await getXRaySettings(); const appointmentsOnDate = await getXRayAppointmentsByDate(new Date(appointmentData.date)); if (appointmentsOnDate.length >= settings.dailySlots) throw new Error('No hay más cupos para Rayos X en la fecha seleccionada.');
-    if (appointmentsOnDate.some(app => app.time === appointmentData.time)) throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
-    if (appointmentsOnDate.some(app => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase())) throw new Error('Ya existe una cita de Rayos X con esta CURP para el día seleccionado.');
-    return saveNewAppointmentBase<XRayAppointment>('x-ray-appointments.json', appointmentData, patientData, 'Creación Cita Rayos X', ['/rayos-x', '/admin', '/reports']);
-}
-
-export async function saveUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<UltrasoundAppointment> {
-    const settings = await getUltrasoundSettings(); const appointmentsOnDate = await getUltrasoundAppointmentsByDate(new Date(appointmentData.date)); if (appointmentsOnDate.length >= settings.dailySlots) throw new Error('No hay más cupos para Ultrasonidos en la fecha seleccionada.');
-    if (appointmentsOnDate.some(app => app.time === appointmentData.time)) throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
-    if (appointmentsOnDate.some(app => app.patient.curp.toUpperCase() === patientData.curp.toUpperCase())) throw new Error('Ya existe una cita de Ultrasonido con esta CURP para el día seleccionado.');
-    return saveNewAppointmentBase<UltrasoundAppointment>('ultrasound-appointments.json', appointmentData, patientData, 'Creación Cita Ultrasonido', ['/ultrasonidos', '/admin', '/reports']);
-}
-
-export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<VaccineAppointment> {
-    const settings = await getVaccineSettings(); const appointmentsOnDate = await getVaccineAppointmentsByDate(new Date(appointmentData.date)); if (appointmentsOnDate.length >= settings.dailySlots) throw new Error('No hay más cupos para Vacunación en la fecha seleccionada.');
-    if (appointmentsOnDate.some(app => app.time === appointmentData.time)) throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
-    if (!appointmentData.isNewborn && appointmentsOnDate.some(app => app.patient?.curp?.toUpperCase() === patientData.curp.toUpperCase())) throw new Error('Ya existe una cita de Vacunación con esta CURP para el día seleccionado.');
-    return saveNewAppointmentBase<VaccineAppointment>('vaccine-appointments.json', appointmentData, patientData, 'Creación Cita Vacunación', ['/vacunas', '/admin', '/reports']);
-}
-
-async function deleteAppointmentBase(filename: string, id: string, logAction: string, revalidationPaths: string[]): Promise<void> {
-    await acquireLock(filename);
+async function withFileLock<T>(fn: () => Promise<T>): Promise<T> {
+    await acquireLock();
     try {
-        const appointments = await readJsonFile<any[]>(filename, []);
-        const appToDelete = appointments.find(app => app.id === id);
-        if (appToDelete) {
-            await logTransaction({ type: 'DELETE', entity: filename.replace('.json', ''), timestamp: new Date().toISOString(), data: { id, appointmentNumber: appToDelete.appointmentNumber } });
-            const updatedAppointments = appointments.filter(app => app.id !== id);
-            await unsafeWriteJsonFile(filename, updatedAppointments);
-            await logActivity(logAction, `Folio: ${appToDelete.appointmentNumber}, Paciente ID: ${appToDelete.patientId}`);
-            revalidationPaths.forEach(p => revalidatePath(p, 'layout'));
-        }
+        return await fn();
     } finally {
-        await releaseLock(filename);
+        releaseLock();
     }
 }
 
-export async function deleteAppointment(id: string): Promise<void> { await deleteAppointmentBase('appointments.json', id, 'Eliminación Cita Médica', ['/citas-medicas', '/admin', '/reports']); }
-export async function deleteLabAppointment(id: string): Promise<void> { await deleteAppointmentBase('lab-appointments.json', id, 'Eliminación Cita Laboratorio', ['/laboratorio', '/admin', '/reports']); }
-export async function deleteXRayAppointment(id: string): Promise<void> { await deleteAppointmentBase('x-ray-appointments.json', id, 'Eliminación Cita Rayos X', ['/rayos-x', '/admin', '/reports']); }
-export async function deleteUltrasoundAppointment(id: string): Promise<void> { await deleteAppointmentBase('ultrasound-appointments.json', id, 'Eliminación Cita Ultrasonido', ['/ultrasonidos', '/admin', '/reports']); }
-export async function deleteVaccineAppointment(id: string): Promise<void> { await deleteAppointmentBase('vaccine-appointments.json', id, 'Eliminación Cita Vacunación', ['/vacunas', '/admin', '/reports']); }
-
-
-export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>): Promise<{ success: boolean, data?: Patient, message?: string }> {
-    const filename = 'patients.json';
-    await acquireLock(filename);
-    try {
-        const patients = await readJsonFile<Patient[]>(filename, []);
-        const patientIndex = patients.findIndex(p => p.id === patientId);
-        if (patientIndex === -1) { return { success: false, message: 'Patient not found.' }; }
-        const updatedPatient = { ...patients[patientIndex], ...patientData };
-        await logTransaction({ type: 'UPDATE', entity: 'patients', timestamp: new Date().toISOString(), details: `Patient data updated`, data: updatedPatient });
-        patients[patientIndex] = updatedPatient;
-        await unsafeWriteJsonFile(filename, patients);
-        await logActivity('Actualización de Paciente', `Datos del paciente ${updatedPatient.name} (CURP: ${updatedPatient.curp}) actualizados.`);
-        revalidatePath('/admin', 'layout');
-        return { success: true, data: updatedPatient };
-    } catch(e: any) {
-        return { success: false, message: e.message };
-    } finally {
-        await releaseLock(filename);
-    }
-}
-
-export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean, message?: string }> {
-    const filename = `${type === 'medical' ? 'appointments' : type + '-appointments'}.json`;
-    await acquireLock(filename);
-    try {
-        const appointments = await readJsonFile<any[]>(filename, []);
-        const appointmentIndex = appointments.findIndex(app => app.id === appointmentId);
-        if (appointmentIndex === -1) { return { success: false, message: 'Cita no encontrada.' }; }
-        
-        const appointment = appointments[appointmentIndex];
-        appointment.status = status;
-        
-        await logTransaction({ type: 'UPDATE', entity: filename.replace('.json', ''), timestamp: new Date().toISOString(), details: `Status changed to ${status}`, data: { id: appointmentId, status: status } });
-        await unsafeWriteJsonFile(filename, appointments);
-        await logActivity('Actualización de Estado', `Folio ${appointment.appointmentNumber} (${type}) actualizado a: ${status}.`);
-        revalidatePath('/admin', 'layout');
-        return { success: true };
-    } catch(e: any) {
-      return { success: false, message: e.message };
-    } finally {
-      await releaseLock(filename);
-    }
-}
-
-export async function rescheduleAppointment(appointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message: string; newTime?: string }> {
-    const filename = `${type === 'medical' ? 'appointments' : type + '-appointments'}.json`;
-    await acquireLock(filename);
-    try {
-      const appointments = await readJsonFile<any[]>(filename, []);
-      const appointmentIndex = appointments.findIndex(app => app.id === appointmentId);
-      if (appointmentIndex === -1) return { success: false, message: 'Cita no encontrada.' };
-
-      const appointmentToReschedule = appointments[appointmentIndex];
-      const originalTime = appointmentToReschedule.time;
-      const newDateObj = new Date(newDate);
-      const newDateString = newDateObj.toISOString().split('T')[0];
-
-      appointmentToReschedule.date = newDateObj.toISOString();
-      appointmentToReschedule.status = 'Agendada';
-      
-      await logTransaction({ type: 'UPDATE', entity: filename.replace('.json', ''), timestamp: new Date().toISOString(), details: `Rescheduled to ${newDateString} at ${originalTime}`, data: appointmentToReschedule });
-      await unsafeWriteJsonFile(filename, appointments);
-
-      await logActivity('Cambio de Fecha Cita', `Folio ${appointmentToReschedule.appointmentNumber} (${type}) movido a ${newDateString} a las ${originalTime}.`);
-      revalidatePath('/admin', 'layout');
-
-      return { success: true, message: 'La fecha de la cita ha sido actualizada con éxito.', newTime: originalTime };
-    } catch (e: any) {
-        return { success: false, message: e.message || 'Ocurrió un error inesperado.' };
-    } finally {
-        await releaseLock(filename);
-    }
-}
-
-
-// ========== Backup & Restore Data ==========
-export async function createBackupData(): Promise<any> {
-    return {
-      appointments: await getAppointments(),
-      labAppointments: await getLabAppointments(),
-      xRayAppointments: await getXRayAppointments(),
-      ultrasoundAppointments: await getUltrasoundAppointments(),
-      vaccineAppointments: await getVaccineAppointments(),
-      patients: await readJsonFile<Patient[]>('patients.json', []),
-      clinics: await getClinics(),
+async function logTransaction(type: 'CREATE' | 'UPDATE' | 'DELETE' | 'BATCH_UPDATE', entity: string, data: any) {
+    const logEntry = {
+        type,
+        entity,
+        timestamp: new Date().toISOString(),
+        data
     };
+    await fs.appendFile(paths.transactionLog, JSON.stringify(logEntry) + '\n');
 }
-  
-export async function restoreBackupData(backupJsonString: string): Promise<{success: boolean, message?: string, stats?: any}> {
-    let workbookData: { [key: string]: any[] };
+
+// --- Generic Data Access Functions ---
+
+function readData<T>(type: DataType): T {
     try {
-      workbookData = JSON.parse(backupJsonString);
-    } catch (e) {
-        throw new Error('El archivo de respaldo no es un JSON válido o está corrupto.');
-    }
-    
-    const filesToLock = ['patients.json', 'appointments.json', 'lab-appointments.json', 'x-ray-appointments.json', 'ultrasound-appointments.json', 'vaccine-appointments.json'].sort();
-
-    // Get all reference data
-    const allClinics = await getClinics();
-    const clinicNameMap = new Map(allClinics.map(c => [c.name.toUpperCase(), c.id]));
-    const allLabStudies = await getLabStudies();
-    const labStudyNameMap = new Map(allLabStudies.map(s => [s.name.toUpperCase(), s]));
-    const allXRayStudies = await getXRayStudies();
-    const xRayStudyNameMap = new Map(allXRayStudies.map(s => [s.name.toUpperCase(), s]));
-    const allUltrasoundStudies = await getUltrasoundStudies();
-    const ultrasoundStudyNameMap = new Map(allUltrasoundStudies.map(s => [s.name.toUpperCase(), s]));
-    const allVaccines = await getVaccines();
-    const vaccineNameMap = new Map(allVaccines.map(v => [v.name.toUpperCase(), v]));
-
-    for(const file of filesToLock) { await acquireLock(file); }
-    try {
-        const stats: any = { added: { patients: 0, appointments: 0, labAppointments: 0, xRayAppointments: 0, ultrasoundAppointments: 0, vaccineAppointments: 0 }, errors: [] };
-        
-        // 1. Process Patients
-        const allExistingPatients = await readJsonFile<Patient[]>('patients.json', []);
-        const patientCurpMap = new Map(allExistingPatients.map(p => [p.curp.toUpperCase(), p]));
-        const newPatients: Patient[] = [];
-
-        if (workbookData['Pacientes']) {
-             for (const row of workbookData['Pacientes']) {
-                if (row.CURP && !patientCurpMap.has(row.CURP.toUpperCase())) {
-                    const newPatient: Patient = {
-                        id: row.id || uuidv4(),
-                        curp: row.CURP,
-                        name: row.Nombre,
-                        paternalLastName: row['Apellido_Paterno'],
-                        maternalLastName: row['Apellido_Materno'],
-                        sex: row.Sexo,
-                        age: row.Edad,
-                        birthState: row['Estado_Nacimiento'],
-                        phoneNumber: row['Teléfono'],
-                    };
-                    newPatients.push(newPatient);
-                    patientCurpMap.set(newPatient.curp.toUpperCase(), newPatient);
-                }
-             }
-        }
-        if (newPatients.length > 0) {
-            stats.added.patients = newPatients.length;
-            await unsafeWriteJsonFile('patients.json', [...allExistingPatients, ...newPatients]);
-        }
-        
-        // 2. Process Appointments
-        const sheetMapping = {
-            'Citas Médicas': { filename: 'appointments.json', type: 'medical'},
-            'Laboratorio': { filename: 'lab-appointments.json', type: 'lab'},
-            'Rayos X': { filename: 'x-ray-appointments.json', type: 'xray'},
-            'Ultrasonidos': { filename: 'ultrasound-appointments.json', type: 'ultrasound'},
-            'Vacunación': { filename: 'vaccine-appointments.json', type: 'vaccine'},
-        };
-
-        for (const [sheetName, { filename, type }] of Object.entries(sheetMapping)) {
-            if (!workbookData[sheetName]) continue;
-
-            const existingAppointments = await readJsonFile<any[]>(filename, []);
-            const existingAppointmentFolios = new Set(existingAppointments.map(a => a.appointmentNumber));
-            const appointmentsToAdd = [];
-
-            for (const row of workbookData[sheetName]) {
-                try {
-                    if (!row.Folio || existingAppointmentFolios.has(row.Folio)) continue;
-
-                    const patient = patientCurpMap.get(row.CURP?.toUpperCase());
-                    if (!patient) {
-                        stats.errors.push(`Paciente con CURP ${row.CURP} no encontrado para la cita ${row.Folio}.`);
-                        continue;
-                    }
-                    
-                    const dateObj = typeof row.Fecha === 'object' ? row.Fecha : parse(row.Fecha, 'dd/MM/yyyy', new Date());
-
-                    const baseAppointment: any = {
-                        id: uuidv4(),
-                        appointmentNumber: row.Folio,
-                        patientId: patient.id,
-                        date: dateObj.toISOString(),
-                        time: row.Hora,
-                        status: row.Estado,
-                    };
-
-                    if (type === 'medical') {
-                        baseAppointment.clinicId = clinicNameMap.get(row['Núcleo']?.toUpperCase());
-                        baseAppointment.patientType = row['Tipo Paciente'];
-                    } else if (type === 'lab') {
-                        baseAppointment.studies = (row.Estudios || '').split(', ').map((name: string) => labStudyNameMap.get(name.toUpperCase())).filter(Boolean);
-                    } else if (type === 'xray') {
-                        baseAppointment.studyId = xRayStudyNameMap.get(row.Estudio?.toUpperCase())?.id;
-                        baseAppointment.studyName = row.Estudio;
-                    } else if (type === 'ultrasound') {
-                        baseAppointment.studyId = ultrasoundStudyNameMap.get(row.Estudio?.toUpperCase())?.id;
-                        baseAppointment.studyName = row.Estudio;
-                    } else if (type === 'vaccine') {
-                        baseAppointment.vaccines = (row.Vacunas || '').split(', ').map((name: string) => vaccineNameMap.get(name.toUpperCase())).filter(Boolean);
-                        baseAppointment.isNewborn = row['Recién Nacido'] === 'Sí';
-                        baseAppointment.clinicId = clinicNameMap.get(row['Núcleo']?.toUpperCase());
-                    }
-
-                    appointmentsToAdd.push(baseAppointment);
-                    await logTransaction({ type: 'CREATE', entity: filename.replace('.json', ''), timestamp: new Date().toISOString(), data: baseAppointment });
-                } catch(e: any) {
-                    stats.errors.push(`Error procesando fila para cita ${row.Folio}: ${e.message}`);
-                }
-            }
-            if (appointmentsToAdd.length > 0) {
-                stats.added[filename.split('-')[0]] = appointmentsToAdd.length;
-                await unsafeWriteJsonFile(filename, [...existingAppointments, ...appointmentsToAdd]);
-            }
-        }
-        
-      const totalAdded = Object.values(stats.added).reduce((a: number, b: any) => a + b, 0);
-      await logActivity('Restauración de Respaldo', `Se agregaron ${totalAdded} nuevos registros desde el respaldo.`);
-      revalidatePath('/admin', 'layout');
-      return { success: true, stats };
-    } catch (e: any) {
-      console.error('Failed to restore backup', e);
-      return { success: false, message: e.message || 'Error al restaurar el respaldo.'};
-    } finally {
-        for(const file of filesToLock) { await releaseLock(file); }
+        const rawData = readFileSync(paths[type], 'utf-8');
+        return JSON.parse(rawData);
+    } catch (error) {
+        // Handle cases where the file might not exist, especially for new data types
+        if (type === 'announcements') return { messages: [] } as T;
+        if (type.includes('Appointments') || type === 'patients' || type === 'clinics' || type === 'colonias') return [] as T;
+        // Default empty object for settings that might not exist yet
+        if (type.includes('Settings')) return {} as T;
+        return [] as T;
     }
 }
-  
 
-export async function cleanupOldAppointments(): Promise<{deletedCount: number}> {
-    const appointmentFiles = ['appointments.json', 'lab-appointments.json', 'x-ray-appointments.json', 'ultrasound-appointments.json', 'vaccine-appointments.json'];
-    let totalDeleted = 0;
+async function writeData<T>(type: DataType, data: T): Promise<void> {
+    return await fs.writeFile(paths[type], JSON.stringify(data, null, 2), 'utf-8');
+}
 
-    const today = new Date();
-    const firstDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    for (const filename of appointmentFiles) {
-        await acquireLock(filename);
-        try {
-            const appointments = await readJsonFile<any[]>(filename, []);
-            const originalCount = appointments.length;
-            const recentAppointments = appointments.filter(app => new Date(app.date) >= firstDayOfCurrentMonth);
-            const deletedCount = originalCount - recentAppointments.length;
-            if (deletedCount > 0) {
-                await logTransaction({ type: 'DELETE', entity: 'system', timestamp: new Date().toISOString(), details: `Cleanup old records from ${filename}. ${deletedCount} records deleted.`, data: { count: deletedCount, file: filename } });
-                await unsafeWriteJsonFile(filename, recentAppointments);
-                totalDeleted += deletedCount;
-            }
-        } finally {
-            await releaseLock(filename);
-        }
-    }
+// --- Specific Data Functions ---
 
-    if (totalDeleted > 0) {
-        await logActivity('Limpieza de Registros', `Se eliminaron ${totalDeleted} citas antiguas de meses anteriores.`);
-    }
-    revalidatePath('/admin', 'layout');
-    return { deletedCount: totalDeleted };
+// Settings
+export async function getAnnouncements(): Promise<string[]> { return readData<{ messages: string[] }>('announcements').messages || []; }
+export async function updateAnnouncements(newAnnouncements: string[]) {
+    return withFileLock(async () => {
+        const data = { messages: newAnnouncements.slice(0, 4) }; // Max 4
+        await logTransaction('UPDATE', 'announcements', data);
+        await writeData('announcements', data);
+        return { success: true };
+    });
+}
+export async function getModuleSettings(): Promise<ModuleSettings> { return readData<ModuleSettings>('moduleSettings'); }
+export async function updateModuleSettings(settings: ModuleSettings) { 
+    return withFileLock(async () => {
+        await logTransaction('UPDATE', 'moduleSettings', settings);
+        await writeData('moduleSettings', settings);
+        return { success: true };
+    });
+}
+export async function getLabSettings(): Promise<LabSettings> { return readData<LabSettings>('labSettings'); }
+export async function updateLabSettings(settings: LabSettings) {
+    return withFileLock(async () => {
+        await logTransaction('UPDATE', 'labSettings', settings);
+        await writeData('labSettings', settings);
+        return { success: true };
+    });
+}
+export async function getXRaySettings(): Promise<XRaySettings> { return readData<XRaySettings>('xraySettings'); }
+export async function updateXRaySettings(settings: XRaySettings) {
+    return withFileLock(async () => {
+        await logTransaction('UPDATE', 'xraySettings', settings);
+        await writeData('xraySettings', settings);
+        return { success: true };
+    });
+}
+export async function getUltrasoundSettings(): Promise<UltrasoundSettings> { return readData<UltrasoundSettings>('ultrasoundSettings'); }
+export async function updateUltrasoundSettings(settings: UltrasoundSettings) {
+    return withFileLock(async () => {
+        await logTransaction('UPDATE', 'ultrasoundSettings', settings);
+        await writeData('ultrasoundSettings', settings);
+        return { success: true };
+    });
+}
+export async function getVaccineSettings(): Promise<VaccineSettings> { return readData<VaccineSettings>('vaccineSettings'); }
+export async function updateVaccineSettings(settings: VaccineSettings) {
+    return withFileLock(async () => {
+        await logTransaction('UPDATE', 'vaccineSettings', settings);
+        await writeData('vaccineSettings', settings);
+        return { success: true };
+    });
+}
+
+// Collections
+export async function getClinics(): Promise<Clinic[]> { return readData<Clinic[]>('clinics'); }
+export async function updateClinics(clinics: Clinic[]) {
+    return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'clinics', clinics);
+        await writeData('clinics', clinics);
+        return { success: true };
+    });
+}
+
+export async function getColonias(): Promise<Colonia[]> { return readData<Colonia[]>('colonias'); }
+export async function updateColonias(colonias: Colonia[]) {
+    return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'colonias', colonias);
+        await writeData('colonias', colonias);
+        return { success: true };
+    });
+}
+
+export async function getLabStudies(): Promise<LabStudy[]> { return readData<LabStudy[]>('labStudies'); }
+export async function updateLabStudies(studies: LabStudy[]) {
+    return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'labStudies', studies);
+        await writeData('labStudies', studies);
+        return { success: true };
+    });
+}
+
+export async function getXRayStudies(): Promise<XRayStudy[]> { return readData<XRayStudy[]>('xrayStudies'); }
+export async function updateXRayStudies(studies: XRayStudy[]) {
+    return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'xrayStudies', studies);
+        await writeData('xrayStudies', studies);
+        return { success: true };
+    });
+}
+
+export async function getUltrasoundStudies(): Promise<UltrasoundStudy[]> { return readData<UltrasoundStudy[]>('ultrasoundStudies'); }
+export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
+    return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'ultrasoundStudies', studies);
+        await writeData('ultrasoundStudies', studies);
+        return { success: true };
+    });
+}
+
+export async function getVaccines(): Promise<Vaccine[]> { return readData<Vaccine[]>('vaccines'); }
+export async function updateVaccines(vaccines: Vaccine[]) {
+    return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'vaccines', vaccines);
+        await writeData('vaccines', vaccines);
+        return { success: true };
+    });
+}
+
+export async function getUsers(): Promise<User[]> { return readData<User[]>('users'); }
+export async function updateUsers(users: User[]) {
+     return withFileLock(async () => {
+        await logTransaction('BATCH_UPDATE', 'users', users);
+        await writeData('users', users);
+        return { success: true };
+    });
+}
+
+export async function getLogs(): Promise<ActivityLog[]> {
+    const logs = readData<ActivityLog[]>('activityLog');
+    // Sort by timestamp descending
+    return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 500);
+}
+
+// Passwords
+export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { 
+    const clinics = await getClinics(); 
+    const clinic = clinics.find(c => c.id === clinicId); 
+    if (!clinic) return { isValid: false, error: 'La clínica seleccionada no existe.' }; 
+    return { isValid: clinic.password === passwordAttempt, error: clinic.password !== passwordAttempt ? 'La contraseña es incorrecta.' : undefined }; 
+}
+export async function verifyLabPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getLabSettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'Contraseña incorrecta.' : undefined }; }
+export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getXRaySettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'Contraseña incorrecta.' : undefined }; }
+export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getUltrasoundSettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'Contraseña incorrecta.' : undefined }; }
+export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { const settings = await getVaccineSettings(); return { isValid: settings.password === passwordAttempt, error: settings.password !== passwordAttempt ? 'Contraseña incorrecta.' : undefined }; }
+
+
+// --- Patient & Appointment Data ---
+async function getFullAppointments<T extends { patientId: string }>(appointmentType: DataType): Promise<Array<T & { patient: Patient | undefined }>> {
+    const appointments = readData<T[]>(appointmentType);
+    const patients = readData<Patient[]>('patients');
+    const patientMap = new Map(patients.map(p => [p.id, p]));
+    return appointments.map(app => ({
+        ...app,
+        patient: patientMap.get(app.patientId)
+    }));
+}
+export async function getAppointments(): Promise<(Appointment & { patient: Patient | undefined })[]> { return getFullAppointments<Appointment>('appointments'); }
+export async function getLabAppointments(): Promise<(LabAppointment & { patient: Patient | undefined })[]> { return getFullAppointments<LabAppointment>('labAppointments'); }
+export async function getXRayAppointments(): Promise<(XRayAppointment & { patient: Patient | undefined })[]> { return getFullAppointments<XRayAppointment>('xrayAppointments'); }
+export async function getUltrasoundAppointments(): Promise<(UltrasoundAppointment & { patient: Patient | undefined })[]> { return getFullAppointments<UltrasoundAppointment>('ultrasoundAppointments'); }
+export async function getVaccineAppointments(): Promise<(VaccineAppointment & { patient: Patient | undefined })[]> { return getFullAppointments<VaccineAppointment>('vaccineAppointments'); }
+
+
+export async function getPatientByCURP(curp: string): Promise<Patient | null> {
+    const patients = readData<Patient[]>('patients');
+    return patients.find(p => p.curp.toUpperCase() === curp.toUpperCase()) || null;
+}
+
+export async function getPatientById(id: string): Promise<Patient | null> {
+    const patients = readData<Patient[]>('patients');
+    return patients.find(p => p.id === id) || null;
 }
 
 export async function getAppointmentById(id: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<any | null> {
-    const filename = `${type === 'medical' ? 'appointments' : type + '-appointments'}.json`;
-    const appointments = await readJsonFile<any[]>(filename, []);
+    const collectionName = type === 'medical' ? 'appointments' : `${type.toLowerCase()}-appointments`;
+    const appointments = readData<any[]>(collectionName as DataType);
     const appointment = appointments.find(app => app.id === id);
     if (!appointment) return null;
     const patient = await getPatientById(appointment.patientId);
-    return patient ? { ...appointment, patient: { ...patient } } : appointment;
+    return { ...appointment, patient };
+}
+
+
+export async function getAppointmentsForClinic(clinicId: string): Promise<(Appointment & { patient: Patient | undefined })[]> {
+    const appointments = await getAppointments();
+    return appointments.filter(a => a.clinicId === clinicId);
+}
+
+async function getAppointmentsByDateGeneric<T extends { date: string }>(appointmentType: DataType, date: Date): Promise<Array<T & { patient: Patient | undefined }>> {
+    const allAppointments = await getFullAppointments<T>(appointmentType);
+    const targetDate = format(date, 'yyyy-MM-dd');
+    return allAppointments.filter(app => format(new Date(app.date), 'yyyy-MM-dd') === targetDate);
+}
+export const getAppointmentsByDate = async (date: Date) => getAppointmentsByDateGeneric<Appointment>('appointments', date);
+export const getLabAppointmentsByDate = async (date: Date) => getAppointmentsByDateGeneric<LabAppointment>('labAppointments', date);
+export const getXRayAppointmentsByDate = async (date: Date) => getAppointmentsByDateGeneric<XRayAppointment>('xrayAppointments', date);
+export const getUltrasoundAppointmentsByDate = async (date: Date) => getAppointmentsByDateGeneric<UltrasoundAppointment>('ultrasoundAppointments', date);
+export const getVaccineAppointmentsByDate = async (date: Date) => getAppointmentsByDateGeneric<VaccineAppointment>('vaccineAppointments', date);
+
+async function logActivity(action: string, details: string) {
+    return withFileLock(async () => {
+        const logs = await getLogs();
+        const newLog = { id: uuidv4(), timestamp: new Date().toISOString(), action, details };
+        logs.unshift(newLog); // Add to the beginning
+        await writeData('activityLog', logs.slice(0, 500)); // Keep only the latest 500
+    });
+}
+
+// --- Data Mutation Functions (with locking) ---
+
+async function saveAppointmentBase<T extends { patientId?: string, date: string }>(
+    appointmentType: DataType,
+    appointmentData: T,
+    patientData: Omit<Patient, 'id'>,
+    logAction: string,
+    validationFn: (allApps: any[], clinic?: Clinic) => Promise<void> = async () => {}
+): Promise<T & { patient: Patient }> {
+    return withFileLock(async () => {
+        const allAppointments = readData<any[]>(appointmentType);
+        const patients = readData<Patient[]>('patients');
+        
+        let clinic: Clinic | undefined;
+        if ((appointmentData as Appointment).clinicId) {
+            const clinics = await getClinics();
+            clinic = clinics.find(c => c.id === (appointmentData as Appointment).clinicId);
+            if (!clinic) throw new Error("La clínica seleccionada no es válida.");
+        }
+
+        await validationFn(allAppointments, clinic);
+
+        let existingPatient = patients.find(p => p.curp.toUpperCase() === patientData.curp.toUpperCase());
+        let patientId: string;
+
+        if (existingPatient) {
+            // Update existing patient
+            Object.assign(existingPatient, patientData);
+            patientId = existingPatient.id;
+        } else {
+            // Create new patient
+            patientId = uuidv4();
+            existingPatient = { id: patientId, ...patientData };
+            patients.push(existingPatient);
+        }
+
+        const newAppointment = { ...appointmentData, id: uuidv4(), patientId, status: 'Agendada' };
+        allAppointments.push(newAppointment);
+
+        await logTransaction('CREATE', appointmentType, { appointment: newAppointment, patient: existingPatient });
+        
+        await writeData('patients', patients);
+        await writeData(appointmentType, allAppointments);
+        await logActivity(logAction, `Folio ${newAppointment.appointmentNumber} para ${existingPatient.name}.`);
+
+        return { ...newAppointment, patient: existingPatient };
+    });
+}
+
+export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>): Promise<Appointment> {
+    const validationFn = async (allApps: Appointment[], clinic?: Clinic) => {
+        if (!clinic) throw new Error("Clínica no proporcionada para validación.");
+        
+        const date = new Date(appointmentData.date);
+        const dateString = appointmentData.date.split('T')[0];
+        
+        const isWeekend = isSaturday(date) || isSunday(date);
+        const dayOfWeek = date.getDay();
+        const dayOfWeekMap: { [key: string]: number } = { "Domingo": 0, "Lunes": 1, "Martes": 2, "Miércoles": 3, "Jueves": 4, "Viernes": 5, "Sábado": 6 };
+        
+        if (clinic.dayOfAction && dayOfWeekMap[clinic.dayOfAction] === dayOfWeek) {
+             throw new Error(`No se pueden agendar citas los ${clinic.dayOfAction} en este núcleo.`);
+        }
+        if(clinic.unavailableDates?.includes(dateString)) {
+             throw new Error("El núcleo no tiene citas disponibles en la fecha seleccionada por vacaciones.");
+        }
+        if (isWeekend && !clinic.weekendBookingEnabled) {
+            throw new Error("Este núcleo no permite citas en fin de semana.");
+        }
+        
+        const appointmentsOnDate = allApps.filter(app => app.clinicId === clinic.id && app.date.startsWith(dateString));
+        if (appointmentsOnDate.length >= clinic.dailySlots) {
+            throw new Error("No hay más cupos disponibles en este núcleo para la fecha seleccionada.");
+        }
+        if (appointmentsOnDate.some(app => app.time === appointmentData.time)) {
+            throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
+        }
+        const existingPatient = await getPatientByCURP(patientData.curp);
+        if(allApps.some(app => app.patientId === existingPatient?.id && app.date.startsWith(dateString))) {
+            throw new Error('Ya existe una cita agendada con esta CURP para el día seleccionado.');
+        }
+    };
+    return saveAppointmentBase('appointments', appointmentData, patientData, 'Creación Cita Médica', validationFn);
+}
+export async function saveLabAppointment(appointmentData: any, patientData: any, settings: { dailySlots: number, weekendBookingEnabled: boolean }): Promise<any> { return saveAppointmentBase('labAppointments', appointmentData, patientData, 'Creación Cita Laboratorio'); }
+export async function saveXRayAppointment(appointmentData: any, patientData: any): Promise<any> { return saveAppointmentBase('xrayAppointments', appointmentData, patientData, 'Creación Cita Rayos X'); }
+export async function saveUltrasoundAppointment(appointmentData: any, patientData: any): Promise<any> { return saveAppointmentBase('ultrasoundAppointments', appointmentData, patientData, 'Creación Cita Ultrasonido'); }
+export async function saveVaccineAppointment(appointmentData: any, patientData: any): Promise<any> { return saveAppointmentBase('vaccineAppointments', appointmentData, patientData, 'Creación Cita Vacunación'); }
+
+
+async function deleteAppointmentBase(appointmentType: DataType, id: string, logAction: string) {
+    return withFileLock(async () => {
+        let allAppointments = readData<any[]>(appointmentType);
+        const appointmentToDelete = allAppointments.find(app => app.id === id);
+        if (!appointmentToDelete) return; // Already deleted
+        
+        const filteredAppointments = allAppointments.filter(app => app.id !== id);
+        
+        await logTransaction('DELETE', appointmentType, appointmentToDelete);
+        await writeData(appointmentType, filteredAppointments);
+        await logActivity(logAction, `Se eliminó el folio: ${appointmentToDelete.appointmentNumber}.`);
+    });
+}
+export async function deleteAppointment(id: string) { await deleteAppointmentBase('appointments', id, 'Eliminación Cita Médica'); }
+export async function deleteLabAppointment(id: string) { await deleteAppointmentBase('labAppointments', id, 'Eliminación Cita Laboratorio'); }
+export async function deleteXRayAppointment(id: string) { await deleteAppointmentBase('xrayAppointments', id, 'Eliminación Cita Rayos X'); }
+export async function deleteUltrasoundAppointment(id: string) { await deleteAppointmentBase('ultrasoundAppointments', id, 'Eliminación Cita Ultrasonido'); }
+export async function deleteVaccineAppointment(id: string) { await deleteAppointmentBase('vaccineAppointments', id, 'Eliminación Cita Vacunación'); }
+
+export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {
+    return withFileLock(async () => {
+        const patients = readData<Patient[]>('patients');
+        const patientIndex = patients.findIndex(p => p.id === patientId);
+        if (patientIndex === -1) {
+            return { success: false, message: 'Patient not found.' };
+        }
+        const updatedPatient = { ...patients[patientIndex], ...patientData };
+        patients[patientIndex] = updatedPatient;
+        
+        await logTransaction('UPDATE', 'patients', updatedPatient);
+        await writeData('patients', patients);
+        await logActivity('Actualización de Paciente', `Datos del paciente con ID ${patientId} actualizados.`);
+        return { success: true };
+    });
+}
+
+export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message?: string }> {
+    const collectionName = type === 'medical' ? 'appointments' : `${type.toLowerCase()}-appointments`;
+    return withFileLock(async () => {
+        const appointments = readData<any[]>(collectionName as DataType);
+        const appIndex = appointments.findIndex(a => a.id === appointmentId);
+        if (appIndex === -1) return { success: false, message: 'Cita no encontrada.' };
+
+        appointments[appIndex].status = status;
+
+        await logTransaction('UPDATE', collectionName, appointments[appIndex]);
+        await writeData(collectionName as DataType, appointments);
+        await logActivity('Actualización de Estado', `Cita ${appointments[appIndex].appointmentNumber} (${type}) actualizada a: ${status}.`);
+        return { success: true };
+    });
+}
+
+export async function rescheduleAppointment(appointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message: string; newTime?: string }> {
+    const collectionName = type === 'medical' ? 'appointments' : `${type.toLowerCase()}-appointments`;
+     return withFileLock(async () => {
+        const appointments = readData<any[]>(collectionName as DataType);
+        const appIndex = appointments.findIndex(a => a.id === appointmentId);
+        if (appIndex === -1) return { success: false, message: 'Cita no encontrada.' };
+
+        appointments[appIndex].date = newDate;
+        appointments[appIndex].status = 'Agendada';
+
+        await logTransaction('UPDATE', collectionName, appointments[appIndex]);
+        await writeData(collectionName as DataType, appointments);
+        await logActivity('Cambio de Fecha Cita', `Cita ${appointments[appIndex].appointmentNumber} (${type}) movida a ${newDate}.`);
+        return { success: true, message: 'Fecha de la cita actualizada.' };
+    });
 }
 
 export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message: string; data?: any }> {
-  try {
-    const originalAppointment = await getAppointmentById(originalAppointmentId, type);
-    if (!originalAppointment) { throw new Error('Cita original no encontrada.'); }
-    const patientData = originalAppointment.patient;
-    if (!patientData) { throw new Error('Paciente no encontrado.'); }
-    const newAppointmentBase = { ...originalAppointment, date: newDate };
-    let result: { success: boolean; data?: any; error?: string };
+    return withFileLock(async () => {
+        const originalAppointment = await getAppointmentById(originalAppointmentId, type);
+        if (!originalAppointment) throw new Error('Cita original no encontrada.');
 
-    // This is a "transaction" of its own, so we let the underlying save functions handle the locking and logging.
-    if (type === 'medical') { const { id, patientId, patient, status, ...payload } = newAppointmentBase; payload.appointmentNumber = ''; const newApp = await saveAppointment(payload, patientData); result = { success: true, data: {appointment: newApp, clinic: await getClinics().then(c => c.find(cl => cl.id === newApp.clinicId)!)}};
-    } else if (type === 'lab') { const { id, patientId, patient, status, ...payload } = newAppointmentBase; payload.appointmentNumber = ''; const newApp = await saveLabAppointment(payload, patientData); result = { success: true, data: newApp };
-    } else if (type === 'xray') { const { id, patientId, patient, status, ...payload } = newAppointmentBase; payload.appointmentNumber = ''; const newApp = await saveXRayAppointment(payload, patientData); result = { success: true, data: newApp };
-    } else if (type === 'ultrasound') { const { id, patientId, patient, status, ...payload } = newAppointmentBase; payload.appointmentNumber = ''; const newApp = await saveUltrasoundAppointment(payload, patientData); result = { success: true, data: newApp };
-    } else if (type === 'vaccine') { const { id, patientId, patient, status, ...payload } = newAppointmentBase; payload.appointmentNumber = ''; const newApp = await saveVaccineAppointment(payload, patientData); result = { success: true, data: newApp };
-    } else { throw new Error('Tipo de cita no válido para clonación.'); }
+        const { id, patientId, patient, status, date, appointmentNumber, ...payload } = originalAppointment;
+        if (!patient) throw new Error('Paciente no encontrado en la cita original.');
+        
+        const newAppointmentData = { ...payload, date: newDate, appointmentNumber: `${type.substring(0,3).toUpperCase()}-${uuidv4().split('-')[0]}` };
+        let result: any;
+        
+        if (type === 'medical') {
+            result = await saveAppointment(newAppointmentData, patient);
+        } else if (type === 'lab') {
+            const labSettings = await getLabSettings();
+            result = await saveLabAppointment(newAppointmentData, patient, labSettings);
+        } else if (type === 'xray') {
+            result = await saveXRayAppointment(newAppointmentData, patient);
+        } else if (type === 'ultrasound') {
+            result = await saveUltrasoundAppointment(newAppointmentData, patient);
+        } else if (type === 'vaccine') {
+            result = await saveVaccineAppointment(newAppointmentData, patient);
+        } else {
+            throw new Error('Tipo de cita no válido.');
+        }
 
-    if (!result.success) { throw new Error(result.error || 'No se pudo crear la nueva cita clonada.'); }
-    
-    await logActivity('Clonación de Cita', `Folio original ${originalAppointment.appointmentNumber} clonado a nuevo folio ${result.data?.appointment?.appointmentNumber || result.data?.appointmentNumber}.`);
-    revalidatePath('/admin', 'layout');
-
-    const newAppointmentNumber = result.data?.appointment?.appointmentNumber || result.data?.appointmentNumber;
-    return { success: true, message: `Nueva cita asignada con folio ${newAppointmentNumber}`, data: result.data };
-  } catch (e: any) {
-    return { success: false, message: e.message };
-  }
+        await logActivity('Clonación de Cita', `Folio original ${appointmentNumber} clonado a nuevo folio ${result.appointmentNumber}.`);
+        return { success: true, message: `Nueva cita asignada con folio ${result.appointmentNumber}`, data: result };
+    });
 }
 
-export const getLogs = async (): Promise<ActivityLog[]> => {
-    return readJsonFile<ActivityLog[]>('activity-log.json', []);
-};
+
+// --- Backup & Restore ---
+export async function createBackupData() {
+    const data = {
+        appointments: await getAppointments(),
+        labAppointments: await getLabAppointments(),
+        xRayAppointments: await getXRayAppointments(),
+        ultrasoundAppointments: await getUltrasoundAppointments(),
+        vaccineAppointments: await getVaccineAppointments(),
+        patients: readData<Patient[]>('patients'),
+        clinics: await getClinics(),
+    };
+    return data;
+}
+  
+export async function restoreBackupData(backup: any) {
+    return withFileLock(async () => {
+        const stats = { newAppointments: 0, newLabAppointments: 0, newXRayAppointments: 0, newUltrasoundAppointments: 0, newVaccineAppointments: 0, newPatients: 0 };
+
+        const allAppointments = readData<Appointment[]>('appointments');
+        const allLabAppointments = readData<LabAppointment[]>('labAppointments');
+        const allXRayAppointments = readData<XRayAppointment[]>('xrayAppointments');
+        const allUltrasoundAppointments = readData<UltrasoundAppointment[]>('ultrasoundAppointments');
+        const allVaccineAppointments = readData<VaccineAppointment[]>('vaccineAppointments');
+        const allPatients = readData<Patient[]>('patients');
+
+        const existingPatientCURPs = new Set(allPatients.map(p => p.curp));
+        if (backup.patients) {
+            for (const patient of backup.patients) {
+                if (!existingPatientCURPs.has(patient.curp)) {
+                    allPatients.push(patient);
+                    stats.newPatients++;
+                }
+            }
+        }
+
+        const restoreApps = (backupApps: any[], existingApps: any[], type: keyof typeof stats) => {
+            if (!backupApps) return;
+            const existingAppNumbers = new Set(existingApps.map(a => a.appointmentNumber));
+            for (const app of backupApps) {
+                if (!existingAppNumbers.has(app.appointmentNumber)) {
+                    existingApps.push(app);
+                    (stats as any)[type]++;
+                }
+            }
+        };
+
+        restoreApps(backup.appointments, allAppointments, 'newAppointments');
+        restoreApps(backup.labAppointments, allLabAppointments, 'newLabAppointments');
+        restoreApps(backup.xRayAppointments, allXRayAppointments, 'newXRayAppointments');
+        restoreApps(backup.ultrasoundAppointments, allUltrasoundAppointments, 'newUltrasoundAppointments');
+        restoreApps(backup.vaccineAppointments, allVaccineAppointments, 'newVaccineAppointments');
+
+        await logTransaction('BATCH_UPDATE', 'restore', backup);
+
+        await writeData('patients', allPatients);
+        await writeData('appointments', allAppointments);
+        await writeData('labAppointments', allLabAppointments);
+        await writeData('xRayAppointments', allXRayAppointments);
+        await writeData('ultrasoundAppointments', allUltrasoundAppointments);
+        await writeData('vaccineAppointments', allVaccineAppointments);
+        
+        const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
+        await logActivity('Restauración de Respaldo', `Se restauraron un total de ${total} registros.`);
+
+        return { success: true, stats };
+    });
+}
+
+export async function cleanupOldAppointments() {
+    return withFileLock(async () => {
+        const today = new Date();
+        const firstDayOfCurrentMonth = startOfMonth(today);
+        let totalDeleted = 0;
+
+        const cleanup = async (type: DataType) => {
+            const data = readData<any[]>(type);
+            const newData = data.filter(item => new Date(item.date) >= firstDayOfCurrentMonth);
+            const deletedCount = data.length - newData.length;
+            if (deletedCount > 0) {
+                await writeData(type, newData);
+                totalDeleted += deletedCount;
+            }
+        };
+
+        await cleanup('appointments');
+        await cleanup('labAppointments');
+        await cleanup('xrayAppointments');
+        await cleanup('ultrasoundAppointments');
+        await cleanup('vaccineAppointments');
+
+        if (totalDeleted > 0) {
+            await logActivity('Limpieza de Registros', `Se eliminaron ${totalDeleted} citas antiguas de meses anteriores.`);
+        }
+        
+        return { deletedCount: totalDeleted };
+    });
+}

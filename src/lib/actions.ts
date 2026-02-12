@@ -58,7 +58,6 @@ import {
   updateModuleSettings as dataUpdateModuleSettings,
   updateAppointmentStatus as dataUpdateAppointmentStatus,
   rescheduleAppointment as dataRescheduleAppointment,
-  getAppointmentById as dataGetAppointmentById,
   createBackupData,
   restoreBackupData,
   cleanupOldAppointments,
@@ -114,7 +113,6 @@ export async function saveNewAppointment(
     const clinics = await dataGetClinics();
     const clinic = clinics.find(c => c.id === newAppointment.clinicId);
     if (!clinic) {
-        // This case should ideally not happen if validation is correct before saving
         throw new Error('Clinic data not found for the created appointment.');
     }
 
@@ -129,13 +127,14 @@ export async function saveNewAppointment(
 
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>
+  patientData: Omit<Patient, 'id'>,
+  settings: { dailySlots: number, weekendBookingEnabled: boolean }
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-
     const newAppointment = await dataSaveLabAppointment(
       appointmentData,
-      patientData
+      patientData,
+      settings
     );
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
@@ -505,7 +504,7 @@ export async function updateVaccines(vaccines: Vaccine[]) {
 export async function updateModuleSettings(settings: ModuleSettings) {
     const result = await dataUpdateModuleSettings(settings);
     if (result.success) {
-        revalidatePath('/');
+        revalidatePath('/', 'layout');
         revalidatePath('/citas-medicas');
         revalidatePath('/laboratorio');
         revalidatePath('/rayos-x');
@@ -553,17 +552,15 @@ export async function downloadBackupAction(): Promise<{ success: boolean; data?:
     }
   }
   
-  export async function restoreBackupAction(backupJsonString: string): Promise<{ success: boolean; message?: string; stats?: any }> {
-    try {
-      const result = await restoreBackupData(backupJsonString);
-      if (result.success) {
-        revalidatePath('/admin', 'layout'); 
-      }
-      return result;
-    } catch (e: any) {
-      return { success: false, message: 'El archivo de respaldo no es un JSON válido o está corrupto.' };
-    }
+export async function restoreBackupAction(backupData: any): Promise<{ success: boolean; message?: string; stats?: any }> {
+  try {
+    const stats = await restoreBackupData(backupData);
+    revalidatePath('/', 'layout');
+    return { success: true, stats, message: 'Restauración completada.' };
+  } catch (e: any) {
+    return { success: false, message: e.message || 'Error al restaurar el respaldo.' };
   }
+}
   
 
 export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {

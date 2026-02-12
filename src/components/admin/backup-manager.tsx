@@ -23,9 +23,6 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import * as xlsx from 'xlsx';
-import { format, parseISO } from 'date-fns';
-import type { Clinic, Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
-
 
 export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => void }) {
   const [isDownloading, startDownloadTransition] = useTransition();
@@ -40,62 +37,20 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
       if (result.success && result.data) {
         try {
             const workbook = xlsx.utils.book_new();
-            const clinics: Clinic[] = result.data.clinics || [];
-            const clinicMap = new Map(clinics.map(c => [c.id, c.name]));
 
-            const createSheet = (sheetName: string, appointments: any[], type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') => {
-                if (!appointments || appointments.length === 0) return;
-
-                const worksheetData = appointments.map((item) => {
-                    const baseData: any = {
-                        'Folio': item.appointmentNumber,
-                        'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
-                        'Hora': item.time,
-                        'Estado': item.status,
-                        'Paciente': item.patient ? `${item.patient.name} ${item.patient.paternalLastName} ${item.patient.maternalLastName}`: 'N/A',
-                        'CURP': item.patient?.curp || 'N/A',
-                        'Teléfono': item.patient?.phoneNumber || 'N/A',
-                    };
-
-                    if (type === 'lab') {
-                        baseData['Estudios'] = (item as LabAppointment).studies.map(s => s.name).join(', ');
-                    } else if (type === 'xray') {
-                        baseData['Estudio'] = (item as XRayAppointment).studyName;
-                    } else if (type === 'ultrasound') {
-                        baseData['Estudio'] = (item as UltrasoundAppointment).studyName;
-                    } else if (type === 'vaccine') {
-                        baseData['Vacunas'] = (item as VaccineAppointment).vaccines.map(v => v.name).join(', ');
-                        baseData['Recién Nacido'] = (item as VaccineAppointment).isNewborn ? 'Sí' : 'No';
-                    } else { // medical
-                        const regularItem = item as Appointment;
-                        baseData['Núcleo'] = clinicMap.get(regularItem.clinicId) || 'N/A';
-                        baseData['Tipo Paciente'] = regularItem.patientType;
-                    }
-                    return baseData;
-                });
-                
-                const worksheet = xlsx.utils.json_to_sheet(worksheetData);
-                if (worksheetData.length > 0) {
-                    const cols = Object.keys(worksheetData[0]);
-                    const colWidths = cols.map(col => ({
-                        wch: Math.max(...worksheetData.map(row => (row[col as keyof typeof row] ?? '').toString().length), col.length) + 1
-                    }));
-                    worksheet['!cols'] = colWidths;
-                }
+            const createSheet = (sheetName: string, data: any[], headers: string[]) => {
+                if (!data || data.length === 0) return;
+                const worksheet = xlsx.utils.json_to_sheet(data, { header: headers });
                 xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
             };
 
-            createSheet('Citas Médicas', result.data.appointments, 'medical');
-            createSheet('Laboratorio', result.data.labAppointments, 'lab');
-            createSheet('Rayos X', result.data.xRayAppointments, 'xray');
-            createSheet('Ultrasonidos', result.data.ultrasoundAppointments, 'ultrasound');
-            createSheet('Vacunación', result.data.vaccineAppointments, 'vaccine');
-
-            // Also add patients sheet
-            if (result.data.patients && result.data.patients.length > 0) {
-                 const worksheet = xlsx.utils.json_to_sheet(result.data.patients);
-                 xlsx.utils.book_append_sheet(workbook, worksheet, 'Pacientes');
-            }
+            createSheet('Citas Médicas', result.data.appointments, ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'clinicName', 'patientType']);
+            createSheet('Laboratorio', result.data.labAppointments, ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'studies']);
+            createSheet('Rayos X', result.data.xRayAppointments, ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'studyName']);
+            createSheet('Ultrasonidos', result.data.ultrasoundAppointments, ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'studyName']);
+            createSheet('Vacunación', result.data.vaccineAppointments, ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'vaccines', 'isNewborn']);
+            createSheet('Pacientes', result.data.patients, ['curp', 'name', 'paternalLastName', 'maternalLastName', 'phoneNumber']);
+            createSheet('Clinicas', result.data.clinics, ['id', 'name', 'doctorName']);
             
             const date = new Date().toISOString().split('T')[0];
             xlsx.writeFile(workbook, `respaldo_completo_${date}.xlsx`);
@@ -124,56 +79,64 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
   const handleRestoreClick = () => {
     fileInputRef.current?.click();
   };
-
+  
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        const content = e.target?.result;
-        if (content instanceof ArrayBuffer) {
-            startRestoreTransition(async () => {
-                try {
-                    const workbook = xlsx.read(content, { type: 'buffer', cellDates: true });
-                    const backupData: { [key: string]: any[] } = {};
-
-                    for (const sheetName of workbook.SheetNames) {
-                        const worksheet = workbook.Sheets[sheetName];
-                        if (!worksheet) continue;
-                        const jsonData = xlsx.utils.sheet_to_json(worksheet);
-                        backupData[sheetName] = jsonData;
-                    }
-
-                    const result = await restoreBackupAction(JSON.stringify(backupData));
-                    
-                    if (result.success && result.stats) {
-                        const totalAdded = Object.values(result.stats.added).reduce((acc: number, count: any) => acc + count, 0);
-                        toast({
-                            title: 'Respaldo Restaurado con Éxito',
-                            description: `Se agregaron ${totalAdded} nuevos registros. Los registros existentes no fueron modificados.`,
-                            duration: 8000,
-                        });
-                        onRestoreSuccess?.();
-                    } else {
-                        toast({
-                            title: 'Error al Restaurar',
-                            description: result.message || 'El archivo de respaldo parece ser inválido o está corrupto.',
-                            variant: 'destructive',
+        const data = e.target?.result;
+        if (typeof data !== 'string') return;
+        
+        startRestoreTransition(async () => {
+            try {
+                const workbook = xlsx.read(data, {type: 'binary'});
+                const backupData: any = {};
+                
+                // Helper to parse sheets
+                const parseSheet = (sheetName: string, keys: string[]) => {
+                    const sheet = workbook.Sheets[sheetName];
+                    if (sheet) {
+                        return xlsx.utils.sheet_to_json(sheet, {
+                           header: keys,
+                           range: 1 // Skip header row
                         });
                     }
-                } catch (parseError: any) {
+                    return [];
+                };
+
+                backupData.appointments = parseSheet('Citas Médicas', ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'clinicName', 'patientType']);
+                backupData.labAppointments = parseSheet('Laboratorio', ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'studies']);
+                backupData.xRayAppointments = parseSheet('Rayos X', ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'studyName']);
+                backupData.ultrasoundAppointments = parseSheet('Ultrasonidos', ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'studyName']);
+                backupData.vaccineAppointments = parseSheet('Vacunación', ['appointmentNumber', 'date', 'time', 'status', 'patient.name', 'patient.curp', 'patient.phoneNumber', 'vaccines', 'isNewborn']);
+                backupData.patients = parseSheet('Pacientes', ['curp', 'name', 'paternalLastName', 'maternalLastName', 'phoneNumber']);
+                
+                const result = await restoreBackupAction(backupData);
+                if (result.success && result.stats) {
+                    const { newAppointments, newLabAppointments, newXRayAppointments, newUltrasoundAppointments, newVaccineAppointments, newPatients } = result.stats;
+                    const total = newAppointments + newLabAppointments + newXRayAppointments + newUltrasoundAppointments + newVaccineAppointments + newPatients;
                     toast({
-                        title: 'Error al Leer Archivo',
-                        description: 'No se pudo procesar el archivo Excel. Asegúrate que tiene el formato correcto.',
-                        variant: 'destructive',
+                        title: 'Restauración Completada',
+                        description: `Se agregaron ${total} registros nuevos. Los datos existentes no fueron modificados.`,
+                        duration: 8000,
                     });
+                    onRestoreSuccess?.();
+                } else {
+                    throw new Error(result.message || 'Error desconocido durante la restauración.');
                 }
-            });
-        }
+            } catch (error: any) {
+                toast({
+                    title: 'Error al Procesar Respaldo',
+                    description: `El archivo no es válido o está corrupto. ${error.message}`,
+                    variant: 'destructive',
+                });
+            }
+        });
     };
-    reader.readAsArrayBuffer(file);
-    if (event.target) event.target.value = '';
+    reader.readAsBinaryString(file);
+    if(fileInputRef.current) fileInputRef.current.value = ''; // Reset input
   };
   
   const handleCleanup = () => {
@@ -201,7 +164,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
       <CardHeader>
         <CardTitle className='flex items-center gap-2'>Gestión de Datos</CardTitle>
         <CardDescription>
-          Realiza respaldos de seguridad en Excel, restaura datos desde un archivo Excel y limpia registros antiguos.
+          Realiza respaldos de seguridad en Excel, restaura desde un archivo Excel y limpia registros antiguos.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid sm:grid-cols-3 gap-4">
@@ -210,8 +173,8 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
           Descargar Respaldo (Excel)
         </Button>
         <Button onClick={handleRestoreClick} disabled={isRestoring} variant="outline">
-          {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          Cargar Respaldo (Excel)
+           {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+           Cargar Respaldo (Excel)
         </Button>
         <input
             type="file"

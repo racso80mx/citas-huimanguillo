@@ -33,7 +33,10 @@
     "endTime": "13:30",
     "weekendBookingEnabled": false,
     "dayOfAction": "Jueves",
-    "unavailableDates": []
+    "unavailableDates": [
+      "2026-02-16",
+      "2026-02-17"
+    ]
   },
   {
     "id": "5fc4b85d-7954-440b-bb64-372a90e5d9b3",

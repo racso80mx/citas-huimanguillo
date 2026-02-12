@@ -8,7 +8,7 @@
         "id": { "type": "string", "description": "Firebase Authentication UID." },
         "email": { "type": "string", "format": "email" },
         "name": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin"] }
+        "role": { "type": "string", "enum": ["admin", "doctor"] }
       },
       "required": ["id", "email", "name", "role"]
     },
@@ -17,7 +17,6 @@
       "type": "object",
       "description": "Represents a patient in the system.",
       "properties": {
-        "id": { "type": "string" },
         "curp": { "type": "string" },
         "name": { "type": "string" },
         "paternalLastName": { "type": "string" },
@@ -27,130 +26,121 @@
         "birthState": { "type": "string" },
         "phoneNumber": { "type": "string" }
       },
-      "required": ["id", "curp", "name", "paternalLastName", "maternalLastName", "phoneNumber"]
+      "required": ["curp", "name", "paternalLastName", "maternalLastName", "phoneNumber"]
     },
     "Appointment": {
       "title": "Appointment",
       "type": "object",
       "description": "Represents a scheduled appointment.",
       "properties": {
-        "id": { "type": "string" },
         "appointmentNumber": { "type": "string" },
         "patientId": { "type": "string" },
         "clinicId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "time": { "type": "string" },
         "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] },
-        "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
+        "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "clinicId", "date", "time", "patientType", "status"]
+      "required": ["appointmentNumber", "patientId", "clinicId", "date", "time", "patientType", "status"]
     },
     "LabAppointment": {
       "title": "Lab Appointment",
       "type": "object",
       "description": "Represents a scheduled laboratory appointment.",
       "properties": {
-        "id": { "type": "string" },
         "appointmentNumber": { "type": "string" },
         "patientId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "time": { "type": "string" },
         "studies": { 
           "type": "array", 
-          "items": { "$ref": "#/entities/LabStudy" }
+          "items": { "type": "object" }
         },
-        "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
+        "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "date", "time", "studies", "status"]
+      "required": ["appointmentNumber", "patientId", "date", "time", "studies", "status"]
     },
      "LabStudy": {
       "title": "Lab Study",
       "type": "object",
       "description": "Represents a single laboratory study.",
       "properties": {
-        "id": { "type": "string" },
         "section": { "type": "string" },
         "name": { "type": "string" },
         "sampleType": { "type": "string" },
         "fastingHours": { "type": "string" },
         "available": { "type": "boolean" }
       },
-      "required": ["id", "section", "name", "sampleType", "fastingHours", "available"]
+      "required": ["section", "name", "sampleType", "fastingHours", "available"]
     },
     "XRayAppointment": {
         "title": "X-Ray Appointment",
         "type": "object",
         "description": "Represents a scheduled X-Ray appointment.",
         "properties": {
-            "id": { "type": "string" },
             "appointmentNumber": { "type": "string" },
             "patientId": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
             "time": { "type": "string" },
             "studyId": { "type": "string" },
-            "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
+            "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
         },
-        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId", "status"]
+        "required": ["appointmentNumber", "patientId", "date", "time", "studyId", "status"]
     },
     "XRayStudy": {
         "title": "X-Ray Study",
         "type": "object",
         "description": "Represents a single X-Ray study.",
         "properties": {
-            "id": { "type": "string" },
             "name": { "type": "string" },
             "indications": { "type": "string" },
             "available": { "type": "boolean" }
         },
-        "required": ["id", "name", "indications", "available"]
+        "required": ["name", "indications", "available"]
     },
     "UltrasoundAppointment": {
         "title": "Ultrasound Appointment",
         "type": "object",
         "description": "Represents a scheduled Ultrasound appointment.",
         "properties": {
-            "id": { "type": "string" },
             "appointmentNumber": { "type": "string" },
             "patientId": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
             "time": { "type": "string" },
             "studyId": { "type": "string" },
-            "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
+            "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
         },
-        "required": ["id", "appointmentNumber", "patientId", "date", "time", "studyId", "status"]
+        "required": ["appointmentNumber", "patientId", "date", "time", "studyId", "status"]
     },
     "UltrasoundStudy": {
         "title": "Ultrasound Study",
         "type": "object",
         "description": "Represents a single Ultrasound study.",
         "properties": {
-            "id": { "type": "string" },
             "name": { "type": "string" },
             "indications": { "type": "string" },
             "available": { "type": "boolean" }
         },
-        "required": ["id", "name", "indications", "available"]
+        "required": ["name", "indications", "available"]
     },
     "Vaccine": {
         "title": "Vaccine",
         "type": "object",
         "description": "Represents a single vaccine.",
         "properties": {
-            "id": { "type": "string" },
             "name": { "type": "string" },
             "applicationAge": { "type": "string" },
             "sex": { "type": "string" },
             "description": { "type": "string" },
             "available": { "type": "boolean" }
         },
-        "required": ["id", "name", "applicationAge", "sex", "description", "available"]
+        "required": ["name", "applicationAge", "sex", "description", "available"]
     },
     "VaccineAppointment": {
       "title": "Vaccine Appointment",
       "type": "object",
       "description": "Represents a scheduled vaccination appointment.",
       "properties": {
-        "id": { "type": "string" },
         "appointmentNumber": { "type": "string" },
         "patientId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
@@ -159,18 +149,17 @@
         "clinicId": { "type": "string" },
         "vaccines": {
           "type": "array",
-          "items": { "$ref": "#/entities/Vaccine" }
+          "items": { "type": "object" }
         },
-        "status": { "type": "string", "enum": ["Agendada", "Asistió", "No Asistió"] }
+        "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
       },
-      "required": ["id", "appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccines", "status"]
+      "required": ["appointmentNumber", "patientId", "date", "time", "isNewborn", "vaccines", "status"]
     },
     "Clinic": {
         "title": "Clinic",
         "type": "object",
         "description": "Represents a clinic (Núcleo Básico).",
         "properties": {
-            "id": { "type": "string" },
             "name": { "type": "string" },
             "doctorName": { "type": "string" },
             "password": { "type": "string" },
@@ -179,131 +168,28 @@
             "endTime": { "type": "string" },
             "weekendBookingEnabled": { "type": "boolean" }
         },
-        "required": ["id", "name", "doctorName", "password", "dailySlots", "startTime", "endTime"]
+        "required": ["name", "doctorName", "password", "dailySlots", "startTime", "endTime"]
     },
     "Colonia": {
         "title": "Colonia",
         "type": "object",
         "description": "Represents a neighborhood and its assigned clinic.",
         "properties": {
-            "id": { "type": "string" },
             "name": { "type": "string" },
             "clinicId": { "type": "string" }
         },
-        "required": ["id", "name", "clinicId"]
+        "required": ["name", "clinicId"]
     },
-    "Announcement": {
-      "title": "Announcement",
-      "type": "object",
-      "description": "A single announcement message.",
-      "properties": {
-        "messages": {
-          "type": "array",
-          "items": { "type": "string" }
-        }
-      },
-      "required": ["messages"]
-    },
-    "Report": {
-        "title": "Report",
+    "ActivityLog": {
+        "title": "Activity Log",
         "type": "object",
-        "description": "Daily summary report for a clinic.",
+        "description": "A single entry in the system's activity log.",
         "properties": {
-            "id": { "type": "string" },
-            "clinicId": { "type": "string" },
-            "date": { "type": "string", "format": "date" },
-            "totalAppointments": { "type": "number" },
-            "attended": { "type": "number" },
-            "pending": { "type": "number" },
-            "cancelled": { "type": "number" }
+          "timestamp": {"type": "string", "format": "date-time"},
+          "action": {"type": "string"},
+          "details": {"type": "string"}
         },
-        "required": ["id", "clinicId", "date", "totalAppointments"]
+        "required": ["timestamp", "action", "details"]
     }
-  },
-  "auth": {
-    "providers": [
-      "anonymous"
-    ]
-  },
-  "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": { "$ref": "#/entities/User" }
-        }
-      },
-      {
-        "path": "/patients/{patientId}",
-        "definition": {
-          "entityName": "Patient",
-          "schema": { "$ref": "#/entities/Patient" }
-        }
-      },
-      {
-        "path": "/appointments/{appointmentId}",
-        "definition": {
-          "entityName": "Appointment",
-          "schema": { "$ref": "#/entities/Appointment" }
-        }
-      },
-      {
-        "path": "/lab-appointments/{labAppointmentId}",
-        "definition": {
-          "entityName": "LabAppointment",
-          "schema": { "$ref": "#/entities/LabAppointment" }
-        }
-      },
-      {
-        "path": "/x-ray-appointments/{xRayAppointmentId}",
-        "definition": {
-            "entityName": "XRayAppointment",
-            "schema": { "$ref": "#/entities/XRayAppointment" }
-        }
-      },
-      {
-        "path": "/ultrasound-appointments/{ultrasoundAppointmentId}",
-        "definition": {
-            "entityName": "UltrasoundAppointment",
-            "schema": { "$ref": "#/entities/UltrasoundAppointment" }
-        }
-      },
-       {
-        "path": "/vaccine-appointments/{vaccineAppointmentId}",
-        "definition": {
-            "entityName": "VaccineAppointment",
-            "schema": { "$ref": "#/entities/VaccineAppointment" }
-        }
-      },
-      {
-        "path": "/clinics/{clinicId}",
-        "definition": {
-            "entityName": "Clinic",
-            "schema": { "$ref": "#/entities/Clinic" }
-        }
-      },
-      {
-        "path": "/colonias/{coloniaId}",
-        "definition": {
-          "entityName": "Colonia",
-          "schema": { "$ref": "#/entities/Colonia" }
-        }
-      },
-      {
-        "path": "/reports/{reportId}",
-        "definition": {
-          "entityName": "Report",
-          "schema": { "$ref": "#/entities/Report" }
-        }
-      },
-      {
-        "path": "/settings/announcements",
-        "definition": {
-          "entityName": "Announcement",
-          "schema": { "$ref": "#/entities/Announcement" }
-        }
-      }
-    ]
   }
 }
