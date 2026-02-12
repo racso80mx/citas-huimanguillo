@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -11,9 +12,10 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, Vaccine, VaccineSettings, Colonia, Clinic } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 import { getVaccineAppointments } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, CalendarDays, ShieldPlus, Baby, MapPin } from 'lucide-react';
+import { Clock, CalendarDays, ShieldPlus, UserCheck, MapPin } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -26,8 +28,13 @@ import {
 import { es } from 'date-fns/locale';
 import { VaccineBookingForm } from '@/components/vacunas/vaccine-booking-form';
 import { VaccineSelector } from '@/components/vacunas/vaccine-selector';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 
 type VaccinePageContentProps = {
@@ -46,7 +53,7 @@ export default function VaccinePageContent({
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedVaccines, setSelectedVaccines] = React.useState<Vaccine[]>([]);
-  const [isNewborn, setIsNewborn] = React.useState(false);
+  const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
@@ -59,6 +66,7 @@ export default function VaccinePageContent({
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
 
+  const isNewborn = patientType === PatientType.RecienNacido;
   const availableVaccines = React.useMemo(() => allVaccines.filter(v => v.available), [allVaccines]);
 
   const getSlotsCount = (startTime: string, endTime: string, interval: number): number => {
@@ -170,7 +178,7 @@ export default function VaccinePageContent({
         setSelectedDate(undefined);
         setSelectedTime(undefined);
         setSelectedVaccines([]);
-        setIsNewborn(false);
+        setPatientType(PatientType.General);
         setSelectedColoniaId(undefined);
       } catch (error) {
         console.error('Failed to refresh data:', error);
@@ -197,6 +205,7 @@ export default function VaccinePageContent({
     setSelectedDate(date);
     setSelectedTime(undefined);
     setSelectedVaccines([]);
+    setPatientType(PatientType.General);
   };
   
   const handleVaccineChange = (vaccines: Vaccine[]) => {
@@ -278,17 +287,29 @@ export default function VaccinePageContent({
               {selectedDate && (
                   <>
                     <div>
-                         <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
-                            <Baby className="h-6 w-6" />
-                            2. ¿Es para un recién nacido?
+                         <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                            2. Indica tu tipo de paciente
                         </h3>
                         <Card>
-                            <CardContent className="p-6">
-                                 <div className="flex items-center space-x-2">
-                                    <Switch id="newborn-switch" checked={isNewborn} onCheckedChange={setIsNewborn} />
-                                    <Label htmlFor="newborn-switch" className="text-base">Sí, es un recién nacido (sin CURP)</Label>
-                                </div>
-                                <p className="text-sm text-muted-foreground mt-2">Si se activa, no se pedirá CURP ni se validará la colonia.</p>
+                            <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <UserCheck className="h-5 w-5 text-primary" />
+                                    Tipo de Paciente
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecciona un tipo" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={PatientType.General}>General</SelectItem>
+                                        <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                        <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                        <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                        <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </CardContent>
                         </Card>
                     </div>
@@ -389,7 +410,7 @@ export default function VaccinePageContent({
                   selectedDate={selectedDate}
                   selectedTime={selectedTime}
                   selectedVaccines={selectedVaccines}
-                  isNewborn={isNewborn}
+                  patientType={patientType}
                   clinicId={selectedClinic?.id}
                   onBookingSuccess={refreshData}
                 />

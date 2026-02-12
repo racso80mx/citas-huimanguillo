@@ -1,3 +1,4 @@
+
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,28 +29,39 @@ import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
 import type { LabAppointment, Patient, LabStudy } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
 
 
-const formSchema = z.object({
-  curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
+const baseSchema = z.object({
   name: z.string().min(2, 'El nombre es requerido.'),
   paternalLastName: z.string().min(2, 'El apellido paterno es requerido.'),
   maternalLastName: z.string().min(2, 'El apellido materno es requerido.'),
   phoneNumber: z.string().regex(phoneRegex, 'El número de teléfono debe tener 10 dígitos.'),
   sex: z.enum(['Hombre', 'Mujer']),
   age: z.number().min(0, 'La edad no puede ser negativa.'),
+});
+
+const formSchemaWithCurp = baseSchema.extend({
+  curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
   birthState: z.string().min(1, 'El estado es requerido.'),
 });
 
-type BookingFormValues = z.infer<typeof formSchema>;
+const formSchemaNewborn = baseSchema.extend({
+  curp: z.string().optional(),
+  birthState: z.string().optional(),
+});
+
+
+type BookingFormValues = z.infer<typeof formSchemaWithCurp>;
 
 type LabBookingFormProps = {
   selectedDate: Date | undefined;
   selectedStudies: LabStudy[];
+  patientType: PatientType;
   onBookingSuccess: () => void;
   dailySlots: number;
   weekendBookingEnabled: boolean;
@@ -58,13 +70,17 @@ type LabBookingFormProps = {
 export function LabBookingForm({
   selectedDate,
   selectedStudies,
+  patientType,
   onBookingSuccess,
 }: LabBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const isNewborn = patientType === PatientType.RecienNacido;
+
+  const currentSchema = isNewborn ? formSchemaNewborn : formSchemaWithCurp;
 
   const form = useForm<BookingFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(currentSchema),
     defaultValues: {
       curp: '',
       name: '',
@@ -72,18 +88,23 @@ export function LabBookingForm({
       maternalLastName: '',
       phoneNumber: '',
       sex: undefined,
-      age: undefined,
+      age: 0,
       birthState: '',
     },
   });
 
+  useEffect(() => {
+    form.reset();
+  }, [isNewborn, form]);
+
   const curp = form.watch('curp');
 
   const handleCurpBlur = async () => {
-    const curp = form.getValues('curp').toUpperCase();
-    if (curpRegex.test(curp)) {
+    if (isNewborn) return;
+    const curpValue = form.getValues('curp').toUpperCase();
+    if (curpRegex.test(curpValue)) {
       startTransition(async () => {
-        const result = await getPatientByCURP(curp);
+        const result = await getPatientByCURP(curpValue);
         if (result.success && result.data) {
           form.setValue('name', result.data.name, { shouldValidate: true });
           form.setValue('paternalLastName', result.data.paternalLastName, { shouldValidate: true });
@@ -99,7 +120,7 @@ export function LabBookingForm({
   };
 
   useEffect(() => {
-    if (curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
+    if (!isNewborn && curp && curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
       const data = parseCURP(curp.toUpperCase());
       if (data) {
         form.setValue('sex', data.sex as 'Hombre' | 'Mujer');
@@ -107,7 +128,7 @@ export function LabBookingForm({
         form.setValue('age', calculateAge(data.birthDate));
       }
     }
-  }, [curp, form]);
+  }, [curp, form, isNewborn]);
 
   const onSubmit = (data: BookingFormValues) => {
     if (!selectedDate || selectedStudies.length === 0) {
@@ -121,13 +142,13 @@ export function LabBookingForm({
     
     startTransition(async () => {
        const patientData: Omit<Patient, 'id'> = {
-            curp: data.curp.toUpperCase(),
+            curp: (data.curp || `RN-${uuidv4()}`).toUpperCase(),
             name: data.name.toUpperCase(),
             paternalLastName: data.paternalLastName.toUpperCase(),
             maternalLastName: data.maternalLastName.toUpperCase(),
             sex: data.sex,
             age: data.age,
-            birthState: data.birthState,
+            birthState: data.birthState || 'No especificado',
             phoneNumber: data.phoneNumber
         };
 
@@ -139,6 +160,7 @@ export function LabBookingForm({
           time: "Recepción de Muestras",
           studies: selectedStudies,
           status: 'Agendada',
+          patientType: patientType,
         };
 
       const result = await saveNewLabAppointment(newAppointment, patientData);
@@ -177,25 +199,27 @@ export function LabBookingForm({
       <CardContent className='p-0'>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField
-              control={form.control}
-              name="curp"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CURP</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Tu CURP de 18 caracteres"
-                      {...field}
-                      onBlur={handleCurpBlur}
-                      maxLength={18}
-                      className="uppercase"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             {!isNewborn && (
+                <FormField
+                control={form.control}
+                name="curp"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CURP</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Tu CURP de 18 caracteres"
+                        {...field}
+                        onBlur={handleCurpBlur}
+                        maxLength={18}
+                        className="uppercase"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField
                   control={form.control}
@@ -257,10 +281,10 @@ export function LabBookingForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sexo</FormLabel>
-                       <Select onValueChange={field.onChange} value={field.value} disabled>
+                       <Select onValueChange={field.onChange} value={field.value} disabled={!isNewborn && !!curp}>
                          <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Derivado de CURP" />
+                            <SelectValue placeholder={!isNewborn && !!curp ? "Derivado de CURP" : "Selecciona..."} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -277,8 +301,9 @@ export function LabBookingForm({
                   name="age"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Edad</FormLabel>                      <FormControl>
-                        <Input type="number" placeholder="Derivado de CURP" {...field} disabled value={field.value || ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                      <FormLabel>Edad</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder={!isNewborn && !!curp ? "Derivado de CURP" : "Años cumplidos"} {...field} disabled={!isNewborn && !!curp} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -299,6 +324,7 @@ export function LabBookingForm({
                     placeholder='Selecciona un estado'
                     searchPlaceholder='Buscar estado...'
                     noResultsText='No se encontró el estado.'
+                    disabled={!isNewborn && !!curp}
                   />
                   <FormMessage />
                 </FormItem>

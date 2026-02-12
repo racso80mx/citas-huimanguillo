@@ -1,3 +1,4 @@
+
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,6 +29,7 @@ import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from '../ui/combobox';
 import type { VaccineAppointment, Patient, Vaccine } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
@@ -42,23 +44,24 @@ const baseSchema = z.object({
   age: z.number().min(0, 'La edad no puede ser negativa.'),
 });
 
-const formSchema = baseSchema.extend({
+const formSchemaWithCurp = baseSchema.extend({
+    curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
+    birthState: z.string().min(1, 'El estado es requerido.'),
+});
+
+const formSchemaNewborn = baseSchema.extend({
   curp: z.string().optional(),
   birthState: z.string().optional(),
 });
 
-const formSchemaWithCurp = baseSchema.extend({
-    curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
-    birthState: z.string().min(1, 'El estado es requerido.'),
-})
 
-type BookingFormValues = z.infer<typeof formSchema>;
+type BookingFormValues = z.infer<typeof formSchemaWithCurp>;
 
 type VaccineBookingFormProps = {
   selectedDate: Date | undefined;
   selectedTime: string | undefined;
   selectedVaccines: Vaccine[];
-  isNewborn: boolean;
+  patientType: PatientType;
   clinicId?: string;
   onBookingSuccess: () => void;
 };
@@ -67,14 +70,15 @@ export function VaccineBookingForm({
   selectedDate,
   selectedTime,
   selectedVaccines,
-  isNewborn,
+  patientType,
   clinicId,
   onBookingSuccess,
 }: VaccineBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const isNewborn = patientType === PatientType.RecienNacido;
 
-  const currentSchema = isNewborn ? formSchema : formSchemaWithCurp;
+  const currentSchema = isNewborn ? formSchemaNewborn : formSchemaWithCurp;
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(currentSchema),
@@ -92,8 +96,7 @@ export function VaccineBookingForm({
 
   useEffect(() => {
       form.reset();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNewborn]);
+  }, [isNewborn, form]);
 
   const curp = form.watch('curp');
 
@@ -162,7 +165,7 @@ export function VaccineBookingForm({
         appointmentNumber,
         date: selectedDate.toISOString(),
         time: selectedTime,
-        isNewborn,
+        patientType: patientType,
         clinicId,
         vaccines: selectedVaccines,
         status: 'Agendada',
@@ -336,8 +339,7 @@ export function VaccineBookingForm({
                     <FormMessage />
                   </FormItem>
                 )}
-              />
-            )}
+              )}
 
             <Button
               type="submit"

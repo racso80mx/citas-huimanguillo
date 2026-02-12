@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -12,9 +13,10 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, LabStudy, LabSettings } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 import { getLabAppointments } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { FlaskConical, CalendarDays, Microscope } from 'lucide-react';
+import { FlaskConical, CalendarDays, Microscope, UserCheck } from 'lucide-react';
 import {
   startOfMonth,
   endOfMonth,
@@ -24,6 +26,13 @@ import {
   startOfToday,
 } from 'date-fns';
 import { LabStudiesSelector } from '@/components/laboratorio/lab-studies-selector';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type LabPageContentProps = {
   initialStudies: LabStudy[];
@@ -36,6 +45,7 @@ export default function LabPageContent({
 }: LabPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedStudies, setSelectedStudies] = React.useState<LabStudy[]>([]);
+  const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allStudies] = React.useState<LabStudy[]>(initialStudies);
@@ -118,6 +128,7 @@ export default function LabPageContent({
         );
         setSelectedDate(undefined);
         setSelectedStudies([]);
+        setPatientType(PatientType.General);
       } catch (error) {
         console.error('Failed to refresh data:', error);
         toast({
@@ -141,6 +152,8 @@ export default function LabPageContent({
       }
     }
     setSelectedDate(date);
+    setPatientType(PatientType.General);
+    setSelectedStudies([]);
   };
   
   const handleStudiesChange = (studies: LabStudy[]) => {
@@ -185,11 +198,41 @@ export default function LabPageContent({
                 />
               </div>
 
+               {selectedDate && (
+                 <div>
+                    <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                        2. Indica tu tipo de paciente
+                    </h3>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <UserCheck className="h-5 w-5 text-primary" />
+                                Tipo de Paciente
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona un tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={PatientType.General}>General</SelectItem>
+                                    <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                    <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                    <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                    <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </CardContent>
+                    </Card>
+                </div>
+              )}
+
               {selectedDate && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                     <FlaskConical className="h-6 w-6" />
-                    2. Selecciona tus estudios
+                    3. Selecciona tus estudios
                   </h3>
                   <LabStudiesSelector
                     allStudies={allStudies}
@@ -204,11 +247,12 @@ export default function LabPageContent({
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                   <Microscope className="h-6 w-6" />
-                  3. Completa tus datos
+                  4. Completa tus datos
                 </h3>
                 <LabBookingForm
                   selectedDate={selectedDate}
                   selectedStudies={selectedStudies}
+                  patientType={patientType}
                   onBookingSuccess={refreshData}
                   dailySlots={settings.dailySlots}
                   weekendBookingEnabled={settings.weekendBookingEnabled}

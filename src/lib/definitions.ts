@@ -1,3 +1,4 @@
+
 'use client';
 import { z } from 'zod';
 
@@ -48,7 +49,8 @@ export type Appointment = {
   time: string; // HH:mm format
   patientType: PatientType;
   status: AppointmentStatus;
-  patient: Patient; 
+  patient: Patient;
+  isNewborn?: boolean;
 };
 
 export const ClinicSchema = z.object({
@@ -109,6 +111,7 @@ export type LabAppointment = {
     studies: LabStudy[];
     status: AppointmentStatus;
     patient: Patient;
+    patientType: PatientType;
 }
 
 export type LabSettings = {
@@ -136,6 +139,7 @@ export type XRayAppointment = {
     studyName: string;
     status: AppointmentStatus;
     patient: Patient;
+    patientType: PatientType;
 }
 
 export type XRaySettings = {
@@ -164,6 +168,7 @@ export type UltrasoundAppointment = {
     studyName: string;
     status: AppointmentStatus;
     patient: Patient;
+    patientType: PatientType;
 }
 
 export type UltrasoundSettings = {
@@ -191,11 +196,11 @@ export type VaccineAppointment = {
   patientId: string; // Can be a temporary ID for newborns
   date: string;
   time: string;
-  isNewborn: boolean;
   clinicId?: string; // Optional for newborns
   vaccines: Vaccine[];
   status: AppointmentStatus;
   patient: Patient; // Patient data might be partial for newborns
+  patientType: PatientType;
 };
 
 export type VaccineSettings = {

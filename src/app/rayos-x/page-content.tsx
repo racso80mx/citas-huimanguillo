@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -12,9 +13,10 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, XRayStudy, XRaySettings } from '@/lib/definitions';
+import { PatientType } from '@/lib/definitions';
 import { getXRayAppointments } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, CalendarDays, Stethoscope } from 'lucide-react';
+import { Clock, CalendarDays, Stethoscope, UserCheck } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -45,6 +47,7 @@ export default function XRayPageContent({
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedStudy, setSelectedStudy] = React.useState<XRayStudy | undefined>();
+  const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allStudies] = React.useState<XRayStudy[]>(initialStudies);
@@ -164,6 +167,7 @@ export default function XRayPageContent({
         setSelectedDate(undefined);
         setSelectedTime(undefined);
         setSelectedStudy(undefined);
+        setPatientType(PatientType.General);
       } catch (error) {
         console.error('Failed to refresh data:', error);
         toast({
@@ -188,6 +192,8 @@ export default function XRayPageContent({
     }
     setSelectedDate(date);
     setSelectedTime(undefined);
+    setSelectedStudy(undefined);
+    setPatientType(PatientType.General);
   };
   
   const handleStudyChange = (studyId: string) => {
@@ -253,11 +259,41 @@ export default function XRayPageContent({
                 />
               </div>
 
+               {selectedDate && (
+                 <div>
+                    <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                        2. Indica tu tipo de paciente
+                    </h3>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <UserCheck className="h-5 w-5 text-primary" />
+                                Tipo de Paciente
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona un tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={PatientType.General}>General</SelectItem>
+                                    <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                    <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                    <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                    <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </CardContent>
+                    </Card>
+                </div>
+              )}
+
               {selectedDate && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                     <Stethoscope className="h-6 w-6" />
-                    2. Selecciona tu estudio
+                    3. Selecciona tu estudio
                   </h3>
                   <Select onValueChange={handleStudyChange}>
                     <SelectTrigger className="w-full">
@@ -288,7 +324,7 @@ export default function XRayPageContent({
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                     <Clock className="h-6 w-6" />
-                    3. Selecciona una hora
+                    4. Selecciona una hora
                   </h3>
                   <Card className="bg-card">
                     <CardHeader>
@@ -330,12 +366,13 @@ export default function XRayPageContent({
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                   <Stethoscope className="h-6 w-6" />
-                  4. Completa tus datos
+                  5. Completa tus datos
                 </h3>
                 <XRayBookingForm
                   selectedDate={selectedDate}
                   selectedTime={selectedTime}
                   selectedStudy={selectedStudy}
+                  patientType={patientType}
                   onBookingSuccess={refreshData}
                 />
               </div>
