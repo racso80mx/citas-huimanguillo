@@ -61,6 +61,9 @@ import {
   cloneAppointment as dataCloneAppointment,
   logActivity,
   migrateDataFromLocal as dataMigrateDataFromLocal,
+  getClinicById,
+  getXRayStudies as dataGetXRayStudyById,
+  getUltrasoundStudies as dataGetUltrasoundStudyById,
 } from './data';
 
 import type {
@@ -84,6 +87,7 @@ import type {
   VaccineAppointment,
   User,
 } from './definitions';
+import { getDoc } from 'firebase/firestore';
 import { generateAppointmentPDF, generateLabAppointmentPDF, generateXRayAppointmentPDF, generateUltrasoundAppointmentPDF, generateVaccineAppointmentPDF } from './utils';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
@@ -103,19 +107,31 @@ export async function saveNewAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
-    const result = await dataSaveAppointment(
+    const clinic = await getClinicById(appointmentData.clinicId);
+    if (!clinic) throw new Error("La clínica seleccionada no es válida.");
+
+    const transactionResult = await dataSaveAppointment(
       appointmentData,
-      patientData
+      patientData,
+      clinic
     );
     
-    // Only generate PDF if the save was successful and we have the required data
-    if (result && result.clinic) {
-      generateAppointmentPDF(result.appointment, result.clinic);
-    }
+    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
+    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+
+    const fullAppointment = { 
+        ...finalAppointmentSnap.data(), 
+        id: finalAppointmentSnap.id, 
+        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
+    } as Appointment;
+
+    generateAppointmentPDF(fullAppointment, clinic);
+    
+    await logActivity('Creación Cita Médica', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: result };
+    return { success: true, data: { appointment: fullAppointment, clinic } };
   } catch (e: any) {
     console.error("Action Error: saveNewAppointment", e);
     return { success: false, error: e.message || 'Error al guardar la cita.' };
@@ -124,18 +140,30 @@ export async function saveNewAppointment(
 
 export async function saveNewLabAppointment(
   appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>
+  patientData: Omit<Patient, 'id'>,
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-    const newAppointment = await dataSaveLabAppointment(
+    const transactionResult = await dataSaveLabAppointment(
       appointmentData,
       patientData
     );
-    generateLabAppointmentPDF(newAppointment);
+    
+    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
+    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+
+    const fullAppointment = { 
+        ...finalAppointmentSnap.data(), 
+        id: finalAppointmentSnap.id, 
+        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
+    } as LabAppointment;
+    
+    generateLabAppointmentPDF(fullAppointment);
+
+    await logActivity('Creación Cita Laboratorio', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/laboratorio');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: newAppointment };
+    return { success: true, data: fullAppointment };
   } catch (e: any) {
     console.error("Action Error: saveNewLabAppointment", e);
     return {
@@ -148,17 +176,30 @@ export async function saveNewLabAppointment(
 export async function saveNewXRayAppointment(
   appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
+  study: XRayStudy
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
-    const { appointment: newAppointment, study } = await dataSaveXRayAppointment(
+    const transactionResult = await dataSaveXRayAppointment(
       appointmentData,
       patientData
     );
-    generateXRayAppointmentPDF(newAppointment, study);
+    
+    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
+    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+
+    const fullAppointment = { 
+        ...finalAppointmentSnap.data(), 
+        id: finalAppointmentSnap.id, 
+        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
+    } as XRayAppointment;
+    
+    generateXRayAppointmentPDF(fullAppointment, study);
+
+    await logActivity('Creación Cita Rayos X', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: newAppointment };
+    return { success: true, data: fullAppointment };
   } catch (e: any) {
     console.error("Action Error: saveNewXRayAppointment", e);
     return {
@@ -171,17 +212,30 @@ export async function saveNewXRayAppointment(
 export async function saveNewUltrasoundAppointment(
   appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
+  study: UltrasoundStudy
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
-    const { appointment: newAppointment, study } = await dataSaveUltrasoundAppointment(
+    const transactionResult = await dataSaveUltrasoundAppointment(
       appointmentData,
       patientData
     );
-    generateUltrasoundAppointmentPDF(newAppointment, study);
+    
+    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
+    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+
+    const fullAppointment = { 
+        ...finalAppointmentSnap.data(), 
+        id: finalAppointmentSnap.id, 
+        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
+    } as UltrasoundAppointment;
+
+    generateUltrasoundAppointmentPDF(fullAppointment, study);
+    
+    await logActivity('Creación Cita Ultrasonido', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: newAppointment };
+    return { success: true, data: fullAppointment };
   } catch (e: any) {
     console.error("Action Error: saveNewUltrasoundAppointment", e);
     return {
@@ -196,15 +250,27 @@ export async function saveNewVaccineAppointment(
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
-    const newAppointment = await dataSaveVaccineAppointment(
+    const transactionResult = await dataSaveVaccineAppointment(
       appointmentData,
       patientData
     );
-    generateVaccineAppointmentPDF(newAppointment);
+
+    const finalAppointmentSnap = await getDoc(transactionResult.appointmentRef);
+    const finalPatientSnap = await getDoc(transactionResult.patientRef);
+
+    const fullAppointment = { 
+        ...finalAppointmentSnap.data(), 
+        id: finalAppointmentSnap.id, 
+        patient: { ...finalPatientSnap.data(), id: finalPatientSnap.id } 
+    } as VaccineAppointment;
+
+    generateVaccineAppointmentPDF(fullAppointment);
+
+    await logActivity('Creación Cita Vacunación', `Folio ${fullAppointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/vacunas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: newAppointment };
+    return { success: true, data: fullAppointment };
   } catch (e: any) {
     console.error("Action Error: saveNewVaccineAppointment", e);
     return {
