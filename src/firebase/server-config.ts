@@ -1,24 +1,15 @@
-import { initializeApp, getApp, getApps, type FirebaseOptions } from 'firebase/app';
+import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './config';
 
-// This is a separate initialization for server-side actions.
-// It uses the same config but ensures it runs with server privileges.
-const ADMIN_APP_NAME = 'firebase-admin-app-server';
-
-const adminAppConfig: FirebaseOptions = {
-    ...firebaseConfig,
-};
-
-
-export function getAdminApp() {
-  const apps = getApps();
-  const adminApp = apps.find(app => app.name === ADMIN_APP_NAME);
-  if (adminApp) {
-    return adminApp;
+// This simplified function ensures a single, default instance of the Firebase app is used on the server.
+// This is the standard and most robust pattern for Next.js server environments.
+function getAppInstance() {
+  if (getApps().length) {
+    return getApp();
   }
-  return initializeApp(adminAppConfig, ADMIN_APP_NAME);
+  return initializeApp(firebaseConfig);
 }
 
-// Export the Firestore instance for server-side use
-export const adminDb = getFirestore(getAdminApp());
+// Export the correctly initialized Firestore instance for all server-side use.
+export const adminDb = getFirestore(getAppInstance());
