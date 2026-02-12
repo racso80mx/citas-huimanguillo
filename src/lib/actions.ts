@@ -99,7 +99,7 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 }
 
 export async function saveNewAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'status'>,
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: { appointment: Appointment, clinic: Clinic }; error?: string }> {
   try {
@@ -107,7 +107,9 @@ export async function saveNewAppointment(
       appointmentData,
       patientData
     );
-    if (result.clinic) {
+    
+    // Only generate PDF if the save was successful and we have the required data
+    if (result && result.clinic) {
       generateAppointmentPDF(result.appointment, result.clinic);
     }
     revalidatePath('/citas-medicas');
@@ -121,15 +123,13 @@ export async function saveNewAppointment(
 }
 
 export async function saveNewLabAppointment(
-  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>,
-  settings: { dailySlots: number, weekendBookingEnabled: boolean }
+  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
+  patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: LabAppointment; error?: string }> {
   try {
-    const { appointment: newAppointment } = await dataSaveLabAppointment(
+    const newAppointment = await dataSaveLabAppointment(
       appointmentData,
-      patientData,
-      settings
+      patientData
     );
     generateLabAppointmentPDF(newAppointment);
     revalidatePath('/laboratorio');
@@ -146,12 +146,11 @@ export async function saveNewLabAppointment(
 }
 
 export async function saveNewXRayAppointment(
-  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
+  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
-  study: XRayStudy
 ): Promise<{ success: boolean; data?: XRayAppointment; error?: string }> {
   try {
-    const { appointment: newAppointment } = await dataSaveXRayAppointment(
+    const { appointment: newAppointment, study } = await dataSaveXRayAppointment(
       appointmentData,
       patientData
     );
@@ -170,12 +169,11 @@ export async function saveNewXRayAppointment(
 }
 
 export async function saveNewUltrasoundAppointment(
-  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
+  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>,
-  study: UltrasoundStudy,
 ): Promise<{ success: boolean; data?: UltrasoundAppointment; error?: string }> {
   try {
-    const { appointment: newAppointment } = await dataSaveUltrasoundAppointment(
+    const { appointment: newAppointment, study } = await dataSaveUltrasoundAppointment(
       appointmentData,
       patientData
     );
@@ -194,11 +192,11 @@ export async function saveNewUltrasoundAppointment(
 }
 
 export async function saveNewVaccineAppointment(
-  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
+  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
   patientData: Omit<Patient, 'id'>
 ): Promise<{ success: boolean; data?: VaccineAppointment; error?: string }> {
   try {
-    const { appointment: newAppointment } = await dataSaveVaccineAppointment(
+    const newAppointment = await dataSaveVaccineAppointment(
       appointmentData,
       patientData
     );

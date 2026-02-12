@@ -27,26 +27,35 @@ import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from './ui/combobox';
-import { generateAppointmentPDF } from '@/lib/utils';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
+import { v4 as uuidv4 } from 'uuid';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
 
 
-const formSchema = z.object({
-  curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
+const baseSchema = z.object({
   name: z.string().min(2, 'El nombre es requerido.'),
   paternalLastName: z.string().min(2, 'El apellido paterno es requerido.'),
   maternalLastName: z.string().min(2, 'El apellido materno es requerido.'),
   phoneNumber: z.string().regex(phoneRegex, 'El número de teléfono debe tener 10 dígitos.'),
   sex: z.enum(['Hombre', 'Mujer']),
   age: z.number().min(0, 'La edad no puede ser negativa.'),
+});
+
+const formSchemaWithCurp = baseSchema.extend({
+  curp: z.string().regex(curpRegex, 'El formato de la CURP no es válido.'),
   birthState: z.string().min(1, 'El estado es requerido.'),
 });
 
-type BookingFormValues = z.infer<typeof formSchema>;
+const formSchemaNewborn = baseSchema.extend({
+  curp: z.string().optional(),
+  birthState: z.string().optional(),
+});
+
+
+type BookingFormValues = z.infer<typeof formSchemaWithCurp>;
 
 type BookingFormProps = {
   selectedDate: Date | undefined;
@@ -67,9 +76,10 @@ export function BookingForm({
 }: BookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const isNewborn = patientType === PatientType.RecienNacido;
 
   const form = useForm<BookingFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(isNewborn ? formSchemaNewborn : formSchemaWithCurp),
     defaultValues: {
       curp: '',
       name: '',
@@ -82,13 +92,19 @@ export function BookingForm({
     },
   });
 
+  useEffect(() => {
+    form.reset();
+  }, [isNewborn, form]);
+
   const curp = form.watch('curp');
 
   const handleCurpBlur = async () => {
-    const curp = form.getValues('curp').toUpperCase();
-    if (curpRegex.test(curp)) {
+    const curpValue = form.getValues('curp');
+    if (!curpValue || isNewborn) return;
+
+    if (curpRegex.test(curpValue.toUpperCase())) {
       startTransition(async () => {
-        const result = await getPatientByCURP(curp);
+        const result = await getPatientByCURP(curpValue.toUpperCase());
         if (result.success && result.data) {
           form.setValue('name', result.data.name, { shouldValidate: true });
           form.setValue('paternalLastName', result.data.paternalLastName, { shouldValidate: true });
@@ -104,7 +120,7 @@ export function BookingForm({
   };
 
   useEffect(() => {
-    if (curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
+    if (!isNewborn && curp && curp.length === 18 && curpRegex.test(curp.toUpperCase())) {
       const data = parseCURP(curp.toUpperCase());
       if (data) {
         form.setValue('sex', data.sex as 'Hombre' | 'Mujer');
@@ -112,7 +128,7 @@ export function BookingForm({
         form.setValue('age', calculateAge(data.birthDate));
       }
     }
-  }, [curp, form]);
+  }, [curp, form, isNewborn]);
 
   const onSubmit = (data: BookingFormValues) => {
     if (!selectedDate || !selectedClinic || !selectedTime || !selectedColoniaName) {
@@ -126,13 +142,13 @@ export function BookingForm({
 
     startTransition(async () => {
       const patientToSave: Omit<Patient, 'id'> = {
-          curp: data.curp.toUpperCase(),
+          curp: (data.curp || `RN-${uuidv4()}`).toUpperCase(),
           name: data.name.toUpperCase(),
           paternalLastName: data.paternalLastName.toUpperCase(),
           maternalLastName: data.maternalLastName.toUpperCase(),
           sex: data.sex,
-          age: data.age,
-          birthState: data.birthState,
+          age: data.age || 0,
+          birthState: data.birthState || "No especificado",
           phoneNumber: data.phoneNumber
       };
 
@@ -144,6 +160,7 @@ export function BookingForm({
         date: selectedDate.toISOString(),
         time: selectedTime,
         patientType: patientType,
+        status: 'Agendada',
       };
 
       const result = await saveNewAppointment(newAppointmentData, patientToSave);
@@ -155,7 +172,6 @@ export function BookingForm({
             duration: 10000,
         });
 
-        generateAppointmentPDF(result.data.appointment, result.data.clinic);
         form.reset();
         onBookingSuccess();
       } else {
@@ -183,25 +199,27 @@ export function BookingForm({
       <CardContent className='p-0'>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <FormField
-              control={form.control}
-              name="curp"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CURP</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Tu CURP de 18 caracteres"
-                      {...field}
-                      onBlur={handleCurpBlur}
-                      maxLength={18}
-                      className="uppercase"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             {!isNewborn && (
+                <FormField
+                control={form.control}
+                name="curp"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CURP</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Tu CURP de 18 caracteres"
+                        {...field}
+                        onBlur={handleCurpBlur}
+                        maxLength={18}
+                        className="uppercase"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField
                   control={form.control}
@@ -248,7 +266,7 @@ export function BookingForm({
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Número Telefónico</FormLabel>
+                      <FormLabel>{isNewborn ? "Teléfono del Padre/Tutor" : "Número Telefónico"}</FormLabel>
                       <FormControl>
                         <Input type="tel" placeholder="Tu teléfono de 10 dígitos" {...field} maxLength={10} />
                       </FormControl>
@@ -263,10 +281,10 @@ export function BookingForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sexo</FormLabel>
-                       <Select onValueChange={field.onChange} value={field.value} disabled>
+                       <Select onValueChange={field.onChange} value={field.value} disabled={!isNewborn}>
                          <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Derivado de CURP" />
+                            <SelectValue placeholder={!isNewborn ? "Derivado de CURP" : "Selecciona..."} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -283,8 +301,9 @@ export function BookingForm({
                   name="age"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Edad</FormLabel>                      <FormControl>
-                        <Input type="number" placeholder="Derivado de CURP" {...field} disabled value={field.value || ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                      <FormLabel>Edad (años)</FormLabel>
+                        <FormControl>
+                        <Input type="number" placeholder={!isNewborn ? "Derivado de CURP" : "Años cumplidos"} {...field} disabled={!isNewborn} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -292,24 +311,27 @@ export function BookingForm({
                 />
             </div>
             
-            <FormField
-              control={form.control}
-              name="birthState"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Estado de Nacimiento</FormLabel>
-                  <Combobox 
-                    options={estados.map(e => ({ value: e.nombre, label: e.nombre }))}
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder='Selecciona un estado'
-                    searchPlaceholder='Buscar estado...'
-                    noResultsText='No se encontró el estado.'
+            {!isNewborn && (
+                 <FormField
+                    control={form.control}
+                    name="birthState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estado de Nacimiento</FormLabel>
+                        <Combobox 
+                          options={estados.map(e => ({ value: e.nombre, label: e.nombre }))}
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          placeholder='Selecciona un estado'
+                          searchPlaceholder='Buscar estado...'
+                          noResultsText='No se encontró el estado.'
+                          disabled={!isNewborn}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            )}
 
             <Button
               type="submit"

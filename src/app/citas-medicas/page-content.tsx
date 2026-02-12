@@ -251,6 +251,8 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     return availability.find((d) => d.date === dateString) || null;
   }, [selectedDate, availability]);
   
+  const isNewbornFlow = patientType === PatientType.RecienNacido;
+
   const coloniaOptions = React.useMemo(() => {
     if (!selectedDayAvailability) return [];
     return colonias.map(colonia => {
@@ -321,10 +323,56 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                 />
               </div>
 
+              {selectedDate && (
+                <div>
+                    <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                        2. Indica tu tipo de paciente
+                    </h3>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <UserCheck className="h-5 w-5 text-primary" />
+                                Tipo de Paciente
+                            </CardTitle>
+                            <CardDescription>Selecciona tu tipo de paciente para nuestros registros.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                              <Form {...form}>
+                                <form>
+                                      <FormField
+                                        control={form.control}
+                                        name="patientType"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                                <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona un tipo" />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                <SelectItem value={PatientType.General}>General</SelectItem>
+                                                <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                                <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                                <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                                <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                        />
+                                </form>
+                              </Form>
+                        </CardContent>
+                    </Card>
+                </div>
+              )}
+                
               {selectedDate && selectedDayAvailability && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                    2. Selecciona tu colonia
+                    3. Selecciona tu colonia
                   </h3>
                    <Card className="bg-card">
                     <CardHeader>
@@ -349,48 +397,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               )}
                 {selectedColoniaId && (
                     <>
-                        <div>
-                            <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                                3. Indica tu tipo de paciente
-                            </h3>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-xl flex items-center gap-2">
-                                        <UserCheck className="h-5 w-5 text-primary" />
-                                        Tipo de Paciente
-                                    </CardTitle>
-                                    <CardDescription>Selecciona tu tipo de paciente para nuestros registros.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                     <Form {...form}>
-                                        <form>
-                                             <FormField
-                                                control={form.control}
-                                                name="patientType"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                    <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
-                                                        <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Selecciona un tipo" />
-                                                        </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                        <SelectItem value={PatientType.General}>General</SelectItem>
-                                                        <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
-                                                        <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
-                                                        <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                                />
-                                        </form>
-                                     </Form>
-                                </CardContent>
-                            </Card>
-                        </div>
                          <div>
                             <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
                                 4. Selecciona una hora

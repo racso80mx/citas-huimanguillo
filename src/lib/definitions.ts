@@ -33,7 +33,8 @@ export enum PatientType {
     General = 'General',
     Cronico = 'Crónico',
     Embarazada = 'Embarazada',
-    TerceraEdad = '3ra Edad'
+    TerceraEdad = '3ra Edad',
+    RecienNacido = 'Recién Nacido'
 }
 
 export type AppointmentStatus = 'Agendada' | 'Atendido' | 'No Atendido' | 'No Asistió';
