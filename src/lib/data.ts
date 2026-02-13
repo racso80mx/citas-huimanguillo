@@ -174,7 +174,7 @@ export async function logActivity(action: string, details: string) {
 // SETTINGS
 // =====================================================================
 export async function getAnnouncements(): Promise<string[]> { const data = await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] }); return data.messages; }
-export async function updateAnnouncements(newAnnouncements: string[]) { return setSettingsDoc('announcements', { messages: newAnnouncements.slice(0, 4) }); }
+export async function updateAnnouncements(announcements: string[]) { return setSettingsDoc('announcements', { messages: newAnnouncements.slice(0, 4) }); }
 
 export async function getModuleSettings(): Promise<ModuleSettings> {
     const defaults = { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true };
@@ -236,9 +236,12 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
 async function validateClinicAvailability(clinic: Clinic, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dateOnly = date.split('T')[0];
-    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`); // Use midday to avoid timezone issues
-    if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
+    const dateOnly = date.substring(0, 10);
+    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
+
+    if (isNaN(appointmentDate.getTime())) {
+        return { isValid: false, message: 'La fecha proporcionada es inválida.' };
+    }
 
     const dayOfWeekJS = appointmentDate.getUTCDay();
     const dayOfWeekString = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeekJS];
@@ -281,7 +284,7 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
 async function validateLabAvailability(settings: LabSettings, date: string) {
     if (!adminDb) throw new Error("Database not initialized.");
 
-    const dateOnly = date.split('T')[0];
+    const dateOnly = date.substring(0, 10);
     const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
@@ -308,7 +311,7 @@ async function validateLabAvailability(settings: LabSettings, date: string) {
 async function validateXRayAvailability(settings: XRaySettings, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dateOnly = date.split('T')[0];
+    const dateOnly = date.substring(0, 10);
     const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
 
@@ -336,7 +339,7 @@ async function validateXRayAvailability(settings: XRaySettings, date: string, ti
 async function validateUltrasoundAvailability(settings: UltrasoundSettings, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dateOnly = date.split('T')[0];
+    const dateOnly = date.substring(0, 10);
     const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
@@ -364,7 +367,7 @@ async function validateUltrasoundAvailability(settings: UltrasoundSettings, date
 async function validateVaccineAvailability(settings: VaccineSettings, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
 
-    const dateOnly = date.split('T')[0];
+    const dateOnly = date.substring(0, 10);
     const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
