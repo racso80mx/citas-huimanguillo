@@ -35,7 +35,8 @@ export default function ReportsPage() {
       setIsLoading(true);
       try {
         const clinicsData = await getClinics();
-        setClinics(clinicsData);
+        const sortedClinics = clinicsData.sort((a, b) => a.name.localeCompare(b.name));
+        setClinics(sortedClinics);
       } catch (error) {
         toast({
           title: 'Error',
