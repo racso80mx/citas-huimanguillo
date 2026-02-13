@@ -174,7 +174,7 @@ export async function logActivity(action: string, details: string) {
 // SETTINGS
 // =====================================================================
 export async function getAnnouncements(): Promise<string[]> { const data = await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] }); return data.messages; }
-export async function updateAnnouncements(announcements: string[]) { return setSettingsDoc('announcements', { messages: newAnnouncements.slice(0, 4) }); }
+export async function updateAnnouncements(announcements: string[]) { return setSettingsDoc('announcements', { messages: announcements.slice(0, 4) }); }
 
 export async function getModuleSettings(): Promise<ModuleSettings> {
     const defaults = { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true };
@@ -236,12 +236,18 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
 async function validateClinicAvailability(clinic: Clinic, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dateOnly = date.substring(0, 10);
-    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
-
+    const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) {
         return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     }
+
+    const startDate = new Date(appointmentDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+
+    const endDate = new Date(appointmentDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+    
+    const dateOnly = appointmentDate.toISOString().substring(0, 10);
 
     const dayOfWeekJS = appointmentDate.getUTCDay();
     const dayOfWeekString = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeekJS];
@@ -255,13 +261,6 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
     
     if (clinic.unavailableDates?.includes(dateOnly)) {
         return { isValid: false, message: 'El núcleo básico no labora en la fecha seleccionada por vacaciones.' };
-    }
-
-    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
-    
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return { isValid: false, message: 'Error interno al procesar la fecha.' };
     }
     
     const allDayAppointmentsQuery = query(
@@ -284,20 +283,17 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
 async function validateLabAvailability(settings: LabSettings, date: string) {
     if (!adminDb) throw new Error("Database not initialized.");
 
-    const dateOnly = date.substring(0, 10);
-    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
+    const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
+    const startDate = new Date(appointmentDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    const endDate = new Date(appointmentDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
       return { isValid: false, message: 'No se permiten citas de laboratorio en fin de semana.' };
-    }
-
-    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
-
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return { isValid: false, message: 'Error interno al procesar la fecha.' };
     }
 
     const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
@@ -311,20 +307,17 @@ async function validateLabAvailability(settings: LabSettings, date: string) {
 async function validateXRayAvailability(settings: XRaySettings, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dateOnly = date.substring(0, 10);
-    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
+    const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
+
+    const startDate = new Date(appointmentDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    const endDate = new Date(appointmentDate);
+    endDate.setUTCHours(23, 59, 59, 999);
 
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
       return { isValid: false, message: 'No se permiten citas de Rayos X en fin de semana.' };
-    }
-    
-    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
-    
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return { isValid: false, message: 'Error interno al procesar la fecha.' };
     }
     
     const q = query(collection(adminDb, 'xrayAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
@@ -339,20 +332,17 @@ async function validateXRayAvailability(settings: XRaySettings, date: string, ti
 async function validateUltrasoundAvailability(settings: UltrasoundSettings, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dateOnly = date.substring(0, 10);
-    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
+    const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
+
+    const startDate = new Date(appointmentDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    const endDate = new Date(appointmentDate);
+    endDate.setUTCHours(23, 59, 59, 999);
     
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
       return { isValid: false, message: 'No se permiten citas de Ultrasonido en fin de semana.' };
-    }
-    
-    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
-    
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return { isValid: false, message: 'Error interno al procesar la fecha.' };
     }
     
     const q = query(collection(adminDb, 'ultrasoundAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
@@ -367,20 +357,17 @@ async function validateUltrasoundAvailability(settings: UltrasoundSettings, date
 async function validateVaccineAvailability(settings: VaccineSettings, date: string, time: string) {
     if (!adminDb) throw new Error("Database not initialized.");
 
-    const dateOnly = date.substring(0, 10);
-    const appointmentDate = new Date(`${dateOnly}T12:00:00.000Z`);
+    const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
+
+    const startDate = new Date(appointmentDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    const endDate = new Date(appointmentDate);
+    endDate.setUTCHours(23, 59, 59, 999);
     
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
       return { isValid: false, message: 'No se permiten citas de vacunación en fin de semana.' };
-    }
-    
-    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
-    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
-    
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        return { isValid: false, message: 'Error interno al procesar la fecha.' };
     }
     
     const q = query(collection(adminDb, 'vaccineAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
@@ -445,7 +432,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     const appointmentSnap = await getDoc(newAppointmentRef);
     const patientSnap = await getDoc(patientRef);
 
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, patient: { ...patientSnap.data(), id: patientSnap.id } } as Appointment;
+    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as Appointment;
     return { success: true, data: { appointment: fullAppointment, clinic } };
 }
 
@@ -476,7 +463,7 @@ export async function saveLabAppointment(appointmentData: Omit<LabAppointment, '
     const newAppointmentRef = await addDoc(collection(adminDb, 'labAppointments'), newAppointmentData);
 
     const [appointmentSnap, patientSnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, patient: { ...patientSnap.data(), id: patientSnap.id } } as LabAppointment;
+    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as LabAppointment;
     return { success: true, data: fullAppointment };
 }
 
@@ -508,7 +495,7 @@ export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment,
     const newAppointmentRef = await addDoc(collection(adminDb, 'xrayAppointments'), newAppointmentData);
 
     const [appointmentSnap, patientSnap, studySnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef), getDoc(studyRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, patient: { ...patientSnap.data(), id: patientSnap.id } } as XRayAppointment;
+    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as XRayAppointment;
     const fullStudy = { ...studySnap.data(), id: studySnap.id } as XRayStudy;
 
     return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
@@ -542,7 +529,7 @@ export async function saveUltrasoundAppointment(appointmentData: Omit<Ultrasound
     const newAppointmentRef = await addDoc(collection(adminDb, 'ultrasoundAppointments'), newAppointmentData);
     
     const [appointmentSnap, patientSnap, studySnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef), getDoc(studyRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, patient: { ...patientSnap.data(), id: patientSnap.id } } as UltrasoundAppointment;
+    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as UltrasoundAppointment;
     const fullStudy = { ...studySnap.data(), id: studySnap.id } as UltrasoundStudy;
 
     return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
@@ -574,7 +561,7 @@ export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppoin
     const newAppointmentRef = await addDoc(collection(adminDb, 'vaccineAppointments'), newAppointmentData);
     
     const [appointmentSnap, patientSnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, patient: { ...patientSnap.data(), id: patientSnap.id } } as VaccineAppointment;
+    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as VaccineAppointment;
     return { success: true, data: fullAppointment };
 }
 
@@ -680,5 +667,3 @@ export async function cleanupOldRecords() {
     
     return { deletedCount: totalDeleted };
 }
-
-    
