@@ -342,7 +342,8 @@ export function VaccineBookingForm({
                     <FormMessage />
                   </FormItem>
                 )}
-              )}
+              />
+            )}
 
             <Button
               type="submit"
