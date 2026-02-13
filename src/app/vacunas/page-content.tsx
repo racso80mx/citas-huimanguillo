@@ -212,14 +212,26 @@ export default function VaccinePageContent({
 }, [selectedDayAvailability, allTimeSlots]);
   
   const coloniaOptions = React.useMemo(() => {
-    return colonias.map(colonia => {
+    const options = colonias.map(colonia => {
         const clinic = clinics.find(c => c.id === colonia.clinicId);
         return {
             value: colonia.id,
-            label: `${colonia.name} (${clinic?.name})`,
-            keywords: `${colonia.name} ${clinic?.name}`,
+            label: `${colonia.name} (${clinic?.name || 'N/A'})`,
+            keywords: `${colonia.name} ${clinic?.name || ''}`,
+            clinicName: clinic?.name || 'Z',
+            coloniaName: colonia.name
         };
     });
+
+    options.sort((a, b) => {
+        const clinicCompare = a.clinicName.localeCompare(b.clinicName);
+        if (clinicCompare !== 0) {
+            return clinicCompare;
+        }
+        return a.coloniaName.localeCompare(b.coloniaName);
+    });
+
+    return options;
   }, [colonias, clinics]);
 
   const selectedColonia = colonias.find(c => c.id === selectedColoniaId);
@@ -372,7 +384,8 @@ export default function VaccinePageContent({
                         ))
                       ) : (
                         <p className="col-span-4 text-center text-muted-foreground">
-                          No hay horarios disponibles para la fecha seleccionada.
+                          No hay horarios disponibles para la fecha
+                          seleccionada.
                         </p>
                       )}
                     </CardContent>
