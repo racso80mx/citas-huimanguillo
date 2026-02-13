@@ -1,7 +1,8 @@
+
 'use server';
 import React from 'react';
 import VaccinePageContent from './page-content';
-import { getVaccines, getVaccineSettings, getColonias, getClinics } from '@/lib/data';
+import { getVaccines, getVaccineSettings, getColonias, getClinics, getAnnouncements } from '@/lib/data';
 
 export default async function VacunasPage() {
   const [
@@ -9,11 +10,13 @@ export default async function VacunasPage() {
     initialSettings,
     initialColonias,
     initialClinics,
+    initialAnnouncements,
   ] = await Promise.all([
     getVaccines(),
     getVaccineSettings(),
     getColonias(),
     getClinics(),
+    getAnnouncements(),
   ]);
 
   return (
@@ -22,6 +25,7 @@ export default async function VacunasPage() {
       initialSettings={initialSettings}
       initialColonias={initialColonias}
       initialClinics={initialClinics}
+      initialAnnouncements={initialAnnouncements}
     />
   );
 }

@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -38,11 +39,13 @@ import { timeSlots30Min } from '@/lib/time-slots';
 type XRayPageContentProps = {
   initialStudies: XRayStudy[];
   initialSettings: XRaySettings;
+  initialAnnouncements: string[];
 };
 
 export default function XRayPageContent({
   initialStudies,
   initialSettings,
+  initialAnnouncements,
 }: XRayPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -52,6 +55,7 @@ export default function XRayPageContent({
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allStudies] = React.useState<XRayStudy[]>(initialStudies);
   const [settings] = React.useState<XRaySettings>(initialSettings);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -353,6 +357,7 @@ export default function XRayPageContent({
                   selectedStudy={selectedStudy}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
+                  announcements={announcements}
                 />
               </div>
             </div>

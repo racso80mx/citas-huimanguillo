@@ -66,6 +66,7 @@ type LabBookingFormProps = {
   onBookingSuccess: () => void;
   dailySlots: number;
   weekendBookingEnabled: boolean;
+  announcements: string[];
 };
 
 export function LabBookingForm({
@@ -73,6 +74,7 @@ export function LabBookingForm({
   selectedStudies,
   patientType,
   onBookingSuccess,
+  announcements,
 }: LabBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -167,7 +169,7 @@ export function LabBookingForm({
       const result = await saveNewLabAppointment(newAppointment, patientData);
 
       if (result.success && result.data) {
-          generateLabAppointmentPDF(result.data);
+          generateLabAppointmentPDF(result.data, announcements);
           toast({
               title: 'Cita Confirmada',
               description: `Tu cita de laboratorio ha sido agendada. Folio: ${result.data.appointmentNumber}`,

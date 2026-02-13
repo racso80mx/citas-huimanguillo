@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -431,6 +432,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                   selectedTime={selectedTime}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
+                  announcements={announcements}
                 />
               </div>
               {announcements && announcements.length > 0 && (

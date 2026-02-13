@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine } from "./definitions";
@@ -70,8 +71,8 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 }
 
 
-export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic) {
-    const doc = new jsPDF();
+export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
+    const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, patientType } = appointmentData;
 
     doc.setFont('Helvetica');
@@ -107,16 +108,33 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.text(`Clínica: ${clinicData.name}`, 20, 155);
     doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, 165);
     
+    let finalY = 175;
+
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
+
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, 180);
-    doc.text('Presentarse con identificación personal (INE).', 20, 185)
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, 190);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Presentarse con identificación personal (INE).', 20, finalY + 5)
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
     doc.save(`recibo_cita_${patient.curp}.pdf`);
 }
 
-export function generateLabAppointmentPDF(appointmentData: LabAppointment) {
+export function generateLabAppointmentPDF(appointmentData: LabAppointment, announcements: string[]) {
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, studies } = appointmentData;
 
@@ -163,18 +181,33 @@ export function generateLabAppointmentPDF(appointmentData: LabAppointment) {
         headStyles: { fillColor: [0, 102, 51] }, // Primary color
     });
 
-    const finalY = doc.lastAutoTable.finalY || 200;
+    let finalY = doc.lastAutoTable.finalY || 200;
+    finalY += 10;
+    
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY + 10);
-    doc.text('Siga las indicaciones de ayuno y preparación para cada estudio.', 20, finalY + 15);
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Siga las indicaciones de ayuno y preparación para cada estudio.', 20, finalY + 5);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
     doc.save(`recibo_lab_${patient.curp}.pdf`);
 }
 
-export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, study: XRayStudy) {
+export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, study: XRayStudy, announcements: string[]) {
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber } = appointmentData;
 
@@ -220,18 +253,33 @@ export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, stu
         headStyles: { fillColor: [0, 102, 51] }, // Primary color
     });
 
-    const finalY = doc.lastAutoTable.finalY || 200;
+    let finalY = doc.lastAutoTable.finalY || 200;
+    finalY += 10;
+    
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY + 10);
-    doc.text('Siga las indicaciones de preparación para el estudio.', 20, finalY + 15);
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Siga las indicaciones de preparación para el estudio.', 20, finalY + 5);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
     doc.save(`recibo_rayosx_${patient.curp}.pdf`);
 }
 
-export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppointment, study: UltrasoundStudy) {
+export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppointment, study: UltrasoundStudy, announcements: string[]) {
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber } = appointmentData;
 
@@ -277,19 +325,34 @@ export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppo
         headStyles: { fillColor: [0, 102, 51] }, // Primary color
     });
 
-    const finalY = doc.lastAutoTable.finalY || 200;
+    let finalY = doc.lastAutoTable.finalY || 200;
+    finalY += 10;
+    
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY + 10);
-    doc.text('Siga las indicaciones de preparación para el estudio.', 20, finalY + 15);
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Siga las indicaciones de preparación para el estudio.', 20, finalY + 5);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
     doc.save(`recibo_ultrasonido_${patient.curp}.pdf`);
 }
 
 
-export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment) {
+export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment, announcements: string[]) {
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, patientType, vaccines, coloniaName } = appointmentData;
     const isNewborn = patientType === 'Recién Nacido';
@@ -354,13 +417,28 @@ export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointmen
         headStyles: { fillColor: [0, 102, 51] }, // Primary color
     });
 
-    const finalY = doc.lastAutoTable.finalY || detailsY + 30;
+    let finalY = doc.lastAutoTable.finalY || detailsY + 30;
+    finalY += 10;
+
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY + 10);
-    doc.text('No olvide traer la Cartilla Nacional de Salud.', 20, finalY + 15);
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 20);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('No olvide traer la Cartilla Nacional de Salud.', 20, finalY + 5);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
     doc.save(`recibo_vacuna_${patient.name.split(' ')[0]}_${patient.paternalLastName}.pdf`);
 }

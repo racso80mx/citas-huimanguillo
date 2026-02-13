@@ -65,6 +65,7 @@ type UltrasoundBookingFormProps = {
   selectedStudy: UltrasoundStudy | undefined;
   patientType: PatientType;
   onBookingSuccess: () => void;
+  announcements: string[];
 };
 
 export function UltrasoundBookingForm({
@@ -73,6 +74,7 @@ export function UltrasoundBookingForm({
   selectedStudy,
   patientType,
   onBookingSuccess,
+  announcements,
 }: UltrasoundBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -168,7 +170,7 @@ export function UltrasoundBookingForm({
       const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
       
       if (result.success && result.data) {
-        generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study);
+        generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study, announcements);
         form.reset();
         onBookingSuccess();
         toast({

@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -42,6 +43,7 @@ type VaccinePageContentProps = {
   initialSettings: VaccineSettings;
   initialColonias: Colonia[];
   initialClinics: Clinic[];
+  initialAnnouncements: string[];
 };
 
 export default function VaccinePageContent({
@@ -49,6 +51,7 @@ export default function VaccinePageContent({
   initialSettings,
   initialColonias,
   initialClinics,
+  initialAnnouncements,
 }: VaccinePageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -61,6 +64,7 @@ export default function VaccinePageContent({
   const [settings] = React.useState<VaccineSettings>(initialSettings);
   const [colonias] = React.useState<Colonia[]>(initialColonias);
   const [clinics] = React.useState<Clinic[]>(initialClinics);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -406,6 +410,7 @@ export default function VaccinePageContent({
                   clinicId={selectedClinic?.id}
                   coloniaName={selectedColonia?.name}
                   onBookingSuccess={refreshData}
+                  announcements={announcements}
                 />
               </div>
             </div>

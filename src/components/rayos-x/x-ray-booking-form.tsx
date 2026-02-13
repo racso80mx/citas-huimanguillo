@@ -64,6 +64,7 @@ type XRayBookingFormProps = {
   selectedStudy: XRayStudy | undefined;
   patientType: PatientType;
   onBookingSuccess: () => void;
+  announcements: string[];
 };
 
 export function XRayBookingForm({
@@ -72,6 +73,7 @@ export function XRayBookingForm({
   selectedStudy,
   patientType,
   onBookingSuccess,
+  announcements,
 }: XRayBookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -166,7 +168,7 @@ export function XRayBookingForm({
       const result = await saveNewXRayAppointment(newAppointment, patientData);
 
       if (result.success && result.data) {
-        generateXRayAppointmentPDF(result.data.appointment, result.data.study);
+        generateXRayAppointmentPDF(result.data.appointment, result.data.study, announcements);
         form.reset();
         onBookingSuccess();
         toast({

@@ -37,11 +37,13 @@ import {
 type LabPageContentProps = {
   initialStudies: LabStudy[];
   initialSettings: LabSettings;
+  initialAnnouncements: string[];
 };
 
 export default function LabPageContent({
   initialStudies,
   initialSettings,
+  initialAnnouncements,
 }: LabPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedStudies, setSelectedStudies] = React.useState<LabStudy[]>([]);
@@ -50,6 +52,7 @@ export default function LabPageContent({
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allStudies] = React.useState<LabStudy[]>(initialStudies);
   const [settings] = React.useState<LabSettings>(initialSettings);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -256,6 +259,7 @@ export default function LabPageContent({
                   onBookingSuccess={refreshData}
                   dailySlots={settings.dailySlots}
                   weekendBookingEnabled={settings.weekendBookingEnabled}
+                  announcements={announcements}
                 />
               </div>
             </div>

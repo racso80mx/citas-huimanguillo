@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -38,11 +39,13 @@ import { timeSlots30Min } from '@/lib/time-slots';
 type UltrasoundPageContentProps = {
   initialStudies: UltrasoundStudy[];
   initialSettings: UltrasoundSettings;
+  initialAnnouncements: string[];
 };
 
 export default function UltrasoundPageContent({
   initialStudies,
   initialSettings,
+  initialAnnouncements,
 }: UltrasoundPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -52,6 +55,7 @@ export default function UltrasoundPageContent({
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [allStudies] = React.useState<UltrasoundStudy[]>(initialStudies);
   const [settings] = React.useState<UltrasoundSettings>(initialSettings);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -354,6 +358,7 @@ export default function UltrasoundPageContent({
                   selectedStudy={selectedStudy}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
+                  announcements={announcements}
                 />
               </div>
             </div>
