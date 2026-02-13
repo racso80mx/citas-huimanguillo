@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "citasfull-ok-22108253-af2f0"
-  }
+  },
+  "targets": {
+    "citasfull-ok-22108253-af2f0": {
+      "hosting": {
+        "app-principal": [
+          "citasfull-ok-22108253-af2f0"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

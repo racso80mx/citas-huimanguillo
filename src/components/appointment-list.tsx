@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import type { Appointment, Clinic, Patient, AppointmentStatus } from '@/lib/defi
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from './ui/button';
-import { Trash2, Pencil, Loader2 } from 'lucide-react';
+import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,9 +54,13 @@ type AppointmentListProps = {
   onEditSuccess?: () => void;
 };
 
+type SortableKeys = keyof Appointment | 'patientName' | 'clinicName' | 'curp' | 'phoneNumber';
+
+
 export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics, onEditSuccess }: AppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
   
   const [reschedulingAppointment, setReschedulingAppointment] = useState<Appointment | null>(null);
   const [newDate, setNewDate] = useState<Date | undefined>();
@@ -67,6 +71,79 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
   const [isCloning, startCloneTransition] = useTransition();
 
   const { toast } = useToast();
+
+  const getClinicName = useCallback((clinicId: string) => {
+    return clinics.find(c => c.id === clinicId)?.name || clinicId;
+  }, [clinics]);
+
+  const sortedAppointments = useMemo(() => {
+    let sortableItems = [...appointments];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue, bValue;
+
+        switch (sortConfig.key) {
+          case 'patientName':
+            aValue = a.patient ? `${a.patient.name} ${a.patient.paternalLastName}` : '';
+            bValue = b.patient ? `${b.patient.name} ${b.patient.paternalLastName}` : '';
+            break;
+          case 'clinicName':
+            aValue = getClinicName(a.clinicId);
+            bValue = getClinicName(b.clinicId);
+            break;
+          case 'curp':
+            aValue = a.patient?.curp || '';
+            bValue = b.patient?.curp || '';
+            break;
+          case 'phoneNumber':
+            aValue = a.patient?.phoneNumber || '';
+            bValue = b.patient?.phoneNumber || '';
+            break;
+          case 'date':
+             aValue = new Date(a.date).getTime();
+             bValue = new Date(b.date).getTime();
+             break;
+          default:
+            aValue = a[sortConfig.key as keyof Appointment];
+            bValue = b[sortConfig.key as keyof Appointment];
+        }
+
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+        
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortConfig.direction === 'ascending' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [appointments, sortConfig, getClinicName]);
+
+  const requestSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const getSortIcon = (key: SortableKeys) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    if (sortConfig.direction === 'ascending') {
+      return <ArrowUp className="ml-2 h-4 w-4 text-primary" />;
+    }
+    return <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
+  };
 
   const handleStatusChange = (appointmentId: string, status: AppointmentStatus) => {
     startUpdateTransition(async () => {
@@ -134,10 +211,6 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
     );
   }
 
-  const getClinicName = (clinicId: string) => {
-    return clinics.find(c => c.id === clinicId)?.name || clinicId;
-  }
-
   return (
     <div className="border rounded-lg">
       <Table>
@@ -146,19 +219,19 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Folio</TableHead>
-            <TableHead className="w-[120px]">Fecha / Hora</TableHead>
-            <TableHead>Paciente</TableHead>
-            <TableHead>CURP</TableHead>
-            <TableHead>Teléfono</TableHead>
-            <TableHead>Núcleo Básico</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('appointmentNumber')}>Folio {getSortIcon('appointmentNumber')}</Button></TableHead>
+            <TableHead className="w-[120px]"><Button variant="ghost" onClick={() => requestSort('date')}>Fecha / Hora {getSortIcon('date')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('patientName')}>Paciente {getSortIcon('patientName')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('curp')}>CURP {getSortIcon('curp')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('phoneNumber')}>Teléfono {getSortIcon('phoneNumber')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('clinicName')}>Núcleo Básico {getSortIcon('clinicName')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('patientType')}>Tipo {getSortIcon('patientType')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button></TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {appointments.map((app) => (
+          {sortedAppointments.map((app) => (
             <TableRow key={app.id}>
               <TableCell className="font-mono">{app.appointmentNumber}</TableCell>
               <TableCell className="font-medium">

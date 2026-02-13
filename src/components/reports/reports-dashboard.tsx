@@ -7,6 +7,11 @@ import {
   getXRayAppointments,
   getUltrasoundAppointments,
   getVaccineAppointments,
+  deleteAppointment,
+  deleteLabAppointment,
+  deleteXRayAppointment,
+  deleteUltrasoundAppointment,
+  deleteVaccineAppointment,
 } from '@/lib/data-client';
 import {
   Card,
@@ -180,6 +185,28 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   }, [reportType]);
 
+  const handleDelete = async (id: string) => {
+    try {
+      if (reportType === 'clinic') await deleteAppointment(id);
+      if (reportType === 'laboratorio') await deleteLabAppointment(id);
+      if (reportType === 'x-ray') await deleteXRayAppointment(id);
+      if (reportType === 'ultrasound') await deleteUltrasoundAppointment(id);
+      if (reportType === 'vacunas') await deleteVaccineAppointment(id);
+
+      toast({
+        title: 'Cita Eliminada',
+        description: 'La cita ha sido eliminada correctamente.',
+      });
+      fetchData(); // Refresh data after deletion
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la cita.',
+        variant: 'destructive',
+      });
+    }
+  };
+
 
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -224,17 +251,22 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   }, [isClient, appointments]);
 
   const renderAppointmentList = () => {
+    const props = {
+      isAdmin: true,
+      onEditSuccess: fetchData,
+      onDelete: handleDelete,
+    };
     switch(reportType) {
         case 'clinic':
-            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} onEditSuccess={fetchData} />;
+            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} {...props} />;
         case 'laboratorio':
-            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} onEditSuccess={fetchData} />;
+            return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} {...props} />;
         case 'x-ray':
-            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} onEditSuccess={fetchData} />;
+            return <XRayAppointmentList appointments={appointmentsToDisplay as XRayAppointment[]} {...props} />;
         case 'ultrasound':
-            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} onEditSuccess={fetchData} />;
+            return <UltrasoundAppointmentList appointments={appointmentsToDisplay as UltrasoundAppointment[]} {...props} />;
         case 'vacunas':
-            return <VaccineAppointmentList appointments={appointmentsToDisplay as VaccineAppointment[]} onEditSuccess={fetchData} />;
+            return <VaccineAppointmentList appointments={appointmentsToDisplay as VaccineAppointment[]} {...props} />;
         default:
             return <p>Tipo de reporte no reconocido.</p>
     }

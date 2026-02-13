@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import type { XRayAppointment, Patient, AppointmentStatus } from '@/lib/definiti
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, Pencil, Loader2 } from 'lucide-react';
+import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,9 +53,13 @@ type XRayAppointmentListProps = {
   onEditSuccess?: () => void;
 };
 
+type SortableKeys = keyof XRayAppointment | 'patientName' | 'curp' | 'phoneNumber';
+
 export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, onEditSuccess }: XRayAppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
+
   const [reschedulingAppointment, setReschedulingAppointment] = useState<XRayAppointment | null>(null);
   const [newDate, setNewDate] = useState<Date | undefined>();
   const [isRescheduling, startRescheduleTransition] = useTransition();
@@ -65,6 +69,71 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
   const [isCloning, startCloneTransition] = useTransition();
 
   const { toast } = useToast();
+
+  const sortedAppointments = useMemo(() => {
+    let sortableItems = [...appointments];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue, bValue;
+
+        switch (sortConfig.key) {
+          case 'patientName':
+            aValue = a.patient ? `${a.patient.name} ${a.patient.paternalLastName}` : '';
+            bValue = b.patient ? `${b.patient.name} ${b.patient.paternalLastName}` : '';
+            break;
+          case 'curp':
+            aValue = a.patient?.curp || '';
+            bValue = b.patient?.curp || '';
+            break;
+          case 'phoneNumber':
+            aValue = a.patient?.phoneNumber || '';
+            bValue = b.patient?.phoneNumber || '';
+            break;
+          case 'date':
+             aValue = new Date(a.date).getTime();
+             bValue = new Date(b.date).getTime();
+             break;
+          default:
+            aValue = a[sortConfig.key as keyof XRayAppointment];
+            bValue = b[sortConfig.key as keyof XRayAppointment];
+        }
+        
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortConfig.direction === 'ascending' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [appointments, sortConfig]);
+
+  const requestSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  const getSortIcon = (key: SortableKeys) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    if (sortConfig.direction === 'ascending') {
+      return <ArrowUp className="ml-2 h-4 w-4 text-primary" />;
+    }
+    return <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
+  };
 
   const handleStatusChange = (appointmentId: string, status: AppointmentStatus) => {
     startUpdateTransition(async () => {
@@ -140,18 +209,18 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
         </TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Folio</TableHead>
-            <TableHead className="w-[120px]">Fecha / Hora</TableHead>
-            <TableHead>Paciente</TableHead>
-            <TableHead>CURP</TableHead>
-            <TableHead>Teléfono</TableHead>
-            <TableHead>Estudio</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('appointmentNumber')}>Folio {getSortIcon('appointmentNumber')}</Button></TableHead>
+            <TableHead className="w-[120px]"><Button variant="ghost" onClick={() => requestSort('date')}>Fecha / Hora {getSortIcon('date')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('patientName')}>Paciente {getSortIcon('patientName')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('curp')}>CURP {getSortIcon('curp')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('phoneNumber')}>Teléfono {getSortIcon('phoneNumber')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('studyName')}>Estudio {getSortIcon('studyName')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button></TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {appointments.map((app) => (
+          {sortedAppointments.map((app) => (
             <TableRow key={app.id}>
               <TableCell className="font-mono">{app.appointmentNumber}</TableCell>
               <TableCell className="font-medium">
