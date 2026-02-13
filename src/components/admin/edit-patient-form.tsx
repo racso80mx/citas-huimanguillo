@@ -131,6 +131,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
                 <Input
                   placeholder="CURP de 18 caracteres"
                   {...field}
+                  onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                   maxLength={18}
                   className="uppercase"
                 />

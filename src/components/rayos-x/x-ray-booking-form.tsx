@@ -211,7 +211,11 @@ export function XRayBookingForm({
                       <Input
                         placeholder="Tu CURP de 18 caracteres"
                         {...field}
-                        onBlur={handleCurpBlur}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          handleCurpBlur();
+                        }}
                         maxLength={18}
                         className="uppercase"
                       />

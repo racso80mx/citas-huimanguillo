@@ -227,7 +227,11 @@ export function VaccineBookingForm({
                         placeholder="CURP de 18 caracteres del paciente"
                         {...field}
                         value={field.value ?? ''}
-                        onBlur={handleCurpBlur}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          handleCurpBlur();
+                        }}
                         maxLength={18}
                         className="uppercase"
                       />
