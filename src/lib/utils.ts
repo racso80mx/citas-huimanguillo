@@ -77,9 +77,9 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 55, 25);
+    doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
     doc.setFontSize(10);
-    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33)
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
@@ -140,9 +140,9 @@ export function generateLabAppointmentPDF(appointmentData: LabAppointment, annou
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita de Laboratorio', 40, 25);
+    doc.text('Confirmación de Cita de Laboratorio', 105, 25, { align: 'center' });
     doc.setFontSize(10);
-    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33);
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
@@ -213,9 +213,9 @@ export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, stu
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita de Rayos X', 40, 25);
+    doc.text('Confirmación de Cita de Rayos X', 105, 25, { align: 'center' });
     doc.setFontSize(10);
-    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33);
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
@@ -285,9 +285,9 @@ export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppo
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita de Ultrasonido', 40, 25);
+    doc.text('Confirmación de Cita de Ultrasonido', 105, 25, { align: 'center' });
     doc.setFontSize(10);
-    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33);
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
@@ -360,9 +360,9 @@ export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointmen
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
-    doc.text('Confirmación de Cita de Vacunación', 40, 25);
+    doc.text('Confirmación de Cita de Vacunación', 105, 25, { align: 'center' });
     doc.setFontSize(10);
-    doc.text('Jurisdicción Sanitaria No. 5 de Huimanguillo', 65, 33);
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
@@ -442,3 +442,5 @@ export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointmen
 
     doc.save(`recibo_vacuna_${patient.name.split(' ')[0]}_${patient.paternalLastName}.pdf`);
 }
+
+    
