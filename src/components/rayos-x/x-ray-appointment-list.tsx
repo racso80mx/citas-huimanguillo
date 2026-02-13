@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -9,11 +9,11 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { XRayAppointment, Patient, AppointmentStatus } from '@/lib/definitions';
+import type { XRayAppointment, Patient, AppointmentStatus, XRayStudy } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,9 +41,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment } from '@/lib/actions';
+import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getXRayStudies } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
+import { generateXRayAppointmentPDF } from '@/lib/utils';
 
 
 type XRayAppointmentListProps = {
@@ -67,8 +68,22 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
   const [cloningAppointment, setCloningAppointment] = useState<XRayAppointment | null>(null);
   const [newCloneDate, setNewCloneDate] = useState<Date | undefined>();
   const [isCloning, startCloneTransition] = useTransition();
-
+  
+  const [announcements, setAnnouncements] = useState<string[]>([]);
+  const [allStudies, setAllStudies] = useState<XRayStudy[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchData() {
+      const [announcementsData, studiesData] = await Promise.all([
+        getAnnouncements(),
+        getXRayStudies(),
+      ]);
+      setAnnouncements(announcementsData);
+      setAllStudies(studiesData);
+    }
+    fetchData();
+  }, []);
 
   const sortedAppointments = useMemo(() => {
     let sortableItems = [...appointments];
@@ -192,6 +207,19 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
         }
     });
   };
+  
+  const handleDownloadPDF = (appointment: XRayAppointment) => {
+    const study = allStudies.find(s => s.id === appointment.studyId);
+    if (!study) {
+      toast({
+        title: 'Error',
+        description: 'No se encontraron los datos del estudio para generar el PDF.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    generateXRayAppointmentPDF(appointment, study, announcements);
+  };
 
   if (!appointments || appointments.length === 0) {
     return (
@@ -258,6 +286,9 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>
+                    <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
+                        <FileDown className="h-4 w-4 text-gray-500" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => setEditingPatient(app.patient)}>
                         <Pencil className="h-4 w-4 text-blue-600" />
                     </Button>
