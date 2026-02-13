@@ -9,7 +9,7 @@ import {
 } from '../ui/card';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { downloadBackupAction, restoreBackupAction, cleanupOldRecordsAction } from '@/lib/actions';
+import { downloadBackupAction, cleanupOldRecordsAction } from '@/lib/actions';
 import { Loader2, Download, Upload, Trash } from 'lucide-react';
 import {
   AlertDialog,
@@ -23,12 +23,15 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import * as xlsx from 'xlsx';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => void }) {
   const [isDownloading, startDownloadTransition] = useTransition();
   const [isRestoring, startRestoreTransition] = useTransition();
   const [isCleaning, startCleanTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cleanupPassword, setCleanupPassword] = useState('');
   const { toast } = useToast();
   
   const handleDownload = () => {
@@ -122,6 +125,18 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
           }
       });
   };
+  
+  const handleConfirmCleanup = () => {
+    if (cleanupPassword !== 'Hu1m4ngu1ll0') {
+      toast({
+        title: 'Contraseña Incorrecta',
+        description: 'La contraseña proporcionada no es válida para realizar esta acción.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    handleCleanup();
+  };
 
   return (
       <Card className="shadow-lg">
@@ -132,7 +147,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
           </CardDescription>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-3 gap-4">
-          <Button onClick={handleDownload} disabled={isDownloading} variant="outline">
+          <Button onClick={handleDownload} disabled={isDownloading} className="bg-green-600 text-white hover:bg-green-700">
             {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Descargar Respaldo (Excel)
           </Button>
@@ -150,7 +165,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
             accept=".xlsx"
           />
 
-          <AlertDialog>
+          <AlertDialog onOpenChange={(open) => !open && setCleanupPassword('')}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={isCleaning}>
                   {isCleaning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
@@ -162,13 +177,24 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
                 <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Esta acción es irreversible. Se eliminarán todas las citas del mes pasado hacia atrás.
-                  Se recomienda descargar un respaldo antes de proceder.
+                  Para confirmar, ingresa la contraseña de SuperAdmin.
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              <div className="space-y-2 py-2">
+                <Label htmlFor="cleanup-password">Contraseña de SuperAdmin</Label>
+                <Input
+                  id="cleanup-password"
+                  type="password"
+                  value={cleanupPassword}
+                  onChange={(e) => setCleanupPassword(e.target.value)}
+                  placeholder="Ingresa la contraseña para confirmar"
+                />
+              </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={handleCleanup}
+                  onClick={handleConfirmCleanup}
+                  disabled={isCleaning}
                   className='bg-destructive hover:bg-destructive/90'
                 >
                   Sí, eliminar registros
