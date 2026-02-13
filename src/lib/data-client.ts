@@ -11,6 +11,7 @@ import {
   deleteUltrasoundAppointment,
   deleteVaccineAppointment,
   getAppointmentsForClinic,
+  getClinics,
 } from './actions';
 
 // This file is intended for client-side components to import server actions,
@@ -29,4 +30,5 @@ export {
   deleteUltrasoundAppointment,
   deleteVaccineAppointment,
   getAppointmentsForClinic,
+  getClinics,
 };

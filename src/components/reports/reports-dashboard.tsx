@@ -12,6 +12,7 @@ import {
   deleteXRayAppointment,
   deleteUltrasoundAppointment,
   deleteVaccineAppointment,
+  getClinics,
 } from '@/lib/data-client';
 import {
   Card,
@@ -75,6 +76,7 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 
 export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashboardProps) {
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [isDataLoading, startDataTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -89,6 +91,9 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     startDataTransition(async () => {
       try {
         let appointmentsData;
+        const clinicsData = await getClinics();
+        setClinics(clinicsData);
+
         if (reportType === 'clinic') {
             appointmentsData = await getAppointmentsForClinic(entity.id);
         } else if (reportType === 'x-ray') {
@@ -229,7 +234,15 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     if (reportType === 'laboratorio') filename = `reporte_laboratorio_${activeFilter}`;
     if (reportType === 'vacunas') filename = `reporte_vacunas_${activeFilter}`;
 
-    downloadExcel(appointmentsToDisplay, filename);
+    const enrichedData = appointmentsToDisplay.map(app => {
+      const clinic = clinics.find(c => c.id === app.clinicId);
+      return {
+        ...app,
+        clinicName: clinic?.name || 'N/A'
+      };
+    });
+
+    downloadExcel(enrichedData, filename);
   };
 
   const summaryCounts = useMemo(() => {
@@ -258,7 +271,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     };
     switch(reportType) {
         case 'clinic':
-            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={[]} {...props} />;
+            return <AppointmentList appointments={appointmentsToDisplay as Appointment[]} clinics={clinics} {...props} />;
         case 'laboratorio':
             return <LabAppointmentList appointments={appointmentsToDisplay as LabAppointment[]} {...props} />;
         case 'x-ray':
