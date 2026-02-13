@@ -364,8 +364,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </TabsContent>
         
         <TabsContent value="citas" className="mt-6">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-             <div className="lg:col-span-2 space-y-8">
+           <div className="grid grid-cols-1 gap-8 items-start">
+             <div className="space-y-8">
                 <Card className="w-full shadow-lg">
                     <CardHeader>
                       <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle>

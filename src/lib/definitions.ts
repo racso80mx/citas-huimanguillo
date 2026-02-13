@@ -197,6 +197,7 @@ export type VaccineAppointment = {
   date: string;
   time: string;
   clinicId?: string; // Optional for newborns
+  coloniaName?: string;
   vaccines: Vaccine[];
   status: AppointmentStatus;
   patient: Patient; // Patient data might be partial for newborns

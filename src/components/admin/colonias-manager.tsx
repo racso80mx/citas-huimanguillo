@@ -34,7 +34,23 @@ export function ColoniasManager() {
     setIsLoading(true);
     try {
       const [coloniasData, clinicsData] = await Promise.all([getColonias(), getClinics()]);
-      setColonias(coloniasData);
+      
+      const clinicNameMap = clinicsData.reduce((acc, clinic) => {
+        acc[clinic.id] = clinic.name;
+        return acc;
+      }, {} as Record<string, string>);
+
+      const sortedColonias = coloniasData.sort((a, b) => {
+        const clinicA = clinicNameMap[a.clinicId] || '';
+        const clinicB = clinicNameMap[b.clinicId] || '';
+        const nameCompare = clinicA.localeCompare(clinicB);
+        if (nameCompare !== 0) {
+            return nameCompare;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      setColonias(sortedColonias);
       setClinics(clinicsData);
     } catch (error) {
       console.error("Failed to fetch data:", error);

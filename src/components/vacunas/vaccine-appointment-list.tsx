@@ -149,6 +149,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
             <TableHead>Paciente</TableHead>
             <TableHead>CURP</TableHead>
             <TableHead>Teléfono</TableHead>
+            <TableHead>Colonia</TableHead>
             <TableHead>Vacunas</TableHead>
             <TableHead>Estado</TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
@@ -168,6 +169,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
               </TableCell>
               <TableCell>{app.patient?.curp || 'N/A'}</TableCell>
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
+              <TableCell>{app.coloniaName || 'N/A'}</TableCell>
               <TableCell>
                  <Tooltip>
                     <TooltipTrigger asChild>

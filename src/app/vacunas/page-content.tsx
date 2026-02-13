@@ -391,6 +391,7 @@ export default function VaccinePageContent({
                   selectedVaccines={selectedVaccines}
                   patientType={patientType}
                   clinicId={selectedClinic?.id}
+                  coloniaName={selectedColonia?.name}
                   onBookingSuccess={refreshData}
                 />
               </div>

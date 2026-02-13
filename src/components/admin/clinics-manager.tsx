@@ -37,7 +37,8 @@ export function ClinicsManager() {
       setIsLoading(true);
       try {
         const data = await getClinics();
-        setClinics(data);
+        const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+        setClinics(sortedData);
       } catch (error) {
         console.error("Failed to fetch clinics:", error);
         toast({

@@ -42,8 +42,9 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
                  baseData['Estudio'] = ultrasoundItem.studyName;
             } else if (isVaccine) {
                 const vaccineItem = item as VaccineAppointment;
+                baseData['Colonia'] = vaccineItem.coloniaName || 'N/A';
                 baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
-                baseData['Recién Nacido'] = vaccineItem.isNewborn ? 'Sí' : 'No';
+                baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
             } else {
                 const regularItem = item as Appointment;
                 baseData['Núcleo'] = (item as any).clinicName;
@@ -290,7 +291,9 @@ export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppo
 
 export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment) {
     const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, isNewborn, vaccines } = appointmentData;
+    const { patient, date, time, appointmentNumber, patientType, vaccines, coloniaName } = appointmentData;
+    const isNewborn = patientType === 'Recién Nacido';
+    let detailsY = 85;
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
@@ -310,38 +313,48 @@ export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointmen
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
+    doc.text(`Teléfono del Tutor: ${patient.phoneNumber}`, 20, detailsY);
+    detailsY += 10;
+    
     if (!isNewborn) {
-        doc.text(`CURP: ${patient.curp}`, 20, 85);
-        doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
-    } else {
-        doc.text(`Teléfono del Tutor: ${patient.phoneNumber}`, 20, 85);
+        doc.text(`CURP: ${patient.curp}`, 20, detailsY);
+        detailsY += 10;
+        if (coloniaName) {
+            doc.text(`Colonia: ${coloniaName}`, 20, detailsY);
+            detailsY += 10;
+        }
     }
+    detailsY += 10; // Extra space
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, 115);
+    doc.text('Detalles de la Cita:', 20, detailsY);
+    detailsY += 10;
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, 125);
-    doc.text(`Hora: ${time} hrs`, 20, 135);
-    doc.text('Lugar: Área de Vacunación del Centro de Salud', 20, 145);
-
+    doc.text(`Fecha: ${formattedDate}`, 20, detailsY);
+    detailsY += 10;
+    doc.text(`Hora: ${time} hrs`, 20, detailsY);
+    detailsY += 10;
+    doc.text('Lugar: Área de Vacunación del Centro de Salud', 20, detailsY);
+    detailsY += 20;
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Vacunas a Aplicar:', 20, 165);
+    doc.text('Vacunas a Aplicar:', 20, detailsY);
+    detailsY += 10;
     
     const tableBody = vaccines.map(v => [v.name, v.description, v.applicationAge]);
     doc.autoTable({
-        startY: 175,
+        startY: detailsY,
         head: [['Vacuna', 'Protege contra', 'Edad recomendada']],
         body: tableBody,
         theme: 'grid',
         headStyles: { fillColor: [0, 102, 51] }, // Primary color
     });
 
-    const finalY = doc.lastAutoTable.finalY || 210;
+    const finalY = doc.lastAutoTable.finalY || detailsY + 30;
 
     doc.setFontSize(10);
     doc.setTextColor(150);

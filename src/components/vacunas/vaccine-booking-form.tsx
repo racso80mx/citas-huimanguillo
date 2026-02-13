@@ -64,6 +64,7 @@ type VaccineBookingFormProps = {
   selectedVaccines: Vaccine[];
   patientType: PatientType;
   clinicId?: string;
+  coloniaName?: string;
   onBookingSuccess: () => void;
 };
 
@@ -73,6 +74,7 @@ export function VaccineBookingForm({
   selectedVaccines,
   patientType,
   clinicId,
+  coloniaName,
   onBookingSuccess,
 }: VaccineBookingFormProps) {
   const { toast } = useToast();
@@ -168,6 +170,7 @@ export function VaccineBookingForm({
         time: selectedTime,
         isNewborn: isNewborn,
         clinicId: clinicId,
+        coloniaName: coloniaName,
         vaccines: selectedVaccines,
         status: 'Agendada',
         patientType: patientType,
