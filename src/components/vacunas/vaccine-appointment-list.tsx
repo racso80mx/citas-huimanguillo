@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useTransition } from 'react';
 import {
@@ -163,7 +164,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
               </TableCell>
               <TableCell className="flex items-center">
                 {app.patient ? `${app.patient.name} ${app.patient.paternalLastName}` : 'N/A'}
-                {app.isNewborn && <Baby className="h-4 w-4 ml-2 text-blue-500" />}
+                {app.patientType === 'Recién Nacido' && <Baby className="h-4 w-4 ml-2 text-blue-500" />}
               </TableCell>
               <TableCell>{app.patient?.curp || 'N/A'}</TableCell>
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>

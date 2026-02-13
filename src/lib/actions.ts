@@ -84,7 +84,6 @@ import type {
   VaccineAppointment,
   User,
 } from './definitions';
-import { generateAppointmentPDF, generateLabAppointmentPDF, generateXRayAppointmentPDF, generateUltrasoundAppointmentPDF, generateVaccineAppointmentPDF } from './utils';
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
   try {
@@ -108,14 +107,12 @@ export async function saveNewAppointment(
     if (!result.success || !result.data) {
         throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
-    
-    generateAppointmentPDF(result.data.appointment, result.data.clinic);
-    
+        
     await logActivity('Creación Cita Médica', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/citas-medicas');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: result.data.appointment };
+    return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewAppointment", e);
     return { success: false, error: e.message || 'Error al guardar la cita.' };
@@ -132,8 +129,6 @@ export async function saveNewLabAppointment(
      if (!result.success || !result.data) {
         throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
-
-    generateLabAppointmentPDF(result.data);
 
     await logActivity('Creación Cita Laboratorio', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/laboratorio');
@@ -160,13 +155,11 @@ export async function saveNewXRayAppointment(
         throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
     
-    generateXRayAppointmentPDF(result.data.appointment, result.data.study);
-
     await logActivity('Creación Cita Rayos X', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/rayos-x');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: result.data.appointment };
+    return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewXRayAppointment", e);
     return {
@@ -186,14 +179,12 @@ export async function saveNewUltrasoundAppointment(
     if (!result.success || !result.data) {
         throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
-
-    generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study);
     
     await logActivity('Creación Cita Ultrasonido', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/ultrasonidos');
     revalidatePath('/admin');
     revalidatePath('/reports');
-    return { success: true, data: result.data.appointment };
+    return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewUltrasoundAppointment", e);
     return {
@@ -214,8 +205,6 @@ export async function saveNewVaccineAppointment(
         throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
     }
     
-    generateVaccineAppointmentPDF(result.data);
-
     await logActivity('Creación Cita Vacunación', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
     revalidatePath('/vacunas');
     revalidatePath('/admin');

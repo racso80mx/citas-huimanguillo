@@ -31,6 +31,7 @@ import { Combobox } from '../ui/combobox';
 import type { XRayAppointment, Patient, XRayStudy } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
+import { generateXRayAppointmentPDF } from '@/lib/utils';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -164,12 +165,13 @@ export function XRayBookingForm({
 
       const result = await saveNewXRayAppointment(newAppointment, patientData);
 
-      if (result.success) {
+      if (result.success && result.data) {
+        generateXRayAppointmentPDF(result.data.appointment, result.data.study);
         form.reset();
         onBookingSuccess();
         toast({
           title: 'Cita Agendada',
-          description: `Tu cita de Rayos X con folio ${result.data?.appointmentNumber} ha sido agendada con éxito.`
+          description: `Tu cita de Rayos X con folio ${result.data.appointment.appointmentNumber} ha sido agendada con éxito.`
         })
       } else {
         toast({

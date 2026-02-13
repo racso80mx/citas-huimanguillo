@@ -31,6 +31,7 @@ import { Combobox } from '../ui/combobox';
 import type { UltrasoundAppointment, Patient, UltrasoundStudy } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
+import { generateUltrasoundAppointmentPDF } from '@/lib/utils';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -166,12 +167,13 @@ export function UltrasoundBookingForm({
 
       const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
       
-      if (result.success) {
+      if (result.success && result.data) {
+        generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study);
         form.reset();
         onBookingSuccess();
         toast({
           title: 'Cita Agendada',
-          description: `Tu cita de Ultrasonido con folio ${result.data?.appointmentNumber} ha sido agendada con éxito.`
+          description: `Tu cita de Ultrasonido con folio ${result.data.appointment.appointmentNumber} ha sido agendada con éxito.`
         })
       } else {
          toast({

@@ -45,7 +45,6 @@ import type {
   ModuleSettings,
   PatientType,
 } from './definitions';
-import { generateAppointmentPDF, generateLabAppointmentPDF, generateXRayAppointmentPDF, generateUltrasoundAppointmentPDF, generateVaccineAppointmentPDF } from './utils';
 
 // =====================================================================
 // HELPERS
@@ -241,11 +240,8 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     }
 
-    const startDate = new Date(appointmentDate);
-    startDate.setUTCHours(0, 0, 0, 0);
-
-    const endDate = new Date(appointmentDate);
-    endDate.setUTCHours(23, 59, 59, 999);
+    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
     
     const dateOnly = appointmentDate.toISOString().substring(0, 10);
 
@@ -286,10 +282,8 @@ async function validateLabAvailability(settings: LabSettings, date: string) {
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     
-    const startDate = new Date(appointmentDate);
-    startDate.setUTCHours(0, 0, 0, 0);
-    const endDate = new Date(appointmentDate);
-    endDate.setUTCHours(23, 59, 59, 999);
+    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
 
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
@@ -310,10 +304,8 @@ async function validateXRayAvailability(settings: XRaySettings, date: string, ti
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
 
-    const startDate = new Date(appointmentDate);
-    startDate.setUTCHours(0, 0, 0, 0);
-    const endDate = new Date(appointmentDate);
-    endDate.setUTCHours(23, 59, 59, 999);
+    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
 
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
@@ -335,10 +327,8 @@ async function validateUltrasoundAvailability(settings: UltrasoundSettings, date
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
 
-    const startDate = new Date(appointmentDate);
-    startDate.setUTCHours(0, 0, 0, 0);
-    const endDate = new Date(appointmentDate);
-    endDate.setUTCHours(23, 59, 59, 999);
+    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
     
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
@@ -360,10 +350,8 @@ async function validateVaccineAvailability(settings: VaccineSettings, date: stri
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
 
-    const startDate = new Date(appointmentDate);
-    startDate.setUTCHours(0, 0, 0, 0);
-    const endDate = new Date(appointmentDate);
-    endDate.setUTCHours(23, 59, 59, 999);
+    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
     
     const dayOfWeek = appointmentDate.getUTCDay();
     if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
@@ -416,6 +404,24 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
         await setDoc(patientRef, patientData);
+    }
+
+    // 1.5. Validate if patient already has a medical appointment for that day
+    const allPatientAppointmentsQuery = query(
+        collection(adminDb, 'appointments'),
+        where('patientId', '==', patientRef.id)
+    );
+    const allPatientAppointmentsSnap = await getDocs(allPatientAppointmentsQuery);
+
+    const appointmentDateOnly = new Date(appointmentData.date).toISOString().split('T')[0];
+
+    const hasAppointmentOnDay = allPatientAppointmentsSnap.docs.some(doc => {
+        const docDate = (doc.data().date as Timestamp).toDate().toISOString().split('T')[0];
+        return docDate === appointmentDateOnly;
+    });
+
+    if (hasAppointmentOnDay) {
+        throw new Error('Este paciente ya tiene una cita médica agendada para este día. No se puede duplicar.');
     }
     
     // 2. Validate availability

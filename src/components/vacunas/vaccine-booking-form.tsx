@@ -31,6 +31,7 @@ import { Combobox } from '../ui/combobox';
 import type { VaccineAppointment, Patient, Vaccine } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
+import { generateVaccineAppointmentPDF } from '@/lib/utils';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -165,15 +166,17 @@ export function VaccineBookingForm({
         appointmentNumber,
         date: selectedDate.toISOString(),
         time: selectedTime,
-        patientType: patientType,
-        clinicId,
+        isNewborn: isNewborn,
+        clinicId: clinicId,
         vaccines: selectedVaccines,
         status: 'Agendada',
+        patientType: patientType,
       };
 
       const result = await saveNewVaccineAppointment(newAppointment, patientData);
       
       if (result.success && result.data) {
+        generateVaccineAppointmentPDF(result.data);
         toast({
             title: 'Cita Confirmada',
             description: `Tu cita de Vacunación ha sido agendada. Folio: ${result.data.appointmentNumber}`,
