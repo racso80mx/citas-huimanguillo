@@ -234,19 +234,22 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   
   const coloniaOptions = React.useMemo(() => {
     if (!selectedDayAvailability) return [];
-    return colonias.map(colonia => {
+    
+    const options = colonias.map(colonia => {
         const clinic = clinics.find(c => c.id === colonia.clinicId);
         const slots = selectedDayAvailability.availabilityByClinic[colonia.clinicId] ?? 0;
         const isDisabled = slots === 0;
 
         return {
             value: colonia.id,
-            label: `${colonia.name} (${clinic?.name}) - ${slots} citas`,
-            keywords: `${colonia.name} ${clinic?.name}`,
+            label: `${colonia.name} (${clinic?.name || 'N/A'}) - ${slots} citas`,
+            keywords: `${colonia.name} ${clinic?.name || ''}`,
             disabled: isDisabled,
+            clinicName: clinic?.name || 'Z', // Sort colonias without a clinic to the end
+            coloniaName: colonia.name,
             content: (
                  <div className="flex justify-between w-full">
-                    <span>{colonia.name} (<strong className="text-red-600">{clinic?.name}</strong>)</span>
+                    <span>{colonia.name} (<strong className="text-red-600">{clinic?.name || 'N/A'}</strong>)</span>
                     <span className={`font-bold ml-4 ${isDisabled ? 'text-destructive' : 'text-green-600'}`}>
                         {slots} citas
                     </span>
@@ -254,6 +257,18 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             )
         };
     });
+
+    // Sort by clinic name first, then by colonia name
+    options.sort((a, b) => {
+        const clinicCompare = a.clinicName.localeCompare(b.clinicName);
+        if (clinicCompare !== 0) {
+            return clinicCompare;
+        }
+        return a.coloniaName.localeCompare(b.coloniaName);
+    });
+
+    return options;
+    
   }, [colonias, clinics, selectedDayAvailability]);
 
   const allTimeSlots = React.useMemo(() => generateTimeSlots(selectedClinic), [selectedClinic]);
