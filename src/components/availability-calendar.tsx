@@ -4,7 +4,7 @@ import type { DailyAvailability } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 
 type AvailabilityCalendarProps = {
   selectedDate: Date | undefined;
@@ -21,11 +21,26 @@ export function AvailabilityCalendar({
   onMonthChange,
   isLoading,
 }: AvailabilityCalendarProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
   const disabledDays = useMemo(() => {
-    return availability
+    const disabledByAvailability = availability
       .filter((d) => d.availableSlots === 0)
       .map((d) => parseISO(d.date));
-  }, [availability]);
+
+    if (isClient) {
+      return [{ before: new Date() }, ...disabledByAvailability];
+    }
+    
+    // On the server, just disable based on availability, not past dates.
+    // The client-side effect will add the past dates after hydration.
+    return disabledByAvailability;
+
+  }, [availability, isClient]);
 
   const modifiers = {
     available: (date: Date) => {
@@ -57,7 +72,7 @@ export function AvailabilityCalendar({
           selected={selectedDate}
           onSelect={onDateSelect}
           onMonthChange={onMonthChange}
-          disabled={[{ before: new Date() }, ...disabledDays]}
+          disabled={disabledDays}
           modifiers={modifiers}
           modifiersStyles={modifiersStyles}
           className="p-0"
@@ -76,5 +91,3 @@ export function AvailabilityCalendar({
     </div>
   );
 }
-
-    

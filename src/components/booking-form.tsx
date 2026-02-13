@@ -168,7 +168,7 @@ export function BookingForm({
       if (result.success && result.data) {
         toast({
             title: 'Cita Confirmada',
-            description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointment.appointmentNumber}`,
+            description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointmentNumber}`,
             duration: 10000,
         });
 
