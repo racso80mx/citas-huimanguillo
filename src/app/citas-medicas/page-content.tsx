@@ -46,17 +46,6 @@ type PageContentProps = {
     initialClinics: Clinic[];
 };
 
-const dayOfWeekMap: { [key: string]: number } = {
-  "Domingo": 0,
-  "Lunes": 1,
-  "Martes": 2,
-  "Miércoles": 3,
-  "Jueves": 4,
-  "Viernes": 5,
-  "Sábado": 6,
-};
-
-
 export default function PageContent({ initialAnnouncements, initialColonias, initialClinics }: PageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
@@ -99,6 +88,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
       
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+      const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
       for (const day of daysInMonth) {
         const dateString = day.toISOString().split('T')[0];
@@ -112,9 +102,9 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
         for (const clinic of freshClinics) {
             const isWeekend = isSaturday(day) || isSunday(day);
-            const dayOfWeek = day.getDay();
+            const dayOfWeekName = dayNames[day.getUTCDay()];
             
-            const isDayOfAction = clinic.dayOfAction ? dayOfWeekMap[clinic.dayOfAction] === dayOfWeek : false;
+            const isDayOfAction = clinic.daysOfAction?.includes(dayOfWeekName);
             const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
             const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
 

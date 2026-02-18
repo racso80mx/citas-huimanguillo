@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,8 +24,9 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { timeSlots30Min } from '@/lib/time-slots';
+import { Checkbox } from '../ui/checkbox';
 
-const daysOfWeek = ["Ninguno", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const daysOfWeek = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -62,6 +64,21 @@ export function ClinicsManager() {
     );
   };
   
+  const handleDaysOfActionChange = (id: string, day: string, checked: boolean) => {
+    setClinics(prev =>
+      prev.map(c => {
+        if (c.id === id) {
+          const currentDays = c.daysOfAction || [];
+          const newDays = checked
+            ? [...currentDays, day]
+            : currentDays.filter(d => d !== day);
+          return { ...c, daysOfAction: newDays };
+        }
+        return c;
+      })
+    );
+  };
+
   const toggleShowPassword = (id: string) => {
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -76,7 +93,7 @@ export function ClinicsManager() {
         startTime: '08:00',
         endTime: '13:00',
         weekendBookingEnabled: false,
-        dayOfAction: "Ninguno",
+        daysOfAction: [],
         unavailableDates: [],
     };
     setClinics([...clinics, newClinic]);
@@ -228,15 +245,19 @@ export function ClinicsManager() {
             </div>
              <div className='grid sm:grid-cols-2 gap-4'>
                 <div className='space-y-2'>
-                  <Label htmlFor={`day-of-action-${clinic.id}`}>Día de Acción (No Citas)</Label>
-                   <Select value={clinic.dayOfAction || 'Ninguno'} onValueChange={(value) => handleClinicChange(clinic.id, 'dayOfAction', value)}>
-                        <SelectTrigger id={`day-of-action-${clinic.id}`}>
-                            <SelectValue placeholder="Selecciona un día" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                  <Label>Días de Acción (No Citas)</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg border p-4">
+                    {daysOfWeek.map(day => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`day-${clinic.id}-${day}`}
+                          checked={clinic.daysOfAction?.includes(day)}
+                          onCheckedChange={(checked) => handleDaysOfActionChange(clinic.id, day, !!checked)}
+                        />
+                        <Label htmlFor={`day-${clinic.id}-${day}`} className="font-normal">{day}</Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className='space-y-2'>
                     <Label>Días Inhábiles (Vacaciones)</Label>

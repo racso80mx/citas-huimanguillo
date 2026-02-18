@@ -62,7 +62,7 @@ export const ClinicSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
   weekendBookingEnabled: z.boolean(),
-  dayOfAction: z.enum(["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Ninguno"]).optional(),
+  daysOfAction: z.array(z.string()).optional(),
   unavailableDates: z.array(z.string()).optional(),
 });
 

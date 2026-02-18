@@ -247,8 +247,8 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
 
     const dayOfWeekJS = appointmentDate.getUTCDay();
     const dayOfWeekString = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeekJS];
-    if (clinic.dayOfAction && clinic.dayOfAction !== "Ninguno" && clinic.dayOfAction === dayOfWeekString) {
-        return { isValid: false, message: `El núcleo básico no labora los días ${clinic.dayOfAction}.` };
+    if (clinic.daysOfAction?.includes(dayOfWeekString)) {
+        return { isValid: false, message: `El núcleo básico no tiene citas los días ${dayOfWeekString} por ser día de acción.` };
     }
     
     if ((dayOfWeekJS === 6 || dayOfWeekJS === 0) && !clinic.weekendBookingEnabled) {
