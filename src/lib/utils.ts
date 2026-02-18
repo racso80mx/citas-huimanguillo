@@ -122,10 +122,7 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     
     if (tokenNumber) {
         doc.text(`Ficha de Turno: ${tokenNumber}`, 20, currentY);
-    } else if (time && time.toLowerCase().includes('ficha')) {
-        doc.text(`Ficha de Turno: ${time.split(' ')[1] || ''}`, 20, currentY);
-    }
-     else {
+    } else {
         doc.text(`Hora: ${time}`, 20, currentY);
     }
     currentY += 10;

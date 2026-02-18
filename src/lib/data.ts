@@ -440,21 +440,19 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     // 3. Generate appointmentNumber and tokenNumber
     const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
     let tokenNumber: number | undefined = undefined;
-    let finalTime = appointmentData.time;
 
     if (clinic.bookingMode === BookingMode.Token) {
         tokenNumber = (appointmentsOnDate?.length || 0) + 1;
-        finalTime = `Ficha ${tokenNumber}`;
     }
     
     // 4. Save appointment
     const newAppointmentData: any = { 
         ...appointmentData, 
-        time: finalTime,
         appointmentNumber, 
         patientId: patientRef.id, 
         date: new Date(appointmentData.date)
     };
+
     if (tokenNumber !== undefined) {
         newAppointmentData.tokenNumber = tokenNumber;
     }
@@ -726,4 +724,5 @@ export {
     
 
     
+
 
