@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,7 +13,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateClinics, getClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { ClinicType, BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
