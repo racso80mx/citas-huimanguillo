@@ -241,12 +241,13 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     }
     
+    // Fetch all appointments for the clinic first, then filter in memory
     const allAppointmentsForClinicQuery = query(
         collection(adminDb, 'appointments'), 
         where('clinicId', '==', clinic.id)
     );
     const allAppointmentsForClinicSnap = await getDocs(allAppointmentsForClinicQuery);
-
+    
     const dateOnly = appointmentDate.toISOString().substring(0, 10);
     const appointmentsForClinicOnDate = allAppointmentsForClinicSnap.docs
         .map(d => d.data())
@@ -396,7 +397,7 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    // 1. First, find or create patient to get a stable ID.
+    // 1. Find or create patient to get a stable ID.
     let patientRef: DocumentReference;
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const existingPatient = await getPatientByCURP(patientData.curp);
@@ -437,15 +438,9 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     const { isValid, message, appointmentsOnDate } = await validateClinicAvailability(clinic, appointmentData.date, appointmentData.time);
     if (!isValid) throw new Error(message);
     
-    // 3. Generate appointmentNumber and tokenNumber
+    // 3. Prepare data to save
     const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
-    let tokenNumber: number | undefined = undefined;
 
-    if (clinic.bookingMode === BookingMode.Token) {
-        tokenNumber = (appointmentsOnDate?.length || 0) + 1;
-    }
-    
-    // 4. Save appointment
     const newAppointmentData: any = { 
         ...appointmentData, 
         appointmentNumber, 
@@ -453,10 +448,12 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         date: new Date(appointmentData.date)
     };
 
-    if (tokenNumber !== undefined) {
+    if (clinic.bookingMode === BookingMode.Token) {
+        const tokenNumber = (appointmentsOnDate?.length || 0) + 1;
         newAppointmentData.tokenNumber = tokenNumber;
     }
     
+    // 4. Save appointment
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
 
     const appointmentSnap = await getDoc(newAppointmentRef);
@@ -724,5 +721,6 @@ export {
     
 
     
+
 
 

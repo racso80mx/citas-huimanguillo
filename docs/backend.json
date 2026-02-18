@@ -39,6 +39,7 @@
         "clinicId": { "type": "string" },
         "date": { "type": "string", "format": "date-time" },
         "time": { "type": "string" },
+        "tokenNumber": { "type": "number" },
         "patientType": { "type": "string", "enum": ["General", "Crónico", "Embarazada", "3ra Edad"] },
         "status": { "type": "string", "enum": ["Agendada", "Atendido", "No Atendido", "No Asistió"] }
       },
