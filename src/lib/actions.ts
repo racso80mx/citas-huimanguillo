@@ -98,7 +98,7 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 }
 
 export async function saveNewAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>,
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>,
   patientData: Omit<Patient, 'id'>
 ) {
   try {

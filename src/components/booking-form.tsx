@@ -105,10 +105,11 @@ export function BookingForm({
   const handleCurpBlur = async () => {
     const curpValue = form.getValues('curp');
     if (!curpValue || isNewborn) return;
+    const upperCurp = curpValue.toUpperCase();
 
-    if (curpRegex.test(curpValue.toUpperCase())) {
+    if (curpRegex.test(upperCurp)) {
       startTransition(async () => {
-        const result = await getPatientByCURP(curpValue.toUpperCase());
+        const result = await getPatientByCURP(upperCurp);
         if (result.success && result.data) {
           form.setValue('name', result.data.name, { shouldValidate: true });
           form.setValue('paternalLastName', result.data.paternalLastName, { shouldValidate: true });
@@ -156,10 +157,7 @@ export function BookingForm({
           phoneNumber: data.phoneNumber
       };
 
-      const appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
-
-      const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'> = {
-        appointmentNumber,
+      const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'> = {
         clinicId: selectedClinic.id,
         date: selectedDate.toISOString(),
         time: selectedTime,

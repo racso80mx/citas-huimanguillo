@@ -395,7 +395,7 @@ export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment
 export async function getVaccineAppointments(): Promise<VaccineAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> { if (!adminDb) return []; const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId)); const snapshot = await getDocs(q); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 
-export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
+export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
     // 1. First, find or create patient to get a stable ID.
@@ -432,15 +432,35 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         throw new Error('Este paciente ya tiene una cita médica agendada para este día. No se puede duplicar.');
     }
     
-    // 2. Validate availability
+    // 2. Validate availability & get clinic
     const clinic = await getClinicById(appointmentData.clinicId);
     if (!clinic) throw new Error("La clínica seleccionada no es válida.");
 
     const { isValid, message } = await validateClinicAvailability(clinic, appointmentData.date, appointmentData.time);
     if (!isValid) throw new Error(message);
     
-    // 3. Save appointment
-    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date) };
+    // 3. Generate appointmentNumber based on booking mode
+    let appointmentNumber: string;
+
+    if (clinic.bookingMode === BookingMode.Token) {
+        const appointmentDate = new Date(appointmentData.date);
+        const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+        const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
+        
+        const q = query(
+            collection(adminDb, 'appointments'), 
+            where('clinicId', '==', appointmentData.clinicId),
+            where('date', '>=', startDate), 
+            where('date', '<=', endDate)
+        );
+        const appointmentsSnap = await getDocs(q);
+        appointmentNumber = (appointmentsSnap.size + 1).toString();
+    } else {
+        appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
+    }
+    
+    // 4. Save appointment
+    const newAppointmentData = { ...appointmentData, appointmentNumber, patientId: patientRef.id, date: new Date(appointmentData.date) };
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
 
     const appointmentSnap = await getDoc(newAppointmentRef);
