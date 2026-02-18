@@ -17,7 +17,8 @@ import {
   orderBy, 
   limit,
   DocumentReference,
-  addDoc
+  addDoc,
+  QuerySnapshot
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import { v4 as uuidv4 } from 'uuid';
@@ -233,18 +234,28 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
 // VALIDATION HELPERS
 // =====================================================================
 
-async function validateClinicAvailability(clinic: Clinic, date: string, time: string) {
+async function validateClinicAvailability(clinic: Clinic, date: string, time: string): Promise<{ isValid: boolean; message?: string; appointmentsOnDate?: any[] }> {
     if (!adminDb) throw new Error("Database not initialized.");
     
     const appointmentDate = new Date(date);
     if (isNaN(appointmentDate.getTime())) {
         return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     }
-
-    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
     
+    // Inefficient query to avoid composite index, as per new requirement
+    const allAppointmentsForClinicQuery = query(
+        collection(adminDb, 'appointments'), 
+        where('clinicId', '==', clinic.id)
+    );
+    const allAppointmentsForClinicSnap = await getDocs(allAppointmentsForClinicQuery);
+
     const dateOnly = appointmentDate.toISOString().substring(0, 10);
+    const appointmentsForClinicOnDate = allAppointmentsForClinicSnap.docs
+        .map(d => d.data())
+        .filter(app => {
+            const appDate = (app.date as Timestamp).toDate().toISOString().substring(0, 10);
+            return appDate === dateOnly;
+        });
 
     const dayOfWeekJS = appointmentDate.getUTCDay();
     const dayOfWeekString = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeekJS];
@@ -260,27 +271,17 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'El núcleo básico no labora en la fecha seleccionada por vacaciones.' };
     }
     
-    const allDayAppointmentsQuery = query(
-        collection(adminDb, 'appointments'), 
-        where('clinicId', '==', clinic.id),
-        where('date', '>=', startDate), 
-        where('date', '<=', endDate)
-    );
-    const allDayAppointmentsSnap = await getDocs(allDayAppointmentsQuery);
-
-    const appointmentsForClinicOnDate = allDayAppointmentsSnap.docs;
-
     if (appointmentsForClinicOnDate.length >= clinic.dailySlots) {
         return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
     }
     
     if (clinic.bookingMode === BookingMode.Time) {
-        if (appointmentsForClinicOnDate.some(d => d.data().time === time)) {
+        if (appointmentsForClinicOnDate.some(d => d.time === time)) {
             return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
         }
     }
 
-    return { isValid: true };
+    return { isValid: true, appointmentsOnDate: appointmentsForClinicOnDate };
 }
 
 async function validateLabAvailability(settings: LabSettings, date: string) {
@@ -435,7 +436,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     const clinic = await getClinicById(appointmentData.clinicId);
     if (!clinic) throw new Error("La clínica seleccionada no es válida.");
 
-    const { isValid, message } = await validateClinicAvailability(clinic, appointmentData.date, appointmentData.time);
+    const { isValid, message, appointmentsOnDate } = await validateClinicAvailability(clinic, appointmentData.date, appointmentData.time);
     if (!isValid) throw new Error(message);
     
     // 3. Generate appointmentNumber and tokenNumber
@@ -443,19 +444,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     let tokenNumber: number | undefined = undefined;
 
     if (clinic.bookingMode === BookingMode.Token) {
-        const appointmentDate = new Date(appointmentData.date);
-        const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-        const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
-
-        const q = query(
-            collection(adminDb, 'appointments'),
-            where('clinicId', '==', appointmentData.clinicId),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate)
-        );
-        const appointmentsOnDateSnap = await getDocs(q);
-
-        tokenNumber = appointmentsOnDateSnap.size + 1;
+        tokenNumber = (appointmentsOnDate?.length || 0) + 1;
     }
     
     // 4. Save appointment
@@ -732,5 +721,7 @@ export {
     getVaccineAppointments,
 };
 
+
+    
 
     
