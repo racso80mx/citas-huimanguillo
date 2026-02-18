@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
+import { ClinicType } from '@/lib/definitions';
 import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment } from '@/lib/actions';
 import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics, getColonias } from '@/lib/data';
 import {
@@ -200,6 +201,31 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [isClient, activeFilter, dateRange, allXRayAppointments]);
   const ultrasoundAppointmentsToDisplay = useMemo(() => getFilteredData(allUltrasoundAppointments), [isClient, activeFilter, dateRange, allUltrasoundAppointments]);
   const vaccineAppointmentsToDisplay = useMemo(() => getFilteredData(allVaccineAppointments), [isClient, activeFilter, dateRange, allVaccineAppointments]);
+  
+  const groupedClinics = useMemo(() => {
+    if (!clinics) return {};
+    
+    const sortedClinics = [...clinics].sort((a, b) => a.name.localeCompare(b.name));
+
+    const groups = sortedClinics.reduce((acc, clinic) => {
+      const type = clinic.clinicType || ClinicType.ConsultaExterna;
+      if (!acc[type]) {
+        acc[type] = [];
+      }
+      acc[type].push(clinic);
+      return acc;
+    }, {} as Record<string, Clinic[]>);
+
+    const groupOrder = Object.values(ClinicType);
+
+    return Object.keys(groups).sort((a, b) => groupOrder.indexOf(a as ClinicType) - groupOrder.indexOf(b as ClinicType)).reduce(
+        (obj, key) => { 
+            obj[key] = groups[key]; 
+            return obj;
+        }, 
+        {} as Record<string, Clinic[]>
+    );
+  }, [clinics]);
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
@@ -430,34 +456,36 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                               )}
                           </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[200px] p-0" align="start">
+                      <PopoverContent className="w-[250px] p-0" align="start">
                           <Command>
                               <CommandInput placeholder="Buscar núcleo..." />
                               <CommandList>
                                   <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-                                  <CommandGroup>
-                                      {clinics.map(clinic => {
-                                          const isSelected = selectedClinics.includes(clinic.id);
-                                          return (
-                                              <CommandItem
-                                                  key={clinic.id}
-                                                  onSelect={() => handleClinicSelect(clinic.id)}
-                                              >
-                                                  <div
-                                                      className={cn(
-                                                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                          isSelected
-                                                              ? "bg-primary text-primary-foreground"
-                                                              : "opacity-50 [&_svg]:invisible"
-                                                      )}
-                                                  >
-                                                      <Check className={cn("h-4 w-4")} />
-                                                  </div>
-                                                  <span>{clinic.name}</span>
-                                              </CommandItem>
-                                          );
-                                      })}
-                                  </CommandGroup>
+                                   {Object.entries(groupedClinics).map(([type, clinicGroup]) => (
+                                    <CommandGroup key={type} heading={type}>
+                                        {clinicGroup.map(clinic => {
+                                            const isSelected = selectedClinics.includes(clinic.id);
+                                            return (
+                                                <CommandItem
+                                                    key={clinic.id}
+                                                    onSelect={() => handleClinicSelect(clinic.id)}
+                                                >
+                                                    <div
+                                                        className={cn(
+                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                            isSelected
+                                                                ? "bg-primary text-primary-foreground"
+                                                                : "opacity-50 [&_svg]:invisible"
+                                                        )}
+                                                    >
+                                                        <Check className={cn("h-4 w-4")} />
+                                                    </div>
+                                                    <span>{clinic.name}</span>
+                                                </CommandItem>
+                                            );
+                                        })}
+                                    </CommandGroup>
+                                  ))}
                                   {selectedClinics.length > 0 && (
                                       <>
                                           <CommandSeparator />
