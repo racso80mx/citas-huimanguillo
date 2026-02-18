@@ -89,11 +89,6 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
     currentY += 8;
-    
-    if (tokenNumber) {
-        doc.text(`Número de Ficha: ${tokenNumber}`, 20, currentY);
-        currentY += 8;
-    }
 
     doc.setLineWidth(0.5);
     doc.line(20, currentY - 4, 190, currentY - 4);
@@ -124,8 +119,14 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
     doc.text(`Fecha: ${formattedDate}`, 20, currentY);
     currentY += 10;
-    doc.text(`Hora: ${time}`, 20, currentY);
+    
+    if (tokenNumber) {
+        doc.text(`Ficha de Turno: ${tokenNumber}`, 20, currentY);
+    } else {
+        doc.text(`Hora: ${time}`, 20, currentY);
+    }
     currentY += 10;
+
     doc.text(`Clínica: ${clinicData.name}`, 20, currentY);
     currentY += 10;
     doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, currentY);
