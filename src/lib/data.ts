@@ -262,14 +262,13 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
     
     const allDayAppointmentsQuery = query(
         collection(adminDb, 'appointments'), 
+        where('clinicId', '==', clinic.id),
         where('date', '>=', startDate), 
         where('date', '<=', endDate)
     );
     const allDayAppointmentsSnap = await getDocs(allDayAppointmentsQuery);
 
-    const appointmentsForClinicOnDate = allDayAppointmentsSnap.docs.filter(
-        d => d.data().clinicId === clinic.id
-    );
+    const appointmentsForClinicOnDate = allDayAppointmentsSnap.docs;
 
     if (appointmentsForClinicOnDate.length >= clinic.dailySlots) {
         return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
@@ -439,28 +438,37 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     const { isValid, message } = await validateClinicAvailability(clinic, appointmentData.date, appointmentData.time);
     if (!isValid) throw new Error(message);
     
-    // 3. Generate appointmentNumber based on booking mode
-    let appointmentNumber: string;
+    // 3. Generate appointmentNumber and tokenNumber
+    const appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
+    let tokenNumber: number | undefined = undefined;
 
     if (clinic.bookingMode === BookingMode.Token) {
         const appointmentDate = new Date(appointmentData.date);
-        const targetDateString = appointmentDate.toISOString().split('T')[0];
+        const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+        const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
 
-        const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', appointmentData.clinicId));
-        const appointmentsSnap = await getDocs(q);
-        
-        const appointmentsOnDate = appointmentsSnap.docs.filter(doc => {
-            const docDate = (doc.data().date as Timestamp).toDate().toISOString().split('T')[0];
-            return docDate === targetDateString;
-        });
+        const q = query(
+            collection(adminDb, 'appointments'),
+            where('clinicId', '==', appointmentData.clinicId),
+            where('date', '>=', startDate),
+            where('date', '<=', endDate)
+        );
+        const appointmentsOnDateSnap = await getDocs(q);
 
-        appointmentNumber = (appointmentsOnDate.length + 1).toString();
-    } else {
-        appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
+        tokenNumber = appointmentsOnDateSnap.size + 1;
     }
     
     // 4. Save appointment
-    const newAppointmentData = { ...appointmentData, appointmentNumber, patientId: patientRef.id, date: new Date(appointmentData.date) };
+    const newAppointmentData: any = { 
+        ...appointmentData, 
+        appointmentNumber, 
+        patientId: patientRef.id, 
+        date: new Date(appointmentData.date)
+    };
+    if (tokenNumber !== undefined) {
+        newAppointmentData.tokenNumber = tokenNumber;
+    }
+    
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
 
     const appointmentSnap = await getDoc(newAppointmentRef);
@@ -703,7 +711,6 @@ export async function cleanupOldRecords() {
 }
 
 export { 
-    getLogs,
     getClinics, 
     getColonias, 
     getAnnouncements, 

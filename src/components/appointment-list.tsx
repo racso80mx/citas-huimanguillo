@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
 import {
@@ -272,7 +273,10 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         <TableBody>
           {sortedAppointments.map((app) => (
             <TableRow key={app.id}>
-              <TableCell className="font-mono">{app.appointmentNumber}</TableCell>
+              <TableCell className="font-mono">
+                {app.tokenNumber ? app.tokenNumber : app.appointmentNumber}
+                {app.tokenNumber && <span className="block text-xs text-muted-foreground">({app.appointmentNumber})</span>}
+              </TableCell>
               <TableCell className="font-medium">
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>

@@ -43,6 +43,7 @@ export type AppointmentStatus = 'Agendada' | 'Atendido' | 'No Atendido' | 'No As
 export type Appointment = {
   id: string; // UUID
   appointmentNumber: string;
+  tokenNumber?: number;
   patientId: string;
   clinicId: string;
   date: string; // ISO string for serializability

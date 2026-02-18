@@ -48,6 +48,9 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
                 baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
             } else {
                 const regularItem = item as Appointment;
+                if (regularItem.tokenNumber) {
+                    baseData['Ficha'] = regularItem.tokenNumber;
+                }
                 baseData['Núcleo'] = (item as any).clinicName;
                 baseData['Tipo Paciente'] = regularItem.patientType;
             }
@@ -73,42 +76,62 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 
 export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
     const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, patientType } = appointmentData;
+    const { patient, date, time, appointmentNumber, patientType, tokenNumber } = appointmentData;
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
     doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
+    
+    let currentY = 50;
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
-    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
+    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
+    currentY += 8;
+    
+    if (tokenNumber) {
+        doc.text(`Número de Ficha: ${tokenNumber}`, 20, currentY);
+        currentY += 8;
+    }
 
     doc.setLineWidth(0.5);
-    doc.line(20, 55, 190, 55);
+    doc.line(20, currentY - 4, 190, currentY - 4);
+
+    currentY += 5;
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Datos del Paciente:', 20, 65);
+    doc.text('Datos del Paciente:', 20, currentY);
+    currentY += 10;
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
-    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
-    doc.text(`Tipo de Paciente: ${patientType}`, 20, 85);
-    doc.text(`CURP: ${patient.curp}`, 20, 95);
-    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 105);
+    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Tipo de Paciente: ${patientType}`, 20, currentY);
+    currentY += 10;
+    doc.text(`CURP: ${patient.curp}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, currentY);
+    currentY += 20;
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, 125);
+    doc.text('Detalles de la Cita:', 20, currentY);
+    currentY += 10;
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, 135);
-    doc.text(`Hora: ${time} hrs`, 20, 145);
-    doc.text(`Clínica: ${clinicData.name}`, 20, 155);
-    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, 165);
+    doc.text(`Fecha: ${formattedDate}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Hora: ${time}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Clínica: ${clinicData.name}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, currentY);
+    currentY += 10;
     
-    let finalY = 175;
+    let finalY = currentY;
 
     if (announcements && announcements.length > 0) {
         doc.setFontSize(14);
