@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -21,21 +20,12 @@ import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope } from 'lucide-reac
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
 import { Combobox } from '@/components/ui/combobox';
 
 type PageContentProps = {
@@ -59,8 +49,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
-
-  const form = useForm();
 
   const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
     if (!startTimeStr || !endTimeStr || !duration) return [];
@@ -329,11 +317,9 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                     </CardHeader>
                     <CardContent>
                         <Select onValueChange={(value: ClinicType) => setSelectedClinicType(value)} value={selectedClinicType}>
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecciona un tipo de consulta" />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un tipo de consulta" />
+                            </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value={ClinicType.ConsultaExterna}>Consulta Externa</SelectItem>
                                 <SelectItem value={ClinicType.Especializada}>Consulta Externa Especializada</SelectItem>
@@ -375,33 +361,18 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                     <CardDescription>Selecciona tu tipo de paciente para nuestros registros.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <Form {...form}>
-                                        <form>
-                                            <FormField
-                                                control={form.control}
-                                                name="patientType"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                    <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
-                                                        <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Selecciona un tipo" />
-                                                        </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                        <SelectItem value={PatientType.General}>General</SelectItem>
-                                                        <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
-                                                        <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
-                                                        <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
-                                                        <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                                />
-                                        </form>
-                                    </Form>
+                                    <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecciona un tipo" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                        <SelectItem value={PatientType.General}>General</SelectItem>
+                                        <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                        <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                        <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                        <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </CardContent>
                             </Card>
                         </div>
