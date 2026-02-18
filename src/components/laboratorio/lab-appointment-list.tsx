@@ -13,7 +13,7 @@ import type { LabAppointment, Patient, AppointmentStatus } from '@/lib/definitio
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, FlaskConical, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from 'lucide-react';
+import { Trash2, FlaskConical, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +85,22 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
     }
     fetchAnnouncements();
   }, []);
+
+  const handleCopyCurp = (curp: string) => {
+    navigator.clipboard.writeText(curp).then(() => {
+      toast({
+        title: 'CURP Copiada',
+        description: `Se ha copiado la CURP: ${curp}`,
+      });
+    }).catch(err => {
+      console.error('Failed to copy CURP: ', err);
+      toast({
+        title: 'Error al copiar',
+        description: 'No se pudo copiar la CURP al portapapeles.',
+        variant: 'destructive',
+      });
+    });
+  };
 
   const sortedAppointments = useMemo(() => {
     let sortableItems = [...appointments];
@@ -249,7 +265,22 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
               <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName}` : 'N/A'}</TableCell>
-              <TableCell>{app.patient?.curp || 'N/A'}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <span>{app.patient?.curp || 'N/A'}</span>
+                  {app.patient?.curp && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleCopyCurp(app.patient!.curp)}
+                    >
+                      <ClipboardCopy className="h-4 w-4" />
+                      <span className="sr-only">Copiar CURP</span>
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
               <TableCell>
                  <Tooltip>
