@@ -110,8 +110,8 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
 
         switch (sortConfig.key) {
           case 'patientName':
-            aValue = a.patient ? `${a.patient.name} ${a.patient.paternalLastName}` : '';
-            bValue = b.patient ? `${b.patient.name} ${b.patient.paternalLastName}` : '';
+            aValue = a.patient ? `${a.patient.name} ${a.patient.paternalLastName} ${a.patient.maternalLastName}` : '';
+            bValue = b.patient ? `${b.patient.name} ${b.patient.paternalLastName} ${b.patient.maternalLastName}` : '';
             break;
           case 'clinicName':
             aValue = getClinicName(a.clinicId);
@@ -277,7 +277,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
-              <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName}` : 'N/A'}</TableCell>
+              <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   <span>{app.patient?.curp || 'N/A'}</span>
@@ -341,7 +341,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                         <AlertDialogDescription>
                           Esta acción no se puede deshacer. Se eliminará permanentemente la cita de
-                          <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ` : 'este paciente '}</span>
+                          <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName} ` : 'este paciente '}</span>
                            ({app.appointmentNumber}) y el espacio quedará libre.
                         </AlertDialogDescription>
                       </AlertDialogHeader>

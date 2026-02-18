@@ -106,8 +106,8 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
 
         switch (sortConfig.key) {
           case 'patientName':
-            aValue = a.patient ? `${a.patient.name} ${a.patient.paternalLastName}` : '';
-            bValue = b.patient ? `${b.patient.name} ${b.patient.paternalLastName}` : '';
+            aValue = a.patient ? `${a.patient.name} ${a.patient.paternalLastName} ${a.patient.maternalLastName}` : '';
+            bValue = b.patient ? `${b.patient.name} ${b.patient.paternalLastName} ${b.patient.maternalLastName}` : '';
             break;
           case 'curp':
             aValue = a.patient?.curp || '';
@@ -262,7 +262,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
               <TableCell className="flex items-center">
-                {app.patient ? `${app.patient.name} ${app.patient.paternalLastName}` : 'N/A'}
+                {app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A'}
                 {app.patientType === 'Recién Nacido' && <Baby className="h-4 w-4 ml-2 text-blue-500" />}
               </TableCell>
               <TableCell>
@@ -342,7 +342,7 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
                           <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                           <AlertDialogDescription>
                             Esta acción no se puede deshacer. Se eliminará permanentemente la cita de vacunación de
-                            <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ` : 'este paciente '}</span>
+                            <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'este paciente '}</span>
                             ({app.appointmentNumber}).
                           </AlertDialogDescription>
                         </AlertDialogHeader>
