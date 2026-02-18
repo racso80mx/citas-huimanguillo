@@ -444,17 +444,17 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 
     if (clinic.bookingMode === BookingMode.Token) {
         const appointmentDate = new Date(appointmentData.date);
-        const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-        const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
-        
-        const q = query(
-            collection(adminDb, 'appointments'), 
-            where('clinicId', '==', appointmentData.clinicId),
-            where('date', '>=', startDate), 
-            where('date', '<=', endDate)
-        );
+        const targetDateString = appointmentDate.toISOString().split('T')[0];
+
+        const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', appointmentData.clinicId));
         const appointmentsSnap = await getDocs(q);
-        appointmentNumber = (appointmentsSnap.size + 1).toString();
+        
+        const appointmentsOnDate = appointmentsSnap.docs.filter(doc => {
+            const docDate = (doc.data().date as Timestamp).toDate().toISOString().split('T')[0];
+            return docDate === targetDateString;
+        });
+
+        appointmentNumber = (appointmentsOnDate.length + 1).toString();
     } else {
         appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
     }
@@ -701,3 +701,29 @@ export async function cleanupOldRecords() {
     
     return { deletedCount: totalDeleted };
 }
+
+export { 
+    getLogs,
+    getClinics, 
+    getColonias, 
+    getAnnouncements, 
+    getUsers,
+    getModuleSettings, 
+    getLabSettings, 
+    getLabStudies, 
+    getXRaySettings, 
+    getXRayStudies, 
+    getUltrasoundSettings, 
+    getUltrasoundStudies, 
+    getVaccineSettings,
+    getVaccines,
+    getAppointments, 
+    getAppointmentsForClinic, 
+    getLabAppointments, 
+    getXRayAppointments, 
+    getUltrasoundAppointments,
+    getVaccineAppointments,
+};
+
+
+    
