@@ -23,6 +23,7 @@ import {
   Calendar as CalendarIcon,
   RefreshCw,
   Check,
+  PlusCircle,
 } from 'lucide-react';
 import {
   startOfDay,
