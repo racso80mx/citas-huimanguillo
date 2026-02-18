@@ -24,27 +24,26 @@ import { adminDb } from '@/firebase/server-config';
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
+  Appointment,
+  AppointmentStatus,
   Clinic,
   Colonia,
-  Appointment,
-  Patient,
   LabAppointment,
-  LabStudy,
   LabSettings,
-  XRayAppointment,
-  XRayStudy,
-  XRaySettings,
+  LabStudy,
+  Patient,
   UltrasoundAppointment,
-  UltrasoundStudy,
   UltrasoundSettings,
-  VaccineAppointment,
+  UltrasoundStudy,
+  XRayAppointment,
+  XRaySettings,
+  XRayStudy,
+  ModuleSettings,
   Vaccine,
   VaccineSettings,
+  VaccineAppointment,
   User,
   ActivityLog,
-  AppointmentStatus,
-  ModuleSettings,
-  PatientType,
 } from './definitions';
 import { BookingMode } from './definitions';
 
@@ -242,7 +241,6 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     }
     
-    // Inefficient query to avoid composite index, as per new requirement
     const allAppointmentsForClinicQuery = query(
         collection(adminDb, 'appointments'), 
         where('clinicId', '==', clinic.id)
@@ -440,7 +438,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     if (!isValid) throw new Error(message);
     
     // 3. Generate appointmentNumber and tokenNumber
-    const appointmentNumber = `CITA-${Date.now().toString().slice(-4)}`;
+    const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
     let tokenNumber: number | undefined = undefined;
     let finalTime = appointmentData.time;
 
@@ -728,3 +726,4 @@ export {
     
 
     
+
