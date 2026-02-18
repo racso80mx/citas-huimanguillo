@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -166,9 +167,12 @@
             "dailySlots": { "type": "number" },
             "startTime": { "type": "string" },
             "endTime": { "type": "string" },
-            "weekendBookingEnabled": { "type": "boolean" }
+            "weekendBookingEnabled": { "type": "boolean" },
+            "clinicType": { "type": "string", "enum": ["Consulta Externa", "Consulta Externa Especializada", "Psicología", "Nutrición", "Odontología"] },
+            "bookingMode": { "type": "string", "enum": ["time", "token"] },
+            "consultationDuration": { "type": "number" }
         },
-        "required": ["name", "doctorName", "password", "dailySlots", "startTime", "endTime"]
+        "required": ["name", "doctorName", "password", "dailySlots", "startTime", "endTime", "clinicType", "bookingMode"]
     },
     "Colonia": {
         "title": "Colonia",

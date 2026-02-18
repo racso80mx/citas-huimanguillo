@@ -45,6 +45,7 @@ import type {
   ModuleSettings,
   PatientType,
 } from './definitions';
+import { BookingMode } from './definitions';
 
 // =====================================================================
 // HELPERS
@@ -270,8 +271,15 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         d => d.data().clinicId === clinic.id
     );
 
-    if (appointmentsForClinicOnDate.length >= clinic.dailySlots) return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
-    if (appointmentsForClinicOnDate.some(d => d.data().time === time)) return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
+    if (appointmentsForClinicOnDate.length >= clinic.dailySlots) {
+        return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
+    }
+    
+    if (clinic.bookingMode === BookingMode.Time) {
+        if (appointmentsForClinicOnDate.some(d => d.data().time === time)) {
+            return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
+        }
+    }
 
     return { isValid: true };
 }

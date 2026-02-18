@@ -13,17 +13,16 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia, Clinic } from '@/lib/definitions';
-import { PatientType } from '@/lib/definitions';
+import { PatientType, BookingMode } from '@/lib/definitions';
 import { getAppointments, getClinics } from '@/lib/data';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Clock, MapPin, UserCheck } from 'lucide-react';
+import { Bell, Clock, MapPin, UserCheck, Ticket } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -38,7 +37,6 @@ import {
 } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
 import { Combobox } from '@/components/ui/combobox';
-import { timeSlots30Min } from '@/lib/time-slots';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -63,17 +61,18 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
   const form = useForm();
 
-  const generateTimeSlots = (clinic: Clinic | undefined): string[] => {
-    if (!clinic || !clinic.startTime || !clinic.endTime) return [];
-    
-    const startIndex = timeSlots30Min.findIndex(slot => slot.value === clinic.startTime);
-    const endIndex = timeSlots30Min.findIndex(slot => slot.value === clinic.endTime);
+  const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
+    if (!startTimeStr || !endTimeStr || !duration) return [];
+    const slots: string[] = [];
+    const start = new Date(`1970-01-01T${startTimeStr}:00`);
+    const end = new Date(`1970-01-01T${endTimeStr}:00`);
 
-    if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return [];
-
-    const slotsInRange = timeSlots30Min.slice(startIndex, endIndex).map(slot => slot.value);
-    
-    return slotsInRange.slice(0, clinic.dailySlots);
+    let current = start;
+    while (current < end) {
+        slots.push(current.toTimeString().substring(0, 5));
+        current = new Date(current.getTime() + duration * 60000);
+    }
+    return slots;
   };
 
   const fetchAvailability = React.useCallback(async (year: number, month: number) => {
@@ -114,12 +113,18 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                 continue;
             }
             
-            const allSlotsForClinic = generateTimeSlots(clinic);
+            let slotsForClinic = 0;
+            if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
+                slotsForClinic = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration).length;
+            } else {
+                slotsForClinic = clinic.dailySlots;
+            }
+            
             const bookedAppointments = appointmentsOnDate.filter(
                 (app) => app.clinicId === clinic.id
             );
             
-            const available = Math.max(0, allSlotsForClinic.length - bookedAppointments.length);
+            const available = Math.max(0, clinic.dailySlots - bookedAppointments.length);
             availabilityByClinic[clinic.id] = available;
             totalAvailableSlots += available;
             takenTimesByClinic[clinic.id] = bookedAppointments.map(app => app.time);
@@ -262,13 +267,22 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     
   }, [colonias, clinics, selectedDayAvailability]);
 
-  const allTimeSlots = React.useMemo(() => generateTimeSlots(selectedClinic), [selectedClinic]);
+  const allTimeSlots = React.useMemo(() => {
+    if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
+    return generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
+  }, [selectedClinic]);
+
 
   const availableTimeSlots = React.useMemo(() => {
-    if (!selectedDayAvailability || !selectedClinic) return [];
+    if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Time) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
     return allTimeSlots.filter(slot => !takenTimes.includes(slot));
   }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
+
+  const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
+  const isTimeBooking = selectedClinic?.bookingMode === BookingMode.Time;
+  const bookingStep = (step: number) => (isTokenBooking ? step - 1 : step);
+
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -380,7 +394,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                    </Card>
                 </div>
               )}
-                {selectedColoniaId && (
+                {selectedColoniaId && isTimeBooking && (
                     <>
                          <div>
                             <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
@@ -408,18 +422,39 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                         </div>
                     </>
                 )}
+                 {selectedColoniaId && isTokenBooking && (
+                    <div>
+                        <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                            4. Confirmar Ficha
+                        </h3>
+                        <Card className="bg-card">
+                            <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <Ticket className="h-5 w-5 text-primary" />
+                                    Asignación por Ficha
+                                </CardTitle>
+                                <CardDescription>
+                                    Este núcleo asigna fichas en lugar de horarios. Hay {selectedDayAvailability?.availabilityByClinic[selectedClinic.id] ?? 0} fichas disponibles.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p>Al confirmar, se te asignará la siguiente ficha disponible para el día seleccionado. Completa tus datos para continuar.</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
             </div>
 
             <div className="flex flex-col gap-8">
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                  5. Completa tus datos
+                  {bookingStep(5)}. Completa tus datos
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
                   selectedClinic={selectedClinic}
                   selectedColoniaName={selectedColonia?.name}
-                  selectedTime={selectedTime}
+                  selectedTime={isTokenBooking ? 'Por Ficha' : selectedTime}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
                   announcements={announcements}

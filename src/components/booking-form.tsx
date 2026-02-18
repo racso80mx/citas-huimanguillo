@@ -29,7 +29,7 @@ import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from './ui/combobox';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
-import { PatientType } from '@/lib/definitions';
+import { PatientType, BookingMode } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 import { generateAppointmentPDF } from '@/lib/utils';
 

@@ -14,8 +14,9 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateClinics, getClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, CalendarIcon } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
+import { ClinicType, BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -95,6 +96,9 @@ export function ClinicsManager() {
         weekendBookingEnabled: false,
         daysOfAction: [],
         unavailableDates: [],
+        clinicType: ClinicType.ConsultaExterna,
+        bookingMode: BookingMode.Time,
+        consultationDuration: 30,
     };
     setClinics([...clinics, newClinic]);
   };
@@ -210,8 +214,27 @@ export function ClinicsManager() {
                       </Button>
                 </div>
             </div>
-             <div className='grid sm:grid-cols-3 gap-4'>
+            <div className='grid sm:grid-cols-3 gap-4'>
                 <div className='space-y-2'>
+                  <Label htmlFor={`clinicType-${clinic.id}`}>Tipo de Núcleo</Label>
+                  <Select value={clinic.clinicType} onValueChange={(value: ClinicType) => handleClinicChange(clinic.id, 'clinicType', value)}>
+                      <SelectTrigger id={`clinicType-${clinic.id}`}><SelectValue/></SelectTrigger>
+                      <SelectContent>
+                          {Object.values(ClinicType).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor={`bookingMode-${clinic.id}`}>Modo de Agendar</Label>
+                  <Select value={clinic.bookingMode} onValueChange={(value: BookingMode) => handleClinicChange(clinic.id, 'bookingMode', value)}>
+                      <SelectTrigger id={`bookingMode-${clinic.id}`}><SelectValue/></SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value={BookingMode.Time}>Por Horario</SelectItem>
+                          <SelectItem value={BookingMode.Token}>Por Ficha</SelectItem>
+                      </SelectContent>
+                  </Select>
+                </div>
+                 <div className='space-y-2'>
                     <Label htmlFor={`slots-${clinic.id}`}>Citas por día</Label>
                     <Input
                     id={`slots-${clinic.id}`}
@@ -220,6 +243,8 @@ export function ClinicsManager() {
                     onChange={(e) => handleClinicChange(clinic.id, 'dailySlots', parseInt(e.target.value,10) || 0)}
                     />
                 </div>
+            </div>
+             <div className='grid sm:grid-cols-3 gap-4'>
                 <div className='space-y-2'>
                     <Label htmlFor={`start-${clinic.id}`}>Hora Inicio</Label>
                     <Select value={clinic.startTime} onValueChange={(value) => handleClinicChange(clinic.id, 'startTime', value)}>
@@ -242,6 +267,18 @@ export function ClinicsManager() {
                         </SelectContent>
                     </Select>
                 </div>
+                {clinic.bookingMode === BookingMode.Time && (
+                  <div className='space-y-2'>
+                      <Label htmlFor={`duration-${clinic.id}`}>Duración (min)</Label>
+                      <Input
+                          id={`duration-${clinic.id}`}
+                          type="number"
+                          value={clinic.consultationDuration || ''}
+                          onChange={(e) => handleClinicChange(clinic.id, 'consultationDuration', parseInt(e.target.value,10) || 0)}
+                          placeholder="Ej. 30"
+                      />
+                  </div>
+                )}
             </div>
              <div className='grid sm:grid-cols-2 gap-4'>
                 <div className='space-y-2'>

@@ -46,12 +46,25 @@ export type Appointment = {
   patientId: string;
   clinicId: string;
   date: string; // ISO string for serializability
-  time: string; // HH:mm format
+  time: string; // HH:mm format or "Por Ficha"
   patientType: PatientType;
   status: AppointmentStatus;
   patient: Patient;
   isNewborn?: boolean;
 };
+
+export enum ClinicType {
+    ConsultaExterna = 'Consulta Externa',
+    Especializada = 'Consulta Externa Especializada',
+    Psicologia = 'Psicología',
+    Nutricion = 'Nutrición',
+    Odontologia = 'Odontología',
+}
+
+export enum BookingMode {
+    Time = 'time',
+    Token = 'token'
+}
 
 export const ClinicSchema = z.object({
   id: z.string(),
@@ -64,9 +77,21 @@ export const ClinicSchema = z.object({
   weekendBookingEnabled: z.boolean(),
   daysOfAction: z.array(z.string()).optional(),
   unavailableDates: z.array(z.string()).optional(),
+  clinicType: z.nativeEnum(ClinicType),
+  bookingMode: z.nativeEnum(BookingMode),
+  consultationDuration: z.number().min(1).optional(),
+}).refine(data => {
+    if (data.bookingMode === BookingMode.Time && (data.consultationDuration ?? 0) <= 0) {
+        return false;
+    }
+    return true;
+}, {
+    message: "La duración de la consulta es requerida para el modo de horario.",
+    path: ["consultationDuration"],
 });
 
 export type Clinic = z.infer<typeof ClinicSchema>;
+
 
 export type Colonia = {
   id: string; // UUID
