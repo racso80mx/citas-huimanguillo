@@ -113,7 +113,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                 (app) => app.clinicId === clinic.id
             );
             
-            const available = Math.max(0, clinic.dailySlots - bookedAppointments.length);
+            const available = Math.max(0, slotsForClinic - bookedAppointments.length);
             availabilityByClinic[clinic.id] = available;
             totalAvailableSlots += available;
             takenTimesByClinic[clinic.id] = bookedAppointments.map(app => app.time);
@@ -166,7 +166,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
         setPatientType(PatientType.General);
-        setSelectedClinicType(undefined);
       } catch (error) {
           console.error("Failed to refresh data:", error);
            toast({
