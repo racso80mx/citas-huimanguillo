@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,7 +14,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateClinics, getClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon, X } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { ClinicType, BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
@@ -25,6 +26,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { timeSlots30Min } from '@/lib/time-slots';
 import { Checkbox } from '../ui/checkbox';
+import { Badge } from '../ui/badge';
 
 const daysOfWeek = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -311,9 +313,34 @@ export function ClinicsManager() {
                                 onSelect={(dates) => handleClinicChange(clinic.id, 'unavailableDates', dates?.map(d => d.toISOString().split('T')[0]) || [])}
                                 initialFocus
                                 locale={es}
+                                disabled={{ before: new Date() }}
                              />
                         </PopoverContent>
                     </Popover>
+                    {clinic.unavailableDates && clinic.unavailableDates.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                            <div className="flex flex-wrap gap-2">
+                                {(clinic.unavailableDates || []).sort().map(dateStr => (
+                                    <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pl-2 pr-1 py-0.5">
+                                        <span>
+                                            {format(new Date(dateStr + 'T12:00:00'), "PPP", { locale: es })}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label={`Quitar ${dateStr}`}
+                                            className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                            onClick={() => {
+                                                const newDates = clinic.unavailableDates?.filter(d => d !== dateStr) || [];
+                                                handleClinicChange(clinic.id, 'unavailableDates', newDates);
+                                            }}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
              </div>
             <div className="flex items-center space-x-2">
