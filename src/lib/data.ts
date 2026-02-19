@@ -713,27 +713,3 @@ export async function cleanupOldRecords() {
     
     return { deletedCount: totalDeleted };
 }
-
-export { 
-    getClinics, 
-    getColonias, 
-    getAnnouncements, 
-    getUsers,
-    getModuleSettings, 
-    getLabSettings, 
-    getLabStudies, 
-    getXRaySettings, 
-    getXRayStudies, 
-    getUltrasoundSettings, 
-    getUltrasoundStudies, 
-    getVaccineSettings,
-    getVaccines,
-    getAppointments, 
-    getAppointmentsForClinic, 
-    getLabAppointments, 
-    getXRayAppointments, 
-    getUltrasoundAppointments,
-    getVaccineAppointments,
-};
-
-    
