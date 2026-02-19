@@ -355,7 +355,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
 
   return (
-    <div className="space-y-8 container mx-auto px-4 py-8 md:py-12">
+    <div className="space-y-8 px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -421,7 +421,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         </Card>
       </div>
 
-      <Card className="w-full max-w-7xl mx-auto shadow-lg">
+      <Card className="w-full shadow-lg">
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2 pt-4">
             <Button
@@ -507,7 +507,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
           )}
         </CardContent>
       </Card>
-      <div className="w-full max-w-7xl mx-auto mt-8">
+      <div className="w-full mt-8">
         {renderSettingsManager()}
       </div>
     </div>
