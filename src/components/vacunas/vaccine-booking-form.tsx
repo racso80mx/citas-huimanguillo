@@ -31,7 +31,7 @@ import { Combobox } from '../ui/combobox';
 import type { VaccineAppointment, Patient, Vaccine } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { generateVaccineAppointmentPDF } from '@/lib/utils';
+import { generateVaccineAppointmentPDF } from '@/lib/report-helpers';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;

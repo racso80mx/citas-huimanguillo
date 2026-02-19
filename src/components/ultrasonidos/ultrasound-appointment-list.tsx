@@ -44,7 +44,7 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getUltrasoundStudies } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
-import { generateUltrasoundAppointmentPDF } from '@/lib/utils';
+import { generateUltrasoundAppointmentPDF } from '@/lib/report-helpers';
 
 
 type UltrasoundAppointmentListProps = {

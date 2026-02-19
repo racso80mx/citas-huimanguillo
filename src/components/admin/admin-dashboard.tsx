@@ -54,7 +54,8 @@ import {
 } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { cn, downloadExcel } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { downloadExcel } from '@/lib/report-helpers';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';

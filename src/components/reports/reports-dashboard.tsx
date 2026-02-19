@@ -50,7 +50,8 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/popover';
-import { cn, downloadExcel } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { downloadExcel } from '@/lib/report-helpers';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AppointmentList } from '../appointment-list';

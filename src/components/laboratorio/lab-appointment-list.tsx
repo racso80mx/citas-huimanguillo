@@ -50,7 +50,7 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
-import { generateLabAppointmentPDF } from '@/lib/utils';
+import { generateLabAppointmentPDF } from '@/lib/report-helpers';
 
 
 type LabAppointmentListProps = {

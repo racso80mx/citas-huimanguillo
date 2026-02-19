@@ -44,7 +44,7 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getXRayStudies } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
-import { generateXRayAppointmentPDF } from '@/lib/utils';
+import { generateXRayAppointmentPDF } from '@/lib/report-helpers';
 
 
 type XRayAppointmentListProps = {

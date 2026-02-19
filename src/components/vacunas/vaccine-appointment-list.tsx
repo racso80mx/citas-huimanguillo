@@ -46,7 +46,7 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
-import { generateVaccineAppointmentPDF } from '@/lib/utils';
+import { generateVaccineAppointmentPDF } from '@/lib/report-helpers';
 
 
 type VaccineAppointmentListProps = {
