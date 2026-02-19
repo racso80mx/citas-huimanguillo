@@ -440,6 +440,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     
     // 3. Prepare data to save
     const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
+    let tokenNumberForReturn: number | undefined = undefined;
 
     const newAppointmentData: any = { 
         ...appointmentData, 
@@ -451,6 +452,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     if (clinic.bookingMode === BookingMode.Token) {
         const tokenNumber = (appointmentsOnDate?.length || 0) + 1;
         newAppointmentData.tokenNumber = tokenNumber;
+        tokenNumberForReturn = tokenNumber;
     }
     
     // 4. Save appointment
@@ -460,6 +462,11 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     const patientSnap = await getDoc(patientRef);
 
     const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as Appointment;
+    
+    if (tokenNumberForReturn !== undefined) {
+        fullAppointment.tokenNumber = tokenNumberForReturn;
+    }
+
     return { success: true, data: { appointment: fullAppointment, clinic } };
 }
 
@@ -721,6 +728,7 @@ export {
     
 
     
+
 
 
 
