@@ -1,4 +1,3 @@
-
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,7 +30,6 @@ import { Combobox } from '../ui/combobox';
 import type { UltrasoundAppointment, Patient, UltrasoundStudy } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { generateUltrasoundAppointmentPDF } from '@/lib/report-helpers';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -170,7 +168,6 @@ export function UltrasoundBookingForm({
       const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
       
       if (result.success && result.data) {
-        await generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study, announcements);
         form.reset();
         onBookingSuccess();
         toast({
@@ -344,7 +341,7 @@ export function UltrasoundBookingForm({
               className="w-full text-lg py-6"
             >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isPending ? 'Confirmando Cita...' : 'Confirmar y Descargar Cita'}
+              {isPending ? 'Confirmando Cita...' : 'Confirmar Cita'}
             </Button>
           </form>
         </Form>

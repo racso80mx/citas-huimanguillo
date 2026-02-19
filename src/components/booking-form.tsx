@@ -1,4 +1,3 @@
-
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,7 +30,6 @@ import { Combobox } from './ui/combobox';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { generateAppointmentPDF } from '@/lib/report-helpers';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -168,7 +166,6 @@ export function BookingForm({
       const result = await saveNewAppointment(newAppointmentData, patientToSave);
 
       if (result.success && result.data) {
-        await generateAppointmentPDF(result.data.appointment, result.data.clinic, announcements);
         toast({
             title: 'Cita Confirmada',
             description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointment.appointmentNumber}`,
@@ -346,7 +343,7 @@ export function BookingForm({
               className="w-full text-lg py-6"
             >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isPending ? 'Confirmando Cita...' : 'Confirmar y Descargar Cita'}
+              {isPending ? 'Confirmando Cita...' : 'Confirmar Cita'}
             </Button>
           </form>
         </Form>
