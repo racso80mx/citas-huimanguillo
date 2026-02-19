@@ -233,7 +233,7 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
 // VALIDATION HELPERS
 // =====================================================================
 
-async function validateClinicAvailability(clinic: Clinic, date: string, time: string): Promise<{ isValid: boolean; message?: string; appointmentsOnDate?: any[] }> {
+async function validateClinicAvailability(clinic: Clinic, date: string): Promise<{ isValid: boolean; message?: string; appointmentsOnDate?: any[] }> {
     if (!adminDb) throw new Error("Database not initialized.");
     
     const appointmentDate = new Date(date);
@@ -241,7 +241,6 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'La fecha proporcionada es inválida.' };
     }
     
-    // Fetch all appointments for the clinic first, then filter in memory
     const allAppointmentsForClinicQuery = query(
         collection(adminDb, 'appointments'), 
         where('clinicId', '==', clinic.id)
@@ -250,12 +249,12 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
     
     const dateOnly = appointmentDate.toISOString().substring(0, 10);
     const appointmentsForClinicOnDate = allAppointmentsForClinicSnap.docs
-        .map(d => d.data())
+        .map(doc => ({ id: doc.id, ...doc.data()}))
         .filter(app => {
             const appDate = (app.date as Timestamp).toDate().toISOString().substring(0, 10);
             return appDate === dateOnly;
         });
-
+    
     const dayOfWeekJS = appointmentDate.getUTCDay();
     const dayOfWeekString = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeekJS];
     if (clinic.daysOfAction?.includes(dayOfWeekString)) {
@@ -274,12 +273,6 @@ async function validateClinicAvailability(clinic: Clinic, date: string, time: st
         return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
     }
     
-    if (clinic.bookingMode === BookingMode.Time) {
-        if (appointmentsForClinicOnDate.some(d => d.time === time)) {
-            return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
-        }
-    }
-
     return { isValid: true, appointmentsOnDate: appointmentsForClinicOnDate };
 }
 
@@ -435,7 +428,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     const clinic = await getClinicById(appointmentData.clinicId);
     if (!clinic) throw new Error("La clínica seleccionada no es válida.");
 
-    const { isValid, message, appointmentsOnDate } = await validateClinicAvailability(clinic, appointmentData.date, appointmentData.time);
+    const { isValid, message, appointmentsOnDate } = await validateClinicAvailability(clinic, appointmentData.date);
     if (!isValid) throw new Error(message);
     
     // 3. Prepare data to save
@@ -449,8 +442,22 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         status: 'Agendada'
     };
 
-    if (clinic.bookingMode === BookingMode.Token) {
-        const tokenNumber = (appointmentsOnDate?.length || 0) + 1;
+    if (clinic.bookingMode === BookingMode.Time) {
+        if ((appointmentsOnDate || []).some(d => d.time === appointmentData.time)) {
+           throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
+        }
+        newAppointmentData.time = appointmentData.time;
+    } else { // Token booking
+        const tokenNumber = parseInt(appointmentData.time, 10);
+        if (isNaN(tokenNumber)) {
+            throw new Error("Número de ficha inválido. Por favor, selecciona una ficha de la lista.");
+        }
+        
+        const takenTokens = (appointmentsOnDate || []).map(app => app.tokenNumber).filter(Boolean);
+        if (takenTokens.includes(tokenNumber)) {
+             throw new Error(`La ficha número ${tokenNumber} ya no está disponible. Por favor, selecciona otra.`);
+        }
+        
         newAppointmentData.time = `Ficha ${tokenNumber}`;
         newAppointmentData.tokenNumber = tokenNumber;
     }
@@ -737,3 +744,4 @@ export {
 
 
     
+

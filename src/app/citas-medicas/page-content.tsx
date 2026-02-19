@@ -165,6 +165,8 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         setSelectedDate(undefined);
         setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
+        // Do not reset clinic type to allow for multiple bookings
+        // setSelectedClinicType(undefined); 
         setPatientType(PatientType.General);
       } catch (error) {
           console.error("Failed to refresh data:", error);
@@ -274,7 +276,22 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
   const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
   const isTimeBooking = selectedClinic?.bookingMode === BookingMode.Time;
-  const bookingStep = (step: number) => (isTokenBooking ? step - 1 : step);
+
+  const availableTokens = React.useMemo(() => {
+    if (!selectedDayAvailability || !selectedClinic || !isTokenBooking) return [];
+    
+    const totalSlots = selectedClinic.dailySlots;
+    const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => i + 1);
+
+    const takenTimes = selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || [];
+    
+    const takenTokens = takenTimes.map(time => {
+        const match = time.match(/Ficha (\d+)/);
+        return match ? parseInt(match[1], 10) : null;
+    }).filter(Boolean) as number[];
+
+    return allPossibleTokens.filter(token => !takenTokens.includes(token));
+  }, [selectedDayAvailability, selectedClinic, isTokenBooking]);
 
 
   return (
@@ -435,20 +452,35 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                     {selectedColoniaId && isTokenBooking && (
                         <div>
                             <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                                5. Confirmar Ficha
+                                5. Selecciona una Ficha
                             </h3>
                             <Card className="bg-card">
                                 <CardHeader>
                                     <CardTitle className="text-xl flex items-center gap-2">
                                         <Ticket className="h-5 w-5 text-primary" />
-                                        Asignación por Ficha
+                                        Fichas Disponibles
                                     </CardTitle>
                                     <CardDescription>
-                                        Este núcleo asigna fichas en lugar de horarios. Hay {selectedDayAvailability?.availabilityByClinic[selectedClinic.id] ?? 0} fichas disponibles.
+                                        Este núcleo asigna fichas. Hay {availableTokens.length} fichas disponibles. Selecciona una como medida de seguridad.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <p>Al confirmar, se te asignará la siguiente ficha disponible para el día seleccionado. Completa tus datos para continuar.</p>
+                                    <Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecciona una ficha..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableTokens.length > 0 ? (
+                                                availableTokens.map(token => (
+                                                    <SelectItem key={token} value={String(token)}>
+                                                        Ficha {token}
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <p className="p-4 text-sm text-muted-foreground">No hay fichas disponibles.</p>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
                                 </CardContent>
                             </Card>
                         </div>
@@ -460,13 +492,13 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             <div className="flex flex-col gap-8">
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                  {bookingStep(6)}. Completa tus datos
+                  6. Completa tus datos
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
                   selectedClinic={selectedClinic}
                   selectedColoniaName={selectedColonia?.name}
-                  selectedTime={isTokenBooking ? 'Por Ficha' : selectedTime}
+                  selectedTime={selectedTime}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
                   announcements={announcements}
