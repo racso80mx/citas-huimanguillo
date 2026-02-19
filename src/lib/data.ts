@@ -451,8 +451,8 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 
     if (clinic.bookingMode === BookingMode.Token) {
         const tokenNumber = (appointmentsOnDate?.length || 0) + 1;
-        newAppointmentData.tokenNumber = tokenNumber;
         newAppointmentData.time = `Ficha ${tokenNumber}`;
+        newAppointmentData.tokenNumber = tokenNumber;
     }
     
     // 4. Save appointment
