@@ -1,4 +1,5 @@
 import type {NextConfig} from 'next';
+
 const nextConfig: NextConfig = {
   /* config options here */
 
@@ -29,6 +30,13 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // These modules are client-side only, don't bundle them for the server
+      config.externals = [...(config.externals || []), 'jspdf', 'jspdf-autotable', 'xlsx'];
+    }
+    return config;
   },
 };
 
