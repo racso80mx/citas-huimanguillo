@@ -447,19 +447,21 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
            throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
         }
         newAppointmentData.time = appointmentData.time;
-    } else { // Token booking
+    } else if (clinic.bookingMode === BookingMode.Token) {
         const tokenNumber = parseInt(appointmentData.time, 10);
-        if (isNaN(tokenNumber)) {
+        if (isNaN(tokenNumber) || tokenNumber <= 0) {
             throw new Error("Número de ficha inválido. Por favor, selecciona una ficha de la lista.");
         }
         
         const takenTokens = (appointmentsOnDate || []).map(app => app.tokenNumber).filter(Boolean);
         if (takenTokens.includes(tokenNumber)) {
-             throw new Error(`La ficha número ${tokenNumber} ya no está disponible. Por favor, selecciona otra.`);
+             throw new Error(`La ficha número ${tokenNumber} ya no está disponible.`);
         }
         
-        newAppointmentData.time = `Ficha ${tokenNumber}`;
         newAppointmentData.tokenNumber = tokenNumber;
+        newAppointmentData.time = appointmentData.time; // Keep the number as a string for consistency
+    } else {
+        throw new Error(`Modo de agendar desconocido o no configurado para la clínica: ${clinic.bookingMode}`);
     }
     
     // 4. Save appointment
@@ -745,3 +747,6 @@ export {
 
     
 
+
+
+    

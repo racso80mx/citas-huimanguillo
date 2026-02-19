@@ -76,7 +76,7 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 
 export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
     const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, patientType } = appointmentData;
+    const { patient, date, time, appointmentNumber, patientType, tokenNumber } = appointmentData;
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
@@ -120,8 +120,8 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.text(`Fecha: ${formattedDate}`, 20, currentY);
     currentY += 10;
     
-    if (time && time.toLowerCase().includes('ficha')) {
-        doc.text(`Turno: ${time}`, 20, currentY);
+    if (tokenNumber) {
+        doc.text(`Turno: Ficha ${tokenNumber}`, 20, currentY);
     } else {
         doc.text(`Hora: ${time}`, 20, currentY);
     }
@@ -466,5 +466,7 @@ export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointmen
 
     doc.save(`recibo_vacuna_${patient.name.split(' ')[0]}_${patient.paternalLastName}.pdf`);
 }
+
+    
 
     
