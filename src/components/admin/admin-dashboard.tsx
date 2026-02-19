@@ -234,7 +234,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setActiveFilter('range');
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     let dataToDownload: any[] = [];
     let filename = '';
 
@@ -267,15 +267,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     
     const enrichedAppointments = dataToDownload.map((app: any) => {
         const clinic = clinics.find((c) => c.id === app.clinicId);
-        const patientColonia = colonias.find((c) => c.clinicId === app.clinicId);
         return {
         ...app,
         clinicName: clinic?.name || 'N/A',
-        coloniaName: patientColonia?.name || 'N/A', 
         };
     });
 
-    downloadExcel(enrichedAppointments, `${filename}_${activeFilter}`);
+    await downloadExcel(enrichedAppointments, `${filename}_${activeFilter}`);
   };
 
   const handleDelete = async (id: string) => {

@@ -41,6 +41,14 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
             const xlsx = await import('xlsx');
             const workbook = xlsx.utils.book_new();
 
+            const enrichedAppointments = result.data.appointments.map((app: any) => {
+                const clinic = result.data.clinics.find((c: any) => c.id === app.clinicId);
+                return {
+                    ...app,
+                    clinicName: clinic?.name || 'N/A'
+                };
+            });
+
             const createSheetFromCollection = (sheetName: string, data: any[], keyMapping: Record<string, string>) => {
               if (!data || data.length === 0) return;
               const mappedData = data.map(item => {
@@ -65,7 +73,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
               xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
             };
             
-            createSheetFromCollection('Citas Médicas', result.data.appointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Núcleo': 'clinicName', 'Colonia': 'coloniaName', 'Tipo Paciente': 'patientType' });
+            createSheetFromCollection('Citas Médicas', enrichedAppointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Núcleo': 'clinicName', 'Colonia': 'coloniaName', 'Tipo Paciente': 'patientType' });
             createSheetFromCollection('Laboratorio', result.data.labAppointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Estudios': 'studies' });
             createSheetFromCollection('Rayos X', result.data.xRayAppointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Estudio': 'studyName' });
             createSheetFromCollection('Ultrasonidos', result.data.ultrasoundAppointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Estudio': 'studyName' });

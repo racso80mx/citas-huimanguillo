@@ -44,6 +44,7 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
                     baseData['Ficha'] = regularItem.time.split(' ')[1];
                 }
                 baseData['Núcleo'] = (item as any).clinicName;
+                baseData['Colonia'] = regularItem.coloniaName || 'N/A';
                 baseData['Tipo Paciente'] = regularItem.patientType;
             }
             return baseData;
