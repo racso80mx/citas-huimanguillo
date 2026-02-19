@@ -1,4 +1,4 @@
-
+'use client';
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine } from "./definitions";
@@ -76,7 +76,7 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 
 export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
     const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, patientType, tokenNumber } = appointmentData;
+    const { patient, date, time, appointmentNumber, patientType } = appointmentData;
 
     doc.setFont('Helvetica');
     doc.setFontSize(22);
@@ -120,8 +120,8 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.text(`Fecha: ${formattedDate}`, 20, currentY);
     currentY += 10;
     
-    if (tokenNumber) {
-        doc.text(`Turno: Ficha ${tokenNumber}`, 20, currentY);
+    if (time.includes('Ficha')) {
+        doc.text(`Ficha de Turno: ${time.split(' ')[1]}`, 20, currentY);
     } else {
         doc.text(`Hora: ${time}`, 20, currentY);
     }
