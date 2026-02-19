@@ -33,8 +33,12 @@ const nextConfig: NextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // These modules are client-side only, don't bundle them for the server
-      config.externals = [...(config.externals || []), 'jspdf', 'jspdf-autotable', 'xlsx'];
+      config.resolve.fallback = {
+        ...(config.resolve.fallback || {}),
+        'jspdf': false,
+        'jspdf-autotable': false,
+        'xlsx': false,
+      };
     }
     return config;
   },
