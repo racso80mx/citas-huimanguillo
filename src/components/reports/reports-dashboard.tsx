@@ -51,7 +51,6 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { downloadExcel } from '@/lib/report-helpers';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AppointmentList } from '../appointment-list';
@@ -219,7 +218,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     setActiveFilter('range');
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (appointmentsToDisplay.length === 0) {
       toast({
         title: 'No hay datos',
@@ -243,7 +242,59 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       };
     });
 
-    downloadExcel(enrichedData, filename);
+    const xlsx = await import('xlsx');
+    
+    const worksheetData = enrichedData.map(
+        (item: any) => {
+            const baseData: any = {
+                'Folio': item.appointmentNumber,
+                'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
+                'Hora': item.time,
+                'Estado': item.status,
+                'Paciente': item.patient ? `${item.patient.name} ${item.patient.paternalLastName} ${item.patient.maternalLastName}`: 'N/A',
+                'CURP': item.patient?.curp || 'N/A',
+                'Teléfono': item.patient?.phoneNumber || 'N/A',
+            };
+
+            if (reportType === 'laboratorio') {
+                const labItem = item as LabAppointment;
+                baseData['Estudios'] = labItem.studies.map(s => s.name).join(', ');
+            } else if (reportType === 'x-ray') {
+                 const xrayItem = item as XRayAppointment;
+                 baseData['Estudio'] = xrayItem.studyName;
+            } else if (reportType === 'ultrasound') {
+                 const ultrasoundItem = item as UltrasoundAppointment;
+                 baseData['Estudio'] = ultrasoundItem.studyName;
+            } else if (reportType === 'vacunas') {
+                const vaccineItem = item as VaccineAppointment;
+                baseData['Colonia'] = vaccineItem.coloniaName || 'N/A';
+                baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
+                baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
+            } else { // clinic
+                const regularItem = item as Appointment;
+                if (regularItem.time.includes('Ficha')) {
+                    baseData['Ficha'] = regularItem.time.split(' ')[1];
+                }
+                baseData['Núcleo'] = (item as any).clinicName;
+                baseData['Tipo Paciente'] = regularItem.patientType;
+            }
+            return baseData;
+        }
+    );
+
+  const worksheet = xlsx.utils.json_to_sheet(worksheetData);
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, worksheet, 'Citas');
+
+  if (worksheetData.length > 0) {
+    const cols = Object.keys(worksheetData[0]);
+    const colWidths = cols.map(col => ({
+        wch: Math.max(...worksheetData.map(row => (row[col as keyof typeof row] ?? '').toString().length), col.length) + 1
+    }));
+    worksheet['!cols'] = colWidths;
+  }
+
+  xlsx.writeFile(workbook, `${filename}.xlsx`);
   };
 
   const summaryCounts = useMemo(() => {

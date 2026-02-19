@@ -44,7 +44,6 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
-import { generateAppointmentPDF } from '@/lib/report-helpers';
 
 
 type AppointmentListProps = {
@@ -239,7 +238,89 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
       });
       return;
     }
-    await generateAppointmentPDF(appointment, clinic, announcements);
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber, patientType } = appointment;
+
+    doc.setFont('Helvetica');
+    doc.setFontSize(22);
+    doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
+    
+    let currentY = 50;
+    doc.setFontSize(14);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
+    currentY += 8;
+
+    doc.setLineWidth(0.5);
+    doc.line(20, currentY - 4, 190, currentY - 4);
+
+    currentY += 5;
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Datos del Paciente:', 20, currentY);
+    currentY += 10;
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Tipo de Paciente: ${patientType}`, 20, currentY);
+    currentY += 10;
+    doc.text(`CURP: ${patient.curp}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, currentY);
+    currentY += 20;
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Detalles de la Cita:', 20, currentY);
+    currentY += 10;
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+    doc.text(`Fecha: ${formattedDate}`, 20, currentY);
+    currentY += 10;
+    
+    if (time.includes('Ficha')) {
+        doc.text(`Ficha de Turno: ${time.split(' ')[1]}`, 20, currentY);
+    } else {
+        doc.text(`Hora: ${time}`, 20, currentY);
+    }
+    currentY += 10;
+
+    doc.text(`Clínica: ${clinic.name}`, 20, currentY);
+    currentY += 10;
+    doc.text(`Doctor(a): ${clinic.doctorName}`, 20, currentY);
+    currentY += 10;
+    
+    let finalY = currentY;
+
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
+
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Presentarse con identificación personal (INE).', 20, finalY + 5)
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
+
+    doc.save(`recibo_cita_${patient.curp}.pdf`);
   };
 
   if (!appointments || appointments.length === 0) {
