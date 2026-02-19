@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewUltrasoundAppointment, getPatientByCURP } from '@/lib/actions';
+import { generateUltrasoundAppointmentPDF } from '@/lib/report-helpers';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -168,12 +169,15 @@ export function UltrasoundBookingForm({
       const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
       
       if (result.success && result.data) {
-        form.reset();
-        onBookingSuccess();
         toast({
           title: 'Cita Agendada',
           description: `Tu cita de Ultrasonido con folio ${result.data.appointment.appointmentNumber} ha sido agendada con éxito.`
-        })
+        });
+        
+        await generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study, announcements);
+
+        form.reset();
+        onBookingSuccess();
       } else {
          toast({
           title: 'Error al Agendar',

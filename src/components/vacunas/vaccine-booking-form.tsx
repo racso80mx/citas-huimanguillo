@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewVaccineAppointment, getPatientByCURP } from '@/lib/actions';
+import { generateVaccineAppointmentPDF } from '@/lib/report-helpers';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -184,6 +185,8 @@ export function VaccineBookingForm({
             description: `Tu cita de Vacunación ha sido agendada. Folio: ${result.data.appointmentNumber}`,
             duration: 10000,
         });
+
+        await generateVaccineAppointmentPDF(result.data, announcements);
 
         form.reset();
         onBookingSuccess();

@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewAppointment, getPatientByCURP } from '@/lib/actions';
+import { generateAppointmentPDF } from '@/lib/report-helpers';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -172,6 +173,8 @@ export function BookingForm({
             duration: 10000,
         });
 
+        await generateAppointmentPDF(result.data.appointment, result.data.clinic, announcements);
+        
         form.reset();
         onBookingSuccess();
       } else {

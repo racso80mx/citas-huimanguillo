@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewLabAppointment, getPatientByCURP } from '@/lib/actions';
+import { generateLabAppointmentPDF } from '@/lib/report-helpers';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -172,6 +173,8 @@ export function LabBookingForm({
               description: `Tu cita de laboratorio ha sido agendada. Folio: ${result.data.appointmentNumber}`,
               duration: 10000,
           });
+
+          await generateLabAppointmentPDF(result.data, announcements);
 
           form.reset();
           onBookingSuccess();

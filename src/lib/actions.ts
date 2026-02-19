@@ -109,9 +109,7 @@ export async function saveNewAppointment(
     }
         
     await logActivity('Creación Cita Médica', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/citas-medicas');
-    revalidatePath('/admin');
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewAppointment", e);
@@ -131,9 +129,7 @@ export async function saveNewLabAppointment(
     }
 
     await logActivity('Creación Cita Laboratorio', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/laboratorio');
-    revalidatePath('/admin');
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewLabAppointment", e);
@@ -156,9 +152,7 @@ export async function saveNewXRayAppointment(
     }
     
     await logActivity('Creación Cita Rayos X', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/rayos-x');
-    revalidatePath('/admin');
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewXRayAppointment", e);
@@ -181,9 +175,7 @@ export async function saveNewUltrasoundAppointment(
     }
     
     await logActivity('Creación Cita Ultrasonido', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/ultrasonidos');
-    revalidatePath('/admin');
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewUltrasoundAppointment", e);
@@ -206,9 +198,7 @@ export async function saveNewVaccineAppointment(
     }
     
     await logActivity('Creación Cita Vacunación', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/vacunas');
-    revalidatePath('/admin');
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return { success: true, data: result.data };
   } catch (e: any) {
     console.error("Action Error: saveNewVaccineAppointment", e);
@@ -227,8 +217,7 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     const result = await dataCloneAppointment(originalAppointmentId, newDate, type);
     if(result.success) {
       await logActivity('Clonación de Cita', `Folio original ${result.originalFolio} clonado a nuevo folio ${result.data.appointmentNumber}.`);
-      revalidatePath('/admin');
-      revalidatePath('/reports');
+      revalidatePath('/', 'layout');
     }
     return result;
 }
@@ -272,8 +261,7 @@ export async function updateAppointmentStatus(appointmentId: string, status: App
     const result = await dataUpdateAppointmentStatus(appointmentId, status, type);
     if (result.success) {
         await logActivity('Actualización de Estado', `Cita en ${type} con ID ${appointmentId} actualizada a: ${status}.`);
-        revalidatePath('/admin');
-        revalidatePath('/reports');
+        revalidatePath('/', 'layout');
     }
     return result;
 }
@@ -282,8 +270,7 @@ export async function rescheduleAppointment(appointmentId: string, newDate: stri
     const result = await dataRescheduleAppointment(appointmentId, newDate, type);
     if(result.success) {
         await logActivity('Cambio de Fecha Cita', `Cita ${appointmentId} movida a ${newDate}.`);
-        revalidatePath('/admin');
-        revalidatePath('/reports');
+        revalidatePath('/', 'layout');
     }
     return result;
 }
