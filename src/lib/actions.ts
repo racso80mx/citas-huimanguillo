@@ -98,11 +98,12 @@ export async function getPatientByCURP(curp: string): Promise<{ success: boolean
 }
 
 export async function saveNewAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>,
-  patientData: Omit<Patient, 'id'>
+  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber' | 'coloniaName'>,
+  patientData: Omit<Patient, 'id'>,
+  coloniaName: string | undefined
 ) {
   try {
-    const result = await dataSaveAppointment(appointmentData, patientData);
+    const result = await dataSaveAppointment(appointmentData, patientData, coloniaName);
     
     if (!result.success || !result.data) {
         throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");

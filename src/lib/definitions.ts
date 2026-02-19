@@ -26,6 +26,7 @@ export type Patient = {
   age: number;
   birthState: string;
   phoneNumber: string;
+  coloniaName?: string;
 };
 
 export enum PatientType {
@@ -41,9 +42,9 @@ export type AppointmentStatus = 'Agendada' | 'Atendido' | 'No Atendido' | 'No As
 export type Appointment = {
   id: string; // UUID
   appointmentNumber: string;
-  tokenNumber?: number;
   patientId: string;
   clinicId: string;
+  coloniaName?: string;
   date: string; // ISO string for serializability
   time: string; // HH:mm format or "Por Ficha"
   patientType: PatientType;

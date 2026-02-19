@@ -22,7 +22,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewLabAppointment, getPatientByCURP } from '@/lib/actions';
-import { generateLabAppointmentPDF } from '@/lib/report-helpers';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -31,6 +30,8 @@ import { Combobox } from '../ui/combobox';
 import type { LabAppointment, Patient, LabStudy } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -174,7 +175,10 @@ export function LabBookingForm({
               duration: 10000,
           });
 
-          await generateLabAppointmentPDF(result.data, announcements);
+          const { jsPDF } = await import('jspdf');
+          await import('jspdf-autotable');
+          const doc = new jsPDF() as any;
+          await generateLabAppointmentPDF(doc, result.data, announcements);
 
           form.reset();
           onBookingSuccess();
@@ -188,6 +192,78 @@ export function LabBookingForm({
     });
   };
   
+  async function generateLabAppointmentPDF(doc: any, appointmentData: LabAppointment, announcements: string[]) {
+    const { patient, date, time, appointmentNumber, studies } = appointmentData;
+
+    doc.setFont('Helvetica');
+    doc.setFontSize(22);
+    doc.text('Confirmación de Cita de Laboratorio', 105, 25, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
+    doc.setFontSize(14);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
+
+    doc.setLineWidth(0.5);
+    doc.line(20, 55, 190, 55);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Datos del Paciente:', 20, 65);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
+    doc.text(`CURP: ${patient.curp}`, 20, 85);
+    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Detalles de la Cita:', 20, 115);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'normal');
+    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
+    doc.text(`Fecha: ${formattedDate}`, 20, 125);
+    doc.text(`Hora: ${time}`, 20, 135);
+
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('Estudios Solicitados e Indicaciones:', 20, 155);
+    
+    const tableBody = studies.map(s => [s.name, s.sampleType, s.fastingHours]);
+    doc.autoTable({
+        startY: 165,
+        head: [['Estudio', 'Tipo de Muestra', 'Horas de Ayuno']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+    });
+
+    let finalY = doc.lastAutoTable.finalY || 200;
+    finalY += 10;
+    
+    if (announcements && announcements.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont('Helvetica', 'bold');
+        doc.text('Avisos Importantes:', 20, finalY);
+        finalY += 7;
+        doc.autoTable({
+            startY: finalY,
+            body: announcements.map(a => [a]),
+            theme: 'plain',
+            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+        });
+        finalY = doc.lastAutoTable.finalY + 5;
+    }
+
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Siga las indicaciones de ayuno y preparación para cada estudio.', 20, finalY + 5);
+    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
+
+    doc.save(`recibo_lab_${patient.curp}.pdf`);
+  }
+
   if (!selectedDate || selectedStudies.length === 0) {
     return (
         <Card className='border-dashed'>
