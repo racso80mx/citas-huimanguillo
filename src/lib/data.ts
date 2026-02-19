@@ -440,32 +440,34 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     
     // 3. Prepare data to save
     const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
-    let tokenNumberForReturn: number | undefined = undefined;
 
     const newAppointmentData: any = { 
         ...appointmentData, 
         appointmentNumber, 
         patientId: patientRef.id, 
-        date: new Date(appointmentData.date)
+        date: new Date(appointmentData.date),
+        status: 'Agendada'
     };
 
     if (clinic.bookingMode === BookingMode.Token) {
         const tokenNumber = (appointmentsOnDate?.length || 0) + 1;
         newAppointmentData.tokenNumber = tokenNumber;
-        tokenNumberForReturn = tokenNumber;
+        newAppointmentData.time = `Ficha ${tokenNumber}`;
     }
     
     // 4. Save appointment
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
-
-    const appointmentSnap = await getDoc(newAppointmentRef);
-    const patientSnap = await getDoc(patientRef);
-
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as Appointment;
     
-    if (tokenNumberForReturn !== undefined) {
-        fullAppointment.tokenNumber = tokenNumberForReturn;
-    }
+    // 5. Construct the returned object from the data we KNOW is correct, avoiding read-after-write inconsistency.
+    const patientSnap = await getDoc(patientRef);
+    const patientForReturn = { ...patientSnap.data(), id: patientSnap.id } as Patient;
+
+    const fullAppointment: Appointment = {
+        ...(newAppointmentData as Omit<Appointment, 'id' | 'patient'>),
+        id: newAppointmentRef.id,
+        date: newAppointmentData.date.toISOString(),
+        patient: patientForReturn,
+    };
 
     return { success: true, data: { appointment: fullAppointment, clinic } };
 }
@@ -732,3 +734,6 @@ export {
 
 
 
+
+
+    
