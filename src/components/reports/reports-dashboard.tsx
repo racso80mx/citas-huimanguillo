@@ -276,6 +276,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                     baseData['Ficha'] = regularItem.time.split(' ')[1];
                 }
                 baseData['Núcleo'] = (item as any).clinicName;
+                baseData['Colonia'] = regularItem.coloniaName || 'N/A';
                 baseData['Tipo Paciente'] = regularItem.patientType;
             }
             return baseData;

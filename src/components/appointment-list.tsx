@@ -54,7 +54,7 @@ type AppointmentListProps = {
   onEditSuccess?: () => void;
 };
 
-type SortableKeys = keyof Appointment | 'patientName' | 'clinicName' | 'curp' | 'phoneNumber';
+type SortableKeys = keyof Appointment | 'patientName' | 'clinicName' | 'curp' | 'phoneNumber' | 'coloniaName';
 
 
 export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics, onEditSuccess }: AppointmentListProps) {
@@ -123,6 +123,10 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
           case 'phoneNumber':
             aValue = a.patient?.phoneNumber || '';
             bValue = b.patient?.phoneNumber || '';
+            break;
+          case 'coloniaName':
+            aValue = a.coloniaName || '';
+            bValue = b.coloniaName || '';
             break;
           case 'date':
              aValue = new Date(a.date).getTime();
@@ -345,6 +349,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             <TableHead><Button variant="ghost" onClick={() => requestSort('curp')}>CURP {getSortIcon('curp')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('phoneNumber')}>Teléfono {getSortIcon('phoneNumber')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('clinicName')}>Núcleo Básico {getSortIcon('clinicName')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('coloniaName')}>Colonia {getSortIcon('coloniaName')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('patientType')}>Tipo {getSortIcon('patientType')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button></TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
@@ -380,6 +385,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
               </TableCell>
               <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
               <TableCell>{getClinicName(app.clinicId)}</TableCell>
+              <TableCell>{app.coloniaName || 'N/A'}</TableCell>
               <TableCell>{app.patientType}</TableCell>
               <TableCell>
                 {onEditSuccess ? (

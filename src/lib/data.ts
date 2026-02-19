@@ -387,7 +387,7 @@ export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment
 export async function getVaccineAppointments(): Promise<VaccineAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> { if (!adminDb) return []; const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId)); const snapshot = await getDocs(q); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 
-export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>) {
+export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>, coloniaName: string | undefined) {
     if (!adminDb) throw new Error("Database not initialized.");
     
     // 1. Find or create patient to get a stable ID.
@@ -396,14 +396,14 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientData); // Update with latest info
+            await updateDoc(patientRef, { ...patientData, coloniaName }); // Update with latest info
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientData);
+            await setDoc(patientRef, { ...patientData, coloniaName });
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientData);
+        await setDoc(patientRef, { ...patientData, coloniaName });
     }
 
     // 1.5. Validate if patient already has a medical appointment for that day in the same clinic
@@ -440,7 +440,8 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         appointmentNumber, 
         patientId: patientRef.id, 
         date: new Date(appointmentData.date),
-        status: 'Agendada'
+        status: 'Agendada',
+        coloniaName: coloniaName,
     };
 
     if (clinic.bookingMode === BookingMode.Time) {
@@ -589,14 +590,14 @@ export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppoin
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientData);
+            await updateDoc(patientRef, { ...patientData, coloniaName: appointmentData.coloniaName });
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientData);
+            await setDoc(patientRef, { ...patientData, coloniaName: appointmentData.coloniaName });
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientData);
+        await setDoc(patientRef, { ...patientData, coloniaName: appointmentData.coloniaName });
     }
     
     const settings = await getVaccineSettings();
@@ -643,7 +644,7 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     let result: any;
     try {
         if (type === 'medical') {
-            const { data } = await saveAppointment(newAppointmentData as any, patientData);
+            const { data } = await saveAppointment(newAppointmentData as any, patientData, newAppointmentData.coloniaName);
             result = data?.appointment;
         } else if (type === 'lab') {
             const { data } = await saveLabAppointment(newAppointmentData as any, patientData);
