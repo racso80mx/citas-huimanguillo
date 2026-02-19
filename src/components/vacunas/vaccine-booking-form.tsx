@@ -181,7 +181,7 @@ export function VaccineBookingForm({
       const result = await saveNewVaccineAppointment(newAppointment, patientData);
       
       if (result.success && result.data) {
-        generateVaccineAppointmentPDF(result.data, announcements);
+        await generateVaccineAppointmentPDF(result.data, announcements);
         toast({
             title: 'Cita Confirmada',
             description: `Tu cita de Vacunación ha sido agendada. Folio: ${result.data.appointmentNumber}`,

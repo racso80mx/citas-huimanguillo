@@ -224,7 +224,7 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
     });
   };
   
-  const handleDownloadPDF = (appointment: XRayAppointment) => {
+  const handleDownloadPDF = async (appointment: XRayAppointment) => {
     const study = allStudies.find(s => s.id === appointment.studyId);
     if (!study) {
       toast({
@@ -234,7 +234,7 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
       });
       return;
     }
-    generateXRayAppointmentPDF(appointment, study, announcements);
+    await generateXRayAppointmentPDF(appointment, study, announcements);
   };
 
   if (!appointments || appointments.length === 0) {

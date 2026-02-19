@@ -169,7 +169,7 @@ export function LabBookingForm({
       const result = await saveNewLabAppointment(newAppointment, patientData);
 
       if (result.success && result.data) {
-          generateLabAppointmentPDF(result.data, announcements);
+          await generateLabAppointmentPDF(result.data, announcements);
           toast({
               title: 'Cita Confirmada',
               description: `Tu cita de laboratorio ha sido agendada. Folio: ${result.data.appointmentNumber}`,

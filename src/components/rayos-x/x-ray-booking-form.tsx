@@ -168,7 +168,7 @@ export function XRayBookingForm({
       const result = await saveNewXRayAppointment(newAppointment, patientData);
 
       if (result.success && result.data) {
-        generateXRayAppointmentPDF(result.data.appointment, result.data.study, announcements);
+        await generateXRayAppointmentPDF(result.data.appointment, result.data.study, announcements);
         form.reset();
         onBookingSuccess();
         toast({

@@ -224,7 +224,7 @@ export function UltrasoundAppointmentList({ appointments, isAdmin = false, onDel
     });
   };
   
-  const handleDownloadPDF = (appointment: UltrasoundAppointment) => {
+  const handleDownloadPDF = async (appointment: UltrasoundAppointment) => {
     const study = allStudies.find(s => s.id === appointment.studyId);
     if (!study) {
       toast({
@@ -234,7 +234,7 @@ export function UltrasoundAppointmentList({ appointments, isAdmin = false, onDel
       });
       return;
     }
-    generateUltrasoundAppointmentPDF(appointment, study, announcements);
+    await generateUltrasoundAppointmentPDF(appointment, study, announcements);
   };
 
   if (!appointments || appointments.length === 0) {

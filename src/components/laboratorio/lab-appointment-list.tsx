@@ -225,8 +225,8 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
     });
   };
   
-  const handleDownloadPDF = (appointment: LabAppointment) => {
-    generateLabAppointmentPDF(appointment, announcements);
+  const handleDownloadPDF = async (appointment: LabAppointment) => {
+    await generateLabAppointmentPDF(appointment, announcements);
   };
 
   if (!appointments || appointments.length === 0) {

@@ -170,7 +170,7 @@ export function UltrasoundBookingForm({
       const result = await saveNewUltrasoundAppointment(newAppointment, patientData);
       
       if (result.success && result.data) {
-        generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study, announcements);
+        await generateUltrasoundAppointmentPDF(result.data.appointment, result.data.study, announcements);
         form.reset();
         onBookingSuccess();
         toast({

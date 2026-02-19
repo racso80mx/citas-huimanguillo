@@ -1,14 +1,12 @@
 'use client';
-import { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine } from "./definitions";
-import * as xlsx from 'xlsx';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine } from "./definitions";
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment | VaccineAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string };
 
-export function downloadExcel(data: EnrichedAppointment[], filename: string) {
+export async function downloadExcel(data: EnrichedAppointment[], filename: string) {
+    const xlsx = await import('xlsx');
     const isLab = filename.includes('laboratorio');
     const isXRay = filename.includes('rayos_x');
     const isUltrasound = filename.includes('ultrasonidos');
@@ -42,8 +40,8 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
                 baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
             } else {
                 const regularItem = item as Appointment;
-                if (regularItem.tokenNumber) {
-                    baseData['Ficha'] = regularItem.tokenNumber;
+                if (regularItem.time.includes('Ficha')) {
+                    baseData['Ficha'] = regularItem.time.split(' ')[1];
                 }
                 baseData['Núcleo'] = (item as any).clinicName;
                 baseData['Tipo Paciente'] = regularItem.patientType;
@@ -68,7 +66,9 @@ export function downloadExcel(data: EnrichedAppointment[], filename: string) {
 }
 
 
-export function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
+export async function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, patientType } = appointmentData;
 
@@ -152,7 +152,9 @@ export function generateAppointmentPDF(appointmentData: Appointment, clinicData:
     doc.save(`recibo_cita_${patient.curp}.pdf`);
 }
 
-export function generateLabAppointmentPDF(appointmentData: LabAppointment, announcements: string[]) {
+export async function generateLabAppointmentPDF(appointmentData: LabAppointment, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, studies } = appointmentData;
 
@@ -225,7 +227,9 @@ export function generateLabAppointmentPDF(appointmentData: LabAppointment, annou
     doc.save(`recibo_lab_${patient.curp}.pdf`);
 }
 
-export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, study: XRayStudy, announcements: string[]) {
+export async function generateXRayAppointmentPDF(appointmentData: XRayAppointment, study: XRayStudy, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber } = appointmentData;
 
@@ -297,7 +301,9 @@ export function generateXRayAppointmentPDF(appointmentData: XRayAppointment, stu
     doc.save(`recibo_rayosx_${patient.curp}.pdf`);
 }
 
-export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppointment, study: UltrasoundStudy, announcements: string[]) {
+export async function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppointment, study: UltrasoundStudy, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber } = appointmentData;
 
@@ -370,7 +376,9 @@ export function generateUltrasoundAppointmentPDF(appointmentData: UltrasoundAppo
 }
 
 
-export function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment, announcements: string[]) {
+export async function generateVaccineAppointmentPDF(appointmentData: VaccineAppointment, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, patientType, vaccines, coloniaName } = appointmentData;
     const isNewborn = patientType === 'Recién Nacido';

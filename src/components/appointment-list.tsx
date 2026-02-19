@@ -229,7 +229,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
     });
   };
   
-  const handleDownloadPDF = (appointment: Appointment) => {
+  const handleDownloadPDF = async (appointment: Appointment) => {
     const clinic = clinics.find(c => c.id === appointment.clinicId);
     if (!clinic) {
       toast({
@@ -239,7 +239,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
       });
       return;
     }
-    generateAppointmentPDF(appointment, clinic, announcements);
+    await generateAppointmentPDF(appointment, clinic, announcements);
   };
 
   if (!appointments || appointments.length === 0) {
@@ -274,11 +274,11 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             <TableRow key={app.id}>
               <TableCell className="font-mono">
                 {app.appointmentNumber}
-                {app.tokenNumber && <span className="block text-xs font-semibold text-blue-600">(Ficha #{app.tokenNumber})</span>}
+                {app.time.includes('Ficha') && <span className="block text-xs font-semibold text-blue-600">({app.time})</span>}
               </TableCell>
               <TableCell className="font-medium">
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
-                <span className='block text-xs text-muted-foreground'>{app.tokenNumber ? `Ficha ${app.tokenNumber}` : app.time}</span>
+                <span className='block text-xs text-muted-foreground'>{app.time.includes('Ficha') ? 'Recepción General' : app.time}</span>
               </TableCell>
               <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A'}</TableCell>
               <TableCell>

@@ -22,7 +22,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import * as xlsx from 'xlsx';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 
@@ -39,6 +38,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
       const result = await downloadBackupAction();
       if (result.success && result.data) {
         try {
+            const xlsx = await import('xlsx');
             const workbook = xlsx.utils.book_new();
 
             const createSheetFromCollection = (sheetName: string, data: any[], keyMapping: Record<string, string>) => {

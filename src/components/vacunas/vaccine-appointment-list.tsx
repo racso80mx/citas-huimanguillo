@@ -221,8 +221,8 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
     });
   };
 
-  const handleDownloadPDF = (appointment: VaccineAppointment) => {
-    generateVaccineAppointmentPDF(appointment, announcements);
+  const handleDownloadPDF = async (appointment: VaccineAppointment) => {
+    await generateVaccineAppointmentPDF(appointment, announcements);
   };
 
   if (!appointments || appointments.length === 0) {

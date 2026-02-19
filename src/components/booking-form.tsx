@@ -168,7 +168,7 @@ export function BookingForm({
       const result = await saveNewAppointment(newAppointmentData, patientToSave);
 
       if (result.success && result.data) {
-        generateAppointmentPDF(result.data.appointment, result.data.clinic, announcements);
+        await generateAppointmentPDF(result.data.appointment, result.data.clinic, announcements);
         toast({
             title: 'Cita Confirmada',
             description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointment.appointmentNumber}`,
