@@ -390,20 +390,27 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>, coloniaName: string | undefined) {
     if (!adminDb) throw new Error("Database not initialized.");
     
+    // The new coloniaName from the appointment takes precedence. Fallback to existing patient data, then to an empty string.
+    const finalColoniaName = coloniaName ?? patientData.coloniaName ?? '';
+    const patientPayload = { 
+        ...patientData, 
+        coloniaName: finalColoniaName
+    };
+
     // 1. Find or create patient to get a stable ID.
     let patientRef: DocumentReference;
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, { ...patientData, coloniaName }); // Update with latest info
+            await updateDoc(patientRef, patientPayload); // Update with latest info
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, { ...patientData, coloniaName });
+            await setDoc(patientRef, patientPayload);
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, { ...patientData, coloniaName });
+        await setDoc(patientRef, patientPayload);
     }
 
     // 1.5. Validate if patient already has a medical appointment for that day in the same clinic
@@ -441,7 +448,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         patientId: patientRef.id, 
         date: new Date(appointmentData.date),
         status: 'Agendada',
-        coloniaName: coloniaName,
+        coloniaName: finalColoniaName, // Use the sanitized value here too.
     };
 
     if (clinic.bookingMode === BookingMode.Time) {
@@ -486,20 +493,25 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 
 export async function saveLabAppointment(appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
+    
+    const patientPayload = {
+        ...patientData,
+        coloniaName: patientData.coloniaName ?? '',
+    };
 
     let patientRef: DocumentReference;
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientData);
+            await updateDoc(patientRef, patientPayload);
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientData);
+            await setDoc(patientRef, patientPayload);
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientData);
+        await setDoc(patientRef, patientPayload);
     }
 
     const settings = await getLabSettings();
@@ -514,22 +526,27 @@ export async function saveLabAppointment(appointmentData: Omit<LabAppointment, '
     return { success: true, data: fullAppointment };
 }
 
-export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
+export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
+    const patientPayload = {
+        ...patientData,
+        coloniaName: patientData.coloniaName ?? '',
+    };
+
     let patientRef: DocumentReference;
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientData);
+            await updateDoc(patientRef, patientPayload);
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientData);
+            await setDoc(patientRef, patientPayload);
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientData);
+        await setDoc(patientRef, patientPayload);
     }
 
     const settings = await getXRaySettings();
@@ -548,22 +565,27 @@ export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment,
     return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
 }
 
-export async function saveUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
+export async function saveUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
+    const patientPayload = {
+        ...patientData,
+        coloniaName: patientData.coloniaName ?? '',
+    };
+
     let patientRef: DocumentReference;
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientData);
+            await updateDoc(patientRef, patientPayload);
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientData);
+            await setDoc(patientRef, patientPayload);
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientData);
+        await setDoc(patientRef, patientPayload);
     }
     
     const settings = await getUltrasoundSettings();
@@ -585,26 +607,32 @@ export async function saveUltrasoundAppointment(appointmentData: Omit<Ultrasound
 export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
+    const finalColoniaName = appointmentData.coloniaName ?? patientData.coloniaName ?? '';
+    const patientPayload = {
+        ...patientData,
+        coloniaName: finalColoniaName
+    };
+    
     let patientRef: DocumentReference;
     if (patientData.curp && !patientData.curp.startsWith('RN-')) {
         const existingPatient = await getPatientByCURP(patientData.curp);
         if (existingPatient) {
             patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, { ...patientData, coloniaName: appointmentData.coloniaName });
+            await updateDoc(patientRef, patientPayload);
         } else {
             patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, { ...patientData, coloniaName: appointmentData.coloniaName });
+            await setDoc(patientRef, patientPayload);
         }
     } else {
         patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, { ...patientData, coloniaName: appointmentData.coloniaName });
+        await setDoc(patientRef, patientPayload);
     }
     
     const settings = await getVaccineSettings();
     const { isValid, message } = await validateVaccineAvailability(settings, appointmentData.date, appointmentData.time);
     if (!isValid) throw new Error(message);
         
-    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date) };
+    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date), coloniaName: finalColoniaName };
     const newAppointmentRef = await addDoc(collection(adminDb, 'vaccineAppointments'), newAppointmentData);
     
     const [appointmentSnap, patientSnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef) ]);
@@ -677,8 +705,17 @@ export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ 
 
 // --- Backup & Restore ---
 export async function createBackupData() {
+    const appointments = await getAppointments();
+    const enrichedAppointments = await Promise.all(appointments.map(async (app) => {
+        const clinic = await getClinicById(app.clinicId);
+        return {
+            ...app,
+            clinicName: clinic?.name || 'N/A'
+        };
+    }));
+
     const data = {
-        appointments: await getAppointments(),
+        appointments: enrichedAppointments,
         labAppointments: await getLabAppointments(),
         xRayAppointments: await getXRayAppointments(),
         ultrasoundAppointments: await getUltrasoundAppointments(),
