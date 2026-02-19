@@ -406,7 +406,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         await setDoc(patientRef, patientData);
     }
 
-    // 1.5. Validate if patient already has a medical appointment for that day
+    // 1.5. Validate if patient already has a medical appointment for that day in the same clinic
     const allPatientAppointmentsQuery = query(
         collection(adminDb, 'appointments'),
         where('patientId', '==', patientRef.id)
@@ -415,13 +415,14 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 
     const appointmentDateOnly = new Date(appointmentData.date).toISOString().split('T')[0];
 
-    const hasAppointmentOnDay = allPatientAppointmentsSnap.docs.some(doc => {
-        const docDate = (doc.data().date as Timestamp).toDate().toISOString().split('T')[0];
-        return docDate === appointmentDateOnly;
+    const hasAppointmentOnDayInSameClinic = allPatientAppointmentsSnap.docs.some(doc => {
+        const docData = doc.data();
+        const docDate = (docData.date as Timestamp).toDate().toISOString().split('T')[0];
+        return docDate === appointmentDateOnly && docData.clinicId === appointmentData.clinicId;
     });
 
-    if (hasAppointmentOnDay) {
-        throw new Error('Este paciente ya tiene una cita médica agendada para este día. No se puede duplicar.');
+    if (hasAppointmentOnDayInSameClinic) {
+        throw new Error('Este paciente ya tiene una cita médica agendada para este día en este mismo núcleo. No se puede duplicar.');
     }
     
     // 2. Validate availability & get clinic
@@ -459,7 +460,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         }
         
         newAppointmentData.tokenNumber = tokenNumber;
-        newAppointmentData.time = appointmentData.time; // Keep the number as a string for consistency
+        newAppointmentData.time = `Ficha ${tokenNumber}`;
     } else {
         throw new Error(`Modo de agendar desconocido o no configurado para la clínica: ${clinic.bookingMode}`);
     }
@@ -536,7 +537,7 @@ export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment,
 
     const studyRef = doc(adminDb, 'xrayStudies', appointmentData.studyId);
     
-    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date) };
+    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date), status: 'Agendada' };
     const newAppointmentRef = await addDoc(collection(adminDb, 'xrayAppointments'), newAppointmentData);
 
     const [appointmentSnap, patientSnap, studySnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef), getDoc(studyRef) ]);
@@ -570,7 +571,7 @@ export async function saveUltrasoundAppointment(appointmentData: Omit<Ultrasound
 
     const studyRef = doc(adminDb, 'ultrasoundStudies', appointmentData.studyId);
     
-    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date) };
+    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date), status: 'Agendada' };
     const newAppointmentRef = await addDoc(collection(adminDb, 'ultrasoundAppointments'), newAppointmentData);
     
     const [appointmentSnap, patientSnap, studySnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef), getDoc(studyRef) ]);
@@ -734,19 +735,5 @@ export {
     getUltrasoundAppointments,
     getVaccineAppointments,
 };
-
-
-    
-
-    
-
-
-
-
-
-
-    
-
-
 
     
