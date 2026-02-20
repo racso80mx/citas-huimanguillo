@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
 import {
@@ -41,9 +42,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements } from '@/lib/actions';
+import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getAvailableSlotsForDate } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from './ui/label';
 
 
 type AppointmentListProps = {
@@ -68,6 +71,9 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
 
   const [cloningAppointment, setCloningAppointment] = useState<Appointment | null>(null);
   const [newCloneDate, setNewCloneDate] = useState<Date | undefined>();
+  const [newCloneTime, setNewCloneTime] = useState<string | undefined>();
+  const [availableCloneSlots, setAvailableCloneSlots] = useState<{ timeSlots?: string[], tokens?: number[] }>({});
+  const [isFetchingSlots, startFetchingSlotsTransition] = useTransition();
   const [isCloning, startCloneTransition] = useTransition();
   
   const [announcements, setAnnouncements] = useState<string[]>([]);
@@ -80,6 +86,21 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
     }
     fetchAnnouncements();
   }, []);
+
+  const cloningClinic = useMemo(() => {
+      if (!cloningAppointment) return null;
+      return clinics.find(c => c.id === cloningAppointment.clinicId);
+  }, [cloningAppointment, clinics]);
+
+  useEffect(() => {
+    if (cloningAppointment && newCloneDate) {
+      startFetchingSlotsTransition(async () => {
+        const slots = await getAvailableSlotsForDate(cloningAppointment.clinicId, newCloneDate.toISOString());
+        setAvailableCloneSlots(slots);
+        setNewCloneTime(undefined); // Reset selection when date changes
+      });
+    }
+  }, [cloningAppointment, newCloneDate]);
 
   const handleCopyCurp = (curp: string) => {
     navigator.clipboard.writeText(curp).then(() => {
@@ -210,10 +231,10 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
   };
 
   const handleCloneConfirm = () => {
-    if (!cloningAppointment || !newCloneDate) return;
+    if (!cloningAppointment || !newCloneDate || !newCloneTime) return;
 
     startCloneTransition(async () => {
-        const result = await cloneAppointment(cloningAppointment.id, newCloneDate.toISOString(), 'medical');
+        const result = await cloneAppointment(cloningAppointment.id, newCloneDate.toISOString(), 'medical', newCloneTime);
         if (result.success) {
             toast({
                 title: 'Nueva Cita Asignada',
@@ -221,6 +242,8 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             });
             setCloningAppointment(null);
             setNewCloneDate(undefined);
+            setNewCloneTime(undefined);
+            setAvailableCloneSlots({});
             onEditSuccess?.();
         } else {
             toast({
@@ -504,12 +527,19 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         </Dialog>
       )}
       {cloningAppointment && (
-        <Dialog open={!!cloningAppointment} onOpenChange={(open) => !open && setCloningAppointment(null)}>
+        <Dialog open={!!cloningAppointment} onOpenChange={(open) => {
+          if (!open) {
+              setCloningAppointment(null);
+              setNewCloneDate(undefined);
+              setNewCloneTime(undefined);
+              setAvailableCloneSlots({});
+          }
+        }}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Asignar Nueva Cita (Clonar)</DialogTitle>
                     <DialogDescription>
-                        Selecciona una nueva fecha para la cita de <span className="font-bold">{cloningAppointment.patient.name}</span>. Se clonarán los detalles de la cita actual.
+                        Selecciona una nueva fecha y disponibilidad para la cita de <span className="font-bold">{cloningAppointment.patient.name}</span>. Se clonarán los detalles de la cita actual.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex justify-center py-4">
@@ -521,9 +551,58 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         disabled={{ before: new Date() }}
                     />
                 </div>
+                
+                {newCloneDate && cloningClinic && (
+                  <div className="space-y-2">
+                    {isFetchingSlots ? (
+                      <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando disponibilidad...</div>
+                    ) : (
+                      <>
+                        {cloningClinic.bookingMode === 'token' && (
+                          <>
+                            <Label>Selecciona una Ficha</Label>
+                            <Select onValueChange={setNewCloneTime} value={newCloneTime}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una ficha disponible..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableCloneSlots.tokens && availableCloneSlots.tokens.length > 0 ? (
+                                  availableCloneSlots.tokens.map(token => (
+                                    <SelectItem key={token} value={String(token)}>Ficha {token}</SelectItem>
+                                  ))
+                                ) : (
+                                  <div className="p-2 text-sm text-muted-foreground">No hay fichas disponibles.</div>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </>
+                        )}
+                        {cloningClinic.bookingMode === 'time' && (
+                          <>
+                            <Label>Selecciona una Hora</Label>
+                             <Select onValueChange={setNewCloneTime} value={newCloneTime}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un horario disponible..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableCloneSlots.timeSlots && availableCloneSlots.timeSlots.length > 0 ? (
+                                  availableCloneSlots.timeSlots.map(time => (
+                                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                                  ))
+                                ) : (
+                                  <div className="p-2 text-sm text-muted-foreground">No hay horarios disponibles.</div>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
                 <DialogFooter>
                     <Button variant="ghost" onClick={() => setCloningAppointment(null)}>Cancelar</Button>
-                    <Button onClick={handleCloneConfirm} disabled={isCloning || !newCloneDate}>
+                    <Button onClick={handleCloneConfirm} disabled={isCloning || !newCloneDate || !newCloneTime || isFetchingSlots}>
                         {isCloning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Confirmar Nueva Cita
                     </Button>

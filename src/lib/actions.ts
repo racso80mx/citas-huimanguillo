@@ -61,6 +61,7 @@ import {
   cloneAppointment as dataCloneAppointment,
   logActivity,
   getClinicById,
+  getAvailableSlotsForDate as dataGetAvailableSlotsForDate,
 } from './data';
 
 import type {
@@ -84,6 +85,10 @@ import type {
   VaccineAppointment,
   User,
 } from './definitions';
+
+export async function getAvailableSlotsForDate(clinicId: string, date: string) {
+    return dataGetAvailableSlotsForDate(clinicId, date);
+}
 
 export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
   try {
@@ -214,8 +219,8 @@ export async function saveNewVaccineAppointment(
 // Admin & Other Actions
 // =====================================================================
 
-export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
-    const result = await dataCloneAppointment(originalAppointmentId, newDate, type);
+export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine', newTimeOrToken?: string) {
+    const result = await dataCloneAppointment(originalAppointmentId, newDate, type, newTimeOrToken);
     if(result.success) {
       await logActivity('Clonación de Cita', `Folio original ${result.originalFolio} clonado a nuevo folio ${result.data.appointmentNumber}.`);
       revalidatePath('/', 'layout');

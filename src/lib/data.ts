@@ -233,6 +233,57 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
 // VALIDATION HELPERS
 // =====================================================================
 
+export async function getAvailableSlotsForDate(clinicId: string, date: string): Promise<{ timeSlots?: string[], tokens?: number[] }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    
+    const clinic = await getClinicById(clinicId);
+    if (!clinic) throw new Error("Clínica no encontrada.");
+
+    const appointmentDate = new Date(date);
+    const dateOnly = appointmentDate.toISOString().substring(0, 10);
+
+    const q = query(
+        collection(adminDb, 'appointments'),
+        where('clinicId', '==', clinicId)
+    );
+    const appointmentsSnap = await getDocs(q);
+    const appointmentsOnDateData = appointmentsSnap.docs.map(d => d.data()).filter(d => {
+        const appDate = (d.date as Timestamp).toDate().toISOString().substring(0, 10);
+        return appDate === dateOnly;
+    });
+
+    if (clinic.bookingMode === BookingMode.Time) {
+        if (!clinic.startTime || !clinic.endTime || !clinic.consultationDuration) return { timeSlots: [] };
+        
+        const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
+            const slots: string[] = [];
+            const start = new Date(`1970-01-01T${startTimeStr}:00`);
+            const end = new Date(`1970-01-01T${endTimeStr}:00`);
+            let current = start;
+            while (current < end) {
+                slots.push(current.toTimeString().substring(0, 5));
+                current = new Date(current.getTime() + duration * 60000);
+            }
+            return slots;
+        };
+
+        const allSlots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration);
+        const takenTimes = appointmentsOnDateData.map(app => app.time);
+        const availableTimeSlots = allSlots.filter(slot => !takenTimes.includes(slot));
+        return { timeSlots: availableTimeSlots };
+        
+    } else if (clinic.bookingMode === BookingMode.Token) {
+        const totalSlots = clinic.dailySlots;
+        const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => i + 1);
+
+        const takenTokens = appointmentsOnDateData.map(app => app.tokenNumber).filter(Boolean);
+        const availableTokens = allPossibleTokens.filter(token => !takenTokens.includes(token));
+        return { tokens: availableTokens };
+    }
+
+    return {};
+}
+
 async function validateClinicAvailability(clinic: Clinic, date: string): Promise<{ isValid: boolean; message?: string; appointmentsOnDate?: any[] }> {
     if (!adminDb) throw new Error("Database not initialized.");
     
@@ -457,7 +508,10 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         }
         newAppointmentData.time = appointmentData.time;
     } else if (clinic.bookingMode === BookingMode.Token) {
-        const tokenNumber = parseInt(appointmentData.time, 10);
+        const timeAsString = String(appointmentData.time);
+        const tokenMatch = timeAsString.match(/\d+/);
+        const tokenNumber = tokenMatch ? parseInt(tokenMatch[0], 10) : parseInt(timeAsString, 10);
+        
         if (isNaN(tokenNumber) || tokenNumber <= 0) {
             throw new Error("Número de ficha inválido. Por favor, selecciona una ficha de la lista.");
         }
@@ -650,7 +704,7 @@ export async function deleteVaccineAppointment(id: string) { return deleteDocAnd
 
 export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message?: string }> { if (!adminDb) throw new Error("Database not initialized."); const collectionName = type === 'medical' ? 'appointments' : `${type}Appointments`; const docRef = doc(adminDb, collectionName, appointmentId); await updateDoc(docRef, { status }); return { success: true };}
 export async function rescheduleAppointment(appointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message: string; newTime?: string }> { if (!adminDb) throw new Error("Database not initialized."); const collectionName = type === 'medical' ? 'appointments' : `${type}Appointments`; const docRef = doc(adminDb, collectionName, appointmentId); await updateDoc(docRef, { date: new Date(newDate), status: 'Agendada' }); return { success: true, message: 'Fecha de la cita actualizada.' };}
-export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message: string; data?: any, originalFolio?: string }> {
+export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine', newTimeOrToken?: string): Promise<{ success: boolean; message: string; data?: any, originalFolio?: string }> {
     if (!adminDb) throw new Error("Database not initialized.");
     const collectionName = type === 'medical' ? 'appointments' : `${type}Appointments`;
     const docRef = doc(adminDb, collectionName, originalAppointmentId);
@@ -666,6 +720,11 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
     
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, patientId, date, status, ...payload } = originalAppointment;
+    
+    if (newTimeOrToken) {
+        payload.time = newTimeOrToken;
+    }
+    
     const newAppointmentNumber = `${type.substring(0,3).toUpperCase()}-${uuidv4().split('-')[0].toUpperCase()}`;
     const newAppointmentData = { ...payload, date: newDate, status: 'Agendada' as AppointmentStatus, appointmentNumber: newAppointmentNumber };
     
