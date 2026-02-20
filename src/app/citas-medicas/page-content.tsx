@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
+import { cn } from '@/lib/utils';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -422,7 +423,14 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                             </SelectTrigger>
                             <SelectContent>
                                 {clinicOptions.map(opt => (
-                                    <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>
+                                    <SelectItem 
+                                        key={opt.value} 
+                                        value={opt.value} 
+                                        disabled={opt.disabled}
+                                        className={cn(
+                                            !opt.disabled ? "font-bold text-green-700" : "text-red-600"
+                                        )}
+                                    >
                                         {opt.label}
                                     </SelectItem>
                                 ))}
