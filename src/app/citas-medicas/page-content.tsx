@@ -16,7 +16,7 @@ import { PatientType, BookingMode, ClinicType } from '@/lib/definitions';
 import { getAppointments, getClinics } from '@/lib/data';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope } from 'lucide-react';
+import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -37,10 +37,11 @@ type PageContentProps = {
 export default function PageContent({ initialAnnouncements, initialColonias, initialClinics }: PageContentProps) {
   const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
+  const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
+  const [selectedClinicId, setSelectedClinicId] = React.useState<string | undefined>();
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
-  const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
-
+  
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [announcements] = React.useState<string[]>(initialAnnouncements);
   const [colonias] = React.useState<Colonia[]>(initialColonias);
@@ -162,11 +163,11 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     startTransition(async () => {
       try {
         await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+        setSelectedClinicType(undefined);
         setSelectedDate(undefined);
+        setSelectedClinicId(undefined);
         setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
-        // Do not reset clinic type to allow for multiple bookings
-        // setSelectedClinicType(undefined); 
         setPatientType(PatientType.General);
       } catch (error) {
           console.error("Failed to refresh data:", error);
@@ -178,6 +179,14 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
       }
     });
   };
+
+  const handleClinicTypeSelect = (value: ClinicType) => {
+    setSelectedClinicType(value);
+    setSelectedDate(undefined);
+    setSelectedClinicId(undefined);
+    setSelectedColoniaId(undefined);
+    setSelectedTime(undefined);
+  }
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date) {
@@ -191,10 +200,16 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
       }
     }
     setSelectedDate(date);
+    setSelectedClinicId(undefined);
     setSelectedColoniaId(undefined);
     setSelectedTime(undefined);
-    setPatientType(PatientType.General);
   };
+  
+  const handleClinicSelect = (clinicId: string) => {
+      setSelectedClinicId(clinicId);
+      setSelectedColoniaId(undefined);
+      setSelectedTime(undefined);
+  }
 
   const handleColoniaSelect = (coloniaId: string) => {
       setSelectedColoniaId(coloniaId);
@@ -205,62 +220,55 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     setSelectedTime(time);
   }
 
+  const selectedClinic = React.useMemo(() => {
+    if (!selectedClinicId) return undefined;
+    return clinics.find(c => c.id === selectedClinicId);
+  }, [selectedClinicId, clinics]);
+
   const selectedColonia = React.useMemo(() => {
+    if (!selectedColoniaId) return undefined;
     return colonias.find(c => c.id === selectedColoniaId);
   }, [selectedColoniaId, colonias]);
 
-  const selectedClinic = React.useMemo(() => {
-    return clinics.find(c => c.id === selectedColonia?.clinicId);
-  }, [selectedColonia, clinics]);
 
   const selectedDayAvailability = React.useMemo(() => {
     if (!selectedDate) return null;
     const dateString = format(selectedDate, 'yyyy-MM-dd');
     return availability.find((d) => d.date === dateString) || null;
   }, [selectedDate, availability]);
-  
-  const coloniaOptions = React.useMemo(() => {
+
+  const clinicOptions = React.useMemo(() => {
     if (!selectedDayAvailability || !selectedClinicType) return [];
-    
-    const options = colonias.map(colonia => {
-        const clinic = clinics.find(c => c.id === colonia.clinicId);
-        
-        if (!clinic || clinic.clinicType !== selectedClinicType) {
-            return null;
-        }
 
-        const slots = selectedDayAvailability.availabilityByClinic[colonia.clinicId] ?? 0;
+    const filteredClinics = clinics.filter(c => c.clinicType === selectedClinicType);
+
+    const options = filteredClinics.map(clinic => {
+        const slots = selectedDayAvailability.availabilityByClinic[clinic.id] ?? 0;
         const isDisabled = slots === 0;
-
         return {
-            value: colonia.id,
-            label: `${colonia.name} (${clinic?.name || 'N/A'}) - ${slots} citas`,
-            keywords: `${colonia.name} ${clinic?.name || ''}`,
+            value: clinic.id,
+            label: `${clinic.name} (${slots} citas disponibles)`,
             disabled: isDisabled,
-            clinicName: clinic?.name || 'Z',
-            coloniaName: colonia.name,
-            content: (
-                 <div className="flex justify-between w-full">
-                    <span>{colonia.name} (<strong className="text-red-600">{clinic?.name || 'N/A'}</strong>)</span>
-                    <span className={`font-bold ml-4 ${isDisabled ? 'text-destructive' : 'text-green-600'}`}>
-                        {slots} citas
-                    </span>
-                </div>
-            )
         };
-    }).filter(Boolean) as any[];
-
-    options.sort((a, b) => {
-        const clinicCompare = a.clinicName.localeCompare(b.clinicName);
-        if (clinicCompare !== 0) {
-            return clinicCompare;
-        }
-        return a.coloniaName.localeCompare(b.coloniaName);
-    });
+    }).sort((a,b) => a.label.localeCompare(b.label));
 
     return options;
-    
-  }, [colonias, clinics, selectedDayAvailability, selectedClinicType]);
+
+  }, [clinics, selectedDayAvailability, selectedClinicType]);
+
+  const coloniaOptions = React.useMemo(() => {
+    if (!selectedClinicId) return [];
+
+    return colonias
+        .filter(c => c.clinicId === selectedClinicId)
+        .map(colonia => ({
+            value: colonia.id,
+            label: colonia.name,
+            keywords: colonia.name
+        }))
+        .sort((a,b) => a.label.localeCompare(b.label));
+
+  }, [colonias, selectedClinicId]);
 
   const allTimeSlots = React.useMemo(() => {
     if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
@@ -311,7 +319,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         </h1>
         <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">
           Un servicio simple y rápido para la comunidad de Huimanguillo.
-          Selecciona un día, tu colonia, un horario y registra tus datos.
+          Sigue los pasos para registrar tus datos.
         </p>
       </div>
 
@@ -329,10 +337,10 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                             <Stethoscope className="h-5 w-5 text-primary" />
                             Tipo de Consulta
                         </CardTitle>
-                        <CardDescription>Selecciona el tipo de consulta que necesitas para ver las colonias disponibles.</CardDescription>
+                        <CardDescription>Elige el tipo de consulta que necesitas.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Select onValueChange={(value: ClinicType) => setSelectedClinicType(value)} value={selectedClinicType}>
+                        <Select onValueChange={handleClinicTypeSelect} value={selectedClinicType}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un tipo de consulta" />
                             </SelectTrigger>
@@ -349,150 +357,177 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               </div>
               
               {selectedClinicType && (
-                <>
-                    <div>
-                        <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                        2. Selecciona un día
-                        </h3>
-                        <AvailabilityCalendar
-                        selectedDate={selectedDate}
-                        onDateSelect={handleDateSelect}
-                        availability={availability}
-                        onMonthChange={handleMonthChange}
-                        isLoading={isPending}
-                        />
-                    </div>
+                <div>
+                    <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                    2. Selecciona un día
+                    </h3>
+                    <AvailabilityCalendar
+                    selectedDate={selectedDate}
+                    onDateSelect={handleDateSelect}
+                    availability={availability}
+                    onMonthChange={handleMonthChange}
+                    isLoading={isPending}
+                    />
+                </div>
+              )}
 
-                    {selectedDate && (
-                        <div>
-                            <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                                3. Indica tu tipo de paciente
-                            </h3>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-xl flex items-center gap-2">
-                                        <UserCheck className="h-5 w-5 text-primary" />
-                                        Tipo de Paciente
-                                    </CardTitle>
-                                    <CardDescription>Selecciona tu tipo de paciente para nuestros registros.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecciona un tipo" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                        <SelectItem value={PatientType.General}>General</SelectItem>
-                                        <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
-                                        <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
-                                        <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
-                                        <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-                        
-                    {selectedDate && selectedDayAvailability && (
-                        <div>
-                        <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                            4. Selecciona tu colonia
-                        </h3>
-                        <Card className="bg-card">
-                            <CardHeader>
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <MapPin className="h-5 w-5 text-primary" />
-                                    Colonias con citas para el {format(selectedDate, 'PPP', { locale: es })}
-                                </CardTitle>
-                                <CardDescription>Busca y selecciona tu colonia. Se te asignará el núcleo básico correspondiente.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <Combobox
-                                    options={coloniaOptions}
-                                    value={selectedColoniaId || ''}
-                                    onChange={handleColoniaSelect}
-                                    placeholder="Busca y selecciona tu colonia..."
-                                    searchPlaceholder="Escribe colonia o núcleo..."
-                                    noResultsText="No se encontró la colonia para este tipo de cita."
-                                />
-                            </CardContent>
-                        </Card>
-                        </div>
-                    )}
-                    
-                    {selectedColoniaId && isTimeBooking && (
-                        <>
-                            <div>
-                                <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                                    5. Selecciona una hora
-                                </h3>
-                                <Card className="bg-card">
-                                    <CardHeader>
-                                        <CardTitle className="text-xl flex items-center gap-2">
-                                        <Clock className="h-5 w-5 text-primary" />
-                                        Horarios para {selectedClinic?.name}
-                                        </CardTitle>
-                                        <CardDescription>Selecciona un horario disponible.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="grid grid-cols-3 gap-2">
-                                    {availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (
-                                        <button key={time}
-                                        onClick={() => handleTimeSelect(time)}
-                                        className={`w-full p-2 border rounded-md text-center transition-colors ${selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
-                                        >
-                                            {time}
-                                        </button>
-                                    )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles en esta colonia para la fecha seleccionada.</p>}
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </>
-                    )}
-                    {selectedColoniaId && isTokenBooking && (
-                        <div>
-                            <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                                5. Selecciona una Ficha
-                            </h3>
-                            <Card className="bg-card">
-                                <CardHeader>
-                                    <CardTitle className="text-xl flex items-center gap-2">
-                                        <Ticket className="h-5 w-5 text-primary" />
-                                        Fichas Disponibles
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Este núcleo asigna fichas. Hay {availableTokens.length} fichas disponibles. Selecciona una como medida de seguridad.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Selecciona una ficha..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableTokens.length > 0 ? (
-                                                availableTokens.map(token => (
-                                                    <SelectItem key={token} value={String(token)}>
-                                                        Ficha {token}
-                                                    </SelectItem>
-                                                ))
-                                            ) : (
-                                                <p className="p-4 text-sm text-muted-foreground">No hay fichas disponibles.</p>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-                </>
+              {selectedDate && (
+                  <div>
+                      <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                          3. Indica tu tipo de paciente
+                      </h3>
+                      <Card>
+                          <CardHeader>
+                              <CardTitle className="text-xl flex items-center gap-2">
+                                  <UserCheck className="h-5 w-5 text-primary" />
+                                  Tipo de Paciente
+                              </CardTitle>
+                              <CardDescription>Esto nos ayuda a dirigir tu cita correctamente.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                              <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Selecciona un tipo" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                  <SelectItem value={PatientType.General}>General</SelectItem>
+                                  <SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem>
+                                  <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
+                                  <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                  <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                          </CardContent>
+                      </Card>
+                  </div>
+              )}
+                  
+              {selectedDate && selectedDayAvailability && (
+                  <div>
+                  <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                      4. Selecciona tu núcleo básico
+                  </h3>
+                  <Card className="bg-card">
+                      <CardHeader>
+                          <CardTitle className="text-xl flex items-center gap-2">
+                              <Hospital className="h-5 w-5 text-primary" />
+                              Núcleos con citas para el {format(selectedDate, 'PPP', { locale: es })}
+                          </CardTitle>
+                          <CardDescription>Elige el núcleo básico al que perteneces.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                          <Select onValueChange={handleClinicSelect} value={selectedClinicId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un núcleo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {clinicOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                      </CardContent>
+                  </Card>
+                  </div>
+              )}
+              
+              {selectedClinicId && (
+                <div>
+                  <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                      5. Selecciona tu colonia
+                  </h3>
+                  <Card className="bg-card">
+                      <CardHeader>
+                          <CardTitle className="text-xl flex items-center gap-2">
+                              <MapPin className="h-5 w-5 text-primary" />
+                              Colonia de residencia
+                          </CardTitle>
+                          <CardDescription>Busca y selecciona tu colonia.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                          <Combobox
+                              options={coloniaOptions}
+                              value={selectedColoniaId || ''}
+                              onChange={handleColoniaSelect}
+                              placeholder="Busca y selecciona tu colonia..."
+                              searchPlaceholder="Escribe para buscar..."
+                              noResultsText="No se encontraron colonias para este núcleo."
+                          />
+                      </CardContent>
+                  </Card>
+                </div>
               )}
             </div>
 
             <div className="flex flex-col gap-8">
+              {selectedColoniaId && isTimeBooking && (
+                  <div>
+                      <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                          6. Selecciona una hora
+                      </h3>
+                      <Card className="bg-card">
+                          <CardHeader>
+                              <CardTitle className="text-xl flex items-center gap-2">
+                              <Clock className="h-5 w-5 text-primary" />
+                              Horarios para {selectedClinic?.name}
+                              </CardTitle>
+                              <CardDescription>Selecciona un horario disponible.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="grid grid-cols-3 gap-2">
+                          {availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (
+                              <button key={time}
+                              onClick={() => handleTimeSelect(time)}
+                              className={`w-full p-2 border rounded-md text-center transition-colors ${selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}
+                              >
+                                  {time}
+                              </button>
+                          )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles en esta colonia para la fecha seleccionada.</p>}
+                          </CardContent>
+                      </Card>
+                  </div>
+              )}
+              {selectedColoniaId && isTokenBooking && (
+                  <div>
+                      <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                          6. Selecciona una Ficha
+                      </h3>
+                      <Card className="bg-card">
+                          <CardHeader>
+                              <CardTitle className="text-xl flex items-center gap-2">
+                                  <Ticket className="h-5 w-5 text-primary" />
+                                  Fichas Disponibles
+                              </CardTitle>
+                              <CardDescription>
+                                  Este núcleo asigna fichas. Hay {availableTokens.length} fichas disponibles.
+                              </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                              <Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}>
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Selecciona una ficha..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {availableTokens.length > 0 ? (
+                                          availableTokens.map(token => (
+                                              <SelectItem key={token} value={String(token)}>
+                                                  Ficha {token}
+                                              </SelectItem>
+                                          ))
+                                      ) : (
+                                          <p className="p-4 text-sm text-muted-foreground">No hay fichas disponibles.</p>
+                                      )}
+                                  </SelectContent>
+                              </Select>
+                          </CardContent>
+                      </Card>
+                  </div>
+              )}
+
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                  6. Completa tus datos
+                  7. Completa tus datos
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
