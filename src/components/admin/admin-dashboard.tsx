@@ -410,6 +410,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         <TabsContent value="configuracion" className="mt-6">
             <div className="space-y-8">
                 <ModuleManager />
+                <ClinicsManager />
                 <ColoniasManager />
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
@@ -515,7 +516,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </CardContent>
             </Card>
-            <ClinicsManager />
            </div>
         </TabsContent>
 

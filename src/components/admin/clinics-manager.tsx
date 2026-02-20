@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
@@ -14,7 +14,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateClinics, getClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon, X } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon, X, Pencil } from 'lucide-react';
 import type { Clinic } from '@/lib/definitions';
 import { ClinicType, BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
@@ -27,66 +27,283 @@ import { es } from 'date-fns/locale';
 import { timeSlots30Min } from '@/lib/time-slots';
 import { Checkbox } from '../ui/checkbox';
 import { Badge } from '../ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
 
 const daysOfWeek = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+function ClinicEditDialog({ clinic, onSave, onCancel }: { clinic: Clinic, onSave: (clinic: Clinic) => void, onCancel: () => void }) {
+    const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
+    const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        setEditedClinic(clinic);
+    }, [clinic]);
+
+    const handleFieldChange = (field: keyof Omit<Clinic, 'id'>, value: any) => {
+        setEditedClinic(prev => ({...prev, [field]: value}));
+    }
+    
+    const handleDaysOfActionChange = (day: string, checked: boolean) => {
+        setEditedClinic(prev => {
+            const currentDays = prev.daysOfAction || [];
+            const newDays = checked
+              ? [...currentDays, day]
+              : currentDays.filter(d => d !== day);
+            return { ...prev, daysOfAction: newDays };
+        });
+    }
+
+    return (
+        <DialogContent className="sm:max-w-[60%]">
+            <DialogHeader>
+                <DialogTitle>Editar Núcleo Básico: {clinic.name || "Nuevo Núcleo"}</DialogTitle>
+                <DialogDescription>
+                    Modifica los detalles del núcleo básico. Los cambios se guardarán cuando presiones "Guardar Cambios" en la parte inferior.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto p-4 space-y-4">
+                 <div className='grid sm:grid-cols-2 gap-4'>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`name-${editedClinic.id}`}>Nombre del Núcleo</Label>
+                        <Input
+                        id={`name-${editedClinic.id}`}
+                        value={editedClinic.name}
+                        onChange={(e) => handleFieldChange('name', e.target.value)}
+                        placeholder="Ej. Núcleo Básico 1"
+                        />
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`doctor-${editedClinic.id}`}>Nombre del Doctor</Label>
+                        <Input
+                        id={`doctor-${editedClinic.id}`}
+                        value={editedClinic.doctorName}
+                        onChange={(e) => handleFieldChange('doctorName', e.target.value)}
+                        placeholder="Ej. Dr. Juan Pérez"
+                        />
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor={`password-${editedClinic.id}`}>Contraseña</Label>
+                    <div className="relative">
+                        <Input
+                            id={`password-${editedClinic.id}`}
+                            type={showPassword ? 'text' : 'password'}
+                            value={editedClinic.password}
+                            onChange={(e) => handleFieldChange('password', e.target.value)}
+                            placeholder="Contraseña para reportes"
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute inset-y-0 right-0 h-full px-3"
+                            onClick={() => setShowPassword(!showPassword)}
+                        >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className='grid sm:grid-cols-3 gap-4'>
+                    <div className='space-y-2'>
+                    <Label htmlFor={`clinicType-${editedClinic.id}`}>Tipo de Núcleo</Label>
+                    <Select value={editedClinic.clinicType} onValueChange={(value: ClinicType) => handleFieldChange('clinicType', value)}>
+                        <SelectTrigger id={`clinicType-${editedClinic.id}`}><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            {Object.values(ClinicType).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    </div>
+                    <div className='space-y-2'>
+                    <Label htmlFor={`bookingMode-${editedClinic.id}`}>Modo de Agendar</Label>
+                    <Select value={editedClinic.bookingMode} onValueChange={(value: BookingMode) => handleFieldChange('bookingMode', value)}>
+                        <SelectTrigger id={`bookingMode-${editedClinic.id}`}><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={BookingMode.Time}>Por Horario</SelectItem>
+                            <SelectItem value={BookingMode.Token}>Por Ficha</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`slots-${editedClinic.id}`}>Citas por día</Label>
+                        <Input
+                        id={`slots-${editedClinic.id}`}
+                        type="number"
+                        value={editedClinic.dailySlots}
+                        onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)}
+                        />
+                    </div>
+                </div>
+                <div className='grid sm:grid-cols-3 gap-4'>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`start-${editedClinic.id}`}>Hora Inicio</Label>
+                        <Select value={editedClinic.startTime} onValueChange={(value) => handleFieldChange('startTime', value)}>
+                            <SelectTrigger id={`start-${editedClinic.id}`}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`end-${editedClinic.id}`}>Hora Fin</Label>
+                        <Select value={editedClinic.endTime} onValueChange={(value) => handleFieldChange('endTime', value)}>
+                            <SelectTrigger id={`end-${editedClinic.id}`}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    {editedClinic.bookingMode === BookingMode.Time && (
+                    <div className='space-y-2'>
+                        <Label htmlFor={`duration-${editedClinic.id}`}>Duración (min)</Label>
+                        <Input
+                            id={`duration-${editedClinic.id}`}
+                            type="number"
+                            value={editedClinic.consultationDuration || ''}
+                            onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)}
+                            placeholder="Ej. 30"
+                        />
+                    </div>
+                    )}
+                </div>
+                <div className='grid sm:grid-cols-2 gap-4'>
+                    <div className='space-y-2'>
+                    <Label>Días de Acción (No Citas)</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg border p-4">
+                        {daysOfWeek.map(day => (
+                        <div key={day} className="flex items-center space-x-2">
+                            <Checkbox
+                            id={`day-${editedClinic.id}-${day}`}
+                            checked={editedClinic.daysOfAction?.includes(day)}
+                            onCheckedChange={(checked) => handleDaysOfActionChange(day, !!checked)}
+                            />
+                            <Label htmlFor={`day-${editedClinic.id}-${day}`} className="font-normal">{day}</Label>
+                        </div>
+                        ))}
+                    </div>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label>Días Inhábiles (Vacaciones)</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className='w-full justify-start text-left font-normal'>
+                                    <CalendarIcon className='mr-2 h-4 w-4' />
+                                    <span>{editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 ? `${editedClinic.unavailableDates.length} días seleccionados` : "Seleccionar fechas"}</span>
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className='w-auto p-0'>
+                                <Calendar
+                                    mode="multiple"
+                                    selected={(editedClinic.unavailableDates || []).map(d => new Date(d))}
+                                    onSelect={(dates) => handleFieldChange('unavailableDates', dates?.map(d => d.toISOString().split('T')[0]) || [])}
+                                    initialFocus
+                                    locale={es}
+                                    disabled={{ before: new Date() }}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        {editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 && (
+                            <div className="mt-2 space-y-2">
+                                <div className="flex flex-wrap gap-2">
+                                    {(editedClinic.unavailableDates || []).sort().map(dateStr => (
+                                        <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pl-2 pr-1 py-0.5">
+                                            <span>
+                                                {format(new Date(dateStr + 'T12:00:00'), "PPP", { locale: es })}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label={`Quitar ${dateStr}`}
+                                                className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                                onClick={() => {
+                                                    const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr) || [];
+                                                    handleFieldChange('unavailableDates', newDates);
+                                                }}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Switch 
+                    id={`weekend-${editedClinic.id}`}
+                    checked={editedClinic.weekendBookingEnabled}
+                    onCheckedChange={(checked) => handleFieldChange('weekendBookingEnabled', checked)}
+                    />
+                    <Label htmlFor={`weekend-${editedClinic.id}`}>Permitir citas en fin de semana</Label>
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancelar</Button>
+                </DialogClose>
+                <Button type="button" onClick={() => onSave(editedClinic)}>Guardar Cambios</Button>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
-  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
+
   const { toast } = useToast();
 
-  const fetchClinics = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getClinics();
-        const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
-        setClinics(sortedData);
-      } catch (error) {
-        console.error("Failed to fetch clinics:", error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los núcleos. Por favor, recarga la página.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchClinics = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getClinics();
+      const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+      setClinics(sortedData);
+    } catch (error) {
+      console.error("Failed to fetch clinics:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los núcleos. Por favor, recarga la página.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     fetchClinics();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchClinics]);
 
-  const handleClinicChange = (id: string, field: keyof Omit<Clinic, 'id'>, value: any) => {
-    setClinics(prev =>
-      prev.map(c => (c.id === id ? { ...c, [field]: value } : c))
-    );
-  };
-  
-  const handleDaysOfActionChange = (id: string, day: string, checked: boolean) => {
-    setClinics(prev =>
-      prev.map(c => {
-        if (c.id === id) {
-          const currentDays = c.daysOfAction || [];
-          const newDays = checked
-            ? [...currentDays, day]
-            : currentDays.filter(d => d !== day);
-          return { ...c, daysOfAction: newDays };
-        }
-        return c;
-      })
-    );
-  };
+  const handleEditClick = (clinic: Clinic) => {
+    setSelectedClinic(clinic);
+    setIsDialogOpen(true);
+  }
 
-  const toggleShowPassword = (id: string) => {
-    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const addClinic = () => {
-    const newClinic: Clinic = { 
+  const handleAddNewClick = () => {
+      const newClinic: Clinic = { 
         id: uuidv4(), 
         name: '', 
         doctorName: '', 
@@ -101,19 +318,36 @@ export function ClinicsManager() {
         bookingMode: BookingMode.Time,
         consultationDuration: 30,
     };
-    setClinics([...clinics, newClinic]);
-  };
+    setSelectedClinic(newClinic);
+    setIsDialogOpen(true);
+  }
+  
+  const handleDialogSave = (updatedClinic: Clinic) => {
+    const clinicExists = clinics.some(c => c.id === updatedClinic.id);
+    if (clinicExists) {
+        setClinics(clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c));
+    } else {
+        setClinics([...clinics, updatedClinic]);
+    }
+    setIsDialogOpen(false);
+    setSelectedClinic(null);
+  }
 
-  const removeClinic = (id: string) => {
-    setClinics(clinics.filter(c => c.id !== id));
-  };
+  const handleDialogCancel = () => {
+      setIsDialogOpen(false);
+      setSelectedClinic(null);
+  }
+  
+  const removeClinic = (idToRemove: string) => {
+      setClinics(clinics.filter(c => c.id !== idToRemove));
+  }
 
   const handleSave = () => {
     const validClinics = clinics.filter(c => c.name.trim() !== '' && c.doctorName.trim() !== '' && c.password.trim() !== '');
     if (validClinics.length !== clinics.length) {
         toast({
             title: 'Campos Requeridos',
-            description: 'El nombre del núcleo, del doctor y la contraseña no pueden estar vacíos.',
+            description: 'El nombre del núcleo, del doctor y la contraseña no pueden estar vacíos en ningún núcleo.',
             variant: 'destructive',
         });
         return;
@@ -124,7 +358,7 @@ export function ClinicsManager() {
       if (result.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración de núcleos básicos ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen en la UI de reserva.',
+          description: 'La configuración de núcleos básicos ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
           className: 'bg-accent text-accent-foreground',
           duration: 8000,
         });
@@ -154,224 +388,68 @@ export function ClinicsManager() {
   }
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
-        <CardDescription>Configura los detalles y horarios de cada núcleo básico.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6 max-h-[32rem] overflow-y-auto p-4">
-        {clinics.map((clinic) => (
-          <div key={clinic.id} className="p-4 border rounded-lg space-y-4 relative bg-background">
-             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => removeClinic(clinic.id)}
-              className="absolute top-2 right-2"
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-            <div className='grid sm:grid-cols-2 gap-4'>
-                <div className='space-y-2'>
-                    <Label htmlFor={`name-${clinic.id}`}>Nombre del Núcleo</Label>
-                    <Input
-                    id={`name-${clinic.id}`}
-                    value={clinic.name}
-                    onChange={(e) => handleClinicChange(clinic.id, 'name', e.target.value)}
-                    placeholder="Ej. Núcleo Básico 1"
-                    />
-                </div>
-                 <div className='space-y-2'>
-                    <Label htmlFor={`doctor-${clinic.id}`}>Nombre del Doctor</Label>
-                    <Input
-                    id={`doctor-${clinic.id}`}
-                    value={clinic.doctorName}
-                    onChange={(e) => handleClinicChange(clinic.id, 'doctorName', e.target.value)}
-                    placeholder="Ej. Dr. Juan Pérez"
-                    />
-                </div>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Card className="shadow-lg">
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
+                <CardDescription>Configura los detalles de cada núcleo básico.</CardDescription>
             </div>
-             <div className="space-y-2">
-                <Label htmlFor={`password-${clinic.id}`}>Contraseña</Label>
-                <div className="relative">
-                    <Input
-                        id={`password-${clinic.id}`}
-                        type={showPasswords[clinic.id] ? 'text' : 'password'}
-                        value={clinic.password}
-                        onChange={(e) => handleClinicChange(clinic.id, 'password', e.target.value)}
-                        placeholder="Contraseña para reportes"
-                    />
-                     <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute inset-y-0 right-0 h-full px-3"
-                        onClick={() => toggleShowPassword(clinic.id)}
-                      >
-                        {showPasswords[clinic.id] ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                </div>
-            </div>
-            <div className='grid sm:grid-cols-3 gap-4'>
-                <div className='space-y-2'>
-                  <Label htmlFor={`clinicType-${clinic.id}`}>Tipo de Núcleo</Label>
-                  <Select value={clinic.clinicType} onValueChange={(value: ClinicType) => handleClinicChange(clinic.id, 'clinicType', value)}>
-                      <SelectTrigger id={`clinicType-${clinic.id}`}><SelectValue/></SelectTrigger>
-                      <SelectContent>
-                          {Object.values(ClinicType).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
-                </div>
-                <div className='space-y-2'>
-                  <Label htmlFor={`bookingMode-${clinic.id}`}>Modo de Agendar</Label>
-                  <Select value={clinic.bookingMode} onValueChange={(value: BookingMode) => handleClinicChange(clinic.id, 'bookingMode', value)}>
-                      <SelectTrigger id={`bookingMode-${clinic.id}`}><SelectValue/></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value={BookingMode.Time}>Por Horario</SelectItem>
-                          <SelectItem value={BookingMode.Token}>Por Ficha</SelectItem>
-                      </SelectContent>
-                  </Select>
-                </div>
-                 <div className='space-y-2'>
-                    <Label htmlFor={`slots-${clinic.id}`}>Citas por día</Label>
-                    <Input
-                    id={`slots-${clinic.id}`}
-                    type="number"
-                    value={clinic.dailySlots}
-                    onChange={(e) => handleClinicChange(clinic.id, 'dailySlots', parseInt(e.target.value,10) || 0)}
-                    />
-                </div>
-            </div>
-             <div className='grid sm:grid-cols-3 gap-4'>
-                <div className='space-y-2'>
-                    <Label htmlFor={`start-${clinic.id}`}>Hora Inicio</Label>
-                    <Select value={clinic.startTime} onValueChange={(value) => handleClinicChange(clinic.id, 'startTime', value)}>
-                        <SelectTrigger id={`start-${clinic.id}`}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className='space-y-2'>
-                    <Label htmlFor={`end-${clinic.id}`}>Hora Fin</Label>
-                     <Select value={clinic.endTime} onValueChange={(value) => handleClinicChange(clinic.id, 'endTime', value)}>
-                        <SelectTrigger id={`end-${clinic.id}`}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                {clinic.bookingMode === BookingMode.Time && (
-                  <div className='space-y-2'>
-                      <Label htmlFor={`duration-${clinic.id}`}>Duración (min)</Label>
-                      <Input
-                          id={`duration-${clinic.id}`}
-                          type="number"
-                          value={clinic.consultationDuration || ''}
-                          onChange={(e) => handleClinicChange(clinic.id, 'consultationDuration', parseInt(e.target.value,10) || 0)}
-                          placeholder="Ej. 30"
-                      />
-                  </div>
-                )}
-            </div>
-             <div className='grid sm:grid-cols-2 gap-4'>
-                <div className='space-y-2'>
-                  <Label>Días de Acción (No Citas)</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg border p-4">
-                    {daysOfWeek.map(day => (
-                      <div key={day} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`day-${clinic.id}-${day}`}
-                          checked={clinic.daysOfAction?.includes(day)}
-                          onCheckedChange={(checked) => handleDaysOfActionChange(clinic.id, day, !!checked)}
-                        />
-                        <Label htmlFor={`day-${clinic.id}-${day}`} className="font-normal">{day}</Label>
-                      </div>
+            <Button onClick={handleAddNewClick}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Núcleo</Button>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Nombre del Núcleo</TableHead>
+                        <TableHead>Doctor</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {clinics.map(clinic => (
+                        <TableRow key={clinic.id}>
+                            <TableCell className="font-medium">{clinic.name}</TableCell>
+                            <TableCell>{clinic.doctorName}</TableCell>
+                            <TableCell>{clinic.clinicType}</TableCell>
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => removeClinic(clinic.id)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
                     ))}
-                  </div>
+                </TableBody>
+            </Table>
+             {clinics.length === 0 && (
+                <div className="text-center py-10 text-muted-foreground">
+                    No hay núcleos básicos definidos. Agrega uno para comenzar.
                 </div>
-                <div className='space-y-2'>
-                    <Label>Días Inhábiles (Vacaciones)</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className='w-full justify-start text-left font-normal'>
-                                <CalendarIcon className='mr-2 h-4 w-4' />
-                                <span>{clinic.unavailableDates && clinic.unavailableDates.length > 0 ? `${clinic.unavailableDates.length} días seleccionados` : "Seleccionar fechas"}</span>
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className='w-auto p-0'>
-                             <Calendar
-                                mode="multiple"
-                                selected={(clinic.unavailableDates || []).map(d => new Date(d))}
-                                onSelect={(dates) => handleClinicChange(clinic.id, 'unavailableDates', dates?.map(d => d.toISOString().split('T')[0]) || [])}
-                                initialFocus
-                                locale={es}
-                                disabled={{ before: new Date() }}
-                             />
-                        </PopoverContent>
-                    </Popover>
-                    {clinic.unavailableDates && clinic.unavailableDates.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                            <div className="flex flex-wrap gap-2">
-                                {(clinic.unavailableDates || []).sort().map(dateStr => (
-                                    <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pl-2 pr-1 py-0.5">
-                                        <span>
-                                            {format(new Date(dateStr + 'T12:00:00'), "PPP", { locale: es })}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            aria-label={`Quitar ${dateStr}`}
-                                            className="rounded-full hover:bg-muted-foreground/20 p-0.5"
-                                            onClick={() => {
-                                                const newDates = clinic.unavailableDates?.filter(d => d !== dateStr) || [];
-                                                handleClinicChange(clinic.id, 'unavailableDates', newDates);
-                                            }}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-             </div>
-            <div className="flex items-center space-x-2">
-                <Switch 
-                id={`weekend-${clinic.id}`}
-                checked={clinic.weekendBookingEnabled}
-                onCheckedChange={(checked) => handleClinicChange(clinic.id, 'weekendBookingEnabled', checked)}
-                />
-                <Label htmlFor={`weekend-${clinic.id}`}>Permitir citas en fin de semana</Label>
-            </div>
-          </div>
-        ))}
-         <Button
-            variant="outline"
-            className="w-full"
-            onClick={addClinic}
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Agregar Núcleo Básico
-          </Button>
-      </CardContent>
-      <CardFooter>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          {isSaving ? 'Guardando...' : 'Guardar Configuración'}
-        </Button>
-      </CardFooter>
-    </Card>
+            )}
+        </CardContent>
+        <CardFooter>
+            <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <Save className="mr-2 h-4 w-4" />
+            )}
+            {isSaving ? 'Guardando...' : 'Guardar Todos los Cambios'}
+            </Button>
+        </CardFooter>
+        </Card>
+
+        {selectedClinic && (
+            <ClinicEditDialog
+                clinic={selectedClinic}
+                onSave={handleDialogSave}
+                onCancel={handleDialogCancel}
+            />
+        )}
+    </Dialog>
   );
 }
