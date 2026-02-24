@@ -245,7 +245,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 container mx-auto">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>

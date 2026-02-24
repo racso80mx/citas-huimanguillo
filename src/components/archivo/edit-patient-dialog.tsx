@@ -37,7 +37,7 @@ type EditPatientDialogProps = {
   isSaving: boolean;
 };
 
-// Robust schema allowing nulls and optionals
+// Robust schema allowing nulls and optionals for all fields
 const formSchema = z.object({
   name: z.string().min(1, 'Nombre es requerido'),
   paternalLastName: z.string().min(1, 'Apellido paterno es requerido'),
@@ -67,7 +67,7 @@ type FormValues = z.infer<typeof formSchema>;
 export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }: EditPatientDialogProps) {
   
   const getInitialValues = React.useCallback((): FormValues => {
-    // For a new patient, provide empty strings or sensible defaults.
+    // For a new patient, provide a complete structure with empty strings or sensible defaults.
     if (!patient) {
       return {
           name: '',
@@ -124,10 +124,10 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
   });
 
   React.useEffect(() => {
-    if (isOpen) {
-      form.reset(getInitialValues());
-    }
-  }, [isOpen, getInitialValues, form]);
+    // When the dialog opens or the patient data changes, reset the form.
+    // This ensures the form is always in sync with the current patient (or lack thereof).
+    form.reset(getInitialValues());
+  }, [isOpen, patient, getInitialValues, form]);
 
 
   const onSubmit = (data: FormValues) => {

@@ -15,13 +15,15 @@ export default function PageContent() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+    <div className="py-8 md:py-12">
       {isAuthenticated ? (
         <ArchiveDashboard onLogout={handleLogout} />
       ) : (
-        <ArchiveLoginForm
-          onLoginSuccess={handleLoginSuccess}
-        />
+        <div className="container mx-auto px-4">
+          <ArchiveLoginForm
+            onLoginSuccess={handleLoginSuccess}
+          />
+        </div>
       )}
     </div>
   );
