@@ -1,4 +1,3 @@
-
 import { z } from 'zod';
 
 export type ActivityLog = {
@@ -43,6 +42,7 @@ export type Patient = {
   status?: PatientStatus;
   derechoAbiencia?: string;
   phoneNumber: string;
+  lastAppointmentDate?: string;
 };
 
 export enum PatientType {

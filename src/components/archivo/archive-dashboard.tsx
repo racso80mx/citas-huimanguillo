@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -11,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, History, UserX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient } from '@/lib/actions';
 import type { Patient, PatientStatus } from '@/lib/definitions';
@@ -27,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { differenceInYears, parseISO } from 'date-fns';
+
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
@@ -87,6 +88,37 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [filteredPatients, currentPage, rowsPerPage]);
 
   const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
+
+  const summary = useMemo(() => {
+    if (!patients || patients.length === 0) {
+      return { total: 0, vigentes: 0, bajaTemporal: 0, bajaDefinitiva: 0 };
+    }
+
+    const now = new Date();
+    let vigentes = 0;
+    let bajaTemporal = 0;
+    let bajaDefinitiva = 0;
+
+    patients.forEach(patient => {
+      if (!patient.lastAppointmentDate) {
+        vigentes++;
+        return;
+      }
+
+      const lastDate = parseISO(patient.lastAppointmentDate);
+      const yearsSinceLastAppointment = differenceInYears(now, lastDate);
+
+      if (yearsSinceLastAppointment < 5) {
+        vigentes++;
+      } else if (yearsSinceLastAppointment >= 5 && yearsSinceLastAppointment < 6) {
+        bajaTemporal++;
+      } else { // >= 6
+        bajaDefinitiva++;
+      }
+    });
+
+    return { total: patients.length, vigentes, bajaTemporal, bajaDefinitiva };
+  }, [patients]);
   
   const handleAddNew = () => {
     setEditingPatient(null);
@@ -158,6 +190,46 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
           </Button>
         </CardHeader>
       </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.total}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pacientes Vigentes</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.vigentes}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Baja Temporal (+5 años)</CardTitle>
+            <History className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.bajaTemporal}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Baja Definitiva (+6 años)</CardTitle>
+            <UserX className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.bajaDefinitiva}</div>
+          </CardContent>
+        </Card>
+      </div>
+      
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-center gap-4">

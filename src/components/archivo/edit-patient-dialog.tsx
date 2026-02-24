@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -56,6 +55,7 @@ const formSchema = z.object({
   registrationDate: z.string().optional(),
   derechoAbiencia: z.string().optional(),
   status: z.nativeEnum(PatientStatus).optional(),
+  lastAppointmentDate: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -128,8 +128,11 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>FechaApertura</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                     <FormField control={form.control} name="lastAppointmentDate" render={({ field }) => (<FormItem><FormLabel>Última Cita</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} readOnly /></FormControl><FormMessage /></FormItem>)} />
                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                 </div>
               </div>
             </ScrollArea>
             <DialogFooter className="pt-4">
