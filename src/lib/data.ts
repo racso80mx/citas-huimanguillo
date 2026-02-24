@@ -758,13 +758,13 @@ export async function cloneAppointment(originalAppointmentId: string, newDate: s
             const { data } = await saveLabAppointment(newAppointmentData as any, patientData);
             result = data;
         } else if (type === 'xray') {
-            const { data } = await saveXRayAppointment(newAppointmentData as any, patientData);
+            const { data } = await saveNewXRayAppointment(newAppointmentData as any, patientData);
             result = data?.appointment;
         } else if (type === 'ultrasound') {
-            const { data } = await saveUltrasoundAppointment(newAppointmentData as any, patientData);
+            const { data } = await saveNewUltrasoundAppointment(newAppointmentData as any, patientData);
             result = data?.appointment;
         } else if (type === 'vaccine') {
-            const { data } = await saveVaccineAppointment(newAppointmentData as any, patientData);
+            const { data } = await saveNewVaccineAppointment(newAppointmentData as any, patientData);
             result = data;
         } else {
             throw new Error('Tipo de cita no válido.');
@@ -842,53 +842,69 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
 
     const patientsCollection = collection(adminDb, 'patients');
 
-    const batchSize = 499;
-    for (let i = 0; i < patients.length; i += batchSize) {
-        const batch = writeBatch(adminDb);
-        const batchPatients = patients.slice(i, i + batchSize);
+    const mappedPatients = patients.map(row => {
+        const mappedPatient: Partial<Patient> = {};
+        for (const key in row) {
+            if (columnMapping[key]) {
+                const mappedKey = columnMapping[key] as keyof Patient;
+                let value = row[key];
 
-        for (const row of batchPatients) {
-            const mappedPatient: Partial<Patient> = {};
-            for (const key in row) {
-                if (columnMapping[key]) {
-                    const mappedKey = columnMapping[key] as keyof Patient;
-                    let value = row[key];
-
-                    if ((mappedKey === 'birthDate' || mappedKey === 'registrationDate') && typeof value === 'number') {
-                        // Excel date serial number conversion
-                        const excelEpoch = new Date(1899, 11, 30);
-                        const excelDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
-                        value = excelDate.toISOString().split('T')[0];
-                    }
-                    (mappedPatient as any)[mappedKey] = value;
+                if ((mappedKey === 'birthDate' || mappedKey === 'registrationDate') && typeof value === 'number') {
+                    const excelEpoch = new Date(1899, 11, 30);
+                    const excelDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+                    value = excelDate.toISOString().split('T')[0];
                 }
-            }
-            
-            let existingPatient: Patient | null = null;
-            if (mappedPatient.curp) {
-                existingPatient = await getPatientByCURP(mappedPatient.curp);
-            }
-            
-            const isNew = !existingPatient;
-            const dataToSave = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
-            if (isNew && !dataToSave.registrationDate) {
-                dataToSave.registrationDate = new Date().toISOString().split('T')[0];
-            }
-            
-            if (existingPatient) {
-                const docRef = doc(patientsCollection, existingPatient.id);
-                batch.update(docRef, dataToSave);
-                updatedCount++;
-            } else {
-                const newDocRef = doc(patientsCollection);
-                batch.set(newDocRef, dataToSave);
-                addedCount++;
+                (mappedPatient as any)[mappedKey] = value;
             }
         }
-        await batch.commit();
+        return mappedPatient;
+    });
+
+    const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string'))];
+    
+    const existingPatientsMap = new Map<string, { id: string }>();
+    const curpChunks: string[][] = [];
+    for (let i = 0; i < curpsInChunk.length; i += 30) {
+        curpChunks.push(curpsInChunk.slice(i, i + 30));
+    }
+
+    for (const chunk of curpChunks) {
+        if (chunk.length > 0) {
+            const q = query(patientsCollection, where('curp', 'in', chunk));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach(doc => {
+                const docData = doc.data() as Patient;
+                if (docData.curp) {
+                    existingPatientsMap.set(docData.curp, { id: doc.id });
+                }
+            });
+        }
     }
     
-    await logActivity('Carga Masiva Pacientes', `Se procesaron ${patients.length} registros. ${addedCount} agregados, ${updatedCount} actualizados.`);
+    const batch = writeBatch(adminDb);
+
+    for (const mappedPatient of mappedPatients) {
+        const isNew = !(mappedPatient.curp && existingPatientsMap.has(mappedPatient.curp));
+        const dataToSave: any = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
+        
+        if (isNew && !dataToSave.registrationDate) {
+            dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+        }
+        
+        if (isNew) {
+            const newDocRef = doc(patientsCollection);
+            batch.set(newDocRef, dataToSave);
+            addedCount++;
+        } else {
+            const existingPatientId = existingPatientsMap.get(mappedPatient.curp!)!.id;
+            const docRef = doc(patientsCollection, existingPatientId);
+            batch.update(docRef, dataToSave);
+            updatedCount++;
+        }
+    }
+    
+    await batch.commit();
+    
     return { success: true, processedCount: patients.length, addedCount, updatedCount };
 }
 
@@ -941,3 +957,4 @@ export async function cleanupOldRecords() {
     
     return { deletedCount: totalDeleted };
 }
+    
