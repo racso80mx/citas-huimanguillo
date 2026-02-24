@@ -271,6 +271,8 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
   }, [colonias, selectedClinicId]);
 
+  const clinicHasColonias = React.useMemo(() => coloniaOptions.length > 0, [coloniaOptions]);
+
   const allTimeSlots = React.useMemo(() => {
     if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
     return generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
@@ -285,6 +287,10 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
   const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
   const isTimeBooking = selectedClinic?.bookingMode === BookingMode.Time;
+  
+  const showColoniaStep = selectedClinicId && clinicHasColonias;
+  const showTimeAndFormStep = (selectedClinic && !clinicHasColonias) || selectedColoniaId;
+
 
   const availableTokens = React.useMemo(() => {
     if (!selectedDayAvailability || !selectedClinic || !isTokenBooking) return [];
@@ -330,7 +336,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             <div className="flex flex-col gap-8">
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                    1. Selecciona un tipo de cita
+                    Selecciona un tipo de cita
                 </h3>
                 <Card>
                     <CardHeader>
@@ -360,7 +366,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               {selectedClinicType && (
                 <div>
                     <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                    2. Selecciona un día
+                    Selecciona un día
                     </h3>
                     <AvailabilityCalendar
                     selectedDate={selectedDate}
@@ -375,7 +381,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               {selectedDate && (
                   <div>
                       <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                          3. Indica tu tipo de paciente
+                          Indica tu tipo de paciente
                       </h3>
                       <Card>
                           <CardHeader>
@@ -406,7 +412,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               {selectedDate && selectedDayAvailability && (
                   <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                      4. Selecciona tu núcleo básico
+                      Selecciona tu núcleo básico
                   </h3>
                   <Card className="bg-card">
                       <CardHeader>
@@ -441,10 +447,10 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                   </div>
               )}
               
-              {selectedClinicId && (
+              {showColoniaStep && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                      5. Selecciona tu colonia
+                      Selecciona tu colonia
                   </h3>
                   <Card className="bg-card">
                       <CardHeader>
@@ -470,10 +476,12 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             </div>
 
             <div className="flex flex-col gap-8">
-              {selectedColoniaId && isTimeBooking && (
+              {showTimeAndFormStep && (
+                <>
+                 {isTimeBooking && (
                   <div>
                       <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                          6. Selecciona una hora
+                          Selecciona una hora
                       </h3>
                       <Card className="bg-card">
                           <CardHeader>
@@ -495,47 +503,49 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                           </CardContent>
                       </Card>
                   </div>
-              )}
-              {selectedColoniaId && isTokenBooking && (
-                  <div>
-                      <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                          6. Selecciona una Ficha
-                      </h3>
-                      <Card className="bg-card">
-                          <CardHeader>
-                              <CardTitle className="text-xl flex items-center gap-2">
-                                  <Ticket className="h-5 w-5 text-primary" />
-                                  Fichas Disponibles
-                              </CardTitle>
-                              <CardDescription>
-                                  Este núcleo asigna fichas. Hay {availableTokens.length} fichas disponibles.
-                              </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                              <Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}>
-                                  <SelectTrigger>
-                                      <SelectValue placeholder="Selecciona una ficha..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      {availableTokens.length > 0 ? (
-                                          availableTokens.map(token => (
-                                              <SelectItem key={token} value={String(token)}>
-                                                  Ficha {token}
-                                              </SelectItem>
-                                          ))
-                                      ) : (
-                                          <p className="p-4 text-sm text-muted-foreground">No hay fichas disponibles.</p>
-                                      )}
-                                  </SelectContent>
-                              </Select>
-                          </CardContent>
-                      </Card>
-                  </div>
+                 )}
+                 {isTokenBooking && (
+                    <div>
+                        <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
+                            Selecciona una Ficha
+                        </h3>
+                        <Card className="bg-card">
+                            <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <Ticket className="h-5 w-5 text-primary" />
+                                    Fichas Disponibles
+                                </CardTitle>
+                                <CardDescription>
+                                    Este núcleo asigna fichas. Hay {availableTokens.length} fichas disponibles.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecciona una ficha..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableTokens.length > 0 ? (
+                                            availableTokens.map(token => (
+                                                <SelectItem key={token} value={String(token)}>
+                                                    Ficha {token}
+                                                </SelectItem>
+                                            ))
+                                        ) : (
+                                            <p className="p-4 text-sm text-muted-foreground">No hay fichas disponibles.</p>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </CardContent>
+                        </Card>
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                  7. Completa tus datos
+                  Completa tus datos
                 </h3>
                 <BookingForm
                   selectedDate={selectedDate}
@@ -545,6 +555,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                   patientType={patientType}
                   onBookingSuccess={refreshData}
                   announcements={announcements}
+                  requireColonia={clinicHasColonias}
                 />
               </div>
               {announcements && announcements.length > 0 && (

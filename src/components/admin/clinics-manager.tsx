@@ -13,9 +13,9 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateClinics, getClinics } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon, X, Pencil } from 'lucide-react';
-import type { Clinic } from '@/lib/definitions';
+import { updateClinics, getClinics, updateColonias, getColonias } from '@/lib/actions';
+import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon, X, Pencil, MapPin } from 'lucide-react';
+import type { Clinic, Colonia } from '@/lib/definitions';
 import { ClinicType, BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -44,16 +44,20 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import { Separator } from '../ui/separator';
 
 const daysOfWeek = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-function ClinicEditDialog({ clinic, onSave, onCancel }: { clinic: Clinic, onSave: (clinic: Clinic) => void, onCancel: () => void }) {
+function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: Clinic, allColonias: Colonia[], onSave: (clinic: Clinic, colonias: Colonia[]) => void, onCancel: () => void }) {
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
     const [showPassword, setShowPassword] = useState(false);
+    const [clinicColonias, setClinicColonias] = useState<Colonia[]>(() => allColonias.filter(c => c.clinicId === clinic.id));
+    const [newColoniaName, setNewColoniaName] = useState('');
 
     useEffect(() => {
         setEditedClinic(clinic);
-    }, [clinic]);
+        setClinicColonias(allColonias.filter(c => c.clinicId === clinic.id));
+    }, [clinic, allColonias]);
 
     const handleFieldChange = (field: keyof Omit<Clinic, 'id'>, value: any) => {
         setEditedClinic(prev => ({...prev, [field]: value}));
@@ -69,15 +73,31 @@ function ClinicEditDialog({ clinic, onSave, onCancel }: { clinic: Clinic, onSave
         });
     }
 
+    const handleAddColonia = () => {
+        if (newColoniaName.trim() === '') return;
+        const newColonia: Colonia = {
+            id: uuidv4(),
+            name: newColoniaName.trim(),
+            clinicId: editedClinic.id,
+        };
+        setClinicColonias(prev => [...prev, newColonia]);
+        setNewColoniaName('');
+    }
+
+    const handleRemoveColonia = (idToRemove: string) => {
+        setClinicColonias(prev => prev.filter(c => c.id !== idToRemove));
+    }
+
+
     return (
         <DialogContent className="sm:max-w-[60%]">
             <DialogHeader>
                 <DialogTitle>Editar Núcleo Básico: {clinic.name || "Nuevo Núcleo"}</DialogTitle>
                 <DialogDescription>
-                    Modifica los detalles del núcleo básico. Los cambios se guardarán cuando presiones "Guardar Cambios" en la parte inferior.
+                    Modifica los detalles del núcleo básico y sus colonias. Los cambios se guardarán al presionar "Guardar Cambios".
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto p-4 space-y-4">
+            <div className="max-h-[70vh] overflow-y-auto p-4 space-y-6">
                  <div className='grid sm:grid-cols-2 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor={`name-${editedClinic.id}`}>Nombre del Núcleo</Label>
@@ -255,12 +275,50 @@ function ClinicEditDialog({ clinic, onSave, onCancel }: { clinic: Clinic, onSave
                     />
                     <Label htmlFor={`weekend-${editedClinic.id}`}>Permitir citas en fin de semana</Label>
                 </div>
+                
+                 <Separator />
+                <div className="space-y-4 pt-4">
+                    <Label className="text-lg font-semibold flex items-center gap-2"><MapPin/> Colonias Asignadas</Label>
+                    <CardDescription>
+                        Añade o elimina las colonias que son atendidas por este núcleo.
+                    </CardDescription>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                        {clinicColonias.length > 0 ? (
+                            clinicColonias.map(col => (
+                                <div key={col.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary/50">
+                                    <span className="text-sm">{col.name}</span>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveColonia(col.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground text-center py-4">No hay colonias asignadas a este núcleo.</p>
+                        )}
+                    </div>
+                     <div className="flex items-center gap-2 pt-2">
+                        <Input 
+                            value={newColoniaName}
+                            onChange={(e) => setNewColoniaName(e.target.value)}
+                            placeholder="Nombre de la nueva colonia"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddColonia();
+                                }
+                            }}
+                        />
+                        <Button type="button" onClick={handleAddColonia}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Agregar
+                        </Button>
+                    </div>
+                </div>
             </div>
             <DialogFooter>
                 <DialogClose asChild>
                     <Button type="button" variant="outline">Cancelar</Button>
                 </DialogClose>
-                <Button type="button" onClick={() => onSave(editedClinic)}>Guardar Cambios</Button>
+                <Button type="button" onClick={() => onSave(editedClinic, clinicColonias)}>Guardar Cambios</Button>
             </DialogFooter>
         </DialogContent>
     );
@@ -268,6 +326,7 @@ function ClinicEditDialog({ clinic, onSave, onCancel }: { clinic: Clinic, onSave
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [colonias, setColonias] = useState<Colonia[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -275,17 +334,18 @@ export function ClinicsManager() {
 
   const { toast } = useToast();
 
-  const fetchClinics = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getClinics();
-      const sortedData = data.sort((a, b) => a.name.localeCompare(b.name));
+      const [clinicsData, coloniasData] = await Promise.all([getClinics(), getColonias()]);
+      const sortedData = clinicsData.sort((a, b) => a.name.localeCompare(b.name));
       setClinics(sortedData);
+      setColonias(coloniasData);
     } catch (error) {
-      console.error("Failed to fetch clinics:", error);
+      console.error("Failed to fetch clinics and colonias:", error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los núcleos. Por favor, recarga la página.",
+        description: "No se pudieron cargar los datos. Por favor, recarga la página.",
         variant: "destructive"
       });
     } finally {
@@ -294,8 +354,8 @@ export function ClinicsManager() {
   }, [toast]);
 
   useEffect(() => {
-    fetchClinics();
-  }, [fetchClinics]);
+    fetchData();
+  }, [fetchData]);
 
   const handleEditClick = (clinic: Clinic) => {
     setSelectedClinic(clinic);
@@ -322,13 +382,18 @@ export function ClinicsManager() {
     setIsDialogOpen(true);
   }
   
-  const handleDialogSave = (updatedClinic: Clinic) => {
+  const handleDialogSave = (updatedClinic: Clinic, updatedClinicColonias: Colonia[]) => {
     const clinicExists = clinics.some(c => c.id === updatedClinic.id);
     if (clinicExists) {
         setClinics(clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c));
     } else {
-        setClinics([...clinics, updatedClinic]);
+        setClinics(prev => [...prev, updatedClinic].sort((a, b) => a.name.localeCompare(b.name)));
     }
+    
+    // Update the main colonias list by replacing all colonias for the edited clinic
+    const otherColonias = colonias.filter(c => c.clinicId !== updatedClinic.id);
+    setColonias([...otherColonias, ...updatedClinicColonias]);
+
     setIsDialogOpen(false);
     setSelectedClinic(null);
   }
@@ -339,7 +404,20 @@ export function ClinicsManager() {
   }
   
   const removeClinic = (idToRemove: string) => {
-      setClinics(clinics.filter(c => c.id !== idToRemove));
+    const clinicToRemove = clinics.find(c => c.id === idToRemove);
+    if (clinicToRemove) {
+      const associatedColonias = colonias.filter(c => c.clinicId === idToRemove);
+      if (associatedColonias.length > 0) {
+        toast({
+          title: "Acción Bloqueada",
+          description: `No se puede eliminar el núcleo "${clinicToRemove.name}" porque tiene ${associatedColonias.length} colonia(s) asignada(s). Por favor, reasigna o elimina esas colonias primero.`,
+          variant: "destructive",
+          duration: 8000
+        });
+        return;
+      }
+    }
+    setClinics(clinics.filter(c => c.id !== idToRemove));
   }
 
   const handleSave = () => {
@@ -354,19 +432,22 @@ export function ClinicsManager() {
     }
 
     startSavingTransition(async () => {
-      const result = await updateClinics(validClinics);
-      if (result.success) {
+      const [clinicsResult, coloniasResult] = await Promise.all([
+        updateClinics(validClinics),
+        updateColonias(colonias)
+      ]);
+      if (clinicsResult.success && coloniasResult.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración de núcleos básicos ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
+          description: 'La configuración de núcleos y colonias ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
           className: 'bg-accent text-accent-foreground',
           duration: 8000,
         });
-        await fetchClinics();
+        await fetchData();
       } else {
         toast({
           title: 'Error',
-          description: result.message || 'No se pudo guardar la configuración.',
+          description: clinicsResult.message || coloniasResult.message || 'No se pudo guardar la configuración.',
           variant: 'destructive',
         });
       }
@@ -378,7 +459,7 @@ export function ClinicsManager() {
       <Card className="shadow-lg">
         <CardHeader>
             <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
-            <CardDescription>Configura los detalles de cada núcleo básico.</CardDescription>
+            <CardDescription>Configura los detalles de cada núcleo básico y sus colonias asignadas.</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center h-24">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -388,12 +469,12 @@ export function ClinicsManager() {
   }
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleDialogCancel() }}>
         <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
-                <CardDescription>Configura los detalles de cada núcleo básico.</CardDescription>
+                <CardDescription>Configura los detalles de cada núcleo básico y sus colonias asignadas.</CardDescription>
             </div>
             <Button onClick={handleAddNewClick}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Núcleo</Button>
         </CardHeader>
@@ -404,6 +485,7 @@ export function ClinicsManager() {
                         <TableHead>Nombre del Núcleo</TableHead>
                         <TableHead>Doctor</TableHead>
                         <TableHead>Tipo</TableHead>
+                        <TableHead>Colonias</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -413,6 +495,7 @@ export function ClinicsManager() {
                             <TableCell className="font-medium">{clinic.name}</TableCell>
                             <TableCell>{clinic.doctorName}</TableCell>
                             <TableCell>{clinic.clinicType}</TableCell>
+                            <TableCell>{colonias.filter(c => c.clinicId === clinic.id).length}</TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
                                     <Pencil className="h-4 w-4" />
@@ -446,6 +529,7 @@ export function ClinicsManager() {
         {selectedClinic && (
             <ClinicEditDialog
                 clinic={selectedClinic}
+                allColonias={colonias}
                 onSave={handleDialogSave}
                 onCancel={handleDialogCancel}
             />

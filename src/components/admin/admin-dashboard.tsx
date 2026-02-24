@@ -60,7 +60,6 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AnnouncementsManager } from './announcements-manager';
 import { ClinicsManager } from './clinics-manager';
-import { ColoniasManager } from './colonias-manager';
 import { LabSettingsManager } from './lab-settings-manager';
 import { XRaySettingsManager } from './x-ray-settings-manager';
 import { UltrasoundSettingsManager } from './ultrasound-settings-manager';
@@ -412,7 +411,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="space-y-8">
                 <ModuleManager />
                 <ClinicsManager />
-                <ColoniasManager />
                 <ArchiveSettingsManager />
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />

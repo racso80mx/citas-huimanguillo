@@ -67,6 +67,7 @@ type BookingFormProps = {
   patientType: PatientType;
   onBookingSuccess: () => void;
   announcements: string[];
+  requireColonia: boolean;
 };
 
 export function BookingForm({
@@ -77,6 +78,7 @@ export function BookingForm({
   patientType,
   onBookingSuccess,
   announcements,
+  requireColonia,
 }: BookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -136,14 +138,24 @@ export function BookingForm({
   }, [curp, form, isNewborn]);
 
   const onSubmit = (data: BookingFormValues) => {
-    if (!selectedDate || !selectedClinic || !selectedTime || !selectedColoniaName) {
+    if (!selectedDate || !selectedClinic || !selectedTime) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona una fecha, colonia y hora.',
+        description: 'Por favor, selecciona una fecha, clínica y hora.',
         variant: 'destructive',
       });
       return;
     }
+    
+    if (requireColonia && !selectedColoniaName) {
+      toast({
+        title: 'Error de validación',
+        description: 'Por favor, selecciona una colonia.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
 
     startTransition(async () => {
       const patientToSave: Omit<Patient, 'id'> = {
@@ -275,11 +287,11 @@ export function BookingForm({
     doc.save(`recibo_cita_${patient.curp}.pdf`);
 }
   
-  if (!selectedDate || !selectedClinic || !selectedTime) {
+  if (!selectedTime) {
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>
-                <p className='text-muted-foreground'>Por favor, completa todos los pasos anteriores.</p>
+                <p className='text-muted-foreground'>Por favor, completa los pasos anteriores y selecciona una hora o ficha.</p>
             </CardContent>
         </Card>
     );
