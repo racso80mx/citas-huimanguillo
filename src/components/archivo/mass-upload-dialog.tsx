@@ -112,7 +112,9 @@ export function MassUploadDialog({ isOpen, onClose, onUploadSuccess }: MassUploa
             }));
             
             // Server Action is called for each chunk.
-            const result = await bulkInsertPatients(chunk);
+            // We serialize and deserialize to ensure we are passing a plain object.
+            const plainObjectChunk = JSON.parse(JSON.stringify(chunk));
+            const result = await bulkInsertPatients(plainObjectChunk);
 
             if (result.success) {
                 totalAdded += result.addedCount || 0;
