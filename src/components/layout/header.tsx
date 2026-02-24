@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -117,6 +117,24 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               <Link href="/vacunas">
                 <ShieldPlus className="h-4 w-4 mr-2" />
                 Vacunas
+              </Link>
+            </Button>
+          )}
+          {moduleSettings.archivoEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors',
+                pathname === '/archivo'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/archivo">
+                <Archive className="h-4 w-4 mr-2" />
+                Archivo
               </Link>
             </Button>
           )}

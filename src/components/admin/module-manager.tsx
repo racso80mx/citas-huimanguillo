@@ -102,8 +102,8 @@ export function ModuleManager() {
           Controla qué módulos de citas están disponibles para los usuarios.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between p-2 rounded-md bg-background">
+      <CardContent className="grid grid-cols-2 gap-4">
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
           <Label htmlFor="citas-medicas-enabled" className="flex items-center gap-2 text-base">
             <ToggleRight className="h-5 w-5"/> Citas Médicas
           </Label>
@@ -113,7 +113,7 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('citasMedicasEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background">
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
           <Label htmlFor="laboratorio-enabled" className="flex items-center gap-2 text-base">
             <ToggleRight className="h-5 w-5"/> Laboratorio
           </Label>
@@ -123,7 +123,7 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('laboratorioEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background">
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
           <Label htmlFor="rayos-x-enabled" className="flex items-center gap-2 text-base">
             <ToggleRight className="h-5 w-5"/> Rayos X
           </Label>
@@ -133,7 +133,7 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('rayosXEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background">
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
           <Label htmlFor="ultrasonido-enabled" className="flex items-center gap-2 text-base">
             <ToggleRight className="h-5 w-5"/> Ultrasonidos
           </Label>
@@ -143,7 +143,7 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('ultrasoundEnabled', checked)}
           />
         </div>
-         <div className="flex items-center justify-between p-2 rounded-md bg-background">
+         <div className="flex items-center justify-between p-2 rounded-md bg-background border">
           <Label htmlFor="vacunas-enabled" className="flex items-center gap-2 text-base">
             <ToggleRight className="h-5 w-5"/> Vacunas
           </Label>
@@ -151,6 +151,16 @@ export function ModuleManager() {
             id="vacunas-enabled"
             checked={settings.vacunasEnabled}
             onCheckedChange={(checked) => handleSettingsChange('vacunasEnabled', checked)}
+          />
+        </div>
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
+          <Label htmlFor="archivo-enabled" className="flex items-center gap-2 text-base">
+            <ToggleRight className="h-5 w-5"/> Archivo de Pacientes
+          </Label>
+          <Switch
+            id="archivo-enabled"
+            checked={settings.archivoEnabled}
+            onCheckedChange={(checked) => handleSettingsChange('archivoEnabled', checked)}
           />
         </div>
       </CardContent>

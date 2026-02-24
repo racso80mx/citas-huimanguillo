@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus } from 'lucide-react';
+import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
@@ -42,6 +42,13 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
       href: '/vacunas',
       icon: <ShieldPlus className="h-10 w-10 text-primary" />,
       enabled: moduleSettings.vacunasEnabled,
+    },
+    {
+      title: 'Archivo',
+      description: 'Gestión y consulta del padrón de pacientes.',
+      href: '/archivo',
+      icon: <Archive className="h-10 w-10 text-primary" />,
+      enabled: moduleSettings.archivoEnabled,
     },
   ];
 

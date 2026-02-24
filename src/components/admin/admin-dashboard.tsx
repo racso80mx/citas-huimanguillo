@@ -69,6 +69,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
 import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
+import { ArchiveSettingsManager } from './archive-settings-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -412,6 +413,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ModuleManager />
                 <ClinicsManager />
                 <ColoniasManager />
+                <ArchiveSettingsManager />
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
                 <ActivityLogViewer />

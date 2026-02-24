@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export type ActivityLog = {
@@ -15,6 +16,11 @@ export type User = {
   clinicId?: string; // Only for doctors
   password?: string; // Only for creation/update
 };
+
+export enum PatientStatus {
+  Vigente = 'Vigente',
+  Baja = 'Baja',
+}
 
 export type Patient = {
   id: string; // UUID
@@ -34,7 +40,7 @@ export type Patient = {
   fatherAge?: number;
   motherAge?: number;
   registrationDate?: string;
-  status?: string;
+  status?: PatientStatus;
   isBeneficiary?: boolean;
   phoneNumber: string;
 };
@@ -254,4 +260,9 @@ export type ModuleSettings = {
   rayosXEnabled: boolean;
   ultrasoundEnabled: boolean;
   vacunasEnabled: boolean;
+  archivoEnabled: boolean;
 };
+
+export type ArchiveSettings = {
+    password?: string;
+}
