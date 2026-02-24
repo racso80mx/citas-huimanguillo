@@ -14,31 +14,32 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
+import { verifyArchivePassword } from '@/lib/actions';
 
 type LoginFormProps = {
-    correctPassword?: string;
     onLoginSuccess: () => void;
 }
 
-export function ArchiveLoginForm({ correctPassword, onLoginSuccess }: LoginFormProps) {
+export function ArchiveLoginForm({ onLoginSuccess }: LoginFormProps) {
   const { toast } = useToast();
-  const [isPending, setIsPending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
-    setIsPending(true);
-    if (password === correctPassword) {
+  const handleLogin = async () => {
+    setIsVerifying(true);
+    const result = await verifyArchivePassword(password);
+    if (result.success) {
         onLoginSuccess();
         toast({ title: 'Acceso Concedido' });
     } else {
         toast({
             title: 'Acceso Denegado',
-            description: 'La contraseña es incorrecta.',
+            description: result.message || 'La contraseña es incorrecta.',
             variant: 'destructive',
         });
     }
-    setIsPending(false);
+    setIsVerifying(false);
   };
 
   return (
@@ -82,13 +83,13 @@ export function ArchiveLoginForm({ correctPassword, onLoginSuccess }: LoginFormP
             </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleLogin} disabled={isPending} className="w-full">
-            {isPending ? (
+          <Button onClick={handleLogin} disabled={isVerifying} className="w-full">
+            {isVerifying ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <KeyRound className="mr-2 h-4 w-4" />
             )}
-            {isPending ? 'Verificando...' : 'Acceder'}
+            {isVerifying ? 'Verificando...' : 'Acceder'}
           </Button>
         </CardFooter>
       </Card>

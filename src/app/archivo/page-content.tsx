@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ArchiveLoginForm } from '@/components/archivo/login-form';
 import { ArchiveDashboard } from '@/components/archivo/archive-dashboard';
 
-export default function PageContent({ password }: { password?: string }) {
+export default function PageContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleLoginSuccess = () => {
@@ -20,7 +20,6 @@ export default function PageContent({ password }: { password?: string }) {
         <ArchiveDashboard onLogout={handleLogout} />
       ) : (
         <ArchiveLoginForm
-          correctPassword={password}
           onLoginSuccess={handleLoginSuccess}
         />
       )}

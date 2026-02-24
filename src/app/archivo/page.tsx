@@ -1,13 +1,10 @@
 'use server';
 import React from 'react';
 import PageContent from './page-content';
-import { getArchiveSettings, getModuleSettings } from '@/lib/actions';
+import { getModuleSettings } from '@/lib/actions';
 
 export default async function ArchivoPage() {
-    const [archiveSettings, moduleSettings] = await Promise.all([
-        getArchiveSettings(),
-        getModuleSettings()
-    ]);
+    const moduleSettings = await getModuleSettings();
     
     if (!moduleSettings.archivoEnabled) {
         return (
@@ -21,8 +18,6 @@ export default async function ArchivoPage() {
     }
 
     return (
-        <PageContent
-            password={archiveSettings?.password || ''}
-        />
+        <PageContent />
     );
 }
