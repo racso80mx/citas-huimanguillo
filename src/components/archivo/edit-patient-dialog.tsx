@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -63,16 +64,48 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }: EditPatientDialogProps) {
+  
+  const getInitialValues = React.useCallback(() => {
+    return patient 
+      ? {
+          ...patient,
+          status: patient.status || PatientStatus.Vigente,
+        }
+      : {
+          name: '',
+          paternalLastName: '',
+          maternalLastName: '',
+          curp: '',
+          phoneNumber: '',
+          expediente: '',
+          birthDate: '',
+          sex: 'Hombre' as 'Hombre' | 'Mujer',
+          age: undefined,
+          birthState: '',
+          address: '',
+          coloniaName: '',
+          fatherName: '',
+          motherName: '',
+          fatherAge: undefined,
+          motherAge: undefined,
+          registrationDate: '',
+          derechoAbiencia: '',
+          status: PatientStatus.Vigente,
+          lastAppointmentDate: '',
+        }
+  }, [patient]);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      ...patient,
-      status: patient?.status || PatientStatus.Vigente,
-    } || {
-      status: PatientStatus.Vigente,
-      sex: 'Hombre'
-    },
+    defaultValues: getInitialValues(),
   });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      form.reset(getInitialValues());
+    }
+  }, [isOpen, getInitialValues, form]);
+
 
   const onSubmit = (data: FormValues) => {
     onSave(data, patient?.id);

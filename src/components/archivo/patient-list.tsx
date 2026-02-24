@@ -31,6 +31,7 @@ import {
 import { MoreHorizontal, Pencil, Trash2, ToggleLeft, ToggleRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Patient, PatientStatus } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
+import { cn } from '@/lib/utils';
 
 type PatientListProps = {
   patients: Patient[];
@@ -129,7 +130,14 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
               <TableCell>{patient.phoneNumber}</TableCell>
               <TableCell>{patient.coloniaName || 'N/A'}</TableCell>
               <TableCell>
-                <Badge variant={patient.status === PatientStatusEnum.Baja ? 'destructive' : 'default'}>
+                <Badge 
+                  className={cn(
+                    patient.status === PatientStatusEnum.Baja 
+                      ? 'bg-red-100 text-red-800 border-red-200' 
+                      : 'bg-green-100 text-green-800 border-green-200'
+                  )}
+                  variant="outline"
+                >
                     {patient.status || PatientStatusEnum.Vigente}
                 </Badge>
               </TableCell>
