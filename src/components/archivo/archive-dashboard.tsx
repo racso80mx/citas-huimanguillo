@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, History, UserX, FileDown, Calendar as CalendarIcon, Check, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient } from '@/lib/actions';
-import type { Patient, PatientStatus, Appointment, Clinic, ClinicType } from '@/lib/definitions';
+import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
+import type { Patient, PatientStatus, Appointment, Clinic, ClinicType, Colonia } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
@@ -170,6 +170,18 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       }
     });
   }
+
+  const handleAppointmentDelete = (appointmentId: string) => {
+    startSubmitTransition(async () => {
+        const result = await deleteAppointment(appointmentId);
+        if (result.success) {
+            toast({ title: 'Cita Eliminada', description: 'La cita ha sido eliminada del sistema.' });
+            loadData(); // Re-fetch data
+        } else {
+            toast({ title: 'Error', description: 'No se pudo eliminar la cita.', variant: 'destructive' });
+        }
+    });
+  };
   
   const handleStatusChange = (patientId: string, newStatus: PatientStatus) => {
     startSubmitTransition(async () => {
@@ -487,7 +499,14 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     <Button onClick={handleAppointmentsExcelDownload} variant="outline" disabled={isLoading}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
                 </div>
                 <div className="mt-6">
-                    {isLoading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span></div>) : (<AppointmentList appointments={appointmentsToDisplay} clinics={clinics} />)}
+                    {isLoading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span></div>) : 
+                    (<AppointmentList 
+                        appointments={appointmentsToDisplay} 
+                        clinics={clinics}
+                        isAdmin
+                        onDelete={handleAppointmentDelete}
+                        onEditSuccess={loadData}
+                     />)}
                 </div>
             </CardContent>
           </Card>
