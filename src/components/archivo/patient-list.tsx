@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -51,6 +52,7 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
         <TableHeader>
           <TableRow>
             <TableHead>Nombre Completo</TableHead>
+            <TableHead>No. Expediente</TableHead>
             <TableHead>CURP</TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>Colonia</TableHead>
@@ -61,7 +63,8 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
         <TableBody>
           {patients.map((patient) => (
             <TableRow key={patient.id}>
-              <TableCell className="font-medium">{`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`}</TableCell>
+              <TableCell className="font-medium">{`${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`}</TableCell>
+              <TableCell>{patient.expediente || 'N/A'}</TableCell>
               <TableCell>{patient.curp}</TableCell>
               <TableCell>{patient.phoneNumber}</TableCell>
               <TableCell>{patient.coloniaName || 'N/A'}</TableCell>

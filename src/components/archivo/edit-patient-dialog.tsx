@@ -55,6 +55,7 @@ const formSchema = z.object({
   motherAge: z.number().optional(),
   registrationDate: z.string().optional(),
   derechoAbiencia: z.string().optional(),
+  status: z.nativeEnum(PatientStatus).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -87,16 +88,16 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <ScrollArea className="max-h-[60vh] p-4">
               <div className="space-y-4">
-                 <FormField control={form.control} name="expediente" render={({ field }) => (<FormItem><FormLabel>No.Expediente</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="expediente" render={({ field }) => (<FormItem><FormLabel>No.Expediente</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                   <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apaterno</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                   <FormField control={form.control} name="maternalLastName" render={({ field }) => (<FormItem><FormLabel>Amaterno</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apaterno</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="maternalLastName" render={({ field }) => (<FormItem><FormLabel>Amaterno</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <FormField control={form.control} name="curp" render={({ field }) => (<FormItem><FormLabel>CURP</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>FNacimiento</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl><FormMessage /></FormItem>)} />
+                     <FormField control={form.control} name="curp" render={({ field }) => (<FormItem><FormLabel>CURP</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>FNacimiento</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)} /></FormControl><FormMessage /></FormItem>)} />
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="sex" render={({ field }) => (<FormItem><FormLabel>Sexo</FormLabel>
@@ -112,22 +113,22 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                             </SelectContent>
                         </Select>
                     <FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Telefono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Telefono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                  </div>
-                 <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Colonia</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Colonia</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>NombrePadre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="fatherAge" render={({ field }) => (<FormItem><FormLabel>EdadPadre</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>NombrePadre</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="fatherAge" render={({ field }) => (<FormItem><FormLabel>EdadPadre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}/></FormControl><FormMessage /></FormItem>)} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>NombreMadre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="motherAge" render={({ field }) => (<FormItem><FormLabel>EdadMadre</FormLabel><FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>NombreMadre</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="motherAge" render={({ field }) => (<FormItem><FormLabel>EdadMadre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}/></FormControl><FormMessage /></FormItem>)} />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>FechaApertura</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>FechaApertura</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
               </div>
             </ScrollArea>
