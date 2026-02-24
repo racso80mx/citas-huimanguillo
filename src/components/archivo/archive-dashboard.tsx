@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '../ui/command';
 import { Badge } from '../ui/badge';
+import { downloadExcel } from '@/lib/report-helpers';
 
 
 type ArchiveDashboardProps = {
@@ -259,29 +260,131 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const handleSetDateRange = (range: DateRange | undefined) => { setDateRange(range); setActiveFilter('range'); };
   const handleClinicSelect = (clinicId: string) => { setSelectedClinics(prev => prev.includes(clinicId) ? prev.filter(id => id !== clinicId) : [...prev, clinicId]); };
   
+  const handleAppointmentsExcelDownload = async () => {
+    if (appointmentsToDisplay.length === 0) {
+      toast({
+        title: 'No hay datos',
+        description: 'No hay citas para descargar en el filtro actual.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    await downloadExcel(appointmentsToDisplay, `reporte_citas_${activeFilter}`);
+  };
+
   const handleGeneratePDF = async (appointments: Appointment[]) => {
     if (appointments.length === 0) {
         toast({ title: 'No hay datos para generar el PDF', variant: 'destructive' });
         return;
     }
+
+    const sortedAppointments = [...appointments].sort((a, b) => {
+        const timeA = a.time.replace(':', '').replace('Ficha ','');
+        const timeB = b.time.replace(':', '').replace('Ficha ','');
+        return timeA.localeCompare(timeB, undefined, { numeric: true });
+    });
+
     const { jsPDF } = await import('jspdf');
     await import('jspdf-autotable');
-    const doc = new jsPDF({ orientation: 'landscape' }) as any;
-    const tableColumns = ["Folio", "Fecha", "Hora", "Paciente", "CURP", "Teléfono", "Núcleo Básico"];
-    const tableRows = [];
-    const getClinicName = (clinicId: string) => clinics.find(c => c.id === clinicId)?.name || clinicId;
-    appointments.forEach(app => {
-        const appointmentData = [
-            app.appointmentNumber, format(parseISO(app.date), 'dd/MM/yy'), app.time,
-            app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A',
-            app.patient?.curp || 'N/A', app.patient?.phoneNumber || 'N/A', getClinicName(app.clinicId)
+    const doc = new jsPDF({ orientation: 'portrait' }) as any;
+
+    const primaryClinicId = selectedClinics.length > 0 ? selectedClinics[0] : (sortedAppointments.length > 0 ? sortedAppointments[0].clinicId : null);
+    const clinicInfo = primaryClinicId ? clinics.find(c => c.id === primaryClinicId) : null;
+    const reportDate = sortedAppointments.length > 0 ? parseISO(sortedAppointments[0].date) : new Date();
+
+    // --- PDF Header ---
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text("SECRETARÍA DE SALUD", doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Hospital General de Huimanguillo", doc.internal.pageSize.getWidth() / 2, 26, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text("Vale Multiple de Expediente para la Consulta Externa", doc.internal.pageSize.getWidth() / 2, 32, { align: 'center' });
+
+    let yPos = 45;
+    doc.setFontSize(10);
+    
+    doc.text(`Cedula:`, 14, yPos);
+    doc.text(clinicInfo?.id.substring(0, 8) || 'N/A', 40, yPos);
+    doc.text(`Nombre del Médico:`, 14, yPos + 6);
+    doc.text(clinicInfo?.doctorName || 'N/A', 40, yPos + 6);
+    doc.text(`Especialidad:`, 14, yPos + 12);
+    doc.text(clinicInfo?.clinicType || 'N/A', 40, yPos + 12);
+    
+    const folioText = clinicInfo ? `${format(reportDate, 'dd/MM/yyyy')}-${clinicInfo.id.substring(0, 6)}` : format(reportDate, 'dd/MM/yyyy');
+    doc.text(`Folio:`, 150, yPos);
+    doc.text(folioText, 165, yPos);
+    doc.text(`Fecha:`, 150, yPos + 6);
+    doc.text(format(reportDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: es }), 165, yPos + 6);
+
+    // --- Table ---
+    const tableStartY = yPos + 22;
+    const tableColumns = ["No", "Hora", "Nombre del Paciente", "Expediente", "Ent.", "Dev.", "Nota"];
+    const tableRows = sortedAppointments.map((app, index) => {
+        const patientName = app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A';
+        const expediente = app.patient?.expediente || '';
+        let timeDisplay = app.time;
+        if (!app.time.includes('Ficha')) {
+          try {
+            timeDisplay = format(parseISO(`1970-01-01T${app.time}:00`), 'hh:mm a');
+          } catch (e) {
+            // keep original time if format fails
+          }
+        }
+        
+        return [
+            index + 1,
+            timeDisplay,
+            patientName,
+            expediente,
+            '', // Ent.
+            '', // Dev.
+            ''  // Nota
         ];
-        tableRows.push(appointmentData);
     });
-    doc.autoTable({ head: [tableColumns], body: tableRows, startY: 20 });
-    doc.text("Reporte de Citas Médicas", 14, 15);
-    doc.save(`reporte_citas_medicas_${new Date().toISOString().split('T')[0]}.pdf`);
-  }
+
+    doc.autoTable({
+        head: [tableColumns],
+        body: tableRows,
+        startY: tableStartY,
+        theme: 'grid',
+        headStyles: {
+            fillColor: [255, 255, 255], // white
+            textColor: 0, // black
+            fontStyle: 'bold',
+            lineWidth: 0.1,
+            lineColor: [0, 0, 0]
+        },
+        styles: {
+            fontSize: 9,
+            cellPadding: 2,
+            lineColor: [0, 0, 0],
+            lineWidth: 0.1,
+        },
+        columnStyles: {
+            0: { cellWidth: 10, halign: 'center' }, // No
+            1: { cellWidth: 20 }, // Hora
+            2: { cellWidth: 65 }, // Nombre
+            3: { cellWidth: 20 }, // Expediente
+            4: { cellWidth: 10 }, // Ent.
+            5: { cellWidth: 10 }, // Dev.
+            6: { cellWidth: 'auto' }, // Nota
+        },
+    });
+
+    // --- Footer ---
+    const finalY = doc.lastAutoTable.finalY + 20;
+    doc.text("RECIBIO:", 30, finalY);
+    doc.line(30, finalY + 5, 90, finalY + 5);
+    doc.text("Nombre y Firma", 45, finalY + 10);
+    
+    doc.text("RECIBIO:", 120, finalY);
+    doc.line(120, finalY + 5, 180, finalY + 5);
+    doc.text("Nombre y Firma", 135, finalY + 10);
+
+    doc.save(`Vale_Expedientes_${format(reportDate, 'yyyy-MM-dd')}.pdf`);
+  };
 
   // Common JSX
   const mainHeader = (
@@ -359,6 +462,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     </Popover>
                     <div className="flex-grow" />
                     <Button onClick={() => handleGeneratePDF(appointmentsToDisplay)} variant="secondary" disabled={isLoading}><FileDown className="mr-2 h-4 w-4" />Descargar PDF</Button>
+                    <Button onClick={handleAppointmentsExcelDownload} variant="outline" disabled={isLoading}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
                 </div>
                 <div className="mt-6">
                     {isLoading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span></div>) : (<AppointmentList appointments={appointmentsToDisplay} clinics={clinics} />)}

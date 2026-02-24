@@ -38,7 +38,7 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
                 baseData['Colonia'] = vaccineItem.coloniaName || 'N/A';
                 baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
                 baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
-            } else {
+            } else { // It's a medical appointment
                 const regularItem = item as Appointment;
                 if (regularItem.time.includes('Ficha')) {
                     baseData['Ficha'] = regularItem.time.split(' ')[1];
