@@ -37,7 +37,7 @@ type EditPatientDialogProps = {
   isSaving: boolean;
 };
 
-// Robust schema allowing nulls and optionals for all fields
+// This schema must be robust enough to handle all fields, including optional ones.
 const formSchema = z.object({
   name: z.string().min(1, 'Nombre es requerido'),
   paternalLastName: z.string().min(1, 'Apellido paterno es requerido'),
@@ -65,10 +65,12 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }: EditPatientDialogProps) {
-  
+
+  // This function is the key. It needs to create a valid default object
+  // when `patient` is null, without causing errors.
   const getInitialValues = React.useCallback((): FormValues => {
-    // For a new patient, provide a complete structure with empty strings or sensible defaults.
     if (!patient) {
+      // For a new patient, provide a complete structure with empty strings or sensible defaults.
       return {
           name: '',
           paternalLastName: '',
@@ -92,7 +94,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
           lastAppointmentDate: '',
         };
     }
-    
+
     // For an existing patient, spread data and ensure nulls/undefineds are converted to safe defaults.
     return {
       name: patient.name ?? '',
@@ -124,8 +126,6 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
   });
 
   React.useEffect(() => {
-    // When the dialog opens or the patient data changes, reset the form.
-    // This ensures the form is always in sync with the current patient (or lack thereof).
     form.reset(getInitialValues());
   }, [isOpen, patient, getInitialValues, form]);
 
@@ -147,7 +147,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <ScrollArea className="max-h-[60vh] p-4">
               <div className="space-y-4">
-                
+
                 <p className="text-sm font-medium text-muted-foreground">Datos Personales</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                    <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -178,7 +178,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                  </div>
                  <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                  <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Colonia</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                
+
                 <Separator className="my-6" />
                 <p className="text-sm font-medium text-muted-foreground">Datos Familiares</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

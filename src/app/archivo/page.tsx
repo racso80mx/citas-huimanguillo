@@ -1,7 +1,7 @@
 'use server';
 import React from 'react';
 import PageContent from './page-content';
-import { getModuleSettings } from '@/lib/actions';
+import { getModuleSettings } from '@/lib/data';
 
 export default async function ArchivoPage() {
     const moduleSettings = await getModuleSettings();
@@ -18,6 +18,8 @@ export default async function ArchivoPage() {
     }
 
     return (
-        <PageContent />
+        <div className="w-full">
+            <PageContent />
+        </div>
     );
 }

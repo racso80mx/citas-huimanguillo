@@ -130,11 +130,11 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
               <TableCell>{patient.phoneNumber}</TableCell>
               <TableCell>{patient.coloniaName || 'N/A'}</TableCell>
               <TableCell>
-                <Badge 
+                <Badge
                   className={cn(
-                    patient.status === PatientStatusEnum.Vigente 
-                      ? 'bg-green-100 text-green-800 border-green-200' 
-                      : 'bg-red-100 text-red-800 border-red-200'
+                    patient.status === PatientStatusEnum.Baja
+                      ? 'bg-red-100 text-red-800 border-red-200'
+                      : 'bg-green-100 text-green-800 border-green-200'
                   )}
                   variant="outline"
                 >
