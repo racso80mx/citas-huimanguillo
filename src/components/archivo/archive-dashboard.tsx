@@ -17,6 +17,7 @@ import type { Patient, PatientStatus, Appointment, Clinic, ClinicType } from '@/
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
+import { ScheduleAppointmentDialog } from './schedule-appointment-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import {
@@ -56,12 +57,14 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [schedulingPatient, setSchedulingPatient] = useState<Patient | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   
   // Appointment states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [colonias, setColonias] = useState<Colonia[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
@@ -154,6 +157,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const handleAddNew = () => { setEditingPatient(null); setIsEditOpen(true); };
   const handleEdit = (patient: Patient) => { setEditingPatient(patient); setIsEditOpen(true); };
+  const handleSchedule = (patient: Patient) => { setSchedulingPatient(patient); };
   
   const handleDelete = (patientId: string) => {
     startSubmitTransition(async () => {
@@ -455,7 +459,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} isSubmitting={isSubmitting}/>}
+              {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Filas:</span><Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem><SelectItem value="200">200</SelectItem></SelectContent></Select></div>
                 <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages > 0 ? totalPages : 1}</span><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
@@ -492,6 +496,19 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       
       <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadData} />
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
+      {schedulingPatient && (
+        <ScheduleAppointmentDialog
+            patient={schedulingPatient}
+            isOpen={!!schedulingPatient}
+            onClose={() => setSchedulingPatient(null)}
+            onBookingSuccess={() => {
+                setSchedulingPatient(null);
+                loadData();
+            }}
+            clinics={clinics}
+            colonias={colonias}
+        />
+      )}
     </div>
   );
 }

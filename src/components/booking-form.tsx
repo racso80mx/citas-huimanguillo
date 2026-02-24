@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { saveNewAppointment, getPatientByCURP } from '@/lib/actions';
+import { saveNewAppointment, getPatientByCURP, getAnnouncements } from '@/lib/actions';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -32,6 +32,8 @@ import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { generateAppointmentPDF } from '@/lib/report-helpers';
+
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
 const phoneRegex = /^\d{10}$/;
@@ -68,6 +70,7 @@ type BookingFormProps = {
   onBookingSuccess: () => void;
   announcements: string[];
   requireColonia: boolean;
+  initialPatientData?: Patient | null;
 };
 
 export function BookingForm({
@@ -79,6 +82,7 @@ export function BookingForm({
   onBookingSuccess,
   announcements,
   requireColonia,
+  initialPatientData,
 }: BookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -99,12 +103,30 @@ export function BookingForm({
   });
 
   useEffect(() => {
-    form.reset();
+    if (initialPatientData) {
+        form.reset({
+            curp: initialPatientData.curp ?? '',
+            name: initialPatientData.name ?? '',
+            paternalLastName: initialPatientData.paternalLastName ?? '',
+            maternalLastName: initialPatientData.maternalLastName ?? '',
+            phoneNumber: initialPatientData.phoneNumber ?? '',
+            sex: initialPatientData.sex,
+            age: initialPatientData.age,
+            birthState: initialPatientData.birthState,
+        });
+    } else {
+        form.reset();
+    }
+  }, [initialPatientData, form]);
+
+  useEffect(() => {
+    form.reset(form.getValues());
   }, [isNewborn, form]);
 
   const curp = form.watch('curp');
 
   const handleCurpBlur = async () => {
+    if (initialPatientData) return;
     const curpValue = form.getValues('curp');
     if (!curpValue || isNewborn) return;
     const upperCurp = curpValue.toUpperCase();
@@ -187,10 +209,8 @@ export function BookingForm({
             duration: 10000,
         });
 
-        const { jsPDF } = await import('jspdf');
-        await import('jspdf-autotable');
-        const doc = new jsPDF() as any;
-        await generateAppointmentPDF(doc, result.data.appointment, result.data.clinic, announcements);
+        const allAnnouncements = await getAnnouncements();
+        await generateAppointmentPDF(result.data.appointment, result.data.clinic, allAnnouncements);
         
         form.reset();
         onBookingSuccess();
@@ -203,89 +223,6 @@ export function BookingForm({
       }
     });
   };
-
-  async function generateAppointmentPDF(doc: any, appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
-    const { patient, date, time, appointmentNumber, patientType } = appointmentData;
-
-    doc.setFont('Helvetica');
-    doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
-    
-    let currentY = 50;
-    doc.setFontSize(14);
-    doc.setFont('Helvetica', 'bold');
-    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
-    currentY += 8;
-
-    doc.setLineWidth(0.5);
-    doc.line(20, currentY - 4, 190, currentY - 4);
-
-    currentY += 5;
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Datos del Paciente:', 20, currentY);
-    currentY += 10;
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Tipo de Paciente: ${patientType}`, 20, currentY);
-    currentY += 10;
-    doc.text(`CURP: ${patient.curp}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, currentY);
-    currentY += 20;
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, currentY);
-    currentY += 10;
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, currentY);
-    currentY += 10;
-    
-    if (time.includes('Ficha')) {
-        doc.text(`Ficha de Turno: ${time.split(' ')[1]}`, 20, currentY);
-    } else {
-        doc.text(`Hora: ${time}`, 20, currentY);
-    }
-    currentY += 10;
-
-    doc.text(`Clínica: ${clinicData.name}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, currentY);
-    currentY += 10;
-    
-    let finalY = currentY;
-
-    if (announcements && announcements.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text('Avisos Importantes:', 20, finalY);
-        finalY += 7;
-        
-        doc.autoTable({
-            startY: finalY,
-            body: announcements.map(a => [a]),
-            theme: 'plain',
-            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
-        });
-        finalY = doc.lastAutoTable.finalY + 5;
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
-    doc.text('Presentarse con identificación personal (INE).', 20, finalY + 5)
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
-
-    doc.save(`recibo_cita_${patient.curp}.pdf`);
-}
   
   if (!selectedTime) {
     return (
@@ -313,6 +250,7 @@ export function BookingForm({
                       <Input
                         placeholder="Tu CURP de 18 caracteres"
                         {...field}
+                        disabled={!!initialPatientData}
                         onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         onBlur={(e) => {
                           field.onBlur();

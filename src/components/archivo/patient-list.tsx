@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Pencil, Trash2, ToggleLeft, ToggleRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, ToggleLeft, ToggleRight, ArrowUpDown, ArrowUp, ArrowDown, CalendarPlus } from 'lucide-react';
 import type { Patient, PatientStatus } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { cn } from '@/lib/utils';
@@ -38,12 +38,13 @@ type PatientListProps = {
   onEdit: (patient: Patient) => void;
   onDelete: (patientId: string) => void;
   onStatusChange: (patientId: string, newStatus: PatientStatus) => void;
+  onSchedule: (patient: Patient) => void;
   isSubmitting: boolean;
 };
 
 type SortableKeys = 'name' | 'expediente' | 'curp' | 'coloniaName' | 'status';
 
-export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubmitting }: PatientListProps) {
+export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSchedule, isSubmitting }: PatientListProps) {
     
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
 
@@ -150,6 +151,10 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onSchedule(patient)} disabled={isSubmitting}>
+                      <CalendarPlus className="mr-2 h-4 w-4" />
+                      Agendar Cita
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onEdit(patient)} disabled={isSubmitting}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Editar
