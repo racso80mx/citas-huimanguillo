@@ -37,41 +37,39 @@ type EditPatientDialogProps = {
   isSaving: boolean;
 };
 
-// This schema includes all fields from the Patient type
+// Robust schema allowing nulls and optionals
 const formSchema = z.object({
   name: z.string().min(1, 'Nombre es requerido'),
   paternalLastName: z.string().min(1, 'Apellido paterno es requerido'),
   maternalLastName: z.string().min(1, 'Apellido materno es requerido'),
   curp: z.string().min(1, 'CURP es requerida'),
-  phoneNumber: z.string().optional(),
-  expediente: z.string().optional(),
-  birthDate: z.string().optional(),
+  phoneNumber: z.string().nullable().optional(),
+  expediente: z.string().nullable().optional(),
+  birthDate: z.string().nullable().optional(),
   sex: z.enum(['Hombre', 'Mujer']),
-  age: z.coerce.number().optional(),
-  birthState: z.string().optional(),
-  address: z.string().optional(),
-  coloniaName: z.string().optional(),
-  fatherName: z.string().optional(),
-  motherName: z.string().optional(),
-  fatherAge: z.coerce.number().optional(),
-  motherAge: z.coerce.number().optional(),
-  registrationDate: z.string().optional(),
-  derechoAbiencia: z.string().optional(),
+  age: z.coerce.number().nullable().optional(),
+  birthState: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  coloniaName: z.string().nullable().optional(),
+  fatherName: z.string().nullable().optional(),
+  motherName: z.string().nullable().optional(),
+  fatherAge: z.coerce.number().nullable().optional(),
+  motherAge: z.coerce.number().nullable().optional(),
+  registrationDate: z.string().nullable().optional(),
+  derechoAbiencia: z.string().nullable().optional(),
   status: z.nativeEnum(PatientStatus).optional(),
-  lastAppointmentDate: z.string().optional(),
+  lastAppointmentDate: z.string().nullable().optional(),
 });
+
 
 type FormValues = z.infer<typeof formSchema>;
 
 export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }: EditPatientDialogProps) {
   
-  const getInitialValues = React.useCallback(() => {
-    return patient 
-      ? {
-          ...patient,
-          status: patient.status || PatientStatus.Vigente,
-        }
-      : {
+  const getInitialValues = React.useCallback((): FormValues => {
+    // For a new patient, provide empty strings or sensible defaults.
+    if (!patient) {
+      return {
           name: '',
           paternalLastName: '',
           maternalLastName: '',
@@ -79,7 +77,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
           phoneNumber: '',
           expediente: '',
           birthDate: '',
-          sex: 'Hombre' as 'Hombre' | 'Mujer',
+          sex: 'Hombre',
           age: undefined,
           birthState: '',
           address: '',
@@ -92,7 +90,32 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
           derechoAbiencia: '',
           status: PatientStatus.Vigente,
           lastAppointmentDate: '',
-        }
+        };
+    }
+    
+    // For an existing patient, spread data and ensure nulls/undefineds are converted to safe defaults.
+    return {
+      name: patient.name ?? '',
+      paternalLastName: patient.paternalLastName ?? '',
+      maternalLastName: patient.maternalLastName ?? '',
+      curp: patient.curp ?? '',
+      phoneNumber: patient.phoneNumber ?? '',
+      expediente: patient.expediente ?? '',
+      birthDate: patient.birthDate ?? '',
+      sex: patient.sex ?? 'Hombre',
+      age: patient.age ?? undefined,
+      birthState: patient.birthState ?? '',
+      address: patient.address ?? '',
+      coloniaName: patient.coloniaName ?? '',
+      fatherName: patient.fatherName ?? '',
+      motherName: patient.motherName ?? '',
+      fatherAge: patient.fatherAge ?? undefined,
+      motherAge: patient.motherAge ?? undefined,
+      registrationDate: patient.registrationDate ?? '',
+      derechoAbiencia: patient.derechoAbiencia ?? '',
+      status: patient.status || PatientStatus.Vigente,
+      lastAppointmentDate: patient.lastAppointmentDate ?? '',
+    };
   }, [patient]);
 
   const form = useForm<FormValues>({
