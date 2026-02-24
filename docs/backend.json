@@ -18,17 +18,88 @@
       "type": "object",
       "description": "Represents a patient in the system.",
       "properties": {
-        "curp": { "type": "string" },
-        "name": { "type": "string" },
-        "paternalLastName": { "type": "string" },
-        "maternalLastName": { "type": "string" },
-        "sex": { "type": "string", "enum": ["Hombre", "Mujer"] },
-        "age": { "type": "number" },
-        "birthState": { "type": "string" },
-        "phoneNumber": { "type": "string" },
-        "coloniaName": { "type": "string" }
+        "expediente": {
+          "type": "string",
+          "description": "Patient's file number."
+        },
+        "name": {
+          "type": "string"
+        },
+        "paternalLastName": {
+          "type": "string"
+        },
+        "maternalLastName": {
+          "type": "string"
+        },
+        "birthDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Patient's date of birth (FNacimiento)."
+        },
+        "age": {
+          "type": "number"
+        },
+        "sex": {
+          "type": "string",
+          "enum": [
+            "Hombre",
+            "Mujer"
+          ]
+        },
+        "birthState": {
+          "type": "string",
+          "description": "State of birth."
+        },
+        "address": {
+          "type": "string",
+          "description": "Patient's home address (Domicilio)."
+        },
+        "coloniaName": {
+          "type": "string"
+        },
+        "fatherName": {
+          "type": "string",
+          "description": "Patient's father's name (NombrePadr)."
+        },
+        "motherName": {
+          "type": "string",
+          "description": "Patient's mother's name (NombreMad)."
+        },
+        "fatherAge": {
+          "type": "number",
+          "description": "Patient's father's age (EdadPadre)."
+        },
+        "motherAge": {
+          "type": "number",
+          "description": "Patient's mother's age (EdadMadre)."
+        },
+        "registrationDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Date the patient record was created (FechaApertu)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Patient's current status."
+        },
+        "isBeneficiary": {
+          "type": "boolean",
+          "description": "Indicates if the patient is a beneficiary (DerechoAbie)."
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "curp": {
+          "type": "string"
+        }
       },
-      "required": ["curp", "name", "paternalLastName", "maternalLastName", "phoneNumber"]
+      "required": [
+        "curp",
+        "name",
+        "paternalLastName",
+        "maternalLastName",
+        "phoneNumber"
+      ]
     },
     "Appointment": {
       "title": "Appointment",

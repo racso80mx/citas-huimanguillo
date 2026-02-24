@@ -18,15 +18,25 @@ export type User = {
 
 export type Patient = {
   id: string; // UUID
+  expediente?: string;
   curp: string;
   name: string;
   paternalLastName: string;
   maternalLastName: string;
+  birthDate?: string;
   sex: 'Hombre' | 'Mujer';
   age: number;
   birthState: string;
-  phoneNumber: string;
+  address?: string;
   coloniaName?: string;
+  fatherName?: string;
+  motherName?: string;
+  fatherAge?: number;
+  motherAge?: number;
+  registrationDate?: string;
+  status?: string;
+  isBeneficiary?: boolean;
+  phoneNumber: string;
 };
 
 export enum PatientType {
