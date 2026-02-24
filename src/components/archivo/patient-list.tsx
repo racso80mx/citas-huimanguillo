@@ -132,11 +132,11 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
               <TableCell>
                 <Badge
                   className={cn(
+                    'font-semibold',
                     (patient.status === PatientStatusEnum.Vigente || !patient.status)
-                      ? 'bg-green-100 text-green-800 border-green-200'
-                      : 'bg-red-100 text-red-800 border-red-200'
+                      ? 'border-transparent bg-green-100 text-green-800'
+                      : 'border-transparent bg-red-100 text-red-800'
                   )}
-                  variant="outline"
                 >
                     {patient.status || PatientStatusEnum.Vigente}
                 </Badge>
