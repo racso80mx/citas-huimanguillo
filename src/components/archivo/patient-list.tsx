@@ -129,8 +129,8 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
               <TableCell>{patient.phoneNumber}</TableCell>
               <TableCell>{patient.coloniaName || 'N/A'}</TableCell>
               <TableCell>
-                <Badge variant={patient.status === PatientStatusEnum.Vigente ? 'default' : 'destructive'}>
-                  {patient.status || PatientStatusEnum.Vigente}
+                <Badge variant={patient.status === PatientStatusEnum.Baja ? 'destructive' : 'default'}>
+                    {patient.status || PatientStatusEnum.Vigente}
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
