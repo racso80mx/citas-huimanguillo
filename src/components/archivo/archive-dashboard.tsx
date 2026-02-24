@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, History, UserX, FileDown, Calendar as CalendarIcon, Check, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics } from '@/lib/actions';
+import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient } from '@/lib/actions';
 import type { Patient, PatientStatus, Appointment, Clinic, ClinicType } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
@@ -179,9 +179,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     });
   }
   
-  const handleSavePatient = (patient: Omit<Patient, 'id'>, id?: string) => {
+  const handleSavePatient = (patientData: Omit<Patient, 'id'>, id?: string) => {
     startSubmitTransition(async () => {
-      const result = await savePatient(patient, id || uuidv4());
+      const result = id 
+        ? await updatePatient(id, patientData)
+        : await savePatient(patientData, uuidv4());
+
        if(result.success) {
         toast({ title: "Paciente Guardado" });
         setIsEditOpen(false);
@@ -269,7 +272,13 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       });
       return;
     }
-    await downloadExcel(appointmentsToDisplay, `reporte_citas_${activeFilter}`);
+
+    const enrichedAppointments = appointmentsToDisplay.map((app) => ({
+      ...app,
+      clinicName: clinics.find(c => c.id === app.clinicId)?.name || 'N/A'
+    }));
+
+    await downloadExcel(enrichedAppointments, `reporte_citas_${activeFilter}`);
   };
 
   const handleGeneratePDF = async (appointments: Appointment[]) => {
@@ -305,18 +314,27 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     let yPos = 45;
     doc.setFontSize(10);
     
+    // Left side
+    doc.setFont('helvetica', 'bold');
     doc.text(`Cedula:`, 14, yPos);
-    doc.text(clinicInfo?.id.substring(0, 8) || 'N/A', 40, yPos);
     doc.text(`Nombre del Médico:`, 14, yPos + 6);
-    doc.text(clinicInfo?.doctorName || 'N/A', 40, yPos + 6);
     doc.text(`Especialidad:`, 14, yPos + 12);
-    doc.text(clinicInfo?.clinicType || 'N/A', 40, yPos + 12);
     
+    doc.setFont('helvetica', 'normal');
+    doc.text(clinicInfo?.id.substring(0, 8) || 'N/A', 45, yPos, { maxWidth: 75 });
+    doc.text(clinicInfo?.doctorName || 'N/A', 45, yPos + 6, { maxWidth: 75 });
+    doc.text(clinicInfo?.clinicType || 'N/A', 45, yPos + 12, { maxWidth: 75 });
+    
+    // Right side
     const folioText = clinicInfo ? `${format(reportDate, 'dd/MM/yyyy')}-${clinicInfo.id.substring(0, 6)}` : format(reportDate, 'dd/MM/yyyy');
-    doc.text(`Folio:`, 150, yPos);
-    doc.text(folioText, 165, yPos);
-    doc.text(`Fecha:`, 150, yPos + 6);
-    doc.text(format(reportDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: es }), 165, yPos + 6);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Folio:`, 120, yPos);
+    doc.text(`Fecha:`, 120, yPos + 6);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(folioText, 140, yPos, { maxWidth: 60 });
+    doc.text(format(reportDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: es }), 140, yPos + 6, { maxWidth: 60 });
+
 
     // --- Table ---
     const tableStartY = yPos + 22;

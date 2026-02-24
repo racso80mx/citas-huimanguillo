@@ -132,9 +132,9 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
               <TableCell>
                 <Badge
                   className={cn(
-                    patient.status === PatientStatusEnum.Baja
-                      ? 'bg-red-100 text-red-800 border-red-200'
-                      : 'bg-green-100 text-green-800 border-green-200'
+                    (patient.status === PatientStatusEnum.Vigente || !patient.status)
+                      ? 'bg-green-100 text-green-800 border-green-200'
+                      : 'bg-red-100 text-red-800 border-red-200'
                   )}
                   variant="outline"
                 >
@@ -155,7 +155,7 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
                       Editar
                     </DropdownMenuItem>
                     
-                     {patient.status === PatientStatusEnum.Vigente ? (
+                     {(patient.status === PatientStatusEnum.Vigente || !patient.status) ? (
                         <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Baja)} disabled={isSubmitting}>
                            <ToggleLeft className="mr-2 h-4 w-4 text-red-500" />
                             <span>Dar de Baja</span>
