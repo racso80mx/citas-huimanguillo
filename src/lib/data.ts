@@ -824,7 +824,7 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
     return { success: true };
 }
 
-export async function bulkInsertPatients(patients: any[]): Promise<{success: boolean; message?: string, processedCount?: number, addedCount?: number, updatedCount?: number }> {
+export async function bulkInsertPatients(patients: any[]): Promise<{ success: boolean; message?: string, processedCount?: number, addedCount?: number, updatedCount?: number }> {
     if (!adminDb) throw new Error("Database not initialized.");
     
     let addedCount = 0;
@@ -854,6 +854,11 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
                     const excelDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
                     value = excelDate.toISOString().split('T')[0];
                 }
+
+                if (typeof value === 'string') {
+                    value = value.trim();
+                }
+                
                 (mappedPatient as any)[mappedKey] = value;
             }
         }
@@ -863,15 +868,20 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
     const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string'))];
     
     const existingPatientsMap = new Map<string, { id: string }>();
-    const curpChunks: string[][] = [];
-    for (let i = 0; i < curpsInChunk.length; i += 30) {
-        curpChunks.push(curpsInChunk.slice(i, i + 30));
-    }
+    if (curpsInChunk.length > 0) {
+        const curpChunks: string[][] = [];
+        for (let i = 0; i < curpsInChunk.length; i += 30) {
+            curpChunks.push(curpsInChunk.slice(i, i + 30));
+        }
 
-    for (const chunk of curpChunks) {
-        if (chunk.length > 0) {
+        const queryPromises = curpChunks.map(chunk => {
             const q = query(patientsCollection, where('curp', 'in', chunk));
-            const querySnapshot = await getDocs(q);
+            return getDocs(q);
+        });
+
+        const querySnapshots = await Promise.all(queryPromises);
+
+        for (const querySnapshot of querySnapshots) {
             querySnapshot.forEach(doc => {
                 const docData = doc.data() as Patient;
                 if (docData.curp) {
@@ -884,22 +894,23 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
     const batch = writeBatch(adminDb);
 
     for (const mappedPatient of mappedPatients) {
-        const isNew = !(mappedPatient.curp && existingPatientsMap.has(mappedPatient.curp));
         const dataToSave: any = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
         
-        if (isNew && !dataToSave.registrationDate) {
-            dataToSave.registrationDate = new Date().toISOString().split('T')[0];
-        }
-        
-        if (isNew) {
-            const newDocRef = doc(patientsCollection);
-            batch.set(newDocRef, dataToSave);
-            addedCount++;
-        } else {
-            const existingPatientId = existingPatientsMap.get(mappedPatient.curp!)!.id;
+        const curp = dataToSave.curp;
+        const isExisting = curp && existingPatientsMap.has(curp);
+
+        if (isExisting) {
+            const existingPatientId = existingPatientsMap.get(curp)!.id;
             const docRef = doc(patientsCollection, existingPatientId);
             batch.update(docRef, dataToSave);
             updatedCount++;
+        } else {
+            if (!dataToSave.registrationDate) {
+                dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+            }
+            const newDocRef = doc(patientsCollection);
+            batch.set(newDocRef, dataToSave);
+            addedCount++;
         }
     }
     
@@ -958,3 +969,25 @@ export async function cleanupOldRecords() {
     return { deletedCount: totalDeleted };
 }
     
+export { 
+    getLogs as dataGetLogs,
+    getClinics as dataGetClinics, 
+    getColonias as dataGetColonias, 
+    getAnnouncements as dataGetAnnouncements, 
+    getUsers as dataGetUsers,
+    getModuleSettings as dataGetModuleSettings, 
+    getLabSettings as dataGetLabSettings, 
+    getLabStudies as dataGetLabStudies, 
+    getXRaySettings as dataGetXRaySettings, 
+    getXRayStudies as dataGetXRayStudies, 
+    getUltrasoundSettings as dataGetUltrasoundSettings, 
+    getUltrasoundStudies as dataGetUltrasoundStudies, 
+    getVaccineSettings as dataGetVaccineSettings,
+    getVaccines as dataGetVaccines,
+    getAppointments as dataGetAppointments, 
+    getAppointmentsForClinic as dataGetAppointmentsForClinic, 
+    getLabAppointments as dataGetLabAppointments, 
+    getXRayAppointments as dataGetXRayAppointments, 
+    getUltrasoundAppointments as dataGetUltrasoundAppointments,
+    getVaccineAppointments as dataGetVaccineAppointments,
+};

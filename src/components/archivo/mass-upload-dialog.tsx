@@ -95,7 +95,7 @@ export function MassUploadDialog({ isOpen, onClose, onUploadSuccess }: MassUploa
 
         // Define the size of each chunk to be sent to the server.
         // This avoids hitting serverless function payload size and execution time limits.
-        const CHUNK_SIZE = 500;
+        const CHUNK_SIZE = 450;
         const numChunks = Math.ceil(totalRecords / CHUNK_SIZE);
 
         let totalAdded = 0;

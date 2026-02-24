@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -343,25 +344,23 @@ export async function cleanupOldRecordsAction(): Promise<{ success: boolean; del
     }
 }
 
-export { 
-    dataGetLogs as getLogs,
-    dataGetClinics as getClinics, 
-    dataGetColonias as getColonias, 
-    dataGetAnnouncements as getAnnouncements, 
-    dataGetUsers as getUsers,
-    dataGetModuleSettings as getModuleSettings, 
-    dataGetLabSettings as getLabSettings, 
-    dataGetLabStudies as getLabStudies, 
-    dataGetXRaySettings as getXRaySettings, 
-    dataGetXRayStudies as getXRayStudies, 
-    dataGetUltrasoundSettings as getUltrasoundSettings, 
-    dataGetUltrasoundStudies as getUltrasoundStudies, 
-    dataGetVaccineSettings as getVaccineSettings,
-    dataGetVaccines as getVaccines,
-    dataGetAppointments as getAppointments, 
-    dataGetAppointmentsForClinic as getAppointmentsForClinic, 
-    dataGetLabAppointments as getLabAppointments, 
-    dataGetXRayAppointments as getXRayAppointments, 
-    dataGetUltrasoundAppointments as getUltrasoundAppointments,
-    dataGetVaccineAppointments as getVaccineAppointments,
-};
+export async function getLogs() { return dataGetLogs(); }
+export async function getClinics() { return dataGetClinics(); }
+export async function getColonias() { return dataGetColonias(); }
+export async function getAnnouncements() { return dataGetAnnouncements(); }
+export async function getUsers() { return dataGetUsers(); }
+export async function getModuleSettings() { return dataGetModuleSettings(); }
+export async function getLabSettings() { return dataGetLabSettings(); }
+export async function getLabStudies() { return dataGetLabStudies(); }
+export async function getXRaySettings() { return dataGetXRaySettings(); }
+export async function getXRayStudies() { return dataGetXRayStudies(); }
+export async function getUltrasoundSettings() { return dataGetUltrasoundSettings(); }
+export async function getUltrasoundStudies() { return dataGetUltrasoundStudies(); }
+export async function getVaccineSettings() { return dataGetVaccineSettings(); }
+export async function getVaccines() { return dataGetVaccines(); }
+export async function getAppointments() { return dataGetAppointments(); }
+export async function getAppointmentsForClinic(clinicId: string) { return dataGetAppointmentsForClinic(clinicId); }
+export async function getLabAppointments() { return dataGetLabAppointments(); }
+export async function getXRayAppointments() { return dataGetXRayAppointments(); }
+export async function getUltrasoundAppointments() { return dataGetUltrasoundAppointments(); }
+export async function getVaccineAppointments() { return dataGetVaccineAppointments(); }
