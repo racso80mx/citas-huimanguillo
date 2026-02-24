@@ -71,13 +71,25 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [loadPatients]);
 
   useEffect(() => {
-    const lowercasedFilter = searchTerm.toLowerCase();
-    const filteredData = patients.filter(item =>
-        (item.name?.toLowerCase().includes(lowercasedFilter)) ||
-        (item.paternalLastName?.toLowerCase().includes(lowercasedFilter)) ||
-        (item.maternalLastName?.toLowerCase().includes(lowercasedFilter)) ||
-        (item.curp?.toLowerCase().includes(lowercasedFilter))
-    );
+    const searchKeywords = searchTerm.toLowerCase().split(' ').filter(kw => kw);
+
+    if (searchKeywords.length === 0) {
+      setFilteredPatients(patients);
+      setCurrentPage(1);
+      return;
+    }
+
+    const filteredData = patients.filter(patient => {
+      const searchableString = [
+        patient.name,
+        patient.paternalLastName,
+        patient.maternalLastName,
+        patient.curp
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      return searchKeywords.every(keyword => searchableString.includes(keyword));
+    });
+    
     setFilteredPatients(filteredData);
     setCurrentPage(1); // Reset to first page on search
   }, [searchTerm, patients]);
