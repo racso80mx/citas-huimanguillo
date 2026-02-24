@@ -37,7 +37,6 @@ type EditPatientDialogProps = {
   isSaving: boolean;
 };
 
-// This schema must be robust enough to handle all fields, including optional ones.
 const formSchema = z.object({
   name: z.string().min(1, 'Nombre es requerido'),
   paternalLastName: z.string().min(1, 'Apellido paterno es requerido'),
@@ -66,68 +65,49 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }: EditPatientDialogProps) {
 
-  // This function is the key. It needs to create a valid default object
-  // when `patient` is null, without causing errors.
-  const getInitialValues = React.useCallback((): FormValues => {
-    if (!patient) {
-      // For a new patient, provide a complete structure with empty strings or sensible defaults.
-      return {
-          name: '',
-          paternalLastName: '',
-          maternalLastName: '',
-          curp: '',
-          phoneNumber: '',
-          expediente: '',
-          birthDate: '',
-          sex: 'Hombre',
-          age: undefined,
-          birthState: '',
-          address: '',
-          coloniaName: '',
-          fatherName: '',
-          motherName: '',
-          fatherAge: undefined,
-          motherAge: undefined,
-          registrationDate: '',
-          derechoAbiencia: '',
-          status: PatientStatus.Vigente,
-          lastAppointmentDate: '',
-        };
-    }
-
-    // For an existing patient, spread data and ensure nulls/undefineds are converted to safe defaults.
-    return {
-      name: patient.name ?? '',
-      paternalLastName: patient.paternalLastName ?? '',
-      maternalLastName: patient.maternalLastName ?? '',
-      curp: patient.curp ?? '',
-      phoneNumber: patient.phoneNumber ?? '',
-      expediente: patient.expediente ?? '',
-      birthDate: patient.birthDate ?? '',
-      sex: patient.sex ?? 'Hombre',
-      age: patient.age ?? undefined,
-      birthState: patient.birthState ?? '',
-      address: patient.address ?? '',
-      coloniaName: patient.coloniaName ?? '',
-      fatherName: patient.fatherName ?? '',
-      motherName: patient.motherName ?? '',
-      fatherAge: patient.fatherAge ?? undefined,
-      motherAge: patient.motherAge ?? undefined,
-      registrationDate: patient.registrationDate ?? '',
-      derechoAbiencia: patient.derechoAbiencia ?? '',
-      status: patient.status || PatientStatus.Vigente,
-      lastAppointmentDate: patient.lastAppointmentDate ?? '',
-    };
-  }, [patient]);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: getInitialValues(),
+    // Default values are now set inside the useEffect to ensure proper reset
   });
 
   React.useEffect(() => {
-    form.reset(getInitialValues());
-  }, [isOpen, patient, getInitialValues, form]);
+    if (isOpen) {
+      if (!patient) {
+        // Correctly reset the form for a NEW patient
+        form.reset({
+          name: '', paternalLastName: '', maternalLastName: '', curp: '', phoneNumber: '',
+          expediente: '', birthDate: '', sex: 'Hombre', age: undefined, birthState: '',
+          address: '', coloniaName: '', fatherName: '', motherName: '', fatherAge: undefined,
+          motherAge: undefined, registrationDate: '', derechoAbiencia: '',
+          status: PatientStatus.Vigente, lastAppointmentDate: '',
+        });
+      } else {
+        // Correctly reset the form for an EXISTING patient
+        form.reset({
+          name: patient.name ?? '',
+          paternalLastName: patient.paternalLastName ?? '',
+          maternalLastName: patient.maternalLastName ?? '',
+          curp: patient.curp ?? '',
+          phoneNumber: patient.phoneNumber ?? '',
+          expediente: patient.expediente ?? '',
+          birthDate: patient.birthDate ?? '',
+          sex: patient.sex ?? 'Hombre',
+          age: patient.age ?? undefined,
+          birthState: patient.birthState ?? '',
+          address: patient.address ?? '',
+          coloniaName: patient.coloniaName ?? '',
+          fatherName: patient.fatherName ?? '',
+          motherName: patient.motherName ?? '',
+          fatherAge: patient.fatherAge ?? undefined,
+          motherAge: patient.motherAge ?? undefined,
+          registrationDate: patient.registrationDate ?? '',
+          derechoAbiencia: patient.derechoAbiencia ?? '',
+          status: patient.status || PatientStatus.Vigente,
+          lastAppointmentDate: patient.lastAppointmentDate ?? '',
+        });
+      }
+    }
+  }, [isOpen, patient, form]);
 
 
   const onSubmit = (data: FormValues) => {
