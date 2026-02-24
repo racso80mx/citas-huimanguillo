@@ -35,7 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '../ui/command';
 import { Badge } from '../ui/badge';
 
 
@@ -300,7 +300,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   );
 
   return (
-    <div className="space-y-6 container mx-auto">
+    <div className="space-y-6">
       {mainHeader}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
