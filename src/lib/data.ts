@@ -459,9 +459,10 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
     
     // The new coloniaName from the appointment takes precedence. Fallback to existing patient data, then to an empty string.
     const finalColoniaName = coloniaName ?? patientData.coloniaName ?? '';
-    const patientPayload = { 
+    const patientPayload: Partial<Patient> = { 
         ...patientData, 
-        coloniaName: finalColoniaName
+        coloniaName: finalColoniaName,
+        lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
 
     // 1. Find or create patient to get a stable ID.
@@ -564,9 +565,10 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 export async function saveLabAppointment(appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const patientPayload = {
+    const patientPayload: Partial<Patient> = {
         ...patientData,
         coloniaName: patientData.coloniaName ?? '',
+        lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
 
     let patientRef: DocumentReference;
@@ -599,9 +601,10 @@ export async function saveLabAppointment(appointmentData: Omit<LabAppointment, '
 export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const patientPayload = {
+    const patientPayload: Partial<Patient> = {
         ...patientData,
         coloniaName: patientData.coloniaName ?? '',
+        lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
 
     let patientRef: DocumentReference;
@@ -638,9 +641,10 @@ export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment,
 export async function saveUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const patientPayload = {
+    const patientPayload: Partial<Patient> = {
         ...patientData,
         coloniaName: patientData.coloniaName ?? '',
+        lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
 
     let patientRef: DocumentReference;
@@ -678,9 +682,10 @@ export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppoin
     if (!adminDb) throw new Error("Database not initialized.");
     
     const finalColoniaName = appointmentData.coloniaName ?? patientData.coloniaName ?? '';
-    const patientPayload = {
+    const patientPayload: Partial<Patient> = {
         ...patientData,
-        coloniaName: finalColoniaName
+        coloniaName: finalColoniaName,
+        lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
     
     let patientRef: DocumentReference;
@@ -858,10 +863,11 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
                     (mappedPatient as any)[mappedKey] = value;
                 }
             }
-
-            if (!mappedPatient.curp) continue;
             
-            const existingPatient = await getPatientByCURP(mappedPatient.curp);
+            let existingPatient: Patient | null = null;
+            if (mappedPatient.curp) {
+                existingPatient = await getPatientByCURP(mappedPatient.curp);
+            }
             
             const isNew = !existingPatient;
             const dataToSave = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
