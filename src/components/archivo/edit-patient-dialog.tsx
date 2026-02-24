@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -53,7 +54,7 @@ const formSchema = z.object({
   fatherAge: z.number().optional(),
   motherAge: z.number().optional(),
   registrationDate: z.string().optional(),
-  isBeneficiary: z.boolean().optional(),
+  derechoAbiencia: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -126,7 +127,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>FechaApertura</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="isBeneficiary" render={({ field }) => (<FormItem className="flex items-center space-x-2 pt-8"><FormControl><Input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4" /></FormControl><FormLabel>DerechoAbiencia</FormLabel><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
               </div>
             </ScrollArea>

@@ -41,7 +41,7 @@ export type Patient = {
   motherAge?: number;
   registrationDate?: string;
   status?: PatientStatus;
-  isBeneficiary?: boolean;
+  derechoAbiencia?: string;
   phoneNumber: string;
 };
 

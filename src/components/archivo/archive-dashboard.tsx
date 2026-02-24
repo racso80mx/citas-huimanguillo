@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -19,6 +20,13 @@ import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
 import { v4 as uuidv4 } from 'uuid';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
@@ -32,6 +40,9 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
   
   const [isSubmitting, startSubmitTransition] = useTransition();
 
@@ -67,7 +78,15 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         (item.curp?.toLowerCase().includes(lowercasedFilter))
     );
     setFilteredPatients(filteredData);
+    setCurrentPage(1); // Reset to first page on search
   }, [searchTerm, patients]);
+
+  const paginatedPatients = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return filteredPatients.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredPatients, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
   
   const handleAddNew = () => {
     setEditingPatient(null);
@@ -165,13 +184,55 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             </div>
           ) : (
             <PatientList 
-                patients={filteredPatients}
+                patients={paginatedPatients}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onStatusChange={handleStatusChange}
                 isSubmitting={isSubmitting}
             />
           )}
+          <div className="flex items-center justify-between mt-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Filas por página:</span>
+              <Select
+                value={String(rowsPerPage)}
+                onValueChange={(value) => {
+                  setRowsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[80px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages > 0 ? totalPages : 1}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1 || totalPages === 0}
+                >
+                    Anterior
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                >
+                    Siguiente
+                </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
       

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -799,11 +800,22 @@ export async function updatePatientStatus(patientId: string, newStatus: PatientS
 
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
     if (!adminDb) throw new Error("Database not initialized.");
-    const docRef = doc(adminDb, 'patients', id || uuidv4());
-    await setDoc(docRef, {
+    const isNew = !id;
+    const docId = id || uuidv4();
+    const docRef = doc(adminDb, 'patients', docId);
+
+    const dataToSave: Partial<Patient> = {
         ...patient,
         status: patient.status || PatientStatusEnum.Vigente,
-    }, { merge: true });
+    };
+    
+    if (isNew && !dataToSave.registrationDate) {
+        dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+    }
+    
+    await setDoc(docRef, dataToSave, { merge: true });
+    await logActivity('Guardado de Paciente', `Paciente ${patient.name} ${patient.paternalLastName} guardado.`);
+    revalidatePath('/archivo');
     return { success: true };
 }
 
@@ -819,7 +831,8 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
         'Sexo': 'sex', 'Estado': 'birthState', 'Domicilio': 'address', 'Colonia': 'coloniaName',
         'NombrePadre': 'fatherName', 'NombreMadre': 'motherName', 'EdadPadre': 'fatherAge',
         'EdadMadre': 'motherAge', 'FechaApertura': 'registrationDate', 'Estatus': 'status',
-        'DerechoAbiencia': 'isBeneficiary', 'Telefono': 'phoneNumber', 'CURP': 'curp'
+        'DerechoAbiencia': 'derechoAbiencia',
+        'Telefono': 'phoneNumber', 'CURP': 'curp'
     };
 
     const patientsCollection = collection(adminDb, 'patients');
@@ -836,9 +849,7 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
                     const mappedKey = columnMapping[key] as keyof Patient;
                     let value = row[key];
 
-                    if (mappedKey === 'isBeneficiary') {
-                        value = /^(TRUE|VERDADERO|1)$/i.test(String(value));
-                    } else if ((mappedKey === 'birthDate' || mappedKey === 'registrationDate') && typeof value === 'number') {
+                    if ((mappedKey === 'birthDate' || mappedKey === 'registrationDate') && typeof value === 'number') {
                         // Excel date serial number conversion
                         const excelEpoch = new Date(1899, 11, 30);
                         const excelDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
@@ -852,7 +863,11 @@ export async function bulkInsertPatients(patients: any[]): Promise<{success: boo
             
             const existingPatient = await getPatientByCURP(mappedPatient.curp);
             
+            const isNew = !existingPatient;
             const dataToSave = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
+            if (isNew && !dataToSave.registrationDate) {
+                dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+            }
             
             if (existingPatient) {
                 const docRef = doc(patientsCollection, existingPatient.id);

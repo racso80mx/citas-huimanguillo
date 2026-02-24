@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useTransition } from 'react';
 import {
@@ -103,7 +104,6 @@ export function MassUploadDialog({ isOpen, onClose, onUploadSuccess }: MassUploa
                 <ol className="list-decimal list-inside space-y-1 mt-2">
                     <li>Descarga la plantilla para asegurar el formato correcto.</li>
                     <li>Llena la plantilla con los datos de los pacientes.</li>
-                    <li>Asegúrate de que la columna `DerechoAbiencia` contenga `TRUE` o `FALSE`.</li>
                     <li>Sube el archivo completo.</li>
                 </ol>
             </AlertDescription>

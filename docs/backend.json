@@ -82,9 +82,9 @@
           "type": "string",
           "description": "Patient's current status."
         },
-        "isBeneficiary": {
-          "type": "boolean",
-          "description": "Indicates if the patient is a beneficiary (DerechoAbie)."
+        "derechoAbiencia": {
+          "type": "string",
+          "description": "Patient's insurance provider (e.g., IMSS, ISSSTE)."
         },
         "phoneNumber": {
           "type": "string"
