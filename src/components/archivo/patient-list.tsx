@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, ToggleLeft, ToggleRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Patient, PatientStatus } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 
@@ -40,7 +41,57 @@ type PatientListProps = {
   isSubmitting: boolean;
 };
 
+type SortableKeys = 'name' | 'expediente' | 'curp' | 'coloniaName' | 'status';
+
 export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubmitting }: PatientListProps) {
+    
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
+
+  const sortedPatients = useMemo(() => {
+    let sortableItems = [...patients];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue: string | number = '';
+        let bValue: string | number = '';
+
+        if (sortConfig.key === 'name') {
+            aValue = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.trim();
+            bValue = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.trim();
+        } else {
+            aValue = (a as any)[sortConfig.key] || '';
+            bValue = (b as any)[sortConfig.key] || '';
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [patients, sortConfig]);
+
+  const requestSort = (key: SortableKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: SortableKeys) => {
+    if (!sortConfig || sortConfig.key !== key) {
+        return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    return sortConfig.direction === 'ascending' ? (
+        <ArrowUp className="ml-2 h-4 w-4 text-primary" />
+    ) : (
+        <ArrowDown className="ml-2 h-4 w-4 text-primary" />
+    );
+  };
     
   if (patients.length === 0) {
       return <div className="text-center text-muted-foreground py-10">No se encontraron pacientes.</div>
@@ -51,17 +102,27 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, isSubm
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nombre Completo</TableHead>
-            <TableHead>No. Expediente</TableHead>
-            <TableHead>CURP</TableHead>
+            <TableHead>
+              <Button variant="ghost" onClick={() => requestSort('name')}>Nombre Completo {getSortIcon('name')}</Button>
+            </TableHead>
+            <TableHead>
+              <Button variant="ghost" onClick={() => requestSort('expediente')}>No. Expediente {getSortIcon('expediente')}</Button>
+            </TableHead>
+            <TableHead>
+              <Button variant="ghost" onClick={() => requestSort('curp')}>CURP {getSortIcon('curp')}</Button>
+            </TableHead>
             <TableHead>Teléfono</TableHead>
-            <TableHead>Colonia</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead>
+              <Button variant="ghost" onClick={() => requestSort('coloniaName')}>Colonia {getSortIcon('coloniaName')}</Button>
+            </TableHead>
+            <TableHead>
+              <Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button>
+            </TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {patients.map((patient) => (
+          {sortedPatients.map((patient) => (
             <TableRow key={patient.id}>
               <TableCell className="font-medium">{`${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`}</TableCell>
               <TableCell>{patient.expediente || 'N/A'}</TableCell>

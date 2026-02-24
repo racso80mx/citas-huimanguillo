@@ -216,28 +216,28 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pacientes Vigentes</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            <UserCheck className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.vigentes}</div>
+            <div className="text-2xl font-bold text-green-600">{summary.vigentes}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Baja Temporal (+5 años)</CardTitle>
-            <History className="h-4 w-4 text-muted-foreground" />
+            <History className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.bajaTemporal}</div>
+            <div className="text-2xl font-bold text-yellow-600">{summary.bajaTemporal}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Baja Definitiva (+6 años)</CardTitle>
-            <UserX className="h-4 w-4 text-muted-foreground" />
+            <UserX className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary.bajaDefinitiva}</div>
+            <div className="text-2xl font-bold text-red-600">{summary.bajaDefinitiva}</div>
           </CardContent>
         </Card>
       </div>
