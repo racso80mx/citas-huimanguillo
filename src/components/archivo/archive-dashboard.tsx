@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, History, UserX } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, History, UserX, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient } from '@/lib/actions';
 import type { Patient, PatientStatus } from '@/lib/definitions';
@@ -182,10 +182,66 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const handleDownload = async () => {
     const xlsx = await import('xlsx');
-    const worksheet = xlsx.utils.json_to_sheet(patients);
+    
+    // These headers MUST match the keys in the worksheetData mapping below
+    const excelHeaders = [
+      'No.Expediente', 'Nombre', 'Apaterno', 'Amaterno', 'FNacimiento',
+      'Edad', 'Sexo', 'Estado', 'Domicilio', 'Colonia', 'NombrePadre',
+      'NombreMadre', 'EdadPadre', 'EdadMadre', 'FechaApertura',
+      'Estatus', 'DerechoAbiencia', 'Telefono', 'CURP',
+    ];
+
+    // Map patient data to the desired Excel structure, ensuring all columns are present
+    const worksheetData = patients.map(patient => ({
+        'No.Expediente': patient.expediente ?? '',
+        'Nombre': patient.name ?? '',
+        'Apaterno': patient.paternalLastName ?? '',
+        'Amaterno': patient.maternalLastName ?? '',
+        'FNacimiento': patient.birthDate ?? '',
+        'Edad': patient.age ?? '',
+        'Sexo': patient.sex ?? '',
+        'Estado': patient.birthState ?? '',
+        'Domicilio': patient.address ?? '',
+        'Colonia': patient.coloniaName ?? '',
+        'NombrePadre': patient.fatherName ?? '',
+        'NombreMadre': patient.motherName ?? '',
+        'EdadPadre': patient.fatherAge ?? '',
+        'EdadMadre': patient.motherAge ?? '',
+        'FechaApertura': patient.registrationDate ?? '',
+        'Estatus': patient.status ?? '',
+        'DerechoAbiencia': patient.derechoAbiencia ?? '',
+        'Telefono': patient.phoneNumber ?? '',
+        'CURP': patient.curp ?? '',
+    }));
+
+    const worksheet = xlsx.utils.json_to_sheet(worksheetData, { header: excelHeaders });
+    
+    // Set column widths for better readability
+    worksheet['!cols'] = [
+        { wch: 15 }, // No.Expediente
+        { wch: 20 }, // Nombre
+        { wch: 15 }, // Apaterno
+        { wch: 15 }, // Amaterno
+        { wch: 12 }, // FNacimiento
+        { wch: 8 },  // Edad
+        { wch: 10 }, // Sexo
+        { wch: 15 }, // Estado
+        { wch: 30 }, // Domicilio
+        { wch: 20 }, // Colonia
+        { wch: 20 }, // NombrePadre
+        { wch: 20 }, // NombreMadre
+        { wch: 10 }, // EdadPadre
+        { wch: 10 }, // EdadMadre
+        { wch: 12 }, // FechaApertura
+        { wch: 10 }, // Estatus
+        { wch: 20 }, // DerechoAbiencia
+        { wch: 15 }, // Telefono
+        { wch: 20 }, // CURP
+    ];
+
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Pacientes');
-    xlsx.writeFile(workbook, 'archivo_pacientes.xlsx');
+    xlsx.writeFile(workbook, 'archivo_pacientes_completo.xlsx');
   }
 
   return (
