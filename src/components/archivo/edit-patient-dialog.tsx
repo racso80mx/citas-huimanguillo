@@ -126,9 +126,22 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                     <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>NombreMadre</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="motherAge" render={({ field }) => (<FormItem><FormLabel>EdadMadre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}/></FormControl><FormMessage /></FormItem>)} />
                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>FechaApertura</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                      <FormField control={form.control} name="lastAppointmentDate" render={({ field }) => (<FormItem><FormLabel>Última Cita</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} readOnly /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="status" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Estatus</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || PatientStatus.Vigente}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un estatus"/></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value={PatientStatus.Vigente}>Vigente</SelectItem>
+                                    <SelectItem value={PatientStatus.Baja}>Baja</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
