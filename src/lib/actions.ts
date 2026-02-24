@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import {
+import { 
   getPatientByCURP as dataGetPatientByCURP,
   saveAppointment as dataSaveAppointment,
   saveLabAppointment as dataSaveLabAppointment,

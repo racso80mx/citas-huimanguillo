@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -196,6 +195,20 @@ export async function updateUltrasoundSettings(settings: UltrasoundSettings) { r
 
 export async function getVaccineSettings(): Promise<VaccineSettings> { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateVaccineSettings(settings: VaccineSettings) { return setSettingsDoc('vaccineSettings', settings); }
+
+export async function getArchiveSettings(): Promise<ArchiveSettings> {
+    return getSettingsDoc<ArchiveSettings>('archiveSettings', { password: '' });
+}
+export async function updateArchiveSettings(settings: ArchiveSettings) {
+    return setSettingsDoc('archiveSettings', settings);
+}
+export async function verifyArchivePassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {
+    const settings = await getArchiveSettings();
+    if (!settings.password) {
+        return { isValid: false, error: 'No se ha establecido una contraseña para el módulo de archivo.' };
+    }
+    return { isValid: settings.password === passwordAttempt };
+}
 
 // =====================================================================
 // CATALOGS
