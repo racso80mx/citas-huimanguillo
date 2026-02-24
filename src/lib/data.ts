@@ -259,8 +259,8 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string): 
         
         const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
             const slots: string[] = [];
-            const start = new Date(`1970-01-01T${startTimeStr}:00`);
-            const end = new Date(`1970-01-01T${endTimeStr}:00`);
+            const start = new Date('1970-01-01T' + startTimeStr + ':00');
+            const end = new Date('1970-01-01T' + endTimeStr + ':00');
             let current = start;
             while (current < end) {
                 slots.push(current.toTimeString().substring(0, 5));
@@ -511,7 +511,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         newAppointmentData.time = appointmentData.time;
     } else if (clinic.bookingMode === BookingMode.Token) {
         const timeAsString = String(appointmentData.time);
-        const tokenMatch = timeAsString.match(/\d+/);
+        const tokenMatch = timeAsString.match(/\\d+/);
         const tokenNumber = tokenMatch ? parseInt(tokenMatch[0], 10) : parseInt(timeAsString, 10);
         
         if (isNaN(tokenNumber) || tokenNumber <= 0) {
@@ -764,6 +764,101 @@ export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isV
 export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getUltrasoundSettings(); return { isValid: settings.password === passwordAttempt }; }
 export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getVaccineSettings(); return { isValid: settings.password === passwordAttempt }; }
 
+export async function getPatients(): Promise<Patient[]> {
+    if (!adminDb) return [];
+    const snapshot = await getDocs(query(collection(adminDb, 'patients'), orderBy('paternalLastName')));
+    return snapshot.docs.map(d => ({id: d.id, ...d.data()})) as Patient[];
+}
+
+export async function deletePatient(patientId: string) {
+    if (!adminDb) throw new Error("Database not initialized.");
+    const docRef = doc(adminDb, 'patients', patientId);
+    await deleteDoc(docRef);
+    return { success: true };
+}
+
+export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) {
+    if (!adminDb) throw new Error("Database not initialized.");
+    const docRef = doc(adminDb, 'patients', patientId);
+    await updateDoc(docRef, { status: newStatus });
+    return { success: true };
+}
+
+export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
+    if (!adminDb) throw new Error("Database not initialized.");
+    const docRef = doc(adminDb, 'patients', id || uuidv4());
+    await setDoc(docRef, {
+        ...patient,
+        status: patient.status || PatientStatusEnum.Vigente,
+    }, { merge: true });
+    return { success: true };
+}
+
+export async function bulkInsertPatients(patients: any[]): Promise<{success: boolean; message?: string, processedCount?: number, addedCount?: number, updatedCount?: number }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    
+    let addedCount = 0;
+    let updatedCount = 0;
+
+    const columnMapping: { [key: string]: string } = {
+        'No.Expediente': 'expediente', 'Nombre': 'name', 'Apaterno': 'paternalLastName',
+        'Amaterno': 'maternalLastName', 'FNacimiento': 'birthDate', 'YearNacimiento': 'birthDate', 'Edad': 'age', 'EdadActual': 'age',
+        'Sexo': 'sex', 'Estado': 'birthState', 'Domicilio': 'address', 'Colonia': 'coloniaName',
+        'NombrePadre': 'fatherName', 'NombreMadre': 'motherName', 'EdadPadre': 'fatherAge',
+        'EdadMadre': 'motherAge', 'FechaApertura': 'registrationDate', 'Estatus': 'status',
+        'DerechoAbiencia': 'isBeneficiary', 'Telefono': 'phoneNumber', 'CURP': 'curp'
+    };
+
+    const patientsCollection = collection(adminDb, 'patients');
+
+    const batchSize = 499;
+    for (let i = 0; i < patients.length; i += batchSize) {
+        const batch = writeBatch(adminDb);
+        const batchPatients = patients.slice(i, i + batchSize);
+
+        for (const row of batchPatients) {
+            const mappedPatient: Partial<Patient> = {};
+            for (const key in row) {
+                if (columnMapping[key]) {
+                    const mappedKey = columnMapping[key] as keyof Patient;
+                    let value = row[key];
+
+                    if (mappedKey === 'isBeneficiary') {
+                        value = /^(TRUE|VERDADERO|1)$/i.test(String(value));
+                    } else if ((mappedKey === 'birthDate' || mappedKey === 'registrationDate') && typeof value === 'number') {
+                        // Excel date serial number conversion
+                        const excelEpoch = new Date(1899, 11, 30);
+                        const excelDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+                        value = excelDate.toISOString().split('T')[0];
+                    }
+                    (mappedPatient as any)[mappedKey] = value;
+                }
+            }
+
+            if (!mappedPatient.curp) continue;
+            
+            const existingPatient = await getPatientByCURP(mappedPatient.curp);
+            
+            const dataToSave = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
+            
+            if (existingPatient) {
+                const docRef = doc(patientsCollection, existingPatient.id);
+                batch.update(docRef, dataToSave);
+                updatedCount++;
+            } else {
+                const newDocRef = doc(patientsCollection);
+                batch.set(newDocRef, dataToSave);
+                addedCount++;
+            }
+        }
+        await batch.commit();
+    }
+    
+    await logActivity('Carga Masiva Pacientes', `Se procesaron ${patients.length} registros. ${addedCount} agregados, ${updatedCount} actualizados.`);
+    return { success: true, processedCount: patients.length, addedCount, updatedCount };
+}
+
+
 // --- Backup & Restore ---
 export async function createBackupData() {
     const appointments = await getAppointments();
@@ -811,90 +906,4 @@ export async function cleanupOldRecords() {
     }
     
     return { deletedCount: totalDeleted };
-}
-
-
-// =====================================================================
-// ARCHIVE
-// =====================================================================
-
-export async function getArchiveSettings(): Promise<ArchiveSettings> { 
-    return getSettingsDoc<ArchiveSettings>('archiveSettings', { password: '' }); 
-}
-export async function updateArchiveSettings(settings: ArchiveSettings) { 
-    return setSettingsDoc('archiveSettings', settings); 
-}
-export async function verifyArchivePassword(passwordAttempt: string): Promise<{ isValid: boolean }> { 
-    const settings = await getArchiveSettings(); 
-    return { isValid: settings.password === passwordAttempt }; 
-}
-
-export async function getPatients(): Promise<Patient[]> {
-    if (!adminDb) return [];
-    const snapshot = await getDocs(query(collection(adminDb, 'patients'), orderBy('paternalLastName')));
-    return snapshot.docs.map(d => ({id: d.id, ...d.data()})) as Patient[];
-}
-
-export async function deletePatient(patientId: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
-    const docRef = doc(adminDb, 'patients', patientId);
-    await deleteDoc(docRef);
-    return { success: true };
-}
-
-export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) {
-    if (!adminDb) throw new Error("Database not initialized.");
-    const docRef = doc(adminDb, 'patients', patientId);
-    await updateDoc(docRef, { status: newStatus });
-    return { success: true };
-}
-
-export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
-    const docRef = doc(adminDb, 'patients', id || uuidv4());
-    await setDoc(docRef, {
-        ...patient,
-        status: patient.status || PatientStatusEnum.Vigente,
-    }, { merge: true });
-    return { success: true };
-}
-
-export async function bulkInsertPatients(patients: any[]): Promise<{success: boolean; message?: string, processedCount?: number, addedCount?: number, updatedCount?: number }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    
-    let addedCount = 0;
-    let updatedCount = 0;
-
-    const patientsCollection = collection(adminDb, 'patients');
-
-    // Firestore allows a maximum of 500 operations in a single batch.
-    const batchSize = 499;
-    for (let i = 0; i < patients.length; i += batchSize) {
-        const batch = writeBatch(adminDb);
-        const batchPatients = patients.slice(i, i + batchSize);
-
-        for (const patientData of batchPatients) {
-            if (!patientData.curp) continue;
-            
-            const existingPatient = await getPatientByCURP(patientData.curp);
-            
-            const dataToSave: Partial<Patient> = {
-                ...patientData,
-                status: patientData.status || PatientStatusEnum.Vigente
-            };
-            
-            if (existingPatient) {
-                const docRef = doc(patientsCollection, existingPatient.id);
-                batch.update(docRef, dataToSave);
-                updatedCount++;
-            } else {
-                const newDocRef = doc(patientsCollection);
-                batch.set(newDocRef, dataToSave);
-                addedCount++;
-            }
-        }
-        await batch.commit();
-    }
-    
-    return { success: true, processedCount: patients.length, addedCount, updatedCount };
 }

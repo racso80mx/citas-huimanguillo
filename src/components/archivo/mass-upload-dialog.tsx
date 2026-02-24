@@ -23,10 +23,10 @@ type MassUploadDialogProps = {
 };
 
 const requiredColumns = [
-    'expediente', 'name', 'paternalLastName', 'maternalLastName', 'birthDate',
-    'age', 'sex', 'birthState', 'address', 'coloniaName', 'fatherName',
-    'motherName', 'fatherAge', 'motherAge', 'registrationDate',
-    'status', 'isBeneficiary', 'phoneNumber', 'curp'
+    'No.Expediente', 'Nombre', 'Apaterno', 'Amaterno', 'FNacimiento',
+    'Edad', 'Sexo', 'Estado', 'Domicilio', 'Colonia', 'NombrePadre',
+    'NombreMadre', 'EdadPadre', 'EdadMadre', 'FechaApertura',
+    'Estatus', 'DerechoAbiencia', 'Telefono', 'CURP'
 ];
 
 export function MassUploadDialog({ isOpen, onClose, onUploadSuccess }: MassUploadDialogProps) {
@@ -103,7 +103,7 @@ export function MassUploadDialog({ isOpen, onClose, onUploadSuccess }: MassUploa
                 <ol className="list-decimal list-inside space-y-1 mt-2">
                     <li>Descarga la plantilla para asegurar el formato correcto.</li>
                     <li>Llena la plantilla con los datos de los pacientes.</li>
-                    <li>Asegúrate de que las columnas `isBeneficiary` contengan `TRUE` o `FALSE`.</li>
+                    <li>Asegúrate de que la columna `DerechoAbiencia` contenga `TRUE` o `FALSE`.</li>
                     <li>Sube el archivo completo.</li>
                 </ol>
             </AlertDescription>
