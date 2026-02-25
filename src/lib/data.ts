@@ -47,12 +47,13 @@ import type {
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 // =====================================================================
-// UTILS & SERIALIZATION
+// UTILS & SERIALIZATION (Fixes "Only plain objects can be passed")
 // =====================================================================
 
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
 
+  // Convert Firebase Timestamps to ISO strings
   if (data instanceof Timestamp || (data && typeof data.toDate === 'function')) {
     return data.toDate().toISOString();
   }
@@ -139,7 +140,12 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
   if (!adminDb) return { success: false };
   try {
     const docId = id || uuidv4();
-    await setDoc(doc(adminDb, 'patients', docId), { ...patient, status: patient.status || PatientStatusEnum.Vigente }, { merge: true });
+    const dataToSave = { 
+      ...patient, 
+      status: patient.status || PatientStatusEnum.Vigente,
+      updatedAt: Timestamp.now()
+    };
+    await setDoc(doc(adminDb, 'patients', docId), dataToSave, { merge: true });
     return { success: true };
   } catch (e: any) {
     return { success: false, message: e.message };
@@ -149,7 +155,7 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
 export async function updatePatient(id: string, data: Partial<Omit<Patient, 'id'>>) {
   if (!adminDb) return { success: false };
   try {
-    await updateDoc(doc(adminDb, 'patients', id), data);
+    await updateDoc(doc(adminDb, 'patients', id), { ...data, updatedAt: Timestamp.now() });
     return { success: true };
   } catch (e: any) {
     return { success: false, message: e.message };
@@ -184,7 +190,7 @@ export async function deletePatients(ids: string[]) {
 export async function updatePatientStatus(id: string, status: PatientStatus) {
   if (!adminDb) return { success: false };
   try {
-    await updateDoc(doc(adminDb, 'patients', id), { status });
+    await updateDoc(doc(adminDb, 'patients', id), { status, updatedAt: Timestamp.now() });
     return { success: true };
   } catch (e: any) {
     return { success: false, message: e.message };
@@ -232,18 +238,10 @@ export async function getAppointments(): Promise<Appointment[]> {
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
   if (!adminDb) return [];
   try {
-    // Equality + OrderBy requires index. To avoid this, we filter by clinic and sort in memory.
     const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), limit(2000));
     const snap = await getDocs(q);
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    
-    // Sort in memory by date descending
-    data.sort((a: any, b: any) => {
-        const timeA = (a.date as Timestamp).toMillis();
-        const timeB = (b.date as Timestamp).toMillis();
-        return timeB - timeA;
-    });
-
+    data.sort((a: any, b: any) => (b.date as Timestamp).toMillis() - (a.date as Timestamp).toMillis());
     return await enrichWithPatientData(data) as Appointment[];
   } catch (e) {
     return [];
@@ -294,17 +292,12 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   }
 }
 
-// Validation helper for same-day appointments by CURP
+// Validation helper using memory filtering to avoid composite index requirement
 async function validateDailyDuplicate(collectionName: string, patientId: string, isoDate: string) {
   try {
     const selectedDate = new Date(isoDate);
-    const dayStart = new Date(selectedDate);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(selectedDate);
-    dayEnd.setHours(23, 59, 59, 999);
+    const dayString = selectedDate.toISOString().split('T')[0];
 
-    // Equality + Range filters require index. 
-    // To solve this without manual indexing, we filter by patientId in Firestore and by date in JS.
     const q = query(
       collection(adminDb, collectionName),
       where('patientId', '==', patientId)
@@ -313,12 +306,11 @@ async function validateDailyDuplicate(collectionName: string, patientId: string,
     const snap = await getDocs(q);
     if (snap.empty) return false;
 
-    // Check if any appointment for this patient falls within the selected day
     return snap.docs.some(doc => {
       const d = doc.data();
       if (!d.date) return false;
-      const appDate = (d.date as Timestamp).toDate();
-      return appDate >= dayStart && appDate <= dayEnd;
+      const appDateStr = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+      return appDateStr === dayString;
     });
   } catch (e) {
     console.error("Error checking daily duplicates:", e);
@@ -710,7 +702,7 @@ export async function getLogs(): Promise<ActivityLog[]> {
 }
 
 // =====================================================================
-// MAINTENANCE
+// MAINTENANCE (Flexible Search for Bulk Updates)
 // =====================================================================
 
 export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
@@ -749,6 +741,7 @@ export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'n
 export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
   if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
+  // Scans all patients to perform intelligent matching in memory (ignoring leading zeros)
   const snap = await getDocs(collection(adminDb, 'patients'));
   const targetExpsClean = expedientes.map(e => e.toString().trim().replace(/^0+/, ''));
   

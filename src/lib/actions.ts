@@ -31,7 +31,7 @@ export async function getPatientByCURP(curp: string) {
 }
 
 export async function getPatients(options?: any) {
-  return data.getPatients(options);
+  return data.getPatients();
 }
 
 export async function savePatient(patient: any, id?: string) {
