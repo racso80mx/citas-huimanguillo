@@ -25,13 +25,17 @@ export async function applyStatusUpdateChunk(expedientes: string[], status: Pati
 // PATIENT ACTIONS
 // =====================================================================
 
+export async function getPatientCounts() {
+  return data.getPatientCounts();
+}
+
 export async function getPatientByCURP(curp: string) {
   const p = await data.getPatientByCURP(curp);
   return p ? { success: true, data: p } : { success: false };
 }
 
-export async function getPatients() {
-  return data.getPatients();
+export async function getPatients(options?: { status?: string, search?: string, limitNum?: number }) {
+  return data.getPatients(options);
 }
 
 export async function savePatient(patient: any, id?: string) {

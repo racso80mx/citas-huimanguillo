@@ -10,10 +10,20 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, Clock, UserX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
-import type { Patient, Appointment, Clinic } from '@/lib/definitions';
+import { 
+  getPatients, 
+  getPatientCounts, 
+  deletePatient, 
+  updatePatientStatus, 
+  savePatient, 
+  getAppointments, 
+  getClinics, 
+  updatePatient, 
+  deleteAppointment 
+} from '@/lib/actions';
+import type { Patient, Appointment, Clinic, ArchiveCounts } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
@@ -30,21 +40,18 @@ import {
 import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppointmentList } from '../appointment-list';
-import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
-import { downloadExcel } from '@/lib/report-helpers';
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
 };
 
-type FilterType = 'today' | 'week' | 'month' | 'range';
-
 export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [activeTab, setActiveTab] = useState('patients');
 
   // Patient states
-  const [allPatients, setAllPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [counts, setCounts] = useState<ArchiveCounts>({ total: 0, vigente: 0, bajaTemporal: 0, bajaDefinitiva: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Total' | PatientStatusEnum>(PatientStatusEnum.Vigente);
   
@@ -52,16 +59,15 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [schedulingPatient, setSchedulingPatient] = useState<Patient | null>(null);
+  
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   
   // Appointment states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>('today');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
-  const [isClient, setIsClient] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'today' | 'week' | 'month' | 'range'>('today');
 
   // Common states
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -69,85 +75,42 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const { toast } = useToast();
 
-  useEffect(() => {
-      setIsClient(true);
-  }, []);
-
-  const loadInitialData = useCallback(async () => {
+  const loadPatientsData = useCallback(async () => {
     setIsDataLoading(true);
     try {
-      const [patientsData, appointmentsData, clinicsData] = await Promise.all([
-        fetchPatients(),
-        dataGetAppointments(),
-        dataGetClinics()
+      const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
+        getPatients({ status: statusFilter, search: searchTerm, limitNum: 5000 }),
+        getPatientCounts(),
+        getClinics(),
+        getAppointments()
       ]);
       
-      setAllPatients(Array.isArray(patientsData) ? patientsData : []);
-      setAllAppointments(appointmentsData || []);
+      setPatients(patientsData || []);
+      setCounts(countsData);
       setClinics(clinicsData || []);
+      setAllAppointments(appointmentsData || []);
     } catch (error: any) {
       console.error("Dashboard load error:", error);
       toast({
         title: 'Error de Carga',
-        description: error.message || 'No se pudieron recuperar los registros.',
+        description: 'No se pudieron recuperar los registros. Inténtalo de nuevo.',
         variant: 'destructive',
       });
     } finally {
       setIsDataLoading(false);
     }
-  }, [toast]);
+  }, [statusFilter, searchTerm, toast]);
   
   useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
-
-  const filteredPatients = useMemo(() => {
-    let result = [...allPatients];
-
-    // Aplicar filtro de estatus
-    if (statusFilter !== 'Total') {
-        result = result.filter(p => {
-            if (statusFilter === PatientStatusEnum.Vigente) {
-                return !p.status || p.status === PatientStatusEnum.Vigente;
-            }
-            return p.status === statusFilter;
-        });
-    }
-
-    // Aplicar búsqueda de texto (Nombre, CURP, Expediente)
-    if (!searchTerm) return result;
-    
-    const lowercasedTerm = searchTerm.toLowerCase().trim();
-    const searchParts = lowercasedTerm.split(' ').filter(part => part);
-    
-    return result.filter(patient => {
-      const fullName = `${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`.toLowerCase();
-      const curp = (patient.curp || '').toLowerCase();
-      const expediente = (patient.expediente || '').toLowerCase();
-
-      return searchParts.every(part => 
-        fullName.includes(part) || 
-        curp.includes(part) || 
-        expediente.includes(part)
-      );
-    });
-  }, [allPatients, searchTerm, statusFilter]);
+    loadPatientsData();
+  }, [loadPatientsData]);
 
   const paginatedPatients = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
-    return filteredPatients.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredPatients, currentPage, rowsPerPage]);
+    return patients.slice(startIndex, startIndex + rowsPerPage);
+  }, [patients, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
-
-  const summaryCounts = useMemo(() => {
-    const total = allPatients.length;
-    const vigente = allPatients.filter(p => !p.status || p.status === PatientStatusEnum.Vigente).length;
-    const bajaTemporal = allPatients.filter(p => p.status === PatientStatusEnum.Baja).length;
-    const bajaDefinitiva = allPatients.filter(p => p.status === PatientStatusEnum.BajaDefinitiva).length;
-
-    return { total, vigente, bajaTemporal, bajaDefinitiva };
-  }, [allPatients]);
+  const totalPages = Math.ceil(patients.length / rowsPerPage);
 
   const handleAddNew = () => { setEditingPatient(null); setIsEditOpen(true); };
   const handleEdit = (patient: Patient) => { setEditingPatient(patient); setIsEditOpen(true); };
@@ -158,7 +121,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const result = await deletePatient(patientId);
       if(result.success) {
         toast({ title: "Paciente Eliminado"});
-        loadInitialData();
+        loadPatientsData();
       } else {
         toast({ title: "Error", description: result.message, variant: 'destructive'});
       }
@@ -169,10 +132,8 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     startSubmitTransition(async () => {
         const result = await deleteAppointment(appointmentId);
         if (result.success) {
-            toast({ title: 'Cita Eliminada', description: 'La cita ha sido eliminada.' });
-            loadInitialData();
-        } else {
-            toast({ title: 'Error', description: 'No se pudo eliminar la cita.', variant: 'destructive' });
+            toast({ title: 'Cita Eliminada' });
+            loadPatientsData();
         }
     });
   };
@@ -182,9 +143,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const result = await updatePatientStatus(patientId, newStatus);
        if(result.success) {
         toast({ title: "Estado Actualizado" });
-        loadInitialData();
-      } else {
-        toast({ title: "Error", description: result.message, variant: 'destructive'});
+        loadPatientsData();
       }
     });
   }
@@ -199,182 +158,148 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         toast({ title: "Paciente Guardado" });
         setIsEditOpen(false);
         setEditingPatient(null);
-        loadInitialData();
-      } else {
-        toast({ title: "Error al Guardar", description: result.message, variant: 'destructive' });
+        loadPatientsData();
       }
     });
   }
 
   const handleDownloadExcel = async () => {
-    if (filteredPatients.length === 0) {
-        toast({ title: "No hay datos", description: "No hay pacientes para descargar.", variant: "destructive"});
+    if (patients.length === 0) {
+        toast({ title: "No hay datos", variant: "destructive"});
         return;
     }
     const xlsx = await import('xlsx');
-    const worksheetData = filteredPatients.map(patient => ({
-        'No.Expediente': patient.expediente ?? '', 
-        'Nombre': patient.name ?? '', 
-        'Apaterno': patient.paternalLastName ?? '', 
-        'Amaterno': patient.maternalLastName ?? '', 
-        'FNacimiento': patient.birthDate ?? '', 
-        'Edad': patient.age ?? '', 
-        'Sexo': patient.sex ?? '', 
-        'Estado': patient.birthState ?? '', 
-        'Domicilio': patient.address ?? '', 
-        'Colonia': patient.coloniaName ?? '', 
-        'FechaApertura': patient.registrationDate ?? '', 
-        'Estatus': patient.status ?? 'Vigente', 
-        'Telefono': patient.phoneNumber ?? '', 
-        'CURP': patient.curp ?? '',
+    const worksheetData = patients.map(p => ({
+        'No.Expediente': p.expediente ?? '', 
+        'Nombre': p.name ?? '', 
+        'Apaterno': p.paternalLastName ?? '', 
+        'Amaterno': p.maternalLastName ?? '', 
+        'FNacimiento': p.birthDate ?? '', 
+        'Edad': p.age ?? '', 
+        'Sexo': p.sex ?? '', 
+        'Domicilio': p.address ?? '', 
+        'Estatus': p.status ?? 'Vigente', 
+        'Telefono': p.phoneNumber ?? '', 
+        'CURP': p.curp ?? '',
     }));
-    const worksheet = xlsx.utils.json_to_sheet(worksheetData);
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Pacientes');
-    xlsx.writeFile(workbook, `padrón_pacientes.xlsx`);
+    const ws = xlsx.utils.json_to_sheet(worksheetData);
+    const wb = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(wb, ws, 'Pacientes');
+    xlsx.writeFile(wb, `padron_pacientes_${statusFilter}.xlsx`);
   }
 
-  const getFilteredAppointments = useCallback((appointmentsToFilter: any[]) => {
-    if (!isClient || !appointmentsToFilter || appointmentsToFilter.length === 0) return [];
-    let filterFn: (app: any) => boolean;
-    const now = new Date();
-    switch (activeFilter) {
-      case 'week':
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 }); const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: weekStart, end: weekEnd });
-        break;
-      case 'month':
-        const monthStart = startOfMonth(now); const monthEnd = endOfMonth(now);
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd });
-        break;
-      case 'range':
-        if (dateRange?.from && dateRange?.to) {
-          const rangeStart = startOfDay(dateRange.from); const rangeEnd = endOfDay(dateRange.to);
-          filterFn = (app) => isWithinInterval(parseISO(app.date), { start: rangeStart, end: rangeEnd });
-        } else return [];
-        break;
-      default:
-        const todayStart = startOfDay(now); const todayEnd = endOfDay(now);
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd });
-        break;
-    }
-    return appointmentsToFilter.filter(filterFn);
-  }, [isClient, activeFilter, dateRange]);
-  
-  const appointmentsToDisplay = useMemo(() => {
-    const dateFilteredAppointments = getFilteredAppointments(allAppointments);
-    if (selectedClinics.length > 0) {
-        return dateFilteredAppointments.filter(app => selectedClinics.includes(app.clinicId));
-    }
-    return dateFilteredAppointments;
-  }, [allAppointments, selectedClinics, getFilteredAppointments]);
-
-  const handleAppointmentsExcelDownload = async () => {
-    if (appointmentsToDisplay.length === 0) {
-      toast({ title: 'No hay datos', variant: 'destructive' });
-      return;
-    }
-    const enrichedAppointments = appointmentsToDisplay.map((app) => ({
-      ...app,
-      clinicName: clinics.find(c => c.id === app.clinicId)?.name || 'N/A'
-    }));
-    await downloadExcel(enrichedAppointments, `reporte_citas_${activeFilter}`);
-  };
-
   const mainHeader = (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className="border-none shadow-none bg-transparent">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
-          <CardTitle className="text-3xl font-bold font-headline">Archivo</CardTitle>
-          <CardDescription>Gestión del padrón de pacientes.</CardDescription>
+          <h1 className="text-3xl font-bold font-headline">Control de Archivo</h1>
+          <p className="text-muted-foreground">Gestión integral del padrón de pacientes y citas.</p>
         </div>
-        <Button variant="outline" onClick={onLogout}>
+        <Button variant="outline" onClick={onLogout} className="w-full sm:w-auto">
           <LogOut className="mr-2 h-4 w-4" />
-          Salir
+          Cerrar Sesión
         </Button>
-      </CardHeader>
+      </div>
     </Card>
   );
 
   return (
-    <div className="space-y-6 container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-6 space-y-8">
       {mainHeader}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Pacientes Vigentes', count: counts.vigente, status: PatientStatusEnum.Vigente, icon: UserCheck, color: 'text-green-600' },
+          { label: 'Baja Temporal', count: counts.bajaTemporal, status: PatientStatusEnum.Baja, icon: Clock, color: 'text-yellow-600' },
+          { label: 'Baja Definitiva', count: counts.bajaDefinitiva, status: PatientStatusEnum.BajaDefinitiva, icon: UserX, color: 'text-red-600' },
+          { label: 'Total de Pacientes', count: counts.total, status: 'Total' as const, icon: Users, color: 'text-primary' }
+        ].map((item) => (
+          <button
+            key={item.label}
+            onClick={() => { setStatusFilter(item.status); setCurrentPage(1); }}
+            className={cn(
+              "group relative flex flex-col items-start p-4 rounded-xl border transition-all duration-200 text-left outline-none",
+              statusFilter === item.status 
+                ? "bg-card border-primary ring-2 ring-primary/20 shadow-lg scale-[1.02]" 
+                : "bg-muted/30 border-transparent hover:bg-muted/50 hover:border-muted-foreground/20"
+            )}
+          >
+            <div className="flex items-center justify-between w-full mb-2">
+              <item.icon className={cn("h-5 w-5", item.color)} />
+              {statusFilter === item.status && <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
+            </div>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{item.label}</span>
+            <span className={cn("text-2xl font-bold", item.color)}>{item.count.toLocaleString()}</span>
+          </button>
+        ))}
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="patients">Pacientes</TabsTrigger>
-            <TabsTrigger value="appointments">Reporte de Citas</TabsTrigger>
+          <TabsTrigger value="patients">Padrón de Pacientes</TabsTrigger>
+          <TabsTrigger value="appointments">Reporte de Citas</TabsTrigger>
         </TabsList>
-        <TabsContent value="patients" className="space-y-4 mt-4">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button 
-                  onClick={() => { setStatusFilter('Total'); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === 'Total' ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
-                >
-                    <Card className={cn("h-full", statusFilter === 'Total' && "bg-primary/5 border-primary shadow-md")}>
-                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Total de Pacientes</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold">{summaryCounts.total}</div></CardContent>
-                    </Card>
-                </button>
-                <button 
-                  onClick={() => { setStatusFilter(PatientStatusEnum.Vigente); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
-                >
-                    <Card className={cn("h-full", statusFilter === PatientStatusEnum.Vigente && "bg-primary/5 border-primary shadow-md")}>
-                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Vigentes</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold text-green-600">{summaryCounts.vigente}</div></CardContent>
-                    </Card>
-                </button>
-                <button 
-                  onClick={() => { setStatusFilter(PatientStatusEnum.Baja); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
-                >
-                    <Card className={cn("h-full", statusFilter === PatientStatusEnum.Baja && "bg-primary/5 border-primary shadow-md")}>
-                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Temporal</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div></CardContent>
-                    </Card>
-                </button>
-                <button 
-                  onClick={() => { setStatusFilter(PatientStatusEnum.BajaDefinitiva); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
-                >
-                    <Card className={cn("h-full", statusFilter === PatientStatusEnum.BajaDefinitiva && "bg-primary/5 border-primary shadow-md")}>
-                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Definitiva</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div></CardContent>
-                    </Card>
-                </button>
-           </div>
+
+        <TabsContent value="patients" className="space-y-4 pt-4">
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="relative flex-grow w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input placeholder="Buscar por nombre, expediente, CURP..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-10 w-full" />
+            <CardHeader className="pb-4">
+              <div className="flex flex-col lg:flex-row items-center gap-4">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar por Nombre, CURP o No. de Expediente..." 
+                    value={searchTerm} 
+                    onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+                    className="pl-10 h-11"
+                  />
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <Button onClick={handleAddNew}><Plus className="h-4 w-4 mr-2"/>Agregar</Button>
-                    <Button onClick={() => setIsUploadOpen(true)} variant="secondary"><Upload className="h-4 w-4 mr-2"/>Cargar</Button>
-                    <Button onClick={handleDownloadExcel} variant="outline"><Download className="h-4 w-4 mr-2"/>Excel</Button>
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                  <Button onClick={handleAddNew} className="h-11 flex-1 lg:flex-none">
+                    <Plus className="h-4 w-4 mr-2" /> Agregar
+                  </Button>
+                  <Button onClick={() => setIsUploadOpen(true)} variant="secondary" className="h-11 flex-1 lg:flex-none">
+                    <Upload className="h-4 w-4 mr-2" /> Cargar
+                  </Button>
+                  <Button onClick={handleDownloadExcel} variant="outline" className="h-11 flex-1 lg:flex-none">
+                    <Download className="h-4 w-4 mr-2" /> Exportar
+                  </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               {isDataLoading ? (
-                <div className="flex flex-col justify-center items-center h-64 gap-4">
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-muted-foreground animate-pulse">Recuperando registros...</p>
+                  <p className="text-muted-foreground font-medium animate-pulse">Sincronizando con la base de datos...</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>
-                  <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
-                    <div className="flex items-center gap-2">
-                        <Select value={String(rowsPerPage)} onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}><SelectTrigger className="w-20"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem></SelectContent></Select>
-                        <span className="text-sm text-muted-foreground">por página</span>
+                  <PatientList 
+                    patients={paginatedPatients} 
+                    onEdit={handleEdit} 
+                    onDelete={handleDelete} 
+                    onStatusChange={handleStatusChange} 
+                    onSchedule={handleSchedule} 
+                    isSubmitting={isSubmitting}
+                  />
+                  
+                  <div className="flex flex-col sm:flex-row items-center justify-between border-t pt-4 gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">Mostrar</span>
+                      <Select value={String(rowsPerPage)} onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}>
+                        <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                          <SelectItem value="200">200</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">de {patients.length} registros</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-sm">Página {currentPage} de {totalPages || 1}</span>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
-                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                      <div className="bg-muted px-3 py-1 rounded-md text-sm font-medium">Página {currentPage} de {totalPages || 1}</div>
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
                     </div>
                   </div>
                 </div>
@@ -382,27 +307,26 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="appointments" className="space-y-4 mt-4">
+
+        <TabsContent value="appointments" className="pt-4">
           <Card>
-            <CardHeader><CardTitle>Reporte de Citas</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Historial Reciente de Citas</CardTitle></CardHeader>
             <CardContent>
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Mes</Button>
-                    <div className="flex-grow" />
-                    <Button onClick={handleAppointmentsExcelDownload} variant="outline"><Download className="h-4 w-4 mr-2"/>Excel</Button>
-                </div>
-                <div className="mt-6">
-                    {isDataLoading ? <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div> : <AppointmentList appointments={appointmentsToDisplay} clinics={clinics} isAdmin onDelete={handleAppointmentDelete} onEditSuccess={loadInitialData} />}
-                </div>
+              <AppointmentList 
+                appointments={allAppointments} 
+                clinics={clinics} 
+                isAdmin 
+                onDelete={handleAppointmentDelete} 
+                onEditSuccess={loadPatientsData} 
+              />
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadInitialData} />
+
+      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadPatientsData} />
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
-      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadInitialData(); }} clinics={clinics} colonias={[]} />}
+      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadPatientsData(); }} clinics={clinics} colonias={[]} />}
     </div>
   );
 }

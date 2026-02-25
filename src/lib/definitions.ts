@@ -268,3 +268,10 @@ export type ModuleSettings = {
 export type ArchiveSettings = {
     password?: string;
 }
+
+export type ArchiveCounts = {
+  total: number;
+  vigente: number;
+  bajaTemporal: number;
+  bajaDefinitiva: number;
+};

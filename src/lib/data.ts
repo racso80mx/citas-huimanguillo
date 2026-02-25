@@ -16,7 +16,8 @@ import {
   limit,
   documentId,
   addDoc,
-  getFirestore
+  getFirestore,
+  getCountFromServer
 } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -45,6 +46,7 @@ import type {
   ActivityLog,
   ArchiveSettings,
   PatientStatus,
+  ArchiveCounts,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -58,24 +60,14 @@ function getDb() {
   return getFirestore(app);
 }
 
-/**
- * Procesa datos de Firestore para que sean serializables por Next.js.
- * Convierte Timestamps en strings ISO.
- */
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
-
-  // Si es un Timestamp de Firebase
   if (data instanceof Timestamp || (typeof data.toDate === 'function')) {
     return data.toDate().toISOString();
   }
-
-  // Si es un Array, procesar cada elemento
   if (Array.isArray(data)) {
     return data.map(item => serializeData(item));
   }
-
-  // Si es un Objeto plano
   if (typeof data === 'object' && data !== null && !(data instanceof Date)) {
     const serialized: any = {};
     for (const key in data) {
@@ -85,7 +77,6 @@ function serializeData(data: any): any {
     }
     return serialized;
   }
-
   return data;
 }
 
@@ -125,8 +116,59 @@ export async function logActivity(action: string, details: string) {
 }
 
 // =====================================================================
-// PATIENTS
+// PATIENTS & ARCHIVE
 // =====================================================================
+
+export async function getPatientCounts(): Promise<ArchiveCounts> {
+  const db = getDb();
+  const coll = collection(db, 'patients');
+  
+  const [totalSnap, vigenteSnap, bajaSnap, definitivaSnap] = await Promise.all([
+    getCountFromServer(coll),
+    getCountFromServer(query(coll, where('status', '==', PatientStatusEnum.Vigente))),
+    getCountFromServer(query(coll, where('status', '==', PatientStatusEnum.Baja))),
+    getCountFromServer(query(coll, where('status', '==', PatientStatusEnum.BajaDefinitiva)))
+  ]);
+
+  return {
+    total: totalSnap.data().count,
+    vigente: vigenteSnap.data().count,
+    bajaTemporal: bajaSnap.data().count,
+    bajaDefinitiva: definitivaSnap.data().count
+  };
+}
+
+export async function getPatients(options?: { 
+  status?: string | 'Total', 
+  search?: string, 
+  limitNum?: number 
+}): Promise<Patient[]> {
+  const db = getDb();
+  let q = query(collection(db, 'patients'));
+
+  if (options?.status && options.status !== 'Total') {
+    q = query(q, where('status', '==', options.status));
+  }
+
+  // Firebase no soporta búsqueda LIKE nativa compleja sin índices especiales.
+  // Para 20k+ registros, si hay búsqueda, traemos una muestra mayor y filtramos en memoria (RSC tiene más recursos)
+  const maxToFetch = options?.search ? 10000 : (options?.limitNum || 1000);
+  const snap = await getDocs(query(q, limit(maxToFetch)));
+  
+  let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
+
+  if (options?.search) {
+    const term = options.search.toLowerCase().trim();
+    results = results.filter(p => {
+      const fullName = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toLowerCase();
+      const curp = (p.curp || '').toLowerCase();
+      const exp = (p.expediente || '').toLowerCase();
+      return fullName.includes(term) || curp.includes(term) || exp.includes(term);
+    });
+  }
+
+  return results;
+}
 
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {
   const db = getDb();
@@ -135,13 +177,6 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
   const snap = await getDocs(q);
   if (snap.empty) return null;
   return serializeData({ id: snap.docs[0].id, ...snap.docs[0].data() }) as Patient;
-}
-
-export async function getPatients(): Promise<Patient[]> {
-  const db = getDb();
-  // Firestore tiene un límite de 10,000 para consultas estructuradas en ciertos contextos
-  const snap = await getDocs(query(collection(db, 'patients'), limit(10000)));
-  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 }
 
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
@@ -264,7 +299,6 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
-    // Validación de duplicados en el servidor (evita Index Required error)
     if (existingPatient && !curp.startsWith('RN-')) {
       const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
       const q = query(collection(db, 'appointments'), where('patientId', '==', existingPatient.id));
@@ -637,7 +671,6 @@ export async function bulkUpdateStatusChunk(expedientes: string[], status: Patie
   const db = getDb();
   if (!expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
-  // Realizar coincidencia flexible en memoria para evitar fallos por ceros iniciales
   const allSnap = await getDocs(query(collection(db, 'patients'), limit(10000)));
   const allPatients = allSnap.docs;
   
