@@ -108,12 +108,14 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return allPatients;
     const lowercasedTerm = searchTerm.toLowerCase();
-    return allPatients.filter(patient =>
-      (patient.name?.toLowerCase().includes(lowercasedTerm)) ||
-      (patient.paternalLastName?.toLowerCase().includes(lowercasedTerm)) ||
-      (patient.maternalLastName?.toLowerCase().includes(lowercasedTerm)) ||
-      (patient.curp?.toLowerCase().includes(lowercasedTerm))
-    );
+    const searchParts = lowercasedTerm.split(' ').filter(part => part);
+    
+    return allPatients.filter(patient => {
+      const fullName = `${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`.toLowerCase();
+      const curp = (patient.curp || '').toLowerCase();
+
+      return searchParts.every(part => fullName.includes(part) || curp.includes(part));
+    });
   }, [allPatients, searchTerm]);
 
   const paginatedPatients = useMemo(() => {
@@ -466,7 +468,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardContent>
               {isLoading ? <div className="flex flex-col justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /> <span className='ml-2 mt-4 text-muted-foreground'>Cargando registros de pacientes...</span></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
               <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Filas:</span><Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem><SelectItem value="200">200</SelectItem><SelectItem value="500">500</SelectItem></SelectContent></Select></div>
+                <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Filas:</span><Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem><SelectItem value="200">200</SelectItem></SelectContent></Select></div>
                 <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages > 0 ? totalPages : 1}</span><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
               </div>
             </CardContent>
