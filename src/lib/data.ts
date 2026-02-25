@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { 
@@ -619,7 +620,7 @@ export async function saveLabAppointment(appointmentData: Omit<LabAppointment, '
     return { success: true, data: fullAppointment };
 }
 
-export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
+export async function saveNewXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
     const patientRef = await upsertPatient(patientData);
@@ -640,7 +641,7 @@ export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment,
     return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
 }
 
-export async function saveUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
+export async function saveNewUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
     const patientRef = await upsertPatient(patientData);
@@ -661,7 +662,7 @@ export async function saveUltrasoundAppointment(appointmentData: Omit<Ultrasound
     return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
 }
 
-export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
+export async function saveNewVaccineAppointment(appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
     const finalColoniaName = appointmentData.coloniaName ?? patientData.coloniaName ?? '';
@@ -858,7 +859,7 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         return mappedPatient;
     });
 
-    const expedientesInChunk = [...new Set(mappedPatients.map(p => p.expediente).filter(e => e !== null && e !== undefined && String(e).trim() !== ''))].map(String);
+    const expedientesInChunk = [...new Set(mappedPatients.map(p => p.expediente).filter(e => e != null && String(e).trim() !== ''))].map(String);
     const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1 && !c.startsWith('RN-')))];
     
     const patientsCollection = collection(adminDb, 'patients');
@@ -1014,7 +1015,8 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
         list.reduce((previous, currentItem) => {
             const groupKey = getKey(currentItem);
-            if(groupKey) {
+            // Robust check for null, undefined, and empty strings
+            if (groupKey != null && String(groupKey).trim() !== '') {
                  if (!previous[groupKey]) previous[groupKey] = [];
                  previous[groupKey].push(currentItem);
             }
@@ -1024,13 +1026,14 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     const filterDuplicates = (grouped: Record<string, Patient[]>) => 
         Object.values(grouped).filter(group => group.length > 1);
     
-    const groupedByExpediente = groupBy(allPatients.filter(p => p.expediente), p => p.expediente!);
+    // No '!' needed. Let groupBy handle potentially undefined keys.
+    const groupedByExpediente = groupBy(allPatients, p => p.expediente);
     const duplicatesByExpediente = filterDuplicates(groupedByExpediente);
 
     const groupedByCurp = groupBy(allPatients.filter(p => p.curp && !p.curp.startsWith('RN-')), p => p.curp);
     const duplicatesByCurp = filterDuplicates(groupedByCurp);
 
-    const groupedByName = groupBy(allPatients, p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.trim().toUpperCase());
+    const groupedByName = groupBy(allPatients, p => `${p.name || ''} ${p.paternalLastName || ''} ${p.maternalLastName || ''}`.trim().toUpperCase());
     const duplicatesByName = filterDuplicates(groupedByName);
 
     return {
@@ -1039,6 +1042,7 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
         byName: duplicatesByName,
     };
 }
+
 
 export async function deletePatients(patientIds: string[]): Promise<{ success: boolean; message: string; undeletedCount: number }> {
     if (!adminDb) throw new Error("Database not initialized.");
@@ -1132,3 +1136,4 @@ export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean
     
     return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
 }
+

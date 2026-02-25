@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -424,7 +425,7 @@ export async function deletePatients(patientIds: string[]) {
     }
     return result;
 }
-
+    
 export async function autoCleanupDuplicates() {
     const result = await autoCleanupDuplicatePatients();
     if (result.success) {
