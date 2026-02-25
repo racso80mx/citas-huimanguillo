@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -333,13 +334,41 @@ export async function getArchiveSettings() {
     return dataGetArchiveSettings();
 }
 
-export async function getPatients(options?: { searchTerm?: string }) { 
-    return dataGetPatients(options); 
+export async function getPatients() { 
+    return dataGetPatients(); 
 }
-export async function deletePatient(patientId: string) { const result = await dataDeletePatient(patientId); if (result.success) { await logActivity('Eliminación Paciente', `Paciente con ID ${patientId} eliminado.`); revalidatePath('/archivo'); } return result; }
-export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) { const result = await dataUpdatePatientStatus(patientId, newStatus); if (result.success) { await logActivity('Actualización Estado Paciente', `Estado del paciente ${patientId} cambiado a ${newStatus}.`); revalidatePath('/archivo'); } return result; }
-export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { const result = await dataSavePatient(patient, id); if (result.success) { await logActivity('Guardado de Paciente', `Paciente ${patient.name} ${patient.paternalLastName} guardado.`); revalidatePath('/archivo'); } return result; }
-export async function bulkInsertPatients(patients: any[]) { const result = await dataBulkInsertPatients(patients); if(result.success) { await logActivity('Carga Masiva Pacientes', `Se procesaron ${result.processedCount} registros.`); revalidatePath('/archivo'); } return result; }
+export async function deletePatient(patientId: string) { 
+    const result = await dataDeletePatient(patientId);
+    if (result.success) {
+        await logActivity('Eliminación Paciente', `Paciente con ID ${patientId} eliminado.`);
+        revalidatePath('/archivo'); 
+    }
+    return result; 
+}
+export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) { 
+    const result = await dataUpdatePatientStatus(patientId, newStatus);
+    if (result.success) {
+        await logActivity('Actualización Estado Paciente', `Estado del paciente ${patientId} cambiado a ${newStatus}.`);
+        revalidatePath('/archivo'); 
+    }
+    return result; 
+}
+export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { 
+    const result = await dataSavePatient(patient, id);
+    if (result.success) {
+        await logActivity('Guardado de Paciente', `Paciente ${patient.name} ${patient.paternalLastName} guardado.`);
+        revalidatePath('/archivo'); 
+    }
+    return result; 
+}
+export async function bulkInsertPatients(patients: any[]) { 
+    const result = await dataBulkInsertPatients(patients);
+    if(result.success) {
+        await logActivity('Carga Masiva Pacientes', `Se procesaron ${result.processedCount} registros.`);
+        revalidatePath('/archivo');
+    }
+    return result;
+}
 export async function updateArchiveSettings(settings: ArchiveSettings) { const result = await dataUpdateArchiveSettings(settings); if (result.success) { await logActivity('Actualización Contraseña Archivo', `Se actualizó la contraseña del módulo de archivo.`); revalidatePath('/admin', 'layout'); } return result; }
 
 export async function verifyArchivePassword(passwordAttempt: string) { 

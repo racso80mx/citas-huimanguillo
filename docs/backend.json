@@ -80,7 +80,8 @@
         },
         "status": {
           "type": "string",
-          "description": "Patient's current status."
+          "description": "Patient's current status.",
+          "enum": ["Vigente", "Baja", "Baja Definitiva"]
         },
         "derechoAbiencia": {
           "type": "string",
@@ -91,6 +92,11 @@
         },
         "curp": {
           "type": "string"
+        },
+        "lastAppointmentDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Date of the patient's last appointment."
         }
       },
       "required": [

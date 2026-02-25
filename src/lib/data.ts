@@ -783,10 +783,24 @@ export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isV
 export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getUltrasoundSettings(); return { isValid: settings.password === passwordAttempt }; }
 export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getVaccineSettings(); return { isValid: settings.password === passwordAttempt }; }
 
-export async function getPatients(): Promise<Patient[]> {
+export async function getPatients(options?: { searchTerm?: string }): Promise<Patient[]> {
     if (!adminDb) return [];
+    
+    // For simplicity and better partial matching, fetching all and filtering in-memory.
+    // This is not optimal for very large datasets but provides the best search experience for this context.
     const snapshot = await getDocs(query(collection(adminDb, 'patients'), orderBy('paternalLastName')));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+    const allPatients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+
+    if (options?.searchTerm) {
+        const lowercasedTerm = options.searchTerm.toLowerCase();
+        return allPatients.filter(patient => {
+            const fullName = `${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`.toLowerCase();
+            const curp = (patient.curp || '').toLowerCase();
+            return fullName.includes(lowercasedTerm) || curp.includes(lowercasedTerm);
+        });
+    }
+
+    return allPatients;
 }
 
 
