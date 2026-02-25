@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, History, UserX, FileDown, Calendar as CalendarIcon, Check, PlusCircle } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown, Calendar as CalendarIcon, Check, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
 import type { Patient, PatientStatus, Appointment, Clinic, ClinicType, Colonia } from '@/lib/definitions';
@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { differenceInYears, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
+import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppointmentList } from '../appointment-list';
@@ -53,7 +53,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   // Patient states
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  const [isSearching, startSearchTransition] = useTransition();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -80,22 +80,19 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       setIsClient(true);
   }, []);
 
-  const loadData = useCallback(async () => {
+  const loadInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [patientsData, appointmentsData, clinicsData] = await Promise.all([
-        fetchPatients(),
+      const [appointmentsData, clinicsData] = await Promise.all([
         dataGetAppointments(),
         dataGetClinics()
       ]);
-      setPatients(patientsData);
-      setFilteredPatients(patientsData);
       setAllAppointments(appointmentsData);
       setClinics(clinicsData);
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudieron cargar todos los datos.',
+        description: 'No se pudieron cargar los datos de configuración de citas.',
         variant: 'destructive',
       });
     } finally {
@@ -104,56 +101,47 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [toast]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadInitialData();
+  }, [loadInitialData]);
 
-  // Patient Search Logic
+  // Debounced server-side search
   useEffect(() => {
-    const searchKeywords = searchTerm.toLowerCase().split(' ').filter(kw => kw);
-    if (searchKeywords.length === 0) {
-      setFilteredPatients(patients);
-      setCurrentPage(1);
-      return;
-    }
-    const filteredData = patients.filter(patient => {
-      const searchableString = [
-        patient.name,
-        patient.paternalLastName,
-        patient.maternalLastName,
-        patient.curp
-      ].filter(Boolean).join(' ').toLowerCase();
-      return searchKeywords.every(keyword => searchableString.includes(keyword));
-    });
-    setFilteredPatients(filteredData);
-    setCurrentPage(1);
-  }, [searchTerm, patients]);
+    const handler = setTimeout(() => {
+      if (searchTerm.length === 0) {
+        setPatients([]);
+        return;
+      }
+      if (searchTerm.length < 3) {
+        return;
+      }
+      startSearchTransition(async () => {
+        const result = await fetchPatients({ searchTerm });
+        setPatients(result);
+        setCurrentPage(1);
+      });
+    }, 500); // 500ms debounce delay
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm]);
+
 
   const paginatedPatients = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
-    return filteredPatients.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredPatients, currentPage, rowsPerPage]);
+    return patients.slice(startIndex, startIndex + rowsPerPage);
+  }, [patients, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
+  const totalPages = Math.ceil(patients.length / rowsPerPage);
 
-  const summary = useMemo(() => {
-    if (!patients || patients.length === 0) return { total: 0, vigentes: 0, bajaTemporal: 0, bajaDefinitiva: 0 };
-    const now = new Date();
-    let vigentes = 0;
-    let bajaTemporal = 0;
-    let bajaDefinitiva = 0;
-    patients.forEach(patient => {
-      if (!patient.lastAppointmentDate) {
-        vigentes++;
-        return;
-      }
-      const lastDate = parseISO(patient.lastAppointmentDate);
-      const yearsSinceLastAppointment = differenceInYears(now, lastDate);
-      if (yearsSinceLastAppointment < 5) vigentes++;
-      else if (yearsSinceLastAppointment >= 5 && yearsSinceLastAppointment < 6) bajaTemporal++;
-      else bajaDefinitiva++;
-    });
-    return { total: patients.length, vigentes, bajaTemporal, bajaDefinitiva };
-  }, [patients]);
+  const refreshPatientList = useCallback(async () => {
+    if (searchTerm) {
+        startSearchTransition(async () => {
+            const results = await fetchPatients({ searchTerm: searchTerm });
+            setPatients(results);
+        });
+    }
+  }, [searchTerm]);
 
   const handleAddNew = () => { setEditingPatient(null); setIsEditOpen(true); };
   const handleEdit = (patient: Patient) => { setEditingPatient(patient); setIsEditOpen(true); };
@@ -164,7 +152,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const result = await deletePatient(patientId);
       if(result.success) {
         toast({ title: "Paciente Eliminado"});
-        await loadData();
+        await refreshPatientList();
       } else {
         toast({ title: "Error", description: result.message, variant: 'destructive'});
       }
@@ -176,7 +164,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         const result = await deleteAppointment(appointmentId);
         if (result.success) {
             toast({ title: 'Cita Eliminada', description: 'La cita ha sido eliminada del sistema.' });
-            loadData(); // Re-fetch data
+            loadInitialData(); // Re-fetch all initial data
         } else {
             toast({ title: 'Error', description: 'No se pudo eliminar la cita.', variant: 'destructive' });
         }
@@ -188,7 +176,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const result = await updatePatientStatus(patientId, newStatus);
        if(result.success) {
         toast({ title: "Estado Actualizado" });
-        await loadData();
+        await refreshPatientList();
       } else {
         toast({ title: "Error", description: result.message, variant: 'destructive'});
       }
@@ -205,7 +193,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         toast({ title: "Paciente Guardado" });
         setIsEditOpen(false);
         setEditingPatient(null);
-        await loadData();
+        await refreshPatientList();
       } else {
         toast({ title: "Error al Guardar", description: result.message, variant: 'destructive' });
       }
@@ -213,6 +201,10 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }
 
   const handleDownloadExcel = async () => {
+    if (patients.length === 0) {
+        toast({ title: "No hay datos", description: "Realice una búsqueda para poder descargar los resultados.", variant: "destructive"});
+        return;
+    }
     const xlsx = await import('xlsx');
     const excelHeaders = [
       'No.Expediente', 'Nombre', 'Apaterno', 'Amaterno', 'FNacimiento', 'Edad', 'Sexo', 'Estado', 'Domicilio', 'Colonia', 'NombrePadre', 'NombreMadre', 'EdadPadre', 'EdadMadre', 'FechaApertura', 'Estatus', 'DerechoAbiencia', 'Telefono', 'CURP',
@@ -226,7 +218,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     ];
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Pacientes');
-    xlsx.writeFile(workbook, 'archivo_pacientes_completo.xlsx');
+    xlsx.writeFile(workbook, `busqueda_pacientes.xlsx`);
   }
 
   // Appointment Report Logic
@@ -445,33 +437,15 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <TabsTrigger value="appointments">Reporte de Citas</TabsTrigger>
         </TabsList>
         <TabsContent value="patients" className="space-y-4 mt-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle><Users className="h-4 w-4 text-muted-foreground" /></CardHeader>
-              <CardContent><div className="text-2xl font-bold">{summary.total}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Pacientes Vigentes</CardTitle><UserCheck className="h-4 w-4 text-green-500" /></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-green-600">{summary.vigentes}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Baja Temporal (+5 años)</CardTitle><History className="h-4 w-4 text-yellow-500" /></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-yellow-600">{summary.bajaTemporal}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Baja Definitiva (+6 años)</CardTitle><UserX className="h-4 w-4 text-red-500" /></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-red-600">{summary.bajaDefinitiva}</div></CardContent>
-            </Card>
-          </div>
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="relative flex-grow w-full"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><Input placeholder="Buscar por nombre, apellidos o CURP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 w-full"/></div>
+                <div className="relative flex-grow w-full"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><Input placeholder="Buscar por nombre, apellidos o CURP (mín. 3 caracteres)..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 w-full"/></div>
                 <div className="flex gap-2 w-full sm:w-auto"><Button onClick={handleAddNew} className="flex-grow"><Plus className="mr-2 h-4 w-4"/> Agregar</Button><Button onClick={() => setIsUploadOpen(true)} variant="secondary" className="flex-grow"><Upload className="mr-2 h-4 w-4"/> Carga Masiva</Button><Button onClick={handleDownloadExcel} variant="outline" className="flex-grow"><Download className="mr-2 h-4 w-4"/> Descargar</Button></div>
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
+              {isSearching ? <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /> <span className='ml-2'>Buscando...</span></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Filas:</span><Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem><SelectItem value="200">200</SelectItem></SelectContent></Select></div>
                 <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages > 0 ? totalPages : 1}</span><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
@@ -505,7 +479,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                         clinics={clinics}
                         isAdmin
                         onDelete={handleAppointmentDelete}
-                        onEditSuccess={loadData}
+                        onEditSuccess={loadInitialData}
                      />)}
                 </div>
             </CardContent>
@@ -513,7 +487,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         </TabsContent>
       </Tabs>
       
-      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadData} />
+      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={refreshPatientList} />
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
       {schedulingPatient && (
         <ScheduleAppointmentDialog
@@ -522,7 +496,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             onClose={() => setSchedulingPatient(null)}
             onBookingSuccess={() => {
                 setSchedulingPatient(null);
-                loadData();
+                loadInitialData();
             }}
             clinics={clinics}
             colonias={colonias}

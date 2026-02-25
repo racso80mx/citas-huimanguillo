@@ -270,7 +270,6 @@ export async function updateUltrasoundSettings(settings: UltrasoundSettings) { c
 export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) { const result = await dataUpdateUltrasoundStudies(studies); if (result.success) { await logActivity('Actualización Estudios de Ultrasonido', `Catálogo de estudios de ultrasonido actualizado.`); revalidatePath('/', 'layout'); } return result; }
 export async function updateVaccineSettings(settings: VaccineSettings) { const result = await dataUpdateVaccineSettings(settings); if (result.success) { await logActivity('Actualización Configuración Vacunación', `Ajustes de Vacunación actualizados.`); revalidatePath('/', 'layout'); } return result; }
 export async function updateVaccines(vaccines: Vaccine[]) { const result = await dataUpdateVaccines(vaccines); if (result.success) { await logActivity('Actualización de Vacunas', `Catálogo de vacunas actualizado.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateModuleSettings(settings: ModuleSettings) { const result = await dataUpdateModuleSettings(settings); if (result.success) { await logActivity('Actualización de Módulos', `Configuración de módulos actualizada.`); revalidatePath('/', 'layout'); } return result; }
 export async function updateUsers(users: User[]) { const result = await dataUpdateUsers(users); if (result.success) { await logActivity('Actualización de Usuarios', `Se actualizó la lista de usuarios.`); revalidatePath('/admin'); } return result; }
 
 export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
@@ -295,7 +294,9 @@ export async function getArchiveSettings() {
     return dataGetArchiveSettings();
 }
 
-export async function getPatients() { return dataGetPatients(); }
+export async function getPatients(options?: { searchTerm?: string }) { 
+    return dataGetPatients(options); 
+}
 export async function deletePatient(patientId: string) { const result = await dataDeletePatient(patientId); if (result.success) { await logActivity('Eliminación Paciente', `Paciente con ID ${patientId} eliminado.`); revalidatePath('/archivo'); } return result; }
 export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) { const result = await dataUpdatePatientStatus(patientId, newStatus); if (result.success) { await logActivity('Actualización Estado Paciente', `Estado del paciente ${patientId} cambiado a ${newStatus}.`); revalidatePath('/archivo'); } return result; }
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { const result = await dataSavePatient(patient, id); if (result.success) { await logActivity('Guardado de Paciente', `Paciente ${patient.name} ${patient.paternalLastName} guardado.`); revalidatePath('/archivo'); } return result; }
