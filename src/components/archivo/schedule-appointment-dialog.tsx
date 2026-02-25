@@ -74,7 +74,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
             const appointmentsOnDate = allAppointments.filter(
-            (app) => app.date.split('T')[0] === dateString
+              (app) => app.date.split('T')[0] === dateString
             );
 
             let totalAvailableSlots = 0;
@@ -88,35 +88,36 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 const isDayOfAction = clinic.daysOfAction?.includes(dayOfWeekName);
                 const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
                 const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
-
-                if (isDayOfAction || isUnavailableDate || isWeekendAndNotEnabled) {
-                    availabilityByClinic[clinic.id] = 0;
-                    takenTimesByClinic[clinic.id] = [];
-                    continue;
+    
+                let availableSlotsForClinic = 0;
+                let takenTimes: string[] = [];
+    
+                if (!isDayOfAction && !isUnavailableDate && !isWeekendAndNotEnabled) {
+                    let totalSlotsForClinic = 0;
+                    if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
+                        totalSlotsForClinic = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration).length;
+                    } else {
+                        totalSlotsForClinic = clinic.dailySlots;
+                    }
+                    
+                    const bookedAppointments = appointmentsOnDate.filter(
+                        (app) => app.clinicId === clinic.id
+                    );
+                    
+                    availableSlotsForClinic = Math.max(0, totalSlotsForClinic - bookedAppointments.length);
+                    takenTimes = bookedAppointments.map(app => app.time);
                 }
-                
-                let slotsForClinic = 0;
-                if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
-                    slotsForClinic = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration).length;
-                } else {
-                    slotsForClinic = clinic.dailySlots;
-                }
-                
-                const bookedAppointments = appointmentsOnDate.filter(
-                    (app) => app.clinicId === clinic.id
-                );
-                
-                const available = Math.max(0, slotsForClinic - bookedAppointments.length);
-                availabilityByClinic[clinic.id] = available;
-                totalAvailableSlots += available;
-                takenTimesByClinic[clinic.id] = bookedAppointments.map(app => app.time);
+    
+                availabilityByClinic[clinic.id] = availableSlotsForClinic;
+                totalAvailableSlots += availableSlotsForClinic;
+                takenTimesByClinic[clinic.id] = takenTimes;
             }
 
             availabilityResult.push({
-            date: dateString,
-            availableSlots: totalAvailableSlots,
-            availabilityByClinic,
-            takenTimesByClinic,
+              date: dateString,
+              availableSlots: totalAvailableSlots,
+              availabilityByClinic,
+              takenTimesByClinic,
             });
         }
         setAvailability(availabilityResult);
