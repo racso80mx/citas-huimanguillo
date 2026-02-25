@@ -18,7 +18,8 @@ export type User = {
 
 export enum PatientStatus {
   Vigente = 'Vigente',
-  Baja = 'Baja',
+  Baja = 'Baja', // Represents Baja Temporal
+  BajaDefinitiva = 'Baja Definitiva',
 }
 
 export type Patient = {

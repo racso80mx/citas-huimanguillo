@@ -175,7 +175,8 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                                 <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un estatus"/></SelectTrigger></FormControl>
                                 <SelectContent>
                                     <SelectItem value={PatientStatus.Vigente}>Vigente</SelectItem>
-                                    <SelectItem value={PatientStatus.Baja}>Baja</SelectItem>
+                                    <SelectItem value={PatientStatus.Baja}>Baja Temporal</SelectItem>
+                                    <SelectItem value={PatientStatus.BajaDefinitiva}>Baja Definitiva</SelectItem>
                                 </SelectContent>
                             </Select>
                             <FormMessage />

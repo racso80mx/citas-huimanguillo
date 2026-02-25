@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Pencil, Trash2, ToggleLeft, ToggleRight, ArrowUpDown, ArrowUp, ArrowDown, CalendarPlus } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, CalendarPlus, UserCheck, Clock, UserX } from 'lucide-react';
 import type { Patient, PatientStatus } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { cn } from '@/lib/utils';
@@ -98,6 +98,13 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSche
       return <div className="text-center text-muted-foreground py-10">No se encontraron pacientes.</div>
   }
 
+  const statusDisplayMap = {
+    [PatientStatusEnum.Vigente]: 'Vigente',
+    [PatientStatusEnum.Baja]: 'Baja Temporal',
+    [PatientStatusEnum.BajaDefinitiva]: 'Baja Definitiva',
+  };
+
+
   return (
     <div className="border rounded-lg">
       <Table>
@@ -134,12 +141,12 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSche
                 <Badge
                   className={cn(
                     'font-semibold',
-                    (patient.status === PatientStatusEnum.Vigente || !patient.status)
-                      ? 'border-transparent bg-green-100 text-green-800'
-                      : 'border-transparent bg-red-100 text-red-800'
+                    (!patient.status || patient.status === PatientStatusEnum.Vigente) && 'border-transparent bg-green-100 text-green-800',
+                    patient.status === PatientStatusEnum.Baja && 'border-transparent bg-yellow-100 text-yellow-800',
+                    patient.status === PatientStatusEnum.BajaDefinitiva && 'border-transparent bg-red-100 text-red-800'
                   )}
                 >
-                    {patient.status || PatientStatusEnum.Vigente}
+                    {statusDisplayMap[patient.status as keyof typeof statusDisplayMap] || 'Vigente'}
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
@@ -160,17 +167,15 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSche
                       Editar
                     </DropdownMenuItem>
                     
-                     {(patient.status === PatientStatusEnum.Vigente || !patient.status) ? (
-                        <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Baja)} disabled={isSubmitting}>
-                           <ToggleLeft className="mr-2 h-4 w-4 text-red-500" />
-                            <span>Dar de Baja</span>
-                        </DropdownMenuItem>
-                     ) : (
-                        <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Vigente)} disabled={isSubmitting}>
-                            <ToggleRight className="mr-2 h-4 w-4 text-green-500" />
-                           <span>Reactivar (Vigente)</span>
-                        </DropdownMenuItem>
-                     )}
+                    <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Vigente)} disabled={isSubmitting || !patient.status || patient.status === PatientStatusEnum.Vigente}>
+                        <UserCheck className="mr-2 h-4 w-4 text-green-500" /> Activar (Vigente)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Baja)} disabled={isSubmitting || patient.status === PatientStatusEnum.Baja}>
+                        <Clock className="mr-2 h-4 w-4 text-yellow-500" /> Baja Temporal
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.BajaDefinitiva)} disabled={isSubmitting || patient.status === PatientStatusEnum.BajaDefinitiva}>
+                        <UserX className="mr-2 h-4 w-4 text-red-500" /> Baja Definitiva
+                    </DropdownMenuItem>
                      
                     <AlertDialog>
                        <AlertDialogTrigger asChild>

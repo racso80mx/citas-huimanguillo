@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown, Calendar as CalendarIcon, Check, PlusCircle, User, UserCheck, UserX } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown, Calendar as CalendarIcon, Check, PlusCircle, User, UserCheck, UserX, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
 import type { Patient, PatientStatus, Appointment, Clinic, ClinicType, Colonia } from '@/lib/definitions';
@@ -129,7 +129,8 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     return {
       total: allPatients.length,
       vigente: allPatients.filter(p => p.status === PatientStatusEnum.Vigente || !p.status).length,
-      baja: allPatients.filter(p => p.status === PatientStatusEnum.Baja).length,
+      bajaTemporal: allPatients.filter(p => p.status === PatientStatusEnum.Baja).length,
+      bajaDefinitiva: allPatients.filter(p => p.status === PatientStatusEnum.BajaDefinitiva).length,
     }
   }, [allPatients]);
 
@@ -428,7 +429,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <TabsTrigger value="appointments">Reporte de Citas</TabsTrigger>
         </TabsList>
         <TabsContent value="patients" className="space-y-4 mt-4">
-           <div className="grid md:grid-cols-3 gap-4">
+           <div className="grid md:grid-cols-4 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle>
@@ -449,11 +450,20 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                 </Card>
                  <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pacientes de Baja</CardTitle>
+                        <CardTitle className="text-sm font-medium">Baja Temporal</CardTitle>
+                        <Clock className="h-4 w-4 text-yellow-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Baja Definitiva</CardTitle>
                         <UserX className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{summaryCounts.baja}</div>
+                        <div className="text-2xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div>
                     </CardContent>
                 </Card>
            </div>
