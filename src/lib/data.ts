@@ -53,7 +53,7 @@ import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 // =====================================================================
 
 /**
- * Divide un arreglo en fragmentos de tamaño específico.
+ * Divide un arreglo en fragmentos de tamaño específico para cumplir con los límites de Firebase.
  */
 function chunkArray<T>(array: T[], size: number): T[][] {
   if (!array || array.length === 0) return [];
@@ -174,18 +174,25 @@ async function updateCatalog<T extends { id?: string }>(collectionName: string, 
 
 /**
  * Enriquece una lista de citas con los datos completos del paciente.
- * Utiliza lotes de 10 para las consultas IN de Firestore.
+ * Utiliza lotes de 10 para las consultas IN de Firestore, garantizando seguridad.
  */
 async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<any[]> {
     if (!adminDb || appointments.length === 0) return appointments;
     
-    const patientIds = Array.from(new Set(appointments.map(app => app.patientId).filter(id => id && typeof id === 'string')));
+    // Extraer y limpiar IDs de pacientes únicos
+    const patientIds = Array.from(new Set(
+        appointments
+            .map(app => app.patientId)
+            .filter(id => id && typeof id === 'string' && id.trim() !== '')
+    ));
+    
     if (patientIds.length === 0) return appointments;
 
     const patients: Record<string, Patient> = {};
-    const chunks = chunkArray(patientIds, 10); // Lotes de 10 para mayor seguridad
+    const chunks = chunkArray(patientIds, 10); // Lotes de 10 para mayor seguridad (límite real 30)
     
     for (const batchIds of chunks) {
+        if (batchIds.length === 0) continue;
         const q = query(collection(adminDb, 'patients'), where(documentId(), 'in', batchIds));
         const snap = await getDocs(q);
         snap.forEach(doc => { 
@@ -605,6 +612,7 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
     let countInBatch = 0;
 
     for (const batchIds of chunks) {
+        if (batchIds.length === 0) continue;
         const q = query(collection(adminDb, 'patients'), where('expediente', 'in', batchIds));
         const snap = await getDocs(q);
         
