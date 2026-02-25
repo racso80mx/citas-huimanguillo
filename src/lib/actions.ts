@@ -1,105 +1,230 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { 
-  getPatientByCURP as dataGetPatientByCURP,
-  saveAppointment as dataSaveAppointment,
-  saveLabAppointment as dataSaveLabAppointment,
-  saveNewXRayAppointment as dataSaveXRayAppointment,
-  saveNewUltrasoundAppointment as dataSaveUltrasoundAppointment,
-  saveNewVaccineAppointment as dataSaveVaccineAppointment,
-  getAppointments as dataGetAppointments,
-  getAppointmentsForClinic as dataGetAppointmentsForClinic,
-  getLabAppointments as dataGetLabAppointments,
-  getXRayAppointments as dataGetXRayAppointments,
-  getUltrasoundAppointments as dataGetUltrasoundAppointments,
-  getVaccineAppointments as dataGetVaccineAppointments,
-  deleteAppointment as dataDeleteAppointment,
-  deleteLabAppointment as dataDeleteLabAppointment,
-  deleteXRayAppointment as dataDeleteXRayAppointment,
-  deleteUltrasoundAppointment as dataDeleteUltrasoundAppointment,
-  deleteVaccineAppointment as dataDeleteVaccineAppointment,
-  verifyClinicPassword as dataVerifyClinicPassword,
-  verifyXRayPassword as dataVerifyXRayPassword,
-  verifyUltrasoundPassword as dataVerifyUltrasoundPassword,
-  verifyLabPassword as dataVerifyLabPassword,
-  verifyVaccinePassword as dataVerifyVaccinePassword,
-  updateClinics as dataUpdateClinics,
-  updateColonias as dataUpdateColonias,
-  updateAnnouncements as dataUpdateAnnouncements,
-  getClinics as dataGetClinics,
-  getColonias as dataGetColonias,
-  getAnnouncements as dataGetAnnouncements,
-  getLabSettings as dataGetLabSettings,
-  getLabStudies as dataGetLabStudies,
-  updateLabSettings as dataUpdateLabSettings,
-  updateLabStudies as dataUpdateLabStudies,
-  getXRaySettings as dataGetXRaySettings,
-  getXRayStudies as dataGetXRayStudies,
-  updateXRaySettings as dataUpdateXRaySettings,
-  updateXRayStudies as dataUpdateXRayStudies,
-  getUltrasoundSettings as dataGetUltrasoundSettings,
-  getUltrasoundStudies as dataGetUltrasoundStudies,
-  updateUltrasoundStudies as dataUpdateUltrasoundStudies,
-  updateUltrasoundSettings as dataUpdateUltrasoundSettings,
-  getVaccineSettings as dataGetVaccineSettings,
-  getVaccines as dataGetVaccines,
-  updateVaccineSettings as dataUpdateVaccineSettings,
-  updateVaccines as dataUpdateVaccines,
-  getUsers as dataGetUsers,
-  updateUsers as dataUpdateUsers,
-  updatePatient as dataUpdatePatient,
-  getModuleSettings as dataGetModuleSettings,
-  updateModuleSettings as dataUpdateModuleSettings,
-  updateAppointmentStatus as dataUpdateAppointmentStatus,
-  rescheduleAppointment as dataRescheduleAppointment,
-  createBackupData,
-  restoreBackupData,
-  cleanupOldRecords,
-  getLogs as dataGetLogs,
-  cloneAppointment as dataCloneAppointment,
-  logActivity,
-  getClinicById,
-  getAvailableSlotsForDate as dataGetAvailableSlotsForDate,
-  getPatients as dataGetPatients,
-  deletePatient as dataDeletePatient,
-  updatePatientStatus as dataUpdatePatientStatus,
-  savePatient as dataSavePatient,
-  bulkInsertPatients as dataBulkInsertPatients,
-  getArchiveSettings as dataGetArchiveSettings,
-  updateArchiveSettings as dataUpdateArchiveSettings,
-  verifyArchivePassword as dataVerifyArchivePassword,
-  findDuplicatePatients,
-  deletePatients as dataDeletePatients,
-  autoCleanupDuplicatePatients,
-  bulkUpdateStatusByExpediente,
-} from './data';
-import { v4 as uuidv4 } from 'uuid';
-import type {
-  Appointment,
-  AppointmentStatus,
-  Clinic,
-  Colonia,
-  LabAppointment,
-  LabSettings,
-  LabStudy,
-  Patient,
-  UltrasoundAppointment,
-  UltrasoundSettings,
-  UltrasoundStudy,
-  XRayAppointment,
-  XRaySettings,
-  XRayStudy,
-  ModuleSettings,
-  Vaccine,
-  VaccineSettings,
-  VaccineAppointment,
-  User,
-  ActivityLog,
-  ArchiveSettings,
-  PatientStatus,
-} from './definitions';
+import * as data from './data';
+import type { PatientStatus, AppointmentStatus } from './definitions';
+
+// =====================================================================
+// MAINTENANCE ACTIONS
+// =====================================================================
+
+export async function scanDuplicates(criteria: 'expediente' | 'curp' | 'name') {
+  return data.findDuplicatesByCriteria(criteria);
+}
+
+export async function applyStatusUpdateChunk(expedientes: string[], status: PatientStatus) {
+  const res = await data.bulkUpdateStatusChunk(expedientes, status);
+  if (res.success) {
+    revalidatePath('/admin/duplicates');
+    revalidatePath('/archivo');
+  }
+  return res;
+}
+
+// =====================================================================
+// PATIENT ACTIONS
+// =====================================================================
+
+export async function getPatientByCURP(curp: string) {
+  const p = await data.getPatientByCURP(curp);
+  return p ? { success: true, data: p } : { success: false };
+}
+
+export async function getPatients(options?: any) {
+  return data.getPatients(options);
+}
+
+export async function savePatient(patient: any, id?: string) {
+  const res = await data.savePatient(patient, id);
+  revalidatePath('/archivo');
+  return res;
+}
+
+export async function updatePatient(id: string, patientData: any) {
+  const res = await data.updatePatient(id, patientData);
+  revalidatePath('/archivo');
+  revalidatePath('/admin');
+  return res;
+}
+
+export async function deletePatient(id: string) {
+  const res = await data.deletePatient(id);
+  revalidatePath('/archivo');
+  return res;
+}
+
+export async function deletePatients(ids: string[]) {
+  const res = await data.deletePatients(ids);
+  revalidatePath('/admin/duplicates');
+  revalidatePath('/archivo');
+  return res;
+}
+
+export async function updatePatientStatus(id: string, status: PatientStatus) {
+  const res = await data.updatePatientStatus(id, status);
+  revalidatePath('/archivo');
+  return res;
+}
+
+// =====================================================================
+// APPOINTMENT ACTIONS
+// =====================================================================
+
+export async function getAppointments() { return data.getAppointments(); }
+export async function getAppointmentsForClinic(clinicId: string) { return data.getAppointmentsForClinic(clinicId); }
+export async function getLabAppointments() { return data.getLabAppointments(); }
+export async function getXRayAppointments() { return data.getXRayAppointments(); }
+export async function getUltrasoundAppointments() { return data.getUltrasoundAppointments(); }
+export async function getVaccineAppointments() { return data.getVaccineAppointments(); }
+
+export async function saveNewAppointment(appointment: any, patient: any, colonia: any) {
+  const res = await data.saveAppointment(appointment, patient, colonia);
+  revalidatePath('/citas-medicas');
+  return res;
+}
+
+export async function saveNewLabAppointment(appointment: any, patient: any) {
+  const res = await data.saveLabAppointment(appointment, patient);
+  revalidatePath('/laboratorio');
+  return res;
+}
+
+export async function saveNewXRayAppointment(appointment: any, patient: any) {
+  return data.saveNewXRayAppointment(appointment, patient);
+}
+
+export async function saveNewUltrasoundAppointment(appointment: any, patient: any) {
+  return data.saveNewUltrasoundAppointment(appointment, patient);
+}
+
+export async function saveNewVaccineAppointment(appointment: any, patient: any) {
+  return data.saveNewVaccineAppointment(appointment, patient);
+}
+
+export async function deleteAppointment(id: string) {
+  const res = await data.deleteAppointment(id);
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  return { success: true, folio: res };
+}
+
+export async function deleteLabAppointment(id: string) {
+  const res = await data.deleteLabAppointment(id);
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  return { success: true, folio: res };
+}
+
+export async function deleteXRayAppointment(id: string) {
+  const res = await data.deleteXRayAppointment(id);
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  return { success: true, folio: res };
+}
+
+export async function deleteUltrasoundAppointment(id: string) {
+  const res = await data.deleteUltrasoundAppointment(id);
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  return { success: true, folio: res };
+}
+
+export async function deleteVaccineAppointment(id: string) {
+  const res = await data.deleteVaccineAppointment(id);
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  return { success: true, folio: res };
+}
+
+export async function updateAppointmentStatus(id: string, status: AppointmentStatus, type: string) {
+  const res = await data.updateAppointmentStatus(id, status, type);
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  return res;
+}
+
+export async function rescheduleAppointment(id: string, date: string, type: string) {
+  return data.rescheduleAppointment(id, date, type);
+}
+
+export async function cloneAppointment(id: string, date: string, type: string, time?: string) {
+  return data.cloneAppointment(id, date, type, time);
+}
+
+export async function getAvailableSlotsForDate(clinicId: string, date: string) {
+  return data.getAvailableSlotsForDate(clinicId, date);
+}
+
+// =====================================================================
+// SETTINGS ACTIONS
+// =====================================================================
+
+export async function getClinics() { return data.getClinics(); }
+export async function updateClinics(clinics: any[]) { return data.updateClinics(clinics); }
+export async function getColonias() { return data.getColonias(); }
+export async function updateColonias(colonias: any[]) { return data.updateColonias(colonias); }
+
+export async function getAnnouncements() { return data.getAnnouncements(); }
+export async function updateAnnouncements(messages: string[]) { return data.updateAnnouncements(messages); }
+
+export async function getModuleSettings() { return data.getModuleSettings(); }
+export async function updateModuleSettings(settings: any) { return data.updateModuleSettings(settings); }
+
+export async function getLabSettings() { return data.getLabSettings(); }
+export async function updateLabSettings(settings: any) { return data.updateLabSettings(settings); }
+export async function getLabStudies() { return data.getLabStudies(); }
+export async function updateLabStudies(studies: any[]) { return data.updateLabStudies(studies); }
+
+export async function getXRaySettings() { return data.getXRaySettings(); }
+export async function updateXRaySettings(settings: any) { return data.updateXRaySettings(settings); }
+export async function getXRayStudies() { return data.getXRayStudies(); }
+export async function updateXRayStudies(studies: any[]) { return data.updateXRayStudies(studies); }
+
+export async function getUltrasoundSettings() { return data.getUltrasoundSettings(); }
+export async function updateUltrasoundSettings(settings: any) { return data.updateUltrasoundSettings(settings); }
+export async function getUltrasoundStudies() { return data.getUltrasoundStudies(); }
+export async function updateUltrasoundStudies(studies: any[]) { return data.updateUltrasoundStudies(studies); }
+
+export async function getVaccineSettings() { return data.getVaccineSettings(); }
+export async function updateVaccineSettings(settings: any) { return data.updateVaccineSettings(settings); }
+export async function getVaccines() { return data.getVaccines(); }
+export async function updateVaccines(vaccines: any[]) { return data.updateVaccines(vaccines); }
+
+export async function getUsers() { return data.getUsers(); }
+export async function updateUsers(users: any[]) { return data.updateUsers(users); }
+
+export async function getArchiveSettings() { return data.getArchiveSettings(); }
+export async function updateArchiveSettings(settings: any) { return data.updateArchiveSettings(settings); }
+
+// =====================================================================
+// AUTH & LOGS ACTIONS
+// =====================================================================
+
+export async function verifyArchivePassword(password: string) { return data.verifyArchivePassword(password); }
+export async function verifyClinicPassword(id: string, password: string) { return data.verifyClinicPassword(id, password); }
+export async function verifyLabPassword(password: string) { return data.verifyLabPassword(password); }
+export async function verifyXRayPassword(password: string) { return data.verifyXRayPassword(password); }
+export async function verifyUltrasoundPassword(password: string) { return data.verifyUltrasoundPassword(password); }
+export async function verifyVaccinePassword(password: string) { return data.verifyVaccinePassword(password); }
+
+export async function getLogs() { return data.getLogs(); }
+
+// =====================================================================
+// DATA MANAGEMENT ACTIONS
+// =====================================================================
+
+export async function downloadBackupAction() {
+  const backup = await data.createBackupData();
+  return { success: true, data: backup };
+}
+
+export async function cleanupOldRecordsAction() {
+  return data.cleanupOldRecords();
+}
+
+export async function bulkInsertPatients(chunk: any[]) {
+  return data.bulkInsertPatients(chunk);
+}
 
 export async function getBIData() {
   const [
@@ -109,15 +234,15 @@ export async function getBIData() {
     ultrasoundAppointments,
     vaccineAppointments,
     clinics,
-    colonias,
+    colonias
   ] = await Promise.all([
-    dataGetAppointments(),
-    dataGetLabAppointments(),
-    dataGetXRayAppointments(),
-    dataGetUltrasoundAppointments(),
-    dataGetVaccineAppointments(),
-    dataGetClinics(),
-    dataGetColonias(),
+    data.getAppointments(),
+    data.getLabAppointments(),
+    data.getXRayAppointments(),
+    data.getUltrasoundAppointments(),
+    data.getVaccineAppointments(),
+    data.getClinics(),
+    data.getColonias()
   ]);
 
   return {
@@ -127,339 +252,6 @@ export async function getBIData() {
     ultrasoundAppointments,
     vaccineAppointments,
     clinics,
-    colonias,
+    colonias
   };
 }
-
-export async function getAvailableSlotsForDate(clinicId: string, date: string) {
-    return dataGetAvailableSlotsForDate(clinicId, date);
-}
-
-export async function getPatientByCURP(curp: string): Promise<{ success: boolean; data?: Patient; error?: string }> {
-  try {
-    const patient = await dataGetPatientByCURP(curp);
-    if (patient) {
-      return { success: true, data: patient };
-    }
-    return { success: false, error: 'No se encontró paciente con esa CURP.' };
-  } catch (e: any) {
-    return { success: false, error: e.message || 'Error al buscar el paciente.' };
-  }
-}
-
-export async function saveNewAppointment(
-  appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber' | 'coloniaName'>,
-  patientData: Omit<Patient, 'id'>,
-  coloniaName: string | undefined
-) {
-  try {
-    const result = await dataSaveAppointment(appointmentData, patientData, coloniaName);
-    
-    if (!result.success || !result.data) {
-        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
-    }
-        
-    await logActivity('Creación Cita Médica', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/', 'layout');
-    return { success: true, data: result.data };
-  } catch (e: any) {
-    console.error("Action Error: saveNewAppointment", e);
-    return { success: false, error: e.message || 'Error al guardar la cita.' };
-  }
-}
-
-export async function saveNewLabAppointment(
-  appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
-) {
-  try {
-    const result = await dataSaveLabAppointment(appointmentData, patientData);
-    
-     if (!result.success || !result.data) {
-        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
-    }
-
-    await logActivity('Creación Cita Laboratorio', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/', 'layout');
-    return { success: true, data: result.data };
-  } catch (e: any) {
-    console.error("Action Error: saveNewLabAppointment", e);
-    return {
-      success: false,
-      error: e.message || 'Error al guardar la cita de laboratorio.',
-    };
-  }
-}
-
-export async function saveNewXRayAppointment(
-  appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>,
-) {
-  try {
-    const result = await dataSaveXRayAppointment(appointmentData, patientData);
-    
-    if (!result.success || !result.data) {
-        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
-    }
-    
-    await logActivity('Creación Cita Rayos X', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/', 'layout');
-    return { success: true, data: result.data };
-  } catch (e: any) {
-    console.error("Action Error: saveNewXRayAppointment", e);
-    return {
-      success: false,
-      error: e.message || 'Error al guardar la cita de Rayos X.',
-    };
-  }
-}
-
-export async function saveNewUltrasoundAppointment(
-  appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>,
-  patientData: Omit<Patient, 'id'>,
-) {
-  try {
-    const result = await dataSaveUltrasoundAppointment(appointmentData, patientData);
-    
-    if (!result.success || !result.data) {
-        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
-    }
-    
-    await logActivity('Creación Cita Ultrasonido', `Folio ${result.data.appointment.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/', 'layout');
-    return { success: true, data: result.data };
-  } catch (e: any) {
-    console.error("Action Error: saveNewUltrasoundAppointment", e);
-    return {
-      success: false,
-      error: e.message || 'Error al guardar la cita de Ultrasonido.',
-    };
-  }
-}
-
-export async function saveNewVaccineAppointment(
-  appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>,
-  patientData: Omit<Patient, 'id'>,
-) {
-  try {
-    const result = await dataSaveVaccineAppointment(appointmentData, patientData);
-
-    if (!result.success || !result.data) {
-        throw new Error(result.error || "La capa de datos no devolvió los datos esperados.");
-    }
-    
-    await logActivity('Creación Cita Vacunación', `Folio ${result.data.appointmentNumber} para ${patientData.name}.`);
-    revalidatePath('/', 'layout');
-    return { success: true, data: result.data };
-  } catch (e: any) {
-    console.error("Action Error: saveNewVaccineAppointment", e);
-    return {
-      success: false,
-      error: e.message || 'Error al guardar la cita de Vacunación.',
-    };
-  }
-}
-
-export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine', newTimeOrToken?: string) {
-    const result = await dataCloneAppointment(originalAppointmentId, newDate, type, newTimeOrToken);
-    if(result.success) {
-      await logActivity('Clonación de Cita', `Folio original ${result.originalFolio} clonado a nuevo folio ${result.data.appointmentNumber}.`);
-      revalidatePath('/', 'layout');
-    }
-    return result;
-}
-
-export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {
-    const result = await dataUpdatePatient(patientId, patientData);
-    if (result.success) {
-        await logActivity('Actualización de Paciente', `Datos del paciente con ID ${patientId} actualizados.`);
-        revalidatePath('/', 'layout');
-    }
-    return result;
-}
-
-export async function deleteAppointment(id: string) { const deletedFolio = await dataDeleteAppointment(id); await logActivity('Eliminación Cita Médica', `Se eliminó el folio: ${deletedFolio}.`); revalidatePath('/', 'layout'); return { success: true }; }
-export async function deleteLabAppointment(id: string) { const deletedFolio = await dataDeleteLabAppointment(id); await logActivity('Eliminación Cita Laboratorio', `Se eliminó el folio: ${deletedFolio}.`); revalidatePath('/', 'layout'); return { success: true }; }
-export async function deleteXRayAppointment(id: string) { const deletedFolio = await dataDeleteXRayAppointment(id); await logActivity('Eliminación Cita Rayos X', `Se eliminó el folio: ${deletedFolio}.`); revalidatePath('/', 'layout'); return { success: true }; }
-export async function deleteUltrasoundAppointment(id: string) { const deletedFolio = await dataDeleteUltrasoundAppointment(id); await logActivity('Eliminación Cita Ultrasonido', `Se eliminó el folio: ${deletedFolio}.`); revalidatePath('/', 'layout'); return { success: true }; }
-export async function deleteVaccineAppointment(id: string) { const deletedFolio = await dataDeleteVaccineAppointment(id); await logActivity('Eliminación Cita Vacunación', `Se eliminó el folio: ${deletedFolio}.`); revalidatePath('/', 'layout'); return { success: true }; }
-
-export async function verifyClinicPassword(clinicId: string, passwordAttempt: string) { const result = await dataVerifyClinicPassword(clinicId, passwordAttempt); return result.isValid ? { success: true } : { success: false, message: result.error || 'Contraseña incorrecta.' }; }
-export async function verifyLabPassword(passwordAttempt: string) { const result = await dataVerifyLabPassword(passwordAttempt); return result.isValid ? { success: true } : { success: false, message: 'Contraseña incorrecta.' }; }
-export async function verifyXRayPassword(passwordAttempt: string) { const result = await dataVerifyXRayPassword(passwordAttempt); return result.isValid ? { success: true } : { success: false, message: 'Contraseña incorrecta.' }; }
-export async function verifyUltrasoundPassword(passwordAttempt: string) { const result = await dataVerifyUltrasoundPassword(passwordAttempt); return result.isValid ? { success: true } : { success: false, message: 'Contraseña incorrecta.' }; }
-export async function verifyVaccinePassword(passwordAttempt: string) { const result = await dataVerifyVaccinePassword(passwordAttempt); return result.isValid ? { success: true } : { success: false, message: 'Contraseña incorrecta.' }; }
-
-export async function updateClinics(clinics: Clinic[]) { const result = await dataUpdateClinics(clinics); if (result.success) { await logActivity('Actualización de Clínicas', `Se actualizó el catálogo de clínicas.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateColonias(colonias: Colonia[]) { const result = await dataUpdateColonias(colonias); if (result.success) { await logActivity('Actualización de Colonias', `Se actualizó el catálogo de colonias.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateAnnouncements(announcements: string[]) { const result = await dataUpdateAnnouncements(announcements); if (result.success) { await logActivity('Actualización de Avisos', `Avisos actualizados.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateLabSettings(settings: LabSettings) { const result = await dataUpdateLabSettings(settings); if (result.success) { await logActivity('Actualización Configuración Laboratorio', `Ajustes del laboratorio actualizados.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateLabStudies(studies: LabStudy[]) { const result = await dataUpdateLabStudies(studies); if (result.success) { await logActivity('Actualización Estudios de Laboratorio', `Catálogo de estudios de lab actualizado.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateXRaySettings(settings: XRaySettings) { const result = await dataUpdateXRaySettings(settings); if (result.success) { await logActivity('Actualización Configuración Rayos X', `Ajustes de Rayos X actualizados.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateXRayStudies(studies: XRayStudy[]) { const result = await dataUpdateXRayStudies(studies); if (result.success) { await logActivity('Actualización Estudios de Rayos X', `Catálogo de estudios de Rayos X actualizado.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateUltrasoundSettings(settings: UltrasoundSettings) { const result = await dataUpdateUltrasoundSettings(settings); if (result.success) { await logActivity('Actualización Configuración Ultrasonido', `Ajustes de Ultrasonido actualizados.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) { const result = await dataUpdateUltrasoundStudies(studies); if (result.success) { await logActivity('Actualización Estudios de Ultrasonido', `Catálogo de estudios de ultrasonido actualizado.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateVaccineSettings(settings: VaccineSettings) { const result = await dataUpdateVaccineSettings(settings); if (result.success) { await logActivity('Actualización Configuración Vacunación', `Ajustes de Vacunación actualizados.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateVaccines(vaccines: Vaccine[]) { const result = await dataUpdateVaccines(vaccines); if (result.success) { await logActivity('Actualización de Vacunas', `Catálogo de vacunas actualizado.`); revalidatePath('/', 'layout'); } return result; }
-export async function updateUsers(users: User[]) { const result = await dataUpdateUsers(users); if (result.success) { await logActivity('Actualización de Usuarios', `Se actualizó la lista de usuarios.`); revalidatePath('/admin'); } return result; }
-
-export async function updateModuleSettings(settings: ModuleSettings) {
-    const result = await dataUpdateModuleSettings(settings);
-    if (result.success) {
-        await logActivity('Actualización Configuración Módulos', `Se actualizaron los módulos activos.`);
-        revalidatePath('/', 'layout');
-    }
-    return result;
-}
-
-export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
-    const result = await dataUpdateAppointmentStatus(appointmentId, status, type);
-    if (result.success) {
-        await logActivity('Actualización de Estado', `Cita en ${type} con ID ${appointmentId} actualizada a: ${status}.`);
-        revalidatePath('/', 'layout');
-    }
-    return result;
-}
-
-export async function rescheduleAppointment(appointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
-    const result = await dataRescheduleAppointment(appointmentId, newDate, type);
-    if(result.success) {
-        await logActivity('Cambio de Fecha Cita', `Cita ${appointmentId} movida a ${newDate}.`);
-        revalidatePath('/', 'layout');
-    }
-    return result;
-}
-
-export async function getArchiveSettings() {
-    return dataGetArchiveSettings();
-}
-
-export async function getPatients(options?: { searchTerm?: string }) { 
-    return dataGetPatients(options); 
-}
-export async function deletePatient(patientId: string) { 
-    const result = await dataDeletePatient(patientId);
-    if (result.success) {
-        await logActivity('Eliminación Paciente', `Paciente con ID ${patientId} eliminado.`);
-        revalidatePath('/archivo'); 
-    }
-    return result; 
-}
-export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) { 
-    const result = await dataUpdatePatientStatus(patientId, newStatus);
-    if (result.success) {
-        await logActivity('Actualización Estado Paciente', `Estado del paciente ${patientId} cambiado a ${newStatus}.`);
-        revalidatePath('/archivo'); 
-    }
-    return result; 
-}
-export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { 
-    const result = await dataSavePatient(patient, id);
-    if (result.success) {
-        await logActivity('Guardado de Paciente', `Paciente ${patient.name} ${patient.paternalLastName} guardado.`);
-        revalidatePath('/archivo'); 
-    }
-    return result; 
-}
-export async function bulkInsertPatients(patients: any[]) { 
-    const result = await dataBulkInsertPatients(patients);
-    if(result.success) {
-        await logActivity('Carga Masiva Pacientes', `Se procesaron ${result.processedCount} registros. ${result.addedCount} agregados, ${result.updatedCount} actualizados.`);
-        revalidatePath('/archivo');
-    }
-    return result;
-}
-export async function updateArchiveSettings(settings: ArchiveSettings) { const result = await dataUpdateArchiveSettings(settings); if (result.success) { await logActivity('Actualización Contraseña Archivo', `Se actualizó la contraseña del módulo de archivo.`); revalidatePath('/admin', 'layout'); } return result; }
-
-export async function verifyArchivePassword(passwordAttempt: string) { 
-    const result = await dataVerifyArchivePassword(passwordAttempt);
-    if(result.isValid) {
-        return { success: true };
-    }
-    return { success: false, message: "Contraseña incorrecta." };
-}
-
-export async function downloadBackupAction(): Promise<{ success: boolean; data?: any; message?: string }> {
-    try {
-      const backupData = await createBackupData();
-      return { success: true, data: backupData };
-    } catch (e: any) {
-      return { success: false, message: e.message || 'Error al crear el respaldo.' };
-    }
-}
-  
-export async function restoreBackupAction(backupData: any): Promise<{ success: boolean; message?: string; stats?: any }> {
-  try {
-    const stats = await restoreBackupData(backupData);
-    await logActivity('Restauración de Respaldo', `Se restauraron un total de ${stats.addedCount} registros.`);
-    revalidatePath('/', 'layout');
-    return { success: true, stats, message: 'Restauración completada.' };
-  } catch (e: any) {
-    return { success: false, message: e.message || 'Error al restaurar el respaldo.' };
-  }
-}
-
-  
-export async function cleanupOldRecordsAction(): Promise<{ success: boolean; deletedCount?: number; message?: string }> {
-    try {
-        const { deletedCount } = await cleanupOldRecords();
-        if (deletedCount > 0) {
-            await logActivity('Limpieza de Registros', `Se eliminaron ${deletedCount} citas antiguas de meses anteriores.`);
-        }
-        revalidatePath('/', 'layout');
-        return { success: true, deletedCount };
-    } catch (e: any) {
-        return { success: false, message: e.message || 'Error durante la limpieza de registros.' };
-    }
-}
-
-export async function getDuplicatePatients() {
-    return findDuplicatePatients();
-}
-
-export async function deletePatients(patientIds: string[]) {
-    const result = await dataDeletePatients(patientIds);
-    if (result.success) {
-        revalidatePath('/admin/duplicates');
-        revalidatePath('/archivo');
-    }
-    return result;
-}
-    
-export async function autoCleanupDuplicates() {
-    const result = await autoCleanupDuplicatePatients();
-    if (result.success) {
-        revalidatePath('/admin/duplicates');
-    }
-    return result;
-}
-
-export async function applyBulkStatusUpdate(expedientes: string[], status: PatientStatus) {
-    const result = await bulkUpdateStatusByExpediente(expedientes, status);
-    if (result.success) {
-        revalidatePath('/admin/duplicates');
-        revalidatePath('/archivo');
-    }
-    return result;
-}
-
-export async function getLogs() { return dataGetLogs(); }
-export async function getClinics() { return dataGetClinics(); }
-export async function getColonias() { return dataGetColonias(); }
-export async function getAnnouncements() { return dataGetAnnouncements(); }
-export async function getUsers() { return dataGetUsers(); }
-export async function getModuleSettings() { return dataGetModuleSettings(); }
-export async function getLabSettings() { return dataGetLabSettings(); }
-export async function getLabStudies() { return dataGetLabStudies(); }
-export async function getXRaySettings() { return dataGetXRaySettings(); }
-export async function getXRayStudies() { return dataGetXRayStudies(); }
-export async function getUltrasoundSettings() { return dataGetUltrasoundSettings(); }
-export async function getUltrasoundStudies() { return dataGetUltrasoundStudies(); }
-export async function getVaccineSettings() { return dataGetVaccineSettings(); }
-export async function getVaccines() { return dataGetVaccines(); }
-export async function getAppointments() { return dataGetAppointments(); }
-export async function getAppointmentsForClinic(clinicId: string) { return dataGetAppointmentsForClinic(clinicId); }
-export async function getLabAppointments() { return dataGetLabAppointments(); }
-export async function getXRayAppointments() { return dataGetXRayAppointments(); }
-export async function getUltrasoundAppointments() { return dataGetUltrasoundAppointments(); }
-export async function getVaccineAppointments() { return dataGetVaccineAppointments(); }

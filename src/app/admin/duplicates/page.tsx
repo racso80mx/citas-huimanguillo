@@ -1,7 +1,6 @@
-'use server';
+'use client';
 import React from 'react';
 import { DuplicatesManager } from '@/components/admin/duplicates-manager';
-import { getDuplicatePatients } from '@/lib/actions';
 import {
   Card,
   CardContent,
@@ -13,9 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default async function DuplicatesPage() {
-    const { byExpediente, byCurp, byName } = await getDuplicatePatients();
-    
+export default function DuplicatesPage() {
     return (
         <div className="container mx-auto px-4 py-8 md:py-12">
              <div className="mb-6">
@@ -28,16 +25,13 @@ export default async function DuplicatesPage() {
             </div>
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-3xl font-bold font-headline">Gestor de Pacientes Duplicados</CardTitle>
+                    <CardTitle className="text-3xl font-bold font-headline">Mantenimiento de Base de Datos</CardTitle>
                     <CardDescription>
-                        Utiliza esta herramienta para encontrar y eliminar registros de pacientes duplicados. 
-                        Los duplicados se agrupan por No. de Expediente, CURP y Nombre completo.
+                        Herramientas para encontrar duplicados y realizar actualizaciones masivas de estatus sin saturar el sistema.
                     </CardDescription>
                 </CardHeader>
                  <CardContent>
-                    <DuplicatesManager 
-                        initialDuplicates={{ byExpediente, byCurp, byName }} 
-                    />
+                    <DuplicatesManager />
                 </CardContent>
             </Card>
         </div>
