@@ -154,23 +154,25 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               Reportes
             </Link>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className={cn(
-              'transition-colors',
-              pathname === '/admin'
-                ? 'text-primary font-bold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Link href="/admin">
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Administración
-            </Link>
-          </Button>
         </nav>
+        <div className="flex flex-1 items-center justify-end">
+             <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                className={cn(
+                'transition-colors h-9 w-9',
+                pathname === '/admin'
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+            >
+                <Link href="/admin" title="Administración">
+                    <LayoutGrid className="h-5 w-5" />
+                    <span className="sr-only">Administración</span>
+                </Link>
+            </Button>
+        </div>
       </div>
     </header>
   );
