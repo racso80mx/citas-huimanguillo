@@ -47,13 +47,12 @@ import type {
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 // =====================================================================
-// UTILS & SERIALIZATION (Fixes "Only plain objects can be passed")
+// UTILS & SERIALIZATION
 // =====================================================================
 
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
 
-  // Convert Firebase Timestamps to ISO strings
   if (data instanceof Timestamp || (data && typeof data.toDate === 'function')) {
     return data.toDate().toISOString();
   }
@@ -129,7 +128,7 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
 export async function getPatients(): Promise<Patient[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'patients'), limit(10000)));
+    const snap = await getDocs(query(collection(adminDb, 'patients'), limit(30000)));
     return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
   } catch (e) {
     return [];
@@ -292,20 +291,19 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   }
 }
 
-// Validation helper using memory filtering to avoid composite index requirement
 async function validateDailyDuplicate(collectionName: string, patientId: string, isoDate: string) {
   try {
+    // IMPORTANTE: Realizamos el filtro de fecha en memoria para evitar el error de "Index Required" de Firebase
     const selectedDate = new Date(isoDate);
     const dayString = selectedDate.toISOString().split('T')[0];
-
-    const q = query(
-      collection(adminDb, collectionName),
-      where('patientId', '==', patientId)
-    );
     
+    // Solo filtramos por patientId en Firestore
+    const q = query(collection(adminDb, collectionName), where('patientId', '==', patientId));
     const snap = await getDocs(q);
+    
     if (snap.empty) return false;
-
+    
+    // El filtro de fecha se hace aquí en el servidor
     return snap.docs.some(doc => {
       const d = doc.data();
       if (!d.date) return false;
@@ -313,7 +311,7 @@ async function validateDailyDuplicate(collectionName: string, patientId: string,
       return appDateStr === dayString;
     });
   } catch (e) {
-    console.error("Error checking daily duplicates:", e);
+    console.error("Duplicate validation error:", e);
     return false;
   }
 }
@@ -323,10 +321,10 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-
+    
     if (existingPatient && !curp.startsWith('RN-')) {
       const isDuplicate = await validateDailyDuplicate('appointments', existingPatient.id, appointmentData.date);
-      if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita médica para este día.` };
+      if (isDuplicate) return { success: false, error: `El paciente ya tiene una cita médica para este día.` };
     }
 
     const batch = writeBatch(adminDb);
@@ -363,13 +361,13 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
       coloniaName: coloniaName || null,
       createdAt: Timestamp.now()
     };
-    
+
     batch.set(appRef, cleanApp);
     await batch.commit();
     
     await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
-    const clinic = await getClinicById(appointmentData.clinicId);
     
+    const clinic = await getClinicById(appointmentData.clinicId);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic }) };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -381,7 +379,7 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-
+    
     if (existingPatient && !curp.startsWith('RN-')) {
       const isDuplicate = await validateDailyDuplicate('labAppointments', existingPatient.id, appointmentData.date);
       if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de laboratorio para hoy.' };
@@ -389,6 +387,7 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
 
     const batch = writeBatch(adminDb);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
+    
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -402,8 +401,19 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+
     const appRef = doc(collection(adminDb, 'labAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studies: appointmentData.studies, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
+    const cleanApp = {
+      appointmentNumber: appointmentData.appointmentNumber,
+      patientId,
+      date: Timestamp.fromDate(new Date(appointmentData.date)),
+      time: String(appointmentData.time),
+      studies: appointmentData.studies,
+      status: 'Agendada',
+      patientType: appointmentData.patientType,
+      createdAt: Timestamp.now()
+    };
+
     batch.set(appRef, cleanApp);
     await batch.commit();
     await logActivity("Nueva Cita Laboratorio", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
@@ -418,7 +428,7 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-
+    
     if (existingPatient && !curp.startsWith('RN-')) {
       const isDuplicate = await validateDailyDuplicate('xrayAppointments', existingPatient.id, appointmentData.date);
       if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para hoy.' };
@@ -426,6 +436,7 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
 
     const batch = writeBatch(adminDb);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
+    
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -439,8 +450,20 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+
     const appRef = doc(collection(adminDb, 'xrayAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
+    const cleanApp = {
+      appointmentNumber: appointmentData.appointmentNumber,
+      patientId,
+      date: Timestamp.fromDate(new Date(appointmentData.date)),
+      time: String(appointmentData.time),
+      studyId: appointmentData.studyId,
+      studyName: appointmentData.studyName,
+      status: 'Agendada',
+      patientType: appointmentData.patientType,
+      createdAt: Timestamp.now()
+    };
+
     batch.set(appRef, cleanApp);
     await batch.commit();
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
@@ -454,7 +477,7 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-
+    
     if (existingPatient && !curp.startsWith('RN-')) {
       const isDuplicate = await validateDailyDuplicate('ultrasoundAppointments', existingPatient.id, appointmentData.date);
       if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para hoy.' };
@@ -462,6 +485,7 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
 
     const batch = writeBatch(adminDb);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
+    
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -475,8 +499,20 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+
     const appRef = doc(collection(adminDb, 'ultrasoundAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
+    const cleanApp = {
+      appointmentNumber: appointmentData.appointmentNumber,
+      patientId,
+      date: Timestamp.fromDate(new Date(appointmentData.date)),
+      time: String(appointmentData.time),
+      studyId: appointmentData.studyId,
+      studyName: appointmentData.studyName,
+      status: 'Agendada',
+      patientType: appointmentData.patientType,
+      createdAt: Timestamp.now()
+    };
+
     batch.set(appRef, cleanApp);
     await batch.commit();
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
@@ -490,7 +526,7 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-
+    
     if (existingPatient && !curp.startsWith('RN-')) {
       const isDuplicate = await validateDailyDuplicate('vaccineAppointments', existingPatient.id, appointmentData.date);
       if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para hoy.' };
@@ -498,6 +534,7 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
 
     const batch = writeBatch(adminDb);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
+    
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -511,8 +548,20 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+
     const appRef = doc(collection(adminDb, 'vaccineAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), vaccines: appointmentData.vaccines, status: 'Agendada', patientType: appointmentData.patientType, coloniaName: appointmentData.coloniaName || null, createdAt: Timestamp.now() };
+    const cleanApp = {
+      appointmentNumber: appointmentData.appointmentNumber,
+      patientId,
+      date: Timestamp.fromDate(new Date(appointmentData.date)),
+      time: String(appointmentData.time),
+      vaccines: appointmentData.vaccines,
+      status: 'Agendada',
+      patientType: appointmentData.patientType,
+      coloniaName: appointmentData.coloniaName || null,
+      createdAt: Timestamp.now()
+    };
+
     batch.set(appRef, cleanApp);
     await batch.commit();
     return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
@@ -702,65 +751,72 @@ export async function getLogs(): Promise<ActivityLog[]> {
 }
 
 // =====================================================================
-// MAINTENANCE (Flexible Search for Bulk Updates)
+// MAINTENANCE
 // =====================================================================
 
 export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
   if (!adminDb) return [];
-  const snap = await getDocs(query(collection(adminDb, 'patients'), orderBy('updatedAt', 'desc'), limit(5000)));
+  const snap = await getDocs(query(collection(adminDb, 'patients'), limit(5000)));
   const all = snap.docs.map(doc => {
     const d = doc.data();
-    return {
-      id: doc.id,
-      name: String(d.name || '').toUpperCase().trim(),
-      paternalLastName: String(d.paternalLastName || '').toUpperCase().trim(),
-      maternalLastName: String(d.maternalLastName || '').toUpperCase().trim(),
-      curp: String(d.curp || '').toUpperCase().trim(),
-      expediente: d.expediente ? String(d.expediente).trim() : '',
-      phoneNumber: String(d.phoneNumber || '')
-    };
+    return { id: doc.id, name: String(d.name || '').toUpperCase().trim(), paternalLastName: String(d.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(d.maternalLastName || '').toUpperCase().trim(), curp: String(d.curp || '').toUpperCase().trim(), expediente: d.expediente ? String(d.expediente).trim() : '', phoneNumber: String(d.phoneNumber || '') };
   });
-
   const map = new Map<string, any[]>();
   all.forEach(p => {
     let key = '';
     if (criteria === 'expediente') key = p.expediente;
     else if (criteria === 'curp') key = (p.curp && !p.curp.startsWith('RN-')) ? p.curp : '';
     else key = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.trim();
-
     if (key && key !== 'N/A' && key !== '') {
       const group = map.get(key) || [];
       group.push(p);
       map.set(key, group);
     }
   });
-
   return Array.from(map.values()).filter(g => g.length > 1).slice(0, 300);
 }
 
 export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
   if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
-  // Scans all patients to perform intelligent matching in memory (ignoring leading zeros)
-  const snap = await getDocs(collection(adminDb, 'patients'));
-  const targetExpsClean = expedientes.map(e => e.toString().trim().replace(/^0+/, ''));
+  const results: any[] = [];
+  const cleanExpedientes = expedientes.map(e => e.toString().trim());
   
-  const foundDocs = snap.docs.filter(d => {
-    const exp = (d.data().expediente || '').toString().trim().replace(/^0+/, '');
-    return targetExpsClean.includes(exp);
-  });
+  const chunkSize = 10;
+  for (let i = 0; i < cleanExpedientes.length; i += chunkSize) {
+    const subset = cleanExpedientes.slice(i, i + chunkSize);
+    const variations: string[] = [];
+    subset.forEach(e => {
+      const clean = e.replace(/^0+/, '');
+      variations.push(clean);
+      variations.push('0' + clean);
+      variations.push('00' + clean);
+      variations.push('000' + clean);
+      variations.push('0000' + clean);
+      variations.push('00000' + clean);
+    });
+    
+    const varChunks = chunkArray(Array.from(new Set(variations)), 30);
+    for (const vChunk of varChunks) {
+      const q = query(collection(adminDb, 'patients'), where('expediente', 'in', vChunk));
+      const snap = await getDocs(q);
+      snap.docs.forEach(d => results.push(d));
+    }
+  }
 
-  if (foundDocs.length > 0) {
-    const chunks = chunkArray(foundDocs, 500);
-    for (const chunk of chunks) {
+  const uniqueMatches = Array.from(new Map(results.map(d => [d.id, d])).values());
+
+  if (uniqueMatches.length > 0) {
+    const updateChunks = chunkArray(uniqueMatches, 500);
+    for (const chunk of updateChunks) {
       const batch = writeBatch(adminDb);
       chunk.forEach(d => batch.update(d.ref, { status, updatedAt: Timestamp.now() }));
       await batch.commit();
     }
-    await logActivity("Actualización Masiva", `Se actualizaron ${foundDocs.length} expedientes a ${status}`);
+    await logActivity("Actualización Masiva", `Se actualizaron ${uniqueMatches.length} registros a ${status}`);
   }
-
-  return { success: true, count: foundDocs.length };
+  
+  return { success: true, count: uniqueMatches.length };
 }
 
 // =====================================================================
@@ -780,8 +836,7 @@ export async function createBackupData() {
 
 export async function cleanupOldRecords() {
   if (!adminDb) return { success: false, deletedCount: 0 };
-  const lastMonth = new Date();
-  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  const lastMonth = new Date(); lastMonth.setMonth(lastMonth.getMonth() - 1);
   const cutoff = Timestamp.fromDate(lastMonth);
   const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
   let total = 0;
@@ -805,37 +860,10 @@ export async function bulkInsertPatients(chunk: any[]) {
     for (const raw of chunk) {
       if (!raw.CURP) continue;
       const curp = String(raw.CURP).toUpperCase().trim();
-      const patientData = {
-        expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null,
-        name: String(raw.Nombre || '').toUpperCase().trim(),
-        paternalLastName: String(raw.Apaterno || '').toUpperCase().trim(),
-        maternalLastName: String(raw.Amaterno || '').toUpperCase().trim(),
-        birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null,
-        age: Number(raw.Edad) || 0,
-        sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre',
-        birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(),
-        address: String(raw.Domicilio || '').toUpperCase().trim(),
-        coloniaName: String(raw.Colonia || '').toUpperCase().trim(),
-        fatherName: String(raw.NombrePadre || '').toUpperCase().trim(),
-        motherName: String(raw.NombreMadre || '').toUpperCase().trim(),
-        fatherAge: Number(raw.EdadPadre) || null,
-        motherAge: Number(raw.EdadMadre) || null,
-        registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null,
-        status: raw.Estatus || PatientStatusEnum.Vigente,
-        derechoAbiencia: String(raw.DerechoAbiencia || '').toUpperCase().trim(),
-        phoneNumber: String(raw.Telefono || '').trim(),
-        curp,
-        updatedAt: Timestamp.now()
-      };
+      const patientData = { expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null, name: String(raw.Nombre || '').toUpperCase().trim(), paternalLastName: String(raw.Apaterno || '').toUpperCase().trim(), maternalLastName: String(raw.Amaterno || '').toUpperCase().trim(), birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null, age: Number(raw.Edad) || 0, sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre', birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(), address: String(raw.Domicilio || '').toUpperCase().trim(), coloniaName: String(raw.Colonia || '').toUpperCase().trim(), fatherName: String(raw.NombrePadre || '').toUpperCase().trim(), motherName: String(raw.NombreMadre || '').toUpperCase().trim(), fatherAge: Number(raw.EdadPadre) || null, motherAge: Number(raw.EdadMadre) || null, registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null, status: raw.Estatus || PatientStatusEnum.Vigente, derechoAbiencia: String(raw.DerechoAbiencia || '').toUpperCase().trim(), phoneNumber: String(raw.Telefono || '').trim(), curp, updatedAt: Timestamp.now() };
       const existing = await getPatientByCURP(curp);
-      if (existing) { 
-        batch.update(doc(adminDb, 'patients', existing.id), patientData); 
-        updated++; 
-      } else { 
-        const newId = uuidv4();
-        batch.set(doc(adminDb, 'patients', newId), { ...patientData, id: newId }); 
-        added++; 
-      }
+      if (existing) { batch.update(doc(adminDb, 'patients', existing.id), patientData); updated++; }
+      else { const newId = uuidv4(); batch.set(doc(adminDb, 'patients', newId), { ...patientData, id: newId }); added++; }
     }
     await batch.commit();
     return { success: true, addedCount: added, updatedCount: updated, processedCount: chunk.length };
@@ -850,21 +878,10 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   const dateOnly = dateIso.split('T')[0];
   const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
-  const taken = snap.docs.map(d => d.data()).filter(a => {
-    const dStr = serializeData(a.date);
-    return dStr.split('T')[0] === dateOnly;
-  }).map(a => a.time);
-  
+  const taken = snap.docs.map(d => d.data()).filter(a => serializeData(a.date).split('T')[0] === dateOnly).map(a => a.time);
   if (clinic.bookingMode === BookingMode.Time) {
-    const slots = [];
-    let curr = new Date(`1970-01-01T${clinic.startTime}:00`);
-    const end = new Date(`1970-01-01T${clinic.endTime}:00`);
-    const duration = clinic.consultationDuration || 30;
-    while (curr < end) {
-      const t = curr.toTimeString().substring(0, 5);
-      if (!taken.includes(t) && t !== clinic.breakTime) slots.push(t);
-      curr = new Date(curr.getTime() + duration * 60000);
-    }
+    const slots = []; let curr = new Date(`1970-01-01T${clinic.startTime}:00`); const end = new Date(`1970-01-01T${clinic.endTime}:00`); const duration = clinic.consultationDuration || 30;
+    while (curr < end) { const t = curr.toTimeString().substring(0, 5); if (!taken.includes(t) && t !== clinic.breakTime) slots.push(t); curr = new Date(curr.getTime() + duration * 60000); }
     return { timeSlots: slots };
   } else {
     const tokens = Array.from({ length: clinic.dailySlots }, (_, i) => i + 1).filter(t => !taken.map(tk => parseInt(tk.replace('Ficha ', ''))).includes(t));
@@ -878,9 +895,7 @@ export async function rescheduleAppointment(id: string, newDate: string, type: s
     const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
     await updateDoc(doc(adminDb, collMap[type] || 'appointments', id), { date: Timestamp.fromDate(new Date(newDate)) });
     return { success: true, message: 'Fecha actualizada correctamente' };
-  } catch (e: any) {
-    return { success: false, message: e.message };
-  }
+  } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 export async function cloneAppointment(originalId: string, newDate: string, type: string, newTime?: string) {
@@ -897,7 +912,5 @@ export async function cloneAppointment(originalId: string, newDate: string, type
     if (newTime) newAppData.time = newTime;
     await setDoc(newRef, newAppData);
     return { success: true, message: `Nueva cita asignada con folio: ${newFolio}` };
-  } catch (e: any) {
-    return { success: false, message: e.message };
-  }
+  } catch (e: any) { return { success: false, message: e.message }; }
 }

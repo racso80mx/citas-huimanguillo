@@ -13,13 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown, Calendar as CalendarIcon, Check, PlusCircle, User, UserCheck, UserX, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
-import type { Patient, PatientStatus, Appointment, Clinic, ClinicType, Colonia } from '@/lib/definitions';
+import type { Patient, Appointment, Clinic, Colonia } from '@/lib/definitions';
+import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
 import { ScheduleAppointmentDialog } from './schedule-appointment-dialog';
 import { v4 as uuidv4 } from 'uuid';
-import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import {
   Select,
   SelectContent,
@@ -39,7 +39,6 @@ import { Separator } from '../ui/separator';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '../ui/command';
 import { Badge } from '../ui/badge';
 import { downloadExcel } from '@/lib/report-helpers';
-
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
@@ -65,7 +64,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   // Appointment states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [colonias, setColonias] = useState<Colonia[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
@@ -106,22 +104,18 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     loadInitialData();
   }, [loadInitialData]);
 
-
   const filteredPatients = useMemo(() => {
     let result = [...allPatients];
 
-    // 1. Filtrar por estatus (Botones superiores)
     if (statusFilter !== 'Total') {
         result = result.filter(p => {
             if (statusFilter === PatientStatusEnum.Vigente) {
-                // Vigentes son los que no son Bajas
                 return p.status !== PatientStatusEnum.Baja && p.status !== PatientStatusEnum.BajaDefinitiva;
             }
             return p.status === statusFilter;
         });
     }
 
-    // 2. Filtrar por búsqueda de texto
     if (!searchTerm) return result;
     
     const lowercasedTerm = searchTerm.toLowerCase();
@@ -151,18 +145,10 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     const total = allPatients.length;
     const bajaTemporal = allPatients.filter(p => p.status === PatientStatusEnum.Baja).length;
     const bajaDefinitiva = allPatients.filter(p => p.status === PatientStatusEnum.BajaDefinitiva).length;
-    
-    // Para que la suma coincida siempre con el total, Vigentes es todo lo que no es una Baja
     const vigente = total - bajaTemporal - bajaDefinitiva;
 
-    return {
-      total,
-      vigente,
-      bajaTemporal,
-      bajaDefinitiva,
-    }
+    return { total, vigente, bajaTemporal, bajaDefinitiva };
   }, [allPatients]);
-
 
   const handleAddNew = () => { setEditingPatient(null); setIsEditOpen(true); };
   const handleEdit = (patient: Patient) => { setEditingPatient(patient); setIsEditOpen(true); };
@@ -185,14 +171,14 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         const result = await deleteAppointment(appointmentId);
         if (result.success) {
             toast({ title: 'Cita Eliminada', description: 'La cita ha sido eliminada del sistema.' });
-            loadInitialData(); // Re-fetch all initial data
+            loadInitialData();
         } else {
             toast({ title: 'Error', description: 'No se pudo eliminar la cita.', variant: 'destructive' });
         }
     });
   };
   
-  const handleStatusChange = (patientId: string, newStatus: PatientStatus) => {
+  const handleStatusChange = (patientId: string, newStatus: PatientStatusEnum) => {
     startSubmitTransition(async () => {
       const result = await updatePatientStatus(patientId, newStatus);
        if(result.success) {
@@ -242,7 +228,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     xlsx.writeFile(workbook, `busqueda_pacientes.xlsx`);
   }
 
-  // Appointment Report Logic
   const getFilteredAppointments = useCallback((appointmentsToFilter: any[]) => {
     if (!isClient || !appointmentsToFilter || appointmentsToFilter.length === 0) return [];
     let filterFn: (app: any) => boolean;
@@ -262,7 +247,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
           filterFn = (app) => isWithinInterval(parseISO(app.date), { start: rangeStart, end: rangeEnd });
         } else return [];
         break;
-      default: // 'today'
+      default:
         const todayStart = startOfDay(now); const todayEnd = endOfDay(now);
         filterFn = (app) => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd });
         break;
@@ -278,332 +263,126 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     return dateFilteredAppointments;
   }, [allAppointments, selectedClinics, getFilteredAppointments]);
 
-  const groupedClinics = useMemo(() => {
-    if (!clinics) return {};
-    const sortedClinics = [...clinics].sort((a, b) => a.name.localeCompare(b.name));
-    return sortedClinics.reduce((acc, clinic) => {
-      const type = clinic.clinicType || 'Consulta Externa';
-      if (!acc[type]) acc[type] = [];
-      acc[type].push(clinic);
-      return acc;
-    }, {} as Record<string, Clinic[]>);
-  }, [clinics]);
-
-  const handleSetDateRange = (range: DateRange | undefined) => { setDateRange(range); setActiveFilter('range'); };
-  const handleClinicSelect = (clinicId: string) => { setSelectedClinics(prev => prev.includes(clinicId) ? prev.filter(id => id !== clinicId) : [...prev, clinicId]); };
-  
   const handleAppointmentsExcelDownload = async () => {
     if (appointmentsToDisplay.length === 0) {
-      toast({
-        title: 'No hay datos',
-        description: 'No hay citas para descargar en el filtro actual.',
-        variant: 'destructive',
-      });
+      toast({ title: 'No hay datos', variant: 'destructive' });
       return;
     }
-
     const enrichedAppointments = appointmentsToDisplay.map((app) => ({
       ...app,
       clinicName: clinics.find(c => c.id === app.clinicId)?.name || 'N/A'
     }));
-
     await downloadExcel(enrichedAppointments, `reporte_citas_${activeFilter}`);
   };
 
   const handleGeneratePDF = async (appointments: Appointment[]) => {
     if (appointments.length === 0) {
-        toast({ title: 'No hay datos para generar el PDF', variant: 'destructive' });
+        toast({ title: 'No hay datos', variant: 'destructive' });
         return;
     }
-
-    const sortedAppointments = [...appointments].sort((a, b) => {
-        const timeA = a.time.replace(':', '').replace('Ficha ','');
-        const timeB = b.time.replace(':', '').replace('Ficha ','');
-        return timeA.localeCompare(timeB, undefined, { numeric: true });
-    });
-
     const { jsPDF } = await import('jspdf');
     await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait' }) as any;
+    const sortedApps = [...appointments].sort((a, b) => a.time.localeCompare(b.time));
+    const reportDate = sortedApps.length > 0 ? parseISO(sortedApps[0].date) : new Date();
 
-    const primaryClinicId = selectedClinics.length > 0 ? selectedClinics[0] : (sortedAppointments.length > 0 ? sortedAppointments[0].clinicId : null);
-    const clinicInfo = primaryClinicId ? clinics.find(c => c.id === primaryClinicId) : null;
-    const reportDate = sortedAppointments.length > 0 ? parseISO(sortedAppointments[0].date) : new Date();
-
-    // --- PDF Header ---
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text("SECRETARÍA DE SALUD", doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
     doc.text("Hospital General de Huimanguillo", doc.internal.pageSize.getWidth() / 2, 26, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text("Vale Multiple de Expediente para la Consulta Externa", doc.internal.pageSize.getWidth() / 2, 32, { align: 'center' });
-
-    let yPos = 45;
-    doc.setFontSize(10);
-    
-    // Left side
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Cedula:`, 14, yPos);
-    doc.text(`Nombre del Médico:`, 14, yPos + 6);
-    doc.text(`Especialidad:`, 14, yPos + 12);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text(clinicInfo?.id.substring(0, 8) || 'N/A', 45, yPos, { maxWidth: 75 });
-    doc.text(clinicInfo?.doctorName || 'N/A', 45, yPos + 6, { maxWidth: 75 });
-    doc.text(clinicInfo?.clinicType || 'N/A', 45, yPos + 12, { maxWidth: 75 });
-    
-    // Right side
-    const folioText = clinicInfo ? `${format(reportDate, 'dd/MM/yyyy')}-${clinicInfo.id.substring(0, 6)}` : format(reportDate, 'dd/MM/yyyy');
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Folio:`, 120, yPos);
-    doc.text(`Fecha:`, 120, yPos + 6);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(folioText, 140, yPos, { maxWidth: 60 });
-    doc.text(format(reportDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: es }), 140, yPos + 6, { maxWidth: 60 });
-
-
-    // --- Table ---
-    const tableStartY = yPos + 22;
-    const tableColumns = ["No", "Hora", "Nombre del Paciente", "Expediente", "Ent.", "Dev.", "Nota"];
-    const tableRows = sortedAppointments.map((app, index) => {
-        const patientName = app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A';
-        const expediente = app.patient?.expediente || '';
-        let timeDisplay = app.time;
-        if (!app.time.includes('Ficha')) {
-          try {
-            timeDisplay = format(parseISO(`1970-01-01T${app.time}:00`), 'hh:mm a');
-          } catch (e) {
-            // keep original time if format fails
-          }
-        }
-        
-        return [
-            index + 1,
-            timeDisplay,
-            patientName,
-            expediente,
-            '', // Ent.
-            '', // Dev.
-            ''  // Nota
-        ];
-    });
-
-    doc.autoTable({
-        head: [tableColumns],
-        body: tableRows,
-        startY: tableStartY,
-        theme: 'grid',
-        headStyles: {
-            fillColor: [255, 255, 255], // white
-            textColor: 0, // black
-            fontStyle: 'bold',
-            lineWidth: 0.1,
-            lineColor: [0, 0, 0]
-        },
-        styles: {
-            fontSize: 9,
-            cellPadding: 2,
-            lineColor: [0, 0, 0],
-            lineWidth: 0.1,
-        },
-        columnStyles: {
-            0: { cellWidth: 10, halign: 'center' }, // No
-            1: { cellWidth: 20 }, // Hora
-            2: { cellWidth: 65 }, // Nombre
-            3: { cellWidth: 20 }, // Expediente
-            4: { cellWidth: 10 }, // Ent.
-            5: { cellWidth: 10 }, // Dev.
-            6: { cellWidth: 'auto' }, // Nota
-        },
-    });
-
-    // --- Footer ---
-    const finalY = doc.autoTable.previous.finalY + 20;
-    doc.text("RECIBIO:", 30, finalY);
-    doc.line(30, finalY + 5, 90, finalY + 5);
-    doc.text("Nombre y Firma", 45, finalY + 10);
-    
-    doc.text("RECIBIO:", 120, finalY);
-    doc.line(120, finalY + 5, 180, finalY + 5);
-    doc.text("Nombre y Firma", 135, finalY + 10);
-
     doc.save(`Vale_Expedientes_${format(reportDate, 'yyyy-MM-dd')}.pdf`);
   };
 
-  // Common JSX
   const mainHeader = (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-3xl font-bold font-headline">Archivo</CardTitle>
-          <CardDescription>Gestión del padrón de pacientes y visualización de citas.</CardDescription>
+          <CardDescription>Gestión del padrón de pacientes.</CardDescription>
         </div>
         <Button variant="outline" onClick={onLogout}>
           <LogOut className="mr-2 h-4 w-4" />
-          Salir del Archivo
+          Salir
         </Button>
       </CardHeader>
     </Card>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 container mx-auto px-4">
       {mainHeader}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="patients">Padrón de Pacientes</TabsTrigger>
+            <TabsTrigger value="patients">Pacientes</TabsTrigger>
             <TabsTrigger value="appointments">Reporte de Citas</TabsTrigger>
         </TabsList>
         <TabsContent value="patients" className="space-y-4 mt-4">
-           <div className="grid md:grid-cols-4 gap-4">
-                <button 
-                    onClick={() => setStatusFilter('Total')}
-                    className={cn(
-                        "text-left transition-all duration-200 focus:outline-none",
-                        statusFilter === 'Total' ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
-                    )}
-                >
-                    <Card className={cn(statusFilter === 'Total' && "border-primary bg-primary/5")}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle>
-                            <User className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{summaryCounts.total}</div>
-                        </CardContent>
-                    </Card>
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button onClick={() => { setStatusFilter('Total'); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === 'Total' ? "ring-2 ring-primary scale-105" : "")}>
+                    <Card className={cn(statusFilter === 'Total' && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Total</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold">{summaryCounts.total}</div></CardContent></Card>
                 </button>
-
-                <button 
-                    onClick={() => setStatusFilter(PatientStatusEnum.Vigente)}
-                    className={cn(
-                        "text-left transition-all duration-200 focus:outline-none",
-                        statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
-                    )}
-                >
-                    <Card className={cn(statusFilter === PatientStatusEnum.Vigente && "border-primary bg-primary/5")}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pacientes Vigentes</CardTitle>
-                            <UserCheck className="h-4 w-4 text-green-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">{summaryCounts.vigente}</div>
-                        </CardContent>
-                    </Card>
+                <button onClick={() => { setStatusFilter(PatientStatusEnum.Vigente); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary scale-105" : "")}>
+                    <Card className={cn(statusFilter === PatientStatusEnum.Vigente && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Vigentes</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold text-green-600">{summaryCounts.vigente}</div></CardContent></Card>
                 </button>
-
-                <button 
-                    onClick={() => setStatusFilter(PatientStatusEnum.Baja)}
-                    className={cn(
-                        "text-left transition-all duration-200 focus:outline-none",
-                        statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
-                    )}
-                >
-                    <Card className={cn(statusFilter === PatientStatusEnum.Baja && "border-primary bg-primary/5")}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Baja Temporal</CardTitle>
-                            <Clock className="h-4 w-4 text-yellow-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div>
-                        </CardContent>
-                    </Card>
+                <button onClick={() => { setStatusFilter(PatientStatusEnum.Baja); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary scale-105" : "")}>
+                    <Card className={cn(statusFilter === PatientStatusEnum.Baja && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Temporal</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div></CardContent></Card>
                 </button>
-
-                <button 
-                    onClick={() => setStatusFilter(PatientStatusEnum.BajaDefinitiva)}
-                    className={cn(
-                        "text-left transition-all duration-200 focus:outline-none",
-                        statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
-                    )}
-                >
-                    <Card className={cn(statusFilter === PatientStatusEnum.BajaDefinitiva && "border-primary bg-primary/5")}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Baja Definitiva</CardTitle>
-                            <UserX className="h-4 w-4 text-red-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div>
-                        </CardContent>
-                    </Card>
+                <button onClick={() => { setStatusFilter(PatientStatusEnum.BajaDefinitiva); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary scale-105" : "")}>
+                    <Card className={cn(statusFilter === PatientStatusEnum.BajaDefinitiva && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Definitiva</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div></CardContent></Card>
                 </button>
            </div>
-
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="relative flex-grow w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input 
-                        placeholder="Buscar por nombre, apellidos, CURP o No. de Expediente..." 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)} 
-                        className="pl-10 w-full"
-                    />
+                    <Input placeholder="Buscar por nombre, expediente, CURP..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="pl-10 w-full" />
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto"><Button onClick={handleAddNew} className="flex-grow"><Plus className="mr-2 h-4 w-4"/> Agregar</Button><Button onClick={() => setIsUploadOpen(true)} variant="secondary" className="flex-grow"><Upload className="mr-2 h-4 w-4"/> Carga Masiva</Button><Button onClick={handleDownloadExcel} variant="outline" className="flex-grow"><Download className="mr-2 h-4 w-4"/> Descargar</Button></div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button onClick={handleAddNew}><Plus className="h-4 w-4 mr-2"/>Agregar</Button>
+                    <Button onClick={() => setIsUploadOpen(true)} variant="secondary"><Upload className="h-4 w-4 mr-2"/>Cargar</Button>
+                    <Button onClick={handleDownloadExcel} variant="outline"><Download className="h-4 w-4 mr-2"/>Excel</Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? <div className="flex flex-col justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /> <span className='ml-2 mt-4 text-muted-foreground'>Cargando registros de pacientes...</span></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
-              <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Filas:</span><Select value={String(rowsPerPage)} onValueChange={(value) => { setRowsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem><SelectItem value="200">200</SelectItem></SelectContent></Select></div>
-                <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Página {currentPage} de {totalPages > 0 ? totalPages : 1}</span><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1 || totalPages === 0}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
+              {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
+                <div className="flex items-center gap-2">
+                    <Select value={String(rowsPerPage)} onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}><SelectTrigger className="w-20"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem></SelectContent></Select>
+                    <span className="text-sm text-muted-foreground">por página</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm">Página {currentPage} de {totalPages || 1}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="appointments" className="space-y-4 mt-4">
-          <Card className="w-full shadow-lg">
-            <CardHeader><CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle></CardHeader>
+          <Card>
+            <CardHeader><CardTitle>Reporte de Citas</CardTitle></CardHeader>
             <CardContent>
-                <div className="flex flex-wrap items-center gap-2 pt-4">
+                <div className="flex flex-wrap items-center gap-2">
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover><PopoverTrigger asChild><Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}><CalendarIcon className="mr-2 h-4 w-4" />{dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} /></PopoverContent></Popover>
-                    <Popover><PopoverTrigger asChild><Button variant="outline" className="h-10 border-dashed"><PlusCircle className="mr-2 h-4 w-4" />Núcleo Básico{selectedClinics.length > 0 && (<><Separator orientation="vertical" className="mx-2 h-4" /><Badge variant="secondary" className="rounded-sm px-1 font-normal">{selectedClinics.length}</Badge></>)}</Button></PopoverTrigger>
-                        <PopoverContent className="w-[250px] p-0" align="start">
-                          <Command><CommandInput placeholder="Buscar núcleo..." /><CommandList><CommandEmpty>No se encontraron resultados.</CommandEmpty>{Object.entries(groupedClinics).map(([type, clinicGroup]) => (<CommandGroup key={type} heading={type}>{(clinicGroup as Clinic[]).map(clinic => { const isSelected = selectedClinics.includes(clinic.id); return (<CommandItem key={clinic.id} onSelect={() => handleClinicSelect(clinic.id)}><div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}><Check className={cn("h-4 w-4")} /></div><span>{clinic.name}</span></CommandItem>);})}</CommandGroup>))} {selectedClinics.length > 0 && (<><CommandSeparator /><CommandGroup><CommandItem onSelect={() => setSelectedClinics([])} className="justify-center text-center">Limpiar filtro</CommandItem></CommandGroup></>)}</CommandList></PopoverContent>
-                    </Popover>
+                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Semana</Button>
+                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Mes</Button>
                     <div className="flex-grow" />
-                    <Button onClick={() => handleGeneratePDF(appointmentsToDisplay)} variant="secondary" disabled={isLoading}><FileDown className="mr-2 h-4 w-4" />Descargar PDF</Button>
-                    <Button onClick={handleAppointmentsExcelDownload} variant="outline" disabled={isLoading}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                    <Button onClick={() => handleGeneratePDF(appointmentsToDisplay)} variant="secondary"><FileDown className="h-4 w-4 mr-2"/>PDF</Button>
+                    <Button onClick={handleAppointmentsExcelDownload} variant="outline"><Download className="h-4 w-4 mr-2"/>Excel</Button>
                 </div>
                 <div className="mt-6">
-                    {isLoading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span></div>) : 
-                    (<AppointmentList 
-                        appointments={appointmentsToDisplay} 
-                        clinics={clinics}
-                        isAdmin
-                        onDelete={handleAppointmentDelete}
-                        onEditSuccess={loadInitialData}
-                     />)}
+                    {isLoading ? <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div> : <AppointmentList appointments={appointmentsToDisplay} clinics={clinics} isAdmin onDelete={handleAppointmentDelete} onEditSuccess={loadInitialData} />}
                 </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-      
       <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadInitialData} />
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
-      {schedulingPatient && (
-        <ScheduleAppointmentDialog
-            patient={schedulingPatient}
-            isOpen={!!schedulingPatient}
-            onClose={() => setSchedulingPatient(null)}
-            onBookingSuccess={() => {
-                setSchedulingPatient(null);
-                loadInitialData();
-            }}
-            clinics={clinics}
-            colonias={colonias}
-        />
-      )}
+      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadInitialData(); }} clinics={clinics} colonias={[]} />}
     </div>
   );
 }
