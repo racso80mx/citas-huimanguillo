@@ -70,6 +70,71 @@ async function setSettingsDoc(docId: string, data: any) {
   return { success: true };
 }
 
+async function findPatient(patientData: Partial<Patient>): Promise<Patient | null> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    const patientsCollection = collection(adminDb, 'patients');
+
+    // 1. Try to find by expediente (file number)
+    const expediente = patientData.expediente ? String(patientData.expediente).trim() : '';
+    if (expediente) {
+        const q = query(patientsCollection, where('expediente', '==', expediente), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            return { ...doc.data(), id: doc.id } as Patient;
+        }
+    }
+
+    // 2. Try to find by CURP
+    const curp = patientData.curp ? patientData.curp.trim() : '';
+    if (curp && !curp.startsWith('RN-')) {
+        const q = query(patientsCollection, where('curp', '==', curp), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            return { ...doc.data(), id: doc.id } as Patient;
+        }
+    }
+    
+    return null;
+}
+
+async function upsertPatient(patientData: Omit<Patient, 'id'>): Promise<DocumentReference> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    
+    const dataToSave: Partial<Patient> = {
+        ...patientData,
+        lastAppointmentDate: new Date().toISOString().split('T')[0],
+    };
+
+    // If CURP indicates newborn, always create a new record.
+    if (patientData.curp && patientData.curp.startsWith('RN-')) {
+        const patientRef = doc(collection(adminDb, 'patients'));
+        await setDoc(patientRef, { ...dataToSave, status: PatientStatusEnum.Vigente, registrationDate: new Date().toISOString().split('T')[0] });
+        return patientRef;
+    }
+
+    const existingPatient = await findPatient(patientData);
+
+    if (existingPatient) {
+        const patientRef = doc(adminDb, 'patients', existingPatient.id);
+        await updateDoc(patientRef, dataToSave);
+        return patientRef;
+    } else {
+        // Create new patient
+        if (!dataToSave.registrationDate) {
+            dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+        }
+        if (!dataToSave.status) {
+            dataToSave.status = PatientStatusEnum.Vigente;
+        }
+        const patientRef = doc(collection(adminDb, 'patients'));
+        await setDoc(patientRef, dataToSave);
+        return patientRef;
+    }
+}
+
+
 async function getCatalog<T>(collectionName: string): Promise<T[]> {
   if (!adminDb) throw new Error("Database not initialized.");
   const collRef = collection(adminDb, collectionName);
@@ -457,31 +522,14 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>, coloniaName: string | undefined) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    // The new coloniaName from the appointment takes precedence. Fallback to existing patient data, then to an empty string.
     const finalColoniaName = coloniaName ?? patientData.coloniaName ?? '';
-    const patientPayload: Partial<Patient> = { 
+    const patientPayload: Omit<Patient, 'id'> = { 
         ...patientData, 
-        coloniaName: finalColoniaName,
-        lastAppointmentDate: new Date().toISOString().split('T')[0],
+        coloniaName: finalColoniaName
     };
 
-    // 1. Find or create patient to get a stable ID.
-    let patientRef: DocumentReference;
-    if (patientData.curp && !patientData.curp.startsWith('RN-')) {
-        const existingPatient = await getPatientByCURP(patientData.curp);
-        if (existingPatient) {
-            patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientPayload); // Update with latest info
-        } else {
-            patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientPayload);
-        }
-    } else {
-        patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientPayload);
-    }
-
-    // 1.5. Validate if patient already has a medical appointment for that day in the same clinic
+    const patientRef = await upsertPatient(patientPayload);
+    
     const allPatientAppointmentsQuery = query(
         collection(adminDb, 'appointments'),
         where('patientId', '==', patientRef.id)
@@ -500,14 +548,12 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         throw new Error('Este paciente ya tiene una cita médica agendada para este día en este mismo núcleo. No se puede duplicar.');
     }
     
-    // 2. Validate availability & get clinic
     const clinic = await getClinicById(appointmentData.clinicId);
     if (!clinic) throw new Error("La clínica seleccionada no es válida.");
 
     const { isValid, message, appointmentsOnDate } = await validateClinicAvailability(clinic, appointmentData.date);
     if (!isValid) throw new Error(message);
     
-    // 3. Prepare data to save
     const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
 
     const newAppointmentData: any = { 
@@ -516,7 +562,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         patientId: patientRef.id, 
         date: new Date(appointmentData.date),
         status: 'Agendada',
-        coloniaName: finalColoniaName, // Use the sanitized value here too.
+        coloniaName: finalColoniaName,
     };
 
     if (clinic.bookingMode === BookingMode.Time) {
@@ -526,7 +572,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         newAppointmentData.time = appointmentData.time;
     } else if (clinic.bookingMode === BookingMode.Token) {
         const timeAsString = String(appointmentData.time);
-        const tokenMatch = timeAsString.match(/\\d+/);
+        const tokenMatch = timeAsString.match(/\d+/);
         const tokenNumber = tokenMatch ? parseInt(tokenMatch[0], 10) : parseInt(timeAsString, 10);
         
         if (isNaN(tokenNumber) || tokenNumber <= 0) {
@@ -544,10 +590,8 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
         throw new Error(`Modo de agendar desconocido o no configurado para la clínica: ${clinic.bookingMode}`);
     }
     
-    // 4. Save appointment
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
     
-    // 5. Construct the returned object from the data we KNOW is correct, avoiding read-after-write inconsistency.
     const patientSnap = await getDoc(patientRef);
     const patientForReturn = { ...patientSnap.data(), id: patientSnap.id } as Patient;
 
@@ -565,26 +609,7 @@ export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 
 export async function saveLabAppointment(appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const patientPayload: Partial<Patient> = {
-        ...patientData,
-        coloniaName: patientData.coloniaName ?? '',
-        lastAppointmentDate: new Date().toISOString().split('T')[0],
-    };
-
-    let patientRef: DocumentReference;
-    if (patientData.curp && !patientData.curp.startsWith('RN-')) {
-        const existingPatient = await getPatientByCURP(patientData.curp);
-        if (existingPatient) {
-            patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientPayload);
-        } else {
-            patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientPayload);
-        }
-    } else {
-        patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientPayload);
-    }
+    const patientRef = await upsertPatient(patientData);
 
     const settings = await getLabSettings();
     const { isValid, message } = await validateLabAvailability(settings, appointmentData.date);
@@ -601,27 +626,8 @@ export async function saveLabAppointment(appointmentData: Omit<LabAppointment, '
 export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const patientPayload: Partial<Patient> = {
-        ...patientData,
-        coloniaName: patientData.coloniaName ?? '',
-        lastAppointmentDate: new Date().toISOString().split('T')[0],
-    };
-
-    let patientRef: DocumentReference;
-    if (patientData.curp && !patientData.curp.startsWith('RN-')) {
-        const existingPatient = await getPatientByCURP(patientData.curp);
-        if (existingPatient) {
-            patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientPayload);
-        } else {
-            patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientPayload);
-        }
-    } else {
-        patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientPayload);
-    }
-
+    const patientRef = await upsertPatient(patientData);
+    
     const settings = await getXRaySettings();
     const { isValid, message } = await validateXRayAvailability(settings, appointmentData.date, appointmentData.time);
     if (!isValid) throw new Error(message);
@@ -641,26 +647,7 @@ export async function saveXRayAppointment(appointmentData: Omit<XRayAppointment,
 export async function saveUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const patientPayload: Partial<Patient> = {
-        ...patientData,
-        coloniaName: patientData.coloniaName ?? '',
-        lastAppointmentDate: new Date().toISOString().split('T')[0],
-    };
-
-    let patientRef: DocumentReference;
-    if (patientData.curp && !patientData.curp.startsWith('RN-')) {
-        const existingPatient = await getPatientByCURP(patientData.curp);
-        if (existingPatient) {
-            patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientPayload);
-        } else {
-            patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientPayload);
-        }
-    } else {
-        patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientPayload);
-    }
+    const patientRef = await upsertPatient(patientData);
     
     const settings = await getUltrasoundSettings();
     const { isValid, message } = await validateUltrasoundAvailability(settings, appointmentData.date, appointmentData.time);
@@ -682,26 +669,12 @@ export async function saveVaccineAppointment(appointmentData: Omit<VaccineAppoin
     if (!adminDb) throw new Error("Database not initialized.");
     
     const finalColoniaName = appointmentData.coloniaName ?? patientData.coloniaName ?? '';
-    const patientPayload: Partial<Patient> = {
+    const patientPayload: Omit<Patient, 'id'> = {
         ...patientData,
         coloniaName: finalColoniaName,
-        lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
     
-    let patientRef: DocumentReference;
-    if (patientData.curp && !patientData.curp.startsWith('RN-')) {
-        const existingPatient = await getPatientByCURP(patientData.curp);
-        if (existingPatient) {
-            patientRef = doc(adminDb, 'patients', existingPatient.id);
-            await updateDoc(patientRef, patientPayload);
-        } else {
-            patientRef = doc(collection(adminDb, 'patients'));
-            await setDoc(patientRef, patientPayload);
-        }
-    } else {
-        patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, patientPayload);
-    }
+    const patientRef = await upsertPatient(patientPayload);
     
     const settings = await getVaccineSettings();
     const { isValid, message } = await validateVaccineAvailability(settings, appointmentData.date, appointmentData.time);
@@ -805,14 +778,14 @@ export async function getPatients(options?: { searchTerm?: string }): Promise<Pa
 
 
 export async function deletePatient(patientId: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
+    if (!adminDb) return { success: false, message: "Database not initialized." };
     const docRef = doc(adminDb, 'patients', patientId);
     await deleteDoc(docRef);
     return { success: true };
 }
 
 export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) {
-    if (!adminDb) throw new Error("Database not initialized.");
+    if (!adminDb) return { success: false, message: "Database not initialized." };
     const docRef = doc(adminDb, 'patients', patientId);
     await updateDoc(docRef, { status: newStatus });
     return { success: true };
@@ -821,14 +794,22 @@ export async function updatePatientStatus(patientId: string, newStatus: PatientS
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
     if (!adminDb) throw new Error("Database not initialized.");
     const isNew = !id;
-    const docId = id || uuidv4();
-    const docRef = doc(adminDb, 'patients', docId);
-
+    
     const dataToSave: Partial<Patient> = {
         ...patient,
         status: patient.status || PatientStatusEnum.Vigente,
     };
     
+    if (isNew) {
+        const existingPatient = await findPatient(dataToSave);
+        if (existingPatient) {
+            throw new Error(`Ya existe un paciente con ese No. de Expediente o CURP. ID: ${existingPatient.id}`);
+        }
+    }
+
+    const docId = id || uuidv4();
+    const docRef = doc(adminDb, 'patients', docId);
+
     if (isNew && !dataToSave.registrationDate) {
         dataToSave.registrationDate = new Date().toISOString().split('T')[0];
     }
@@ -878,27 +859,44 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         return mappedPatient;
     });
 
-    const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string'))];
-    
-    const existingPatientsMap = new Map<string, { id: string }>();
+    const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1))];
+    const expedientesInChunk = [...new Set(mappedPatients.map(p => p.expediente).filter(e => e && (typeof e === 'string' || typeof e === 'number')))].map(String);
+
+    const existingByCurp = new Map<string, { id: string }>();
     if (curpsInChunk.length > 0) {
         const curpChunks: string[][] = [];
         for (let i = 0; i < curpsInChunk.length; i += 30) {
             curpChunks.push(curpsInChunk.slice(i, i + 30));
         }
 
-        const queryPromises = curpChunks.map(chunk => {
-            const q = query(patientsCollection, where('curp', 'in', chunk));
-            return getDocs(q);
-        });
-
+        const queryPromises = curpChunks.map(chunk => getDocs(query(patientsCollection, where('curp', 'in', chunk))));
         const querySnapshots = await Promise.all(queryPromises);
 
         for (const querySnapshot of querySnapshots) {
             querySnapshot.forEach(doc => {
                 const docData = doc.data() as Patient;
                 if (docData.curp) {
-                    existingPatientsMap.set(docData.curp, { id: doc.id });
+                    existingByCurp.set(docData.curp, { id: doc.id });
+                }
+            });
+        }
+    }
+
+    const existingByExpediente = new Map<string, { id: string }>();
+    if (expedientesInChunk.length > 0) {
+        const expedienteChunks: string[][] = [];
+        for (let i = 0; i < expedientesInChunk.length; i += 30) {
+            expedienteChunks.push(expedientesInChunk.slice(i, i + 30));
+        }
+
+        const queryPromises = expedienteChunks.map(chunk => getDocs(query(patientsCollection, where('expediente', 'in', chunk))));
+        const querySnapshots = await Promise.all(queryPromises);
+        
+        for (const querySnapshot of querySnapshots) {
+            querySnapshot.forEach(doc => {
+                const docData = doc.data() as Patient;
+                if (docData.expediente) {
+                    existingByExpediente.set(String(docData.expediente), { id: doc.id });
                 }
             });
         }
@@ -910,10 +908,17 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         const dataToSave: any = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
         
         const curp = dataToSave.curp;
-        const isExisting = curp && existingPatientsMap.has(curp);
+        const expediente = dataToSave.expediente ? String(dataToSave.expediente) : undefined;
+        
+        let existingPatientId: string | undefined;
 
-        if (isExisting) {
-            const existingPatientId = existingPatientsMap.get(curp)!.id;
+        if (expediente && existingByExpediente.has(expediente)) {
+            existingPatientId = existingByExpediente.get(expediente)!.id;
+        } else if (curp && existingByCurp.has(curp)) {
+            existingPatientId = existingByCurp.get(curp)!.id;
+        }
+        
+        if (existingPatientId) {
             const docRef = doc(patientsCollection, existingPatientId);
             batch.update(docRef, dataToSave);
             updatedCount++;
