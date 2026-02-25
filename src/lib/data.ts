@@ -2,7 +2,6 @@
 'use server';
 
 import { 
-  getFirestore, 
   collection, 
   doc, 
   getDoc, 
@@ -18,8 +17,6 @@ import {
   limit,
   DocumentReference,
   addDoc,
-  QuerySnapshot,
-  DocumentData,
   documentId
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
@@ -56,9 +53,7 @@ import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 // =====================================================================
 
 /**
- * Fragmenta un arreglo en trozos más pequeños.
- * Utilizado para cumplir con los límites de Firestore (máximo 30 para consultas IN).
- * Usamos 10 por seguridad extrema.
+ * Divide un arreglo en fragmentos de tamaño específico.
  */
 function chunkArray<T>(array: T[], size: number): T[][] {
   if (!array || array.length === 0) return [];
@@ -87,7 +82,7 @@ async function setSettingsDoc(docId: string, data: any) {
 }
 
 async function findPatient(patientData: Partial<Patient>): Promise<Patient | null> {
-    if (!adminDb) throw new Error("Database not initialized.");
+    if (!adminDb) return null;
     const patientsCollection = collection(adminDb, 'patients');
 
     const expediente = patientData.expediente ? String(patientData.expediente).trim() : '';
@@ -113,18 +108,21 @@ async function findPatient(patientData: Partial<Patient>): Promise<Patient | nul
     return null;
 }
 
-
 async function upsertPatient(patientData: Omit<Patient, 'id'>): Promise<DocumentReference> {
     if (!adminDb) throw new Error("Database not initialized.");
     
-    const dataToSave: Partial<Patient> = {
+    const dataToSave: any = {
         ...patientData,
         lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
 
     if (patientData.curp && patientData.curp.startsWith('RN-')) {
         const patientRef = doc(collection(adminDb, 'patients'));
-        await setDoc(patientRef, { ...dataToSave, status: PatientStatusEnum.Vigente, registrationDate: new Date().toISOString().split('T')[0] });
+        await setDoc(patientRef, { 
+            ...dataToSave, 
+            status: PatientStatusEnum.Vigente, 
+            registrationDate: new Date().toISOString().split('T')[0] 
+        });
         return patientRef;
     }
 
@@ -135,24 +133,18 @@ async function upsertPatient(patientData: Omit<Patient, 'id'>): Promise<Document
         await updateDoc(patientRef, dataToSave);
         return patientRef;
     } else {
-        if (!dataToSave.registrationDate) {
-            dataToSave.registrationDate = new Date().toISOString().split('T')[0];
-        }
-        if (!dataToSave.status) {
-            dataToSave.status = PatientStatusEnum.Vigente;
-        }
+        if (!dataToSave.registrationDate) dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+        if (!dataToSave.status) dataToSave.status = PatientStatusEnum.Vigente;
         const patientRef = doc(collection(adminDb, 'patients'));
         await setDoc(patientRef, dataToSave);
         return patientRef;
     }
 }
 
-
 async function getCatalog<T>(collectionName: string): Promise<T[]> {
-  if (!adminDb) throw new Error("Database not initialized.");
+  if (!adminDb) return [];
   const collRef = collection(adminDb, collectionName);
   const snapshot = await getDocs(query(collRef));
-  if (snapshot.empty) return [];
   return snapshot.docs.map(d => ({ ...(d.data() as T), id: d.id }));
 }
 
@@ -160,66 +152,45 @@ async function updateCatalog<T extends { id?: string }>(collectionName: string, 
   if (!adminDb) throw new Error("Database not initialized.");
   const batch = writeBatch(adminDb);
   const collRef = collection(adminDb, collectionName);
-
   const snapshot = await getDocs(collRef);
   const existingIds = new Set(snapshot.docs.map(d => d.id));
   const incomingIds = new Set();
 
   items.forEach(item => {
     let docId = item.id;
-    if (!docId || docId.startsWith('new-')) {
-        docId = uuidv4();
-    }
+    if (!docId || docId.startsWith('new-')) docId = uuidv4();
     incomingIds.add(docId);
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, ...data } = item;
-    const docRef = doc(collRef, docId);
-    batch.set(docRef, data);
+    batch.set(doc(collRef, docId), data);
   });
 
   for (const id of existingIds) {
-    if (!incomingIds.has(id)) {
-      batch.delete(doc(collRef, id));
-    }
+    if (!incomingIds.has(id)) batch.delete(doc(collRef, id));
   }
 
   await batch.commit();
   return { success: true };
 }
 
+/**
+ * Enriquece una lista de citas con los datos completos del paciente.
+ * Utiliza lotes de 10 para las consultas IN de Firestore.
+ */
 async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<any[]> {
-    if (!adminDb) throw new Error("Database not initialized.");
+    if (!adminDb || appointments.length === 0) return appointments;
     
-    // Extraer IDs únicos y asegurarse de que sean strings
-    const rawPatientIds = appointments.map(app => {
-        const id = app.patientId;
-        // Si es una referencia de Firestore, extraemos el ID string
-        return typeof id === 'string' ? id : id?.id;
-    }).filter(id => id && typeof id === 'string');
-
-    const patientIds = Array.from(new Set(rawPatientIds));
-
-    if (patientIds.length === 0) {
-        return appointments.map(app => ({
-            ...app,
-            date: app.date instanceof Timestamp ? app.date.toDate().toISOString() : app.date
-        }));
-    }
+    const patientIds = Array.from(new Set(appointments.map(app => app.patientId).filter(id => id && typeof id === 'string')));
+    if (patientIds.length === 0) return appointments;
 
     const patients: Record<string, Patient> = {};
-    
-    // Firestore 'in' limit is 30, we use 10 for absolute safety
-    const chunks = chunkArray(patientIds, 10);
+    const chunks = chunkArray(patientIds, 10); // Lotes de 10 para mayor seguridad
     
     for (const batchIds of chunks) {
-        if (batchIds.length > 0) {
-            const q = query(collection(adminDb, 'patients'), where(documentId(), 'in', batchIds));
-            const patientSnapshot = await getDocs(q);
-            patientSnapshot.forEach(doc => {
-                patients[doc.id] = { id: doc.id, ...doc.data() } as Patient;
-            });
-        }
+        const q = query(collection(adminDb, 'patients'), where(documentId(), 'in', batchIds));
+        const snap = await getDocs(q);
+        snap.forEach(doc => { 
+            patients[doc.id] = { id: doc.id, ...doc.data() } as Patient; 
+        });
     }
 
     return appointments.map(app => ({
@@ -229,1048 +200,464 @@ async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<a
     }));
 }
 
-// =====================================================================
-// LOGS
-// =====================================================================
-
-export async function getLogs(): Promise<ActivityLog[]> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    const q = query(collection(adminDb, 'activityLog'), orderBy('timestamp', 'desc'), limit(500));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: (doc.data().timestamp as Timestamp).toDate().toISOString()
-    })) as ActivityLog[];
-}
-
-export async function logActivity(action: string, details: string) {
-    if (!adminDb) {
-        console.error("Database not initialized, cannot log activity.");
-        return;
+function generateDynamicTimeSlots(startTimeStr: string, endTimeStr: string, duration: number): string[] {
+    if (!startTimeStr || !endTimeStr || !duration) return [];
+    const slots: string[] = [];
+    const start = new Date(`1970-01-01T${startTimeStr}:00`);
+    const end = new Date(`1970-01-01T${endTimeStr}:00`);
+    let current = start;
+    while (current < end) {
+        slots.push(current.toTimeString().substring(0, 5));
+        current = new Date(current.getTime() + duration * 60000);
     }
-    try {
-        await addDoc(collection(adminDb, 'activityLog'), {
-            action,
-            details,
-            timestamp: Timestamp.now(),
-        });
-    } catch (error) {
-        console.error("Failed to log activity:", error);
-    }
+    return slots;
 }
 
 // =====================================================================
-// SETTINGS
-// =====================================================================
-export async function getAnnouncements(): Promise<string[]> { const data = await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] }); return data.messages; }
-export async function updateAnnouncements(announcements: string[]) { return setSettingsDoc('announcements', { messages: announcements.slice(0, 4) }); }
-
-export async function getModuleSettings(): Promise<ModuleSettings> {
-    const defaults = { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true };
-    const settings = await getSettingsDoc<ModuleSettings>('moduleSettings', defaults);
-    return { ...defaults, ...settings };
-}
-export async function updateModuleSettings(settings: ModuleSettings) { return setSettingsDoc('moduleSettings', settings); }
-
-export async function getLabSettings(): Promise<LabSettings> { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false, password: '' }); }
-export async function updateLabSettings(settings: LabSettings) { return setSettingsDoc('labSettings', settings); }
-
-export async function getXRaySettings(): Promise<XRaySettings> { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
-export async function updateXRaySettings(settings: XRaySettings) { return setSettingsDoc('xraySettings', settings); }
-
-export async function getUltrasoundSettings(): Promise<UltrasoundSettings> { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
-export async function updateUltrasoundSettings(settings: UltrasoundSettings) { return setSettingsDoc('ultrasoundSettings', settings); }
-
-export async function getVaccineSettings(): Promise<VaccineSettings> { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
-export async function updateVaccineSettings(settings: VaccineSettings) { return setSettingsDoc('vaccineSettings', settings); }
-
-export async function getArchiveSettings(): Promise<ArchiveSettings> {
-    return getSettingsDoc<ArchiveSettings>('archiveSettings', { password: '' });
-}
-export async function updateArchiveSettings(settings: ArchiveSettings) {
-    return setSettingsDoc('archiveSettings', settings);
-}
-export async function verifyArchivePassword(passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> {
-    const settings = await getArchiveSettings();
-    if (!settings.password) {
-        return { isValid: false, error: 'No se ha establecido una contraseña para el módulo de archivo.' };
-    }
-    return { isValid: settings.password === passwordAttempt };
-}
-
-// =====================================================================
-// CATALOGS
-// =====================================================================
-export async function getClinics(): Promise<Clinic[]> { return getCatalog<Clinic>('clinics'); }
-export async function updateClinics(clinics: Clinic[]) { return updateCatalog<Clinic>('clinics', clinics); }
-
-export async function getColonias(): Promise<Colonia[]> { return getCatalog<Colonia>('colonias'); }
-export async function updateColonias(colonias: Colonia[]) { return updateCatalog<Colonia>('colonias', colonias); }
-
-export async function getUsers(): Promise<User[]> { return getCatalog<User>('users'); }
-export async function updateUsers(users: User[]) { return updateCatalog<User>('users', users); }
-
-export async function getLabStudies(): Promise<LabStudy[]> { return getCatalog<LabStudy>('labStudies'); }
-export async function updateLabStudies(studies: LabStudy[]) { return updateCatalog<LabStudy>('labStudies', studies); }
-
-export async function getXRayStudies(): Promise<XRayStudy[]> { return getCatalog<XRayStudy>('xrayStudies'); }
-export async function updateXRayStudies(studies: XRayStudy[]) { return updateCatalog<XRayStudy>('xrayStudies', studies); }
-
-export async function getUltrasoundStudies(): Promise<UltrasoundStudy[]> { return getCatalog<UltrasoundStudy>('ultrasoundStudies'); }
-export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) { return updateCatalog<UltrasoundStudy>('ultrasoundStudies', studies); }
-
-export async function getVaccines(): Promise<Vaccine[]> { return getCatalog<Vaccine>('vaccines'); }
-export async function updateVaccines(vaccines: Vaccine[]) { return updateCatalog<Vaccine>('vaccines', vaccines); }
-
-export async function getClinicById(id: string): Promise<Clinic | null> {
-    if (!adminDb) return null;
-    const docRef = doc(adminDb, 'clinics', id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Clinic;
-    }
-    return null;
-}
-
-// =====================================================================
-// VALIDATION HELPERS
-// =====================================================================
-
-export async function getAvailableSlotsForDate(clinicId: string, date: string): Promise<{ timeSlots?: string[], tokens?: number[] }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    
-    const clinic = await getClinicById(clinicId);
-    if (!clinic) throw new Error("Clínica no encontrada.");
-
-    const appointmentDate = new Date(date);
-    const dateOnly = appointmentDate.toISOString().substring(0, 10);
-
-    const q = query(
-        collection(adminDb, 'appointments'),
-        where('clinicId', '==', clinicId)
-    );
-    const appointmentsSnap = await getDocs(q);
-    const appointmentsOnDateData = appointmentsSnap.docs.map(d => d.data()).filter(d => {
-        const appDate = (d.date as Timestamp).toDate().toISOString().substring(0, 10);
-        return appDate === dateOnly;
-    });
-
-    if (clinic.bookingMode === BookingMode.Time) {
-        if (!clinic.startTime || !clinic.endTime || !clinic.consultationDuration) return { timeSlots: [] };
-        
-        const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
-            const slots: string[] = [];
-            const start = new Date('1970-01-01T' + startTimeStr + ':00');
-            const end = new Date('1970-01-01T' + endTimeStr + ':00');
-            let current = start;
-            while (current < end) {
-                slots.push(current.toTimeString().substring(0, 5));
-                current = new Date(current.getTime() + duration * 60000);
-            }
-            return slots;
-        };
-
-        const allSlots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration);
-        const takenTimes = appointmentsOnDateData.map(app => app.time);
-        const availableTimeSlots = allSlots.filter(slot => !takenTimes.includes(slot));
-        return { timeSlots: availableTimeSlots };
-        
-    } else if (clinic.bookingMode === BookingMode.Token) {
-        const totalSlots = clinic.dailySlots;
-        const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => i + 1);
-
-        const takenTokens = appointmentsOnDateData.map(app => app.tokenNumber).filter(Boolean);
-        const availableTokens = allPossibleTokens.filter(token => !takenTokens.includes(token));
-        return { tokens: availableTokens };
-    }
-
-    return {};
-}
-
-async function validateClinicAvailability(clinic: Clinic, date: string): Promise<{ isValid: boolean; message?: string; appointmentsOnDate?: any[] }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    
-    const appointmentDate = new Date(date);
-    if (isNaN(appointmentDate.getTime())) {
-        return { isValid: false, message: 'La fecha proporcionada es inválida.' };
-    }
-    
-    const allAppointmentsForClinicQuery = query(
-        collection(adminDb, 'appointments'), 
-        where('clinicId', '==', clinic.id)
-    );
-    const allAppointmentsForClinicSnap = await getDocs(allAppointmentsForClinicQuery);
-    
-    const dateOnly = appointmentDate.toISOString().substring(0, 10);
-    const appointmentsForClinicOnDate = allAppointmentsForClinicSnap.docs
-        .map(doc => ({ id: doc.id, ...doc.data()}))
-        .filter(app => {
-            const appDate = (app.date as Timestamp).toDate().toISOString().substring(0, 10);
-            return appDate === dateOnly;
-        });
-    
-    const dayOfWeekJS = appointmentDate.getUTCDay();
-    const dayOfWeekString = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeekJS];
-    if (clinic.daysOfAction?.includes(dayOfWeekString)) {
-        return { isValid: false, message: `El núcleo básico no tiene citas los días ${dayOfWeekString} por ser día de acción.` };
-    }
-    
-    if ((dayOfWeekJS === 6 || dayOfWeekJS === 0) && !clinic.weekendBookingEnabled) {
-      return { isValid: false, message: 'No se permiten citas en fin de semana para este núcleo.' };
-    }
-    
-    if (clinic.unavailableDates?.includes(dateOnly)) {
-        return { isValid: false, message: 'El núcleo básico no labora en la fecha seleccionada por vacaciones.' };
-    }
-    
-    if (appointmentsForClinicOnDate.length >= clinic.dailySlots) {
-        return { isValid: false, message: 'No hay más cupos disponibles para este núcleo en la fecha seleccionada.' };
-    }
-    
-    return { isValid: true, appointmentsOnDate: appointmentsForClinicOnDate };
-}
-
-async function validateLabAvailability(settings: LabSettings, date: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
-
-    const appointmentDate = new Date(date);
-    if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
-    
-    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
-
-    const dayOfWeek = appointmentDate.getUTCDay();
-    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
-      return { isValid: false, message: 'No se permiten citas de laboratorio en fin de semana.' };
-    }
-
-    const q = query(collection(adminDb, 'labAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
-    const dayAppointmentsSnap = await getDocs(q);
-
-    if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para laboratorio en la fecha seleccionada.' };
-
-    return { isValid: true };
-}
-
-async function validateXRayAvailability(settings: XRaySettings, date: string, time: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
-    
-    const appointmentDate = new Date(date);
-    if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
-
-    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
-
-    const dayOfWeek = appointmentDate.getUTCDay();
-    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
-      return { isValid: false, message: 'No se permiten citas de Rayos X en fin de semana.' };
-    }
-    
-    const q = query(collection(adminDb, 'xrayAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
-    const dayAppointmentsSnap = await getDocs(q);
-
-    if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para Rayos X en la fecha seleccionada.' };
-    if (dayAppointmentsSnap.docs.some(d => d.data().time === time)) return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
-    
-    return { isValid: true };
-}
-
-async function validateUltrasoundAvailability(settings: UltrasoundSettings, date: string, time: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
-    
-    const appointmentDate = new Date(date);
-    if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
-
-    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
-    
-    const dayOfWeek = appointmentDate.getUTCDay();
-    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
-      return { isValid: false, message: 'No se permiten citas de Ultrasonido en fin de semana.' };
-    }
-    
-    const q = query(collection(adminDb, 'ultrasoundAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
-    const dayAppointmentsSnap = await getDocs(q);
-
-    if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para Ultrasonido en la fecha seleccionada.' };
-    if (dayAppointmentsSnap.docs.some(d => d.data().time === time)) return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
-    
-    return { isValid: true };
-}
-
-async function validateVaccineAvailability(settings: VaccineSettings, date: string, time: string) {
-    if (!adminDb) throw new Error("Database not initialized.");
-
-    const appointmentDate = new Date(date);
-    if (isNaN(appointmentDate.getTime())) return { isValid: false, message: 'La fecha proporcionada es inválida.' };
-
-    const startDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
-    const endDate = new Date(appointmentDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
-    
-    const dayOfWeek = appointmentDate.getUTCDay();
-    if ((dayOfWeek === 6 || dayOfWeek === 0) && !settings.weekendBookingEnabled) {
-      return { isValid: false, message: 'No se permiten citas de vacunación en fin de semana.' };
-    }
-    
-    const q = query(collection(adminDb, 'vaccineAppointments'), where('date', '>=', startDate), where('date', '<=', endDate));
-    const dayAppointmentsSnap = await getDocs(q);
-
-    if (dayAppointmentsSnap.docs.length >= settings.dailySlots) return { isValid: false, message: 'No hay más cupos para vacunación en la fecha seleccionada.' };
-    if (dayAppointmentsSnap.docs.some(d => d.data().time === time)) return { isValid: false, message: `El horario de ${time} ya no está disponible.` };
-
-    return { isValid: true };
-}
-
-// =====================================================================
-// CORE DATA LOGIC
+// EXPORTS: PATIENTS
 // =====================================================================
 
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {
-  if (!adminDb) throw new Error("Database not initialized.");
-  const q = query(collection(adminDb, 'patients'), where('curp', '==', curp.toUpperCase()), limit(1));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const docData = snapshot.docs[0];
-  return { ...docData.data(), id: docData.id } as Patient;
+    if (!adminDb) return null;
+    const curpUpper = curp.trim().toUpperCase();
+    if (!curpUpper) return null;
+    const q = query(collection(adminDb, 'patients'), where('curp', '==', curpUpper), limit(1));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Patient;
 }
 
-export async function getAppointments(): Promise<Appointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'appointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()}))); }
-export async function getLabAppointments(): Promise<LabAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'labAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
-export async function getXRayAppointments(): Promise<XRayAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'xrayAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
-export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'ultrasoundAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
-export async function getVaccineAppointments(): Promise<VaccineAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
-export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> { if (!adminDb) return []; const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId)); const snapshot = await getDocs(q); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
+export async function getPatients(options?: { searchTerm?: string }): Promise<Patient[]> {
+    if (!adminDb) return [];
+    const q = query(collection(adminDb, 'patients'), orderBy('paternalLastName'), limit(1000));
+    const snapshot = await getDocs(q);
+    const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+    if (options?.searchTerm) {
+        const term = options.searchTerm.toLowerCase();
+        return all.filter(p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toLowerCase().includes(term) || p.curp.toLowerCase().includes(term));
+    }
+    return all;
+}
+
+export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { 
+    if (!adminDb) return { success: false }; 
+    const docId = id || uuidv4(); 
+    await setDoc(doc(adminDb, 'patients', docId), { ...patient, status: patient.status || PatientStatusEnum.Vigente }, { merge: true }); 
+    return { success: true }; 
+}
+
+export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) {
+    if (!adminDb) return { success: false, message: 'DB error' };
+    await updateDoc(doc(adminDb, 'patients', patientId), patientData);
+    return { success: true };
+}
+
+export async function deletePatient(id: string) { 
+    if (!adminDb) return { success: false }; 
+    await deleteDoc(doc(adminDb, 'patients', id)); 
+    return { success: true }; 
+}
+
+export async function updatePatientStatus(id: string, status: PatientStatus) { 
+    if (!adminDb) return { success: false }; 
+    await updateDoc(doc(adminDb, 'patients', id), { status }); 
+    return { success: true }; 
+}
+
+export async function bulkInsertPatients(patients: any[]) {
+    if (!adminDb) return { success: false };
+    const batchSize = 500;
+    const batches = chunkArray(patients, batchSize);
+    let totalAdded = 0;
+    for (const chunk of batches) {
+        const batch = writeBatch(adminDb);
+        chunk.forEach(row => {
+            const docId = uuidv4();
+            batch.set(doc(adminDb, 'patients', docId), {
+                ...row,
+                registrationDate: row.FechaApertura || new Date().toISOString().split('T')[0],
+                status: row.Estatus || PatientStatusEnum.Vigente
+            });
+            totalAdded++;
+        });
+        await batch.commit();
+    }
+    return { success: true, processedCount: patients.length, addedCount: totalAdded, updatedCount: 0 };
+}
+
+// =====================================================================
+// EXPORTS: CLINICS & SLOTS
+// =====================================================================
+
+export async function getClinics(): Promise<Clinic[]> { return getCatalog<Clinic>('clinics'); }
+
+export async function getClinicById(id: string): Promise<Clinic | null> {
+    if (!adminDb) return null;
+    const docSnap = await getDoc(doc(adminDb, 'clinics', id));
+    if (docSnap.exists()) return { id: docSnap.id, ...docSnap.data() } as Clinic;
+    return null;
+}
+
+export async function getAvailableSlotsForDate(clinicId: string, date: string): Promise<{ timeSlots?: string[], tokens?: number[] }> {
+    const clinic = await getClinicById(clinicId);
+    if (!clinic) return {};
+
+    const dateOnly = new Date(date).toISOString().split('T')[0];
+    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId));
+    const snap = await getDocs(q);
+    const appointmentsOnDate = snap.docs
+        .map(d => d.data())
+        .filter(app => (app.date as Timestamp).toDate().toISOString().split('T')[0] === dateOnly);
+
+    const takenTimes = appointmentsOnDate.map(app => app.time);
+
+    if (clinic.bookingMode === BookingMode.Time) {
+        const slots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration || 30);
+        const timesToExclude = clinic.breakTime ? [...takenTimes, clinic.breakTime] : takenTimes;
+        return { timeSlots: slots.filter(s => !timesToExclude.includes(s)) };
+    } else {
+        const totalSlots = clinic.dailySlots;
+        const allTokens = Array.from({ length: totalSlots }, (_, i) => i + 1);
+        const takenTokens = takenTimes.map(t => {
+            const match = t.match(/Ficha (\d+)/);
+            return match ? parseInt(match[1], 10) : null;
+        }).filter(Boolean) as number[];
+        return { tokens: allTokens.filter(token => !takenTokens.includes(token)) };
+    }
+}
+
+// =====================================================================
+// EXPORTS: APPOINTMENTS
+// =====================================================================
+
+export async function getAppointments(): Promise<Appointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'appointments'), orderBy('date', 'desc'), limit(500))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()}))); }
+
+export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
+    if (!adminDb) return [];
+    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), orderBy('date', 'desc'), limit(500));
+    const snapshot = await getDocs(q);
+    return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+}
+
+export async function getLabAppointments(): Promise<LabAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'labAppointments'), orderBy('date', 'desc'), limit(200))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
+export async function getXRayAppointments(): Promise<XRayAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'xrayAppointments'), orderBy('date', 'desc'), limit(200))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
+export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'ultrasoundAppointments'), orderBy('date', 'desc'), limit(200))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
+export async function getVaccineAppointments(): Promise<VaccineAppointment[]> { if (!adminDb) return []; const snapshot = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'), limit(200))); return enrichAppointmentsWithPatientData(snapshot.docs.map(d => ({id: d.id, ...d.data()})));}
 
 export async function saveAppointment(appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber'>, patientData: Omit<Patient, 'id'>, coloniaName: string | undefined) {
     if (!adminDb) throw new Error("Database not initialized.");
-    
-    const finalColoniaName = coloniaName ?? patientData.coloniaName ?? '';
-    const patientPayload: Omit<Patient, 'id'> = { 
-        ...patientData, 
-        coloniaName: finalColoniaName
-    };
-
-    const patientRef = await upsertPatient(patientPayload);
-    
-    const allPatientAppointmentsQuery = query(
-        collection(adminDb, 'appointments'),
-        where('patientId', '==', patientRef.id)
-    );
-    const allPatientAppointmentsSnap = await getDocs(allPatientAppointmentsQuery);
-
-    const appointmentDateOnly = new Date(appointmentData.date).toISOString().split('T')[0];
-
-    const hasAppointmentOnDayInSameClinic = allPatientAppointmentsSnap.docs.some(doc => {
-        const docData = doc.data();
-        const docDate = (docData.date as Timestamp).toDate().toISOString().split('T')[0];
-        return docDate === appointmentDateOnly && docData.clinicId === appointmentData.clinicId;
-    });
-
-    if (hasAppointmentOnDayInSameClinic) {
-        throw new Error('Este paciente ya tiene una cita médica agendada para este día en este mismo núcleo. No se puede duplicar.');
-    }
-    
+    const patientRef = await upsertPatient({ ...patientData, coloniaName: coloniaName ?? patientData.coloniaName ?? '' });
     const clinic = await getClinicById(appointmentData.clinicId);
-    if (!clinic) throw new Error("La clínica seleccionada no es válida.");
-
-    const { isValid, message, appointmentsOnDate } = await validateClinicAvailability(clinic, appointmentData.date);
-    if (!isValid) throw new Error(message);
+    if (!clinic) throw new Error("Clínica no válida.");
     
     const appointmentNumber = `CITA-${uuidv4().substring(0, 4).toUpperCase()}`;
-
-    const newAppointmentData: any = { 
-        ...appointmentData, 
-        appointmentNumber, 
-        patientId: patientRef.id, 
-        date: new Date(appointmentData.date),
-        status: 'Agendada',
-        coloniaName: finalColoniaName,
-    };
-
-    if (clinic.bookingMode === BookingMode.Time) {
-        if ((appointmentsOnDate || []).some(d => d.time === appointmentData.time)) {
-           throw new Error(`El horario de ${appointmentData.time} ya no está disponible.`);
-        }
-        newAppointmentData.time = appointmentData.time;
-    } else if (clinic.bookingMode === BookingMode.Token) {
-        const timeAsString = String(appointmentData.time);
-        const tokenMatch = timeAsString.match(/\d+/);
-        const tokenNumber = tokenMatch ? parseInt(tokenMatch[0], 10) : parseInt(timeAsString, 10);
-        
-        if (isNaN(tokenNumber) || tokenNumber <= 0) {
-            throw new Error("Número de ficha inválido. Por favor, selecciona una ficha de la lista.");
-        }
-        
-        const takenTokens = (appointmentsOnDate || []).map(app => app.tokenNumber).filter(Boolean);
-        if (takenTokens.includes(tokenNumber)) {
-             throw new Error(`La ficha número ${tokenNumber} ya no está disponible.`);
-        }
-        
-        newAppointmentData.tokenNumber = tokenNumber;
-        newAppointmentData.time = `Ficha ${tokenNumber}`;
-    } else {
-        throw new Error(`Modo de agendar desconocido o no configurado para la clínica: ${clinic.bookingMode}`);
-    }
-    
+    const newAppointmentData: any = { ...appointmentData, appointmentNumber, patientId: patientRef.id, date: new Date(appointmentData.date), status: 'Agendada', coloniaName: coloniaName ?? '' };
     const newAppointmentRef = await addDoc(collection(adminDb, 'appointments'), newAppointmentData);
-    
     const patientSnap = await getDoc(patientRef);
-    const patientForReturn = { ...patientSnap.data(), id: patientSnap.id } as Patient;
-
-    const fullAppointment: Appointment = {
-        ...(newAppointmentData as Omit<Appointment, 'id' | 'patient'>),
-        id: newAppointmentRef.id,
-        date: newAppointmentData.date.toISOString(),
-        patient: patientForReturn,
-    };
-
-    return { success: true, data: { appointment: fullAppointment, clinic } };
+    return { success: true, data: { appointment: { ...newAppointmentData, id: newAppointmentRef.id, patient: { ...patientSnap.data(), id: patientSnap.id } }, clinic } };
 }
-
 
 export async function saveLabAppointment(appointmentData: Omit<LabAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
-    
     const patientRef = await upsertPatient(patientData);
-
-    const settings = await getLabSettings();
-    const { isValid, message } = await validateLabAvailability(settings, appointmentData.date);
-    if (!isValid) throw new Error(message);
-
     const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date) };
     const newAppointmentRef = await addDoc(collection(adminDb, 'labAppointments'), newAppointmentData);
-
-    const [appointmentSnap, patientSnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as LabAppointment;
-    return { success: true, data: fullAppointment };
+    const patientSnap = await getDoc(patientRef);
+    return { success: true, data: { ...newAppointmentData, id: newAppointmentRef.id, patient: { ...patientSnap.data(), id: patientSnap.id } } };
 }
 
 export async function saveNewXRayAppointment(appointmentData: Omit<XRayAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
-    
     const patientRef = await upsertPatient(patientData);
-    
-    const settings = await getXRaySettings();
-    const { isValid, message } = await validateXRayAvailability(settings, appointmentData.date, appointmentData.time);
-    if (!isValid) throw new Error(message);
-
-    const studyRef = doc(adminDb, 'xrayStudies', appointmentData.studyId);
-    
     const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date), status: 'Agendada' };
     const newAppointmentRef = await addDoc(collection(adminDb, 'xrayAppointments'), newAppointmentData);
-
-    const [appointmentSnap, patientSnap, studySnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef), getDoc(studyRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as XRayAppointment;
-    const fullStudy = { ...studySnap.data(), id: studySnap.id } as XRayStudy;
-
-    return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
+    const patientSnap = await getDoc(patientRef);
+    return { success: true, data: { appointment: { ...newAppointmentData, id: newAppointmentRef.id, patient: { ...patientSnap.data(), id: patientSnap.id } }, study: { id: appointmentData.studyId, name: appointmentData.studyName } } };
 }
 
 export async function saveNewUltrasoundAppointment(appointmentData: Omit<UltrasoundAppointment, 'id' | 'patientId' | 'patient' | 'status'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
-    
     const patientRef = await upsertPatient(patientData);
-    
-    const settings = await getUltrasoundSettings();
-    const { isValid, message } = await validateUltrasoundAvailability(settings, appointmentData.date, appointmentData.time);
-    if (!isValid) throw new Error(message);
-
-    const studyRef = doc(adminDb, 'ultrasoundStudies', appointmentData.studyId);
-    
     const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date), status: 'Agendada' };
     const newAppointmentRef = await addDoc(collection(adminDb, 'ultrasoundAppointments'), newAppointmentData);
-    
-    const [appointmentSnap, patientSnap, studySnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef), getDoc(studyRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as UltrasoundAppointment;
-    const fullStudy = { ...studySnap.data(), id: studySnap.id } as UltrasoundStudy;
-
-    return { success: true, data: { appointment: fullAppointment, study: fullStudy } };
+    const patientSnap = await getDoc(patientRef);
+    return { success: true, data: { appointment: { ...newAppointmentData, id: newAppointmentRef.id, patient: { ...patientSnap.data(), id: patientSnap.id } }, study: { id: appointmentData.studyId, name: appointmentData.studyName } } };
 }
 
 export async function saveNewVaccineAppointment(appointmentData: Omit<VaccineAppointment, 'id' | 'patientId' | 'patient'>, patientData: Omit<Patient, 'id'>) {
     if (!adminDb) throw new Error("Database not initialized.");
-    
-    const finalColoniaName = appointmentData.coloniaName ?? patientData.coloniaName ?? '';
-    const patientPayload: Omit<Patient, 'id'> = {
-        ...patientData,
-        coloniaName: finalColoniaName,
-    };
-    
-    const patientRef = await upsertPatient(patientPayload);
-    
-    const settings = await getVaccineSettings();
-    const { isValid, message } = await validateVaccineAvailability(settings, appointmentData.date, appointmentData.time);
-    if (!isValid) throw new Error(message);
-        
-    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date), coloniaName: finalColoniaName };
+    const patientRef = await upsertPatient(patientData);
+    const newAppointmentData = { ...appointmentData, patientId: patientRef.id, date: new Date(appointmentData.date) };
     const newAppointmentRef = await addDoc(collection(adminDb, 'vaccineAppointments'), newAppointmentData);
-    
-    const [appointmentSnap, patientSnap] = await Promise.all([ getDoc(newAppointmentRef), getDoc(patientRef) ]);
-    const fullAppointment = { ...appointmentSnap.data(), id: appointmentSnap.id, date: (appointmentSnap.data()?.date as Timestamp).toDate().toISOString(), patient: { ...patientSnap.data(), id: patientSnap.id } } as VaccineAppointment;
-    return { success: true, data: fullAppointment };
+    const patientSnap = await getDoc(patientRef);
+    return { success: true, data: { ...newAppointmentData, id: newAppointmentRef.id, patient: { ...patientSnap.data(), id: patientSnap.id } } };
 }
 
-export async function updatePatient(patientId: string, patientData: Partial<Omit<Patient, 'id'>>) { if (!adminDb) throw new Error("Database not initialized."); const patientRef = doc(adminDb, 'patients', patientId); await updateDoc(patientRef, patientData); return { success: true };}
-async function deleteDocAndGetFolio(collectionName: string, id: string): Promise<string> { if (!adminDb) throw new Error("Database not initialized."); const docRef = doc(adminDb, collectionName, id); const docSnap = await getDoc(docRef); if(docSnap.exists()){ const data = docSnap.data(); await deleteDoc(docRef); return data.appointmentNumber || id; } return id; }
-export async function deleteAppointment(id: string) { return deleteDocAndGetFolio('appointments', id); }
-export async function deleteLabAppointment(id: string) { return deleteDocAndGetFolio('labAppointments', id); }
-export async function deleteXRayAppointment(id: string) { return deleteDocAndGetFolio('xrayAppointments', id); }
-export async function deleteUltrasoundAppointment(id: string) { return deleteDocAndGetFolio('ultrasoundAppointments', id); }
-export async function deleteVaccineAppointment(id: string) { return deleteDocAndGetFolio('vaccineAppointments', id); }
+export async function deleteAppointment(id: string) { 
+    if (!adminDb) return ''; 
+    const snap = await getDoc(doc(adminDb, 'appointments', id));
+    const folio = snap.exists() ? snap.data().appointmentNumber : id;
+    await deleteDoc(doc(adminDb, 'appointments', id)); 
+    return folio; 
+}
+export async function deleteLabAppointment(id: string) { 
+    if (!adminDb) return ''; 
+    const snap = await getDoc(doc(adminDb, 'labAppointments', id));
+    const folio = snap.exists() ? snap.data().appointmentNumber : id;
+    await deleteDoc(doc(adminDb, 'labAppointments', id)); 
+    return folio; 
+}
+export async function deleteXRayAppointment(id: string) { 
+    if (!adminDb) return ''; 
+    const snap = await getDoc(doc(adminDb, 'xrayAppointments', id));
+    const folio = snap.exists() ? snap.data().appointmentNumber : id;
+    await deleteDoc(doc(adminDb, 'xrayAppointments', id)); 
+    return folio; 
+}
+export async function deleteUltrasoundAppointment(id: string) { 
+    if (!adminDb) return ''; 
+    const snap = await getDoc(doc(adminDb, 'ultrasoundAppointments', id));
+    const folio = snap.exists() ? snap.data().appointmentNumber : id;
+    await deleteDoc(doc(adminDb, 'ultrasoundAppointments', id)); 
+    return folio; 
+}
+export async function deleteVaccineAppointment(id: string) { 
+    if (!adminDb) return ''; 
+    const snap = await getDoc(doc(adminDb, 'vaccineAppointments', id));
+    const folio = snap.exists() ? snap.data().appointmentNumber : id;
+    await deleteDoc(doc(adminDb, 'vaccineAppointments', id)); 
+    return folio; 
+}
 
-export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message?: string }> { if (!adminDb) throw new Error("Database not initialized."); const collectionName = type === 'medical' ? 'appointments' : `${type}Appointments`; const docRef = doc(adminDb, collectionName, appointmentId); await updateDoc(docRef, { status }); return { success: true };}
-export async function rescheduleAppointment(appointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine'): Promise<{ success: boolean; message: string; newTime?: string }> { if (!adminDb) throw new Error("Database not initialized."); const collectionName = type === 'medical' ? 'appointments' : `${type}Appointments`; const docRef = doc(adminDb, collectionName, appointmentId); await updateDoc(docRef, { date: new Date(newDate), status: 'Agendada' }); return { success: true, message: 'Fecha de la cita actualizada.' };}
-export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine', newTimeOrToken?: string): Promise<{ success: boolean; message: string; data?: any, originalFolio?: string }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    const collectionName = type === 'medical' ? 'appointments' : `${type}Appointments`;
-    const docRef = doc(adminDb, collectionName, originalAppointmentId);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) throw new Error('Cita original no encontrada.');
+export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: string): Promise<{ success: boolean }> { 
+    if (!adminDb) return { success: false }; 
+    const coll = type === 'medical' ? 'appointments' : (type === 'lab' ? 'labAppointments' : `${type}Appointments`); 
+    await updateDoc(doc(adminDb, coll, appointmentId), { status }); 
+    return { success: true };
+}
 
-    const originalAppointment = docSnap.data();
-    if (!originalAppointment.patientId) throw new Error('Paciente original no encontrado en la cita.');
-    
-    const patientDoc = await getDoc(doc(adminDb, 'patients', originalAppointment.patientId));
-    if (!patientDoc.exists()) throw new Error('Datos del paciente no encontrados.');
-    const patientData = patientDoc.data() as Omit<Patient, 'id'>;
-    
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, patientId, date, status, ...payload } = originalAppointment;
-    
-    if (newTimeOrToken) {
-        payload.time = newTimeOrToken;
-    }
-    
-    const newAppointmentNumber = `${type.substring(0,3).toUpperCase()}-${uuidv4().split('-')[0].toUpperCase()}`;
-    const newAppointmentData = { ...payload, date: newDate, status: 'Agendada' as AppointmentStatus, appointmentNumber: newAppointmentNumber };
-    
-    let result: any;
+export async function rescheduleAppointment(appointmentId: string, newDate: string, type: string): Promise<{ success: boolean; message: string }> { 
+    if (!adminDb) return { success: false, message: 'DB error' }; 
+    const coll = type === 'medical' ? 'appointments' : (type === 'lab' ? 'labAppointments' : `${type}Appointments`); 
+    await updateDoc(doc(adminDb, coll, appointmentId), { date: new Date(newDate), status: 'Agendada' }); 
+    return { success: true, message: 'Fecha actualizada.' };
+}
+
+export async function cloneAppointment(originalId: string, newDate: string, type: string, newTime?: string) {
+    if (!adminDb) return { success: false, message: 'DB error' };
+    const coll = type === 'medical' ? 'appointments' : (type === 'lab' ? 'labAppointments' : `${type}Appointments`);
+    const snap = await getDoc(doc(adminDb, coll, originalId));
+    if (!snap.exists()) return { success: false, message: 'Cita no encontrada.' };
+    const data = snap.data();
+    const pSnap = await getDoc(doc(adminDb, 'patients', data.patientId));
+    const pData = pSnap.data() as Omit<Patient, 'id'>;
+    const { id, date, status, ...payload } = data;
+    if (newTime) payload.time = newTime;
     try {
-        if (type === 'medical') {
-            const { data } = await saveAppointment(newAppointmentData as any, patientData, newAppointmentData.coloniaName);
-            result = data?.appointment;
-        } else if (type === 'lab') {
-            const { data } = await saveLabAppointment(newAppointmentData as any, patientData);
-            result = data;
-        } else if (type === 'xray') {
-            const { data } = await saveNewXRayAppointment(newAppointmentData as any, patientData);
-            result = data?.appointment;
-        } else if (type === 'ultrasound') {
-            const { data } = await saveNewUltrasoundAppointment(newAppointmentData as any, patientData);
-            result = data?.appointment;
-        } else if (type === 'vaccine') {
-            const { data } = await saveNewVaccineAppointment(newAppointmentData as any, patientData);
-            result = data;
-        } else {
-            throw new Error('Tipo de cita no válido.');
-        }
-    } catch (e: any) {
-        return { success: false, message: e.message };
-    }
-
-    return { success: true, message: `Nueva cita asignada con folio ${newAppointmentNumber}`, data: result, originalFolio: originalAppointment.appointmentNumber };
+        let res;
+        if (type === 'medical') res = await saveAppointment(payload as any, pData, payload.coloniaName);
+        else if (type === 'lab') res = await saveLabAppointment(payload as any, pData);
+        else if (type === 'xray') res = await saveNewXRayAppointment(payload as any, pData);
+        else if (type === 'ultrasound') res = await saveNewUltrasoundAppointment(payload as any, pData);
+        else if (type === 'vaccine') res = await saveNewVaccineAppointment(payload as any, pData);
+        return { success: true, message: 'Cita clonada.', originalFolio: data.appointmentNumber, data: res?.data };
+    } catch (e: any) { return { success: false, message: e.message }; }
 }
 
-// Passwords
-export async function verifyClinicPassword(clinicId: string, passwordAttempt: string): Promise<{ isValid: boolean; error?: string }> { if (!adminDb) throw new Error("Database not initialized."); const clinic = await getDoc(doc(adminDb, 'clinics', clinicId)).then(d => d.data() as Clinic); if (!clinic) return { isValid: false, error: 'La clínica no existe.' }; return { isValid: clinic.password === passwordAttempt }; }
-export async function verifyLabPassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getLabSettings(); return { isValid: settings.password === passwordAttempt }; }
-export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getXRaySettings(); return { isValid: settings.password === passwordAttempt }; }
-export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getUltrasoundSettings(); return { isValid: settings.password === passwordAttempt }; }
-export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getVaccineSettings(); return { isValid: settings.password === passwordAttempt }; }
+// =====================================================================
+// EXPORTS: SETTINGS & LOGS
+// =====================================================================
 
-export async function getPatients(options?: { searchTerm?: string }): Promise<Patient[]> {
+export async function getColonias(): Promise<Colonia[]> { return getCatalog<Colonia>('colonias'); }
+export async function getAnnouncements(): Promise<string[]> { const data = await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] }); return data.messages; }
+export async function updateAnnouncements(messages: string[]) { return setSettingsDoc('announcements', { messages: messages.slice(0, 4) }); }
+export async function getModuleSettings(): Promise<ModuleSettings> { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true }); }
+export async function updateModuleSettings(settings: ModuleSettings) { return setSettingsDoc('moduleSettings', settings); }
+export async function getLabSettings(): Promise<LabSettings> { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false, password: '' }); }
+export async function updateLabSettings(settings: LabSettings) { return setSettingsDoc('labSettings', settings); }
+export async function getLabStudies(): Promise<LabStudy[]> { return getCatalog<LabStudy>('labStudies'); }
+export async function updateLabStudies(studies: LabStudy[]) { return updateCatalog('labStudies', studies); }
+export async function getXRaySettings(): Promise<XRaySettings> { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function updateXRaySettings(settings: XRaySettings) { return setSettingsDoc('xraySettings', settings); }
+export async function getXRayStudies(): Promise<XRayStudy[]> { return getCatalog<XRayStudy>('xrayStudies'); }
+export async function updateXRayStudies(studies: XRayStudy[]) { return updateCatalog('xrayStudies', studies); }
+export async function getUltrasoundSettings(): Promise<UltrasoundSettings> { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function updateUltrasoundSettings(settings: UltrasoundSettings) { return setSettingsDoc('ultrasoundSettings', settings); }
+export async function getUltrasoundStudies(): Promise<UltrasoundStudy[]> { return getCatalog<UltrasoundStudy>('ultrasoundStudies'); }
+export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) { return updateCatalog('ultrasoundStudies', studies); }
+export async function getVaccineSettings(): Promise<VaccineSettings> { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function updateVaccineSettings(settings: VaccineSettings) { return setSettingsDoc('vaccineSettings', settings); }
+export async function getVaccines(): Promise<Vaccine[]> { return getCatalog<Vaccine>('vaccines'); }
+export async function updateVaccines(vaccines: Vaccine[]) { return updateCatalog('vaccines', vaccines); }
+export async function updateClinics(clinics: Clinic[]) { return updateCatalog('clinics', clinics); }
+export async function updateColonias(colonias: Colonia[]) { return updateCatalog('colonias', colonias); }
+export async function getUsers(): Promise<User[]> { return getCatalog<User>('users'); }
+export async function updateUsers(users: User[]) { return updateCatalog('users', users); }
+export async function getArchiveSettings(): Promise<ArchiveSettings> { return getSettingsDoc<ArchiveSettings>('archiveSettings', { password: '' }); }
+export async function updateArchiveSettings(settings: ArchiveSettings) { return setSettingsDoc('archiveSettings', settings); }
+export async function verifyArchivePassword(attempt: string) { const s = await getArchiveSettings(); return { isValid: s.password === attempt }; }
+
+export async function verifyClinicPassword(clinicId: string, passwordAttempt: string) { const clinic = await getClinicById(clinicId); return { isValid: clinic?.password === passwordAttempt }; }
+export async function verifyLabPassword(p: string) { const s = await getLabSettings(); return { isValid: s.password === p }; }
+export async function verifyXRayPassword(p: string) { const s = await getXRaySettings(); return { isValid: s.password === p }; }
+export async function verifyUltrasoundPassword(p: string) { const s = await getUltrasoundSettings(); return { isValid: s.password === p }; }
+export async function verifyVaccinePassword(p: string) { const s = await getVaccineSettings(); return { isValid: s.password === p }; }
+
+export async function logActivity(action: string, details: string) {
+    if (!adminDb) return;
+    try { await addDoc(collection(adminDb, 'activityLog'), { action, details, timestamp: Timestamp.now() }); } catch (e) {}
+}
+
+export async function getLogs(): Promise<ActivityLog[]> {
     if (!adminDb) return [];
-    
-    const snapshot = await getDocs(query(collection(adminDb, 'patients'), orderBy('paternalLastName')));
-    const allPatients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
-
-    if (options?.searchTerm) {
-        const lowercasedTerm = options.searchTerm.toLowerCase();
-        return allPatients.filter(patient => {
-            const fullName = `${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`.toLowerCase();
-            const curp = (patient.curp || '').toLowerCase();
-            return fullName.includes(lowercasedTerm) || curp.includes(lowercasedTerm);
-        });
-    }
-
-    return allPatients;
+    const q = query(collection(adminDb, 'activityLog'), orderBy('timestamp', 'desc'), limit(500));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data(), timestamp: (d.data().timestamp as Timestamp).toDate().toISOString() })) as any;
 }
 
+// =====================================================================
+// EXPORTS: MAINTENANCE & DUPLICATES
+// =====================================================================
 
-export async function deletePatient(patientId: string) {
-    if (!adminDb) return { success: false, message: "Database not initialized." };
-    const docRef = doc(adminDb, 'patients', patientId);
-    await deleteDoc(docRef);
-    return { success: true };
-}
-
-export async function updatePatientStatus(patientId: string, newStatus: PatientStatus) {
-    if (!adminDb) return { success: false, message: "Database not initialized." };
-    const docRef = doc(adminDb, 'patients', patientId);
-    await updateDoc(docRef, { status: newStatus });
-    return { success: true };
-}
-
-export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
+/**
+ * Busca pacientes duplicados usando una carga "ligera" para evitar saturar la memoria.
+ * Procesa solo los campos esenciales y limita el escaneo a 5,000 registros.
+ */
+export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[][]; byCurp: Patient[][]; byName: Patient[][] }> {
     if (!adminDb) throw new Error("Database not initialized.");
-    const isNew = !id;
     
-    const dataToSave: Partial<Patient> = {
-        ...patient,
-        status: patient.status || PatientStatusEnum.Vigente,
-    };
+    // Escaneo limitado para proteger el servidor
+    const snap = await getDocs(query(collection(adminDb, 'patients'), limit(5000)));
     
-    if (isNew) {
-        const existingPatient = await findPatient(dataToSave);
-        if (existingPatient) {
-            throw new Error(`Ya existe un paciente con ese No. de Expediente o CURP. ID: ${existingPatient.id}`);
-        }
-    }
-
-    const docId = id || uuidv4();
-    const docRef = doc(adminDb, 'patients', docId);
-
-    if (isNew && !dataToSave.registrationDate) {
-        dataToSave.registrationDate = new Date().toISOString().split('T')[0];
-    }
-    
-    await setDoc(docRef, dataToSave, { merge: true });
-    return { success: true };
-}
-
-export async function bulkInsertPatients(patients: any[]): Promise<{ success: boolean; message?: string, processedCount?: number, addedCount?: number, updatedCount?: number }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-
-    const statusValueMap: { [key: string]: PatientStatus } = {
-        'BAJA TEMPORAL': PatientStatusEnum.Baja,
-        'BAJA': PatientStatusEnum.Baja,
-        'BAJA DEFINITIVA': PatientStatusEnum.BajaDefinitiva,
-        'VIGENTE': PatientStatusEnum.Vigente,
-    };
-    
-    const columnMapping: { [key: string]: string } = {
-        'No.Expediente': 'expediente', 'Nombre': 'name', 'Apaterno': 'paternalLastName',
-        'Amaterno': 'maternalLastName', 'FNacimiento': 'birthDate', 'YearNacimiento': 'birthDate', 'Edad': 'age', 'EdadActual': 'age',
-        'Sexo': 'sex', 'Estado': 'birthState', 'Domicilio': 'address', 'Colonia': 'coloniaName',
-        'NombrePadre': 'fatherName', 'NombreMadre': 'motherName', 'EdadPadre': 'fatherAge',
-        'EdadMadre': 'motherAge', 'FechaApertura': 'registrationDate', 'Estatus': 'status',
-        'DerechoAbiencia': 'derechoAbiencia',
-        'Telefono': 'phoneNumber', 'CURP': 'curp'
-    };
-
-    const mappedPatients = patients.map(row => {
-        const mappedPatient: Partial<Patient> = {};
-        for (const key in row) {
-            if (columnMapping[key]) {
-                const mappedKey = columnMapping[key] as keyof Patient;
-                let value = row[key];
-
-                if ((mappedKey === 'birthDate' || mappedKey === 'registrationDate') && typeof value === 'number') {
-                    const excelEpoch = new Date(1899, 11, 30);
-                    const excelDate = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
-                    value = excelDate.toISOString().split('T')[0];
-                }
-
-                if (typeof value === 'string') {
-                    value = value.trim();
-                    if (mappedKey === 'status') {
-                        value = statusValueMap[value.toUpperCase() as string] || PatientStatusEnum.Vigente;
-                    }
-                }
-                
-                (mappedPatient as any)[mappedKey] = value;
-            }
-        }
-        return mappedPatient;
+    const all: any[] = snap.docs.map(doc => {
+        const d = doc.data();
+        // Definir un paciente seguro para serializar
+        return {
+            id: doc.id,
+            name: String(d.name || '').toUpperCase(),
+            paternalLastName: String(d.paternalLastName || '').toUpperCase(),
+            maternalLastName: String(d.maternalLastName || '').toUpperCase(),
+            curp: String(d.curp || '').toUpperCase(),
+            expediente: d.expediente ? String(d.expediente) : null,
+            phoneNumber: String(d.phoneNumber || ''),
+            registrationDate: d.registrationDate ? (d.registrationDate instanceof Timestamp ? d.registrationDate.toDate().toISOString() : String(d.registrationDate)) : null,
+        };
     });
 
-    const rawExpedientes = mappedPatients.map(p => p.expediente).filter(e => e != null && String(e).trim() !== '').map(String);
-    const rawCurps = mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1 && !c.startsWith('RN-')).map(String);
-    
-    const expedientesInChunk = Array.from(new Set(rawExpedientes));
-    const curpsInChunk = Array.from(new Set(rawCurps));
-    
-    const patientsCollection = collection(adminDb, 'patients');
-    const existingByCurp = new Map<string, { id: string }>();
-    
-    // Chunking by 10 for absolute safety (limit is 30)
-    if (curpsInChunk.length > 0) {
-        const chunks = chunkArray(curpsInChunk, 10);
-        for (const batchIds of chunks) {
-            const q = query(patientsCollection, where('curp', 'in', batchIds));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach(doc => {
-                const docData = doc.data() as Patient;
-                if (docData.curp) existingByCurp.set(docData.curp, { id: doc.id });
-            });
-        }
-    }
-    
-    const existingByExpediente = new Map<string, { id: string }>();
-    if (expedientesInChunk.length > 0) {
-        const chunks = chunkArray(expedientesInChunk, 10);
-        for (const batchIds of chunks) {
-            const q = query(patientsCollection, where('expediente', 'in', batchIds));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach(doc => {
-                const docData = doc.data() as Patient;
-                if (docData.expediente) existingByExpediente.set(String(docData.expediente), { id: doc.id });
-            });
-        }
-    }
-    
-    const batch = writeBatch(adminDb);
-    let addedCount = 0;
-    let updatedCount = 0;
-    const seenInBatch = new Set<string>();
-
-    for (const patientData of mappedPatients) {
-        const expediente = patientData.expediente ? String(patientData.expediente).trim() : undefined;
-        const curp = patientData.curp ? patientData.curp.trim().toUpperCase() : undefined;
-        let existingPatientId: string | undefined;
-
-        if (expediente && existingByExpediente.has(expediente)) {
-            existingPatientId = existingByExpediente.get(expediente)!.id;
-        } else if (curp && existingByCurp.has(curp)) {
-            existingPatientId = existingByCurp.get(curp)!.id;
-        }
-        
-        const uniqueKey = expediente || curp;
-        if(uniqueKey && seenInBatch.has(uniqueKey)) {
-            continue; 
-        }
-
-        const dataToSave: any = { ...patientData, status: patientData.status || PatientStatusEnum.Vigente };
-
-        if (existingPatientId) {
-            const docRef = doc(patientsCollection, existingPatientId);
-            const { registrationDate, ...updateData } = dataToSave;
-            batch.update(docRef, updateData);
-            updatedCount++;
-        } else {
-            const newDocRef = doc(patientsCollection);
-            if (!dataToSave.registrationDate) {
-                dataToSave.registrationDate = new Date().toISOString().split('T')[0];
+    const groupBy = (list: any[], keyGetter: (item: any) => string | null) => {
+        const map = new Map<string, any[]>();
+        list.forEach((item) => {
+            const key = keyGetter(item);
+            if (key && key.trim() !== '') {
+                const group = map.get(key) || [];
+                group.push(item);
+                map.set(key, group);
             }
-            batch.set(newDocRef, dataToSave);
-            addedCount++;
-        }
+        });
+        // Filtrar solo grupos que tengan más de un registro (duplicados)
+        return Array.from(map.values()).filter(g => g.length > 1);
+    };
 
-        if (uniqueKey) {
-            seenInBatch.add(uniqueKey);
+    return {
+        byExpediente: groupBy(all, p => p.expediente).slice(0, 300),
+        byCurp: groupBy(all, p => p.curp && !p.curp.startsWith('RN-') ? p.curp : null).slice(0, 300),
+        byName: groupBy(all, p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`).slice(0, 300),
+    };
+}
+
+export async function deletePatients(ids: string[]) {
+    if (!adminDb) return { success: false };
+    const batchSize = 500;
+    const chunks = chunkArray(ids, batchSize);
+    for (const chunk of chunks) {
+        const batch = writeBatch(adminDb);
+        chunk.forEach(id => batch.delete(doc(adminDb, 'patients', id)));
+        await batch.commit();
+    }
+    return { success: true, message: `${ids.length} eliminados.` };
+}
+
+export async function autoCleanupDuplicatePatients() {
+    const dups = await findDuplicatePatients();
+    const allGroups = [...dups.byExpediente, ...dups.byCurp, ...dups.byName];
+    const idsToDelete = new Set<string>();
+    
+    allGroups.forEach(group => {
+        // Conservar el registro más antiguo
+        const sorted = group.sort((a, b) => (a.registrationDate || '').localeCompare(b.registrationDate || ''));
+        sorted.slice(1).forEach(p => idsToDelete.add(p.id));
+    });
+    
+    return deletePatients(Array.from(idsToDelete));
+}
+
+/**
+ * Actualiza el estatus de pacientes por número de expediente en lotes seguros.
+ */
+export async function bulkUpdateStatusByExpediente(expedientes: string[], status: PatientStatus): Promise<{ success: boolean; updatedCount: number; message: string }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    
+    const uniqueExps = Array.from(new Set(expedientes.filter(e => e && e.trim() !== '')));
+    const chunks = chunkArray(uniqueExps, 10); // Lotes de 10 para evitar error 'IN'
+    
+    let updatedCount = 0;
+    let batch = writeBatch(adminDb);
+    let countInBatch = 0;
+
+    for (const batchIds of chunks) {
+        const q = query(collection(adminDb, 'patients'), where('expediente', 'in', batchIds));
+        const snap = await getDocs(q);
+        
+        for (const d of snap.docs) {
+            batch.update(d.ref, { status });
+            updatedCount++;
+            countInBatch++;
+            
+            // Confirmar lote cada 500 escrituras
+            if (countInBatch >= 500) { 
+                await batch.commit(); 
+                batch = writeBatch(adminDb); 
+                countInBatch = 0; 
+            }
         }
     }
     
-    await batch.commit();
-    return { success: true, processedCount: patients.length, addedCount, updatedCount };
-}
-
-
-// --- Backup & Restore ---
-export async function createBackupData() {
-    const appointments = await getAppointments();
-    const enrichedAppointments = await Promise.all(appointments.map(async (app) => {
-        const clinic = await getClinicById(app.clinicId);
-        return {
-            ...app,
-            clinicName: clinic?.name || 'N/A'
-        };
-    }));
-
-    const data = {
-        appointments: enrichedAppointments,
-        labAppointments: await getLabAppointments(),
-        xRayAppointments: await getXRayAppointments(),
-        ultrasoundAppointments: await getUltrasoundAppointments(),
-        vaccineAppointments: await getVaccineAppointments(),
-        patients: await getCatalog<Patient>('patients'),
-        clinics: await getClinics(),
-    };
-    return data;
-}
-  
-export async function restoreBackupData(backup: any) { return { success: false, message: 'La restauración de respaldos está deshabilitada.' }; }
-  
-export async function cleanupOldRecords() {
-    if (!adminDb) throw new Error("Database not initialized.");
-    let totalDeleted = 0;
-    const collectionsToClean = [ 'appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments' ];
+    if (countInBatch > 0) await batch.commit();
     
+    return { success: true, updatedCount, message: `Se actualizaron exitosamente ${updatedCount} registros de pacientes.` };
+}
+
+export async function cleanupOldRecords() {
+    if (!adminDb) return { deletedCount: 0 };
     const now = new Date();
-    const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    for (const collectionName of collectionsToClean) {
-        const collRef = collection(adminDb, collectionName);
-        const q = query(collRef, where('date', '<', firstDayOfCurrentMonth));
-        const snapshot = await getDocs(q);
-
-        if (!snapshot.empty) {
+    const firstDayCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    let totalDeleted = 0;
+    
+    const collectionsToClean = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
+    
+    for (const collName of collectionsToClean) {
+        const q = query(collection(adminDb, collName), where('date', '<', firstDayCurrentMonth));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
             const batch = writeBatch(adminDb);
-            snapshot.docs.forEach(d => batch.delete(d.ref));
+            snap.docs.forEach(d => batch.delete(d.ref));
             await batch.commit();
-            totalDeleted += snapshot.size;
+            totalDeleted += snap.size;
         }
     }
     
     return { deletedCount: totalDeleted };
 }
 
-async function checkAppointmentsForPatients(patientIds: string[]): Promise<Set<string>> {
-    if (!adminDb || patientIds.length === 0) return new Set();
-
-    const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
-    const patientsWithAppointments = new Set<string>();
-
-    // Chunking by 10 for absolute safety
-    const chunks = chunkArray(patientIds, 10);
-
-    for (const idChunk of chunks) {
-        if (idChunk.length > 0) {
-          for (const coll of collections) {
-              const q = query(collection(adminDb, coll), where('patientId', 'in', idChunk));
-              const snapshot = await getDocs(q);
-              snapshot.forEach(doc => {
-                  patientsWithAppointments.add(doc.data().patientId);
-              });
-          }
-        }
-    }
-
-    return patientsWithAppointments;
+export async function createBackupData() { 
+    return { 
+        patients: await getPatients(), 
+        appointments: await getAppointments(), 
+        clinics: await getClinics() 
+    }; 
 }
 
-export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[][]; byCurp: Patient[][]; byName: Patient[][] }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
-    
-    const getSafeValue = (value: any, defaultValue: any) => {
-        if (value === undefined || value === null) {
-            return defaultValue;
-        }
-        if (value instanceof Timestamp) {
-            return value.toDate().toISOString();
-        }
-        return value;
-    };
-
-    const allPatients: Patient[] = patientsSnapshot.docs.map(doc => {
-        const data = doc.data() || {};
-        
-        const patientSchema: Patient = {
-            id: doc.id,
-            expediente: null,
-            curp: '',
-            name: '',
-            paternalLastName: '',
-            maternalLastName: '',
-            birthDate: null,
-            sex: 'Hombre',
-            age: 0,
-            birthState: '',
-            address: null,
-            coloniaName: null,
-            fatherName: null,
-            motherName: null,
-            fatherAge: null,
-            motherAge: null,
-            registrationDate: null,
-            status: PatientStatusEnum.Vigente,
-            derechoAbiencia: null,
-            phoneNumber: '',
-            lastAppointmentDate: null
-        };
-        
-        const sanitizedPatient: any = { id: doc.id };
-        for (const key in patientSchema) {
-            if (key !== 'id') {
-                sanitizedPatient[key] = getSafeValue(data[key], patientSchema[key as keyof Patient]);
-            }
-        }
-
-        sanitizedPatient.age = Number(sanitizedPatient.age) || 0;
-        sanitizedPatient.fatherAge = Number(sanitizedPatient.fatherAge) || null;
-        sanitizedPatient.motherAge = Number(sanitizedPatient.motherAge) || null;
-
-        return sanitizedPatient as Patient;
-    });
-
-    const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
-        list.reduce((previous, currentItem) => {
-            const groupKey = getKey(currentItem);
-            if (groupKey != null && String(groupKey).trim() !== '') {
-                 if (!previous[groupKey]) previous[groupKey] = [];
-                 previous[groupKey].push(currentItem);
-            }
-            return previous;
-        }, {} as Record<K, T[]>);
-
-    const filterDuplicates = (grouped: Record<string, Patient[]>) => 
-        Object.values(grouped).filter(group => group.length > 1);
-    
-    const groupedByExpediente = groupBy(allPatients, p => String(p.expediente));
-    const duplicatesByExpediente = filterDuplicates(groupedByExpediente);
-
-    const groupedByCurp = groupBy(allPatients.filter(p => p.curp && !p.curp.startsWith('RN-')), p => p.curp);
-    const duplicatesByCurp = filterDuplicates(groupedByCurp);
-
-    const groupedByName = groupBy(allPatients, p => `${p.name || ''} ${p.paternalLastName || ''} ${p.maternalLastName || ''}`.trim().toUpperCase());
-    const duplicatesByName = filterDuplicates(groupedByName);
-    
-    const limitCount = 300;
-
-    return {
-        byExpediente: duplicatesByExpediente.slice(0, limitCount),
-        byCurp: duplicatesByCurp.slice(0, limitCount),
-        byName: duplicatesByName.slice(0, limitCount),
-    };
-}
-
-
-export async function deletePatients(patientIds: string[]): Promise<{ success: boolean; message: string; undeletedCount: number }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-
-    const patientHasAppointments = await checkAppointmentsForPatients(patientIds);
-    
-    const batch = writeBatch(adminDb);
-    const deletablePatientIds = patientIds.filter(id => !patientHasAppointments.has(id));
-    
-    deletablePatientIds.forEach(id => {
-        batch.delete(doc(adminDb, 'patients', id));
-    });
-
-    if (deletablePatientIds.length > 0) {
-        await batch.commit();
-    }
-
-    const undeletedCount = patientIds.length - deletablePatientIds.length;
-    let message = `${deletablePatientIds.length} pacientes eliminados.`;
-    if (undeletedCount > 0) {
-        message += ` ${undeletedCount} no se pudieron eliminar porque tienen citas registradas.`;
-    }
-
-    await logActivity('Limpieza de Duplicados', message);
-    return { success: true, message, undeletedCount };
-}
-    
-export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean; message: string; totalChecked: number; deletedCount: number; undeletedCount: number }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-
-    const { byExpediente, byCurp, byName } = await findDuplicatePatients();
-
-    const allDuplicateGroups = [...byExpediente, ...byCurp, ...byName];
-    const allPotentialDuplicates = new Map<string, Patient>();
-    const masterPatientIds = new Set<string>();
-
-    for (const group of allDuplicateGroups) {
-        if (group.length < 2) continue;
-
-        const sortedGroup = group.sort((a, b) => {
-            if (a.registrationDate && b.registrationDate) {
-                const dateA = new Date(a.registrationDate).getTime();
-                const dateB = new Date(b.registrationDate).getTime();
-                if (dateA !== dateB) return dateA - dateB;
-            }
-            if (a.registrationDate && !b.registrationDate) return -1;
-            if (!a.registrationDate && b.registrationDate) return 1;
-            if (a.lastAppointmentDate && b.lastAppointmentDate) {
-                const dateA = new Date(a.lastAppointmentDate).getTime();
-                const dateB = new Date(b.lastAppointmentDate).getTime();
-                if (dateA !== dateB) return dateB - dateA;
-            }
-            if (a.lastAppointmentDate && !b.lastAppointmentDate) return -1;
-            if (!a.lastAppointmentDate && b.lastAppointmentDate) return 1;
-            const aScore = Object.values(a).filter(v => v != null && v !== '').length;
-            const bScore = Object.values(b).filter(v => v != null && v !== '').length;
-            if (aScore !== bScore) return bScore - aScore;
-            return 0;
-        });
-
-        const masterPatient = sortedGroup[0];
-        masterPatientIds.add(masterPatient.id);
-
-        for (let i = 1; i < sortedGroup.length; i++) {
-            allPotentialDuplicates.set(sortedGroup[i].id, sortedGroup[i]);
-        }
-    }
-
-    const candidateIdsToDelete = Array.from(allPotentialDuplicates.keys()).filter(id => !masterPatientIds.has(id));
-    if (candidateIdsToDelete.length === 0) {
-        return { success: true, message: "No se encontraron duplicados para limpiar automáticamente.", totalChecked: 0, deletedCount: 0, undeletedCount: 0 };
-    }
-
-    const patientsWithAppointments = await checkAppointmentsForPatients(candidateIdsToDelete);
-    
-    const safeToDeleteIds = candidateIdsToDelete.filter(id => !patientsWithAppointments.has(id));
-
-    if (safeToDeleteIds.length > 0) {
-        const batch = writeBatch(adminDb);
-        safeToDeleteIds.forEach(id => {
-            batch.delete(doc(adminDb, 'patients', id));
-        });
-        await batch.commit();
-    }
-    
-    const deletedCount = safeToDeleteIds.length;
-    const undeletedCount = candidateIdsToDelete.length - deletedCount;
-    const message = `Limpieza completada. Se eliminaron ${deletedCount} registros duplicados. ${undeletedCount} registros no se eliminaron por tener citas asociadas.`;
-
-    await logActivity('Limpieza Automática de Duplicados', message);
-    
-    return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
-}
-
-/**
- * Bulk updates the status of patients found by expediente number.
- * @param expedientes List of expediente numbers to update.
- * @param status The target status (usually Baja Temporal).
- */
-export async function bulkUpdateStatusByExpediente(expedientes: string[], status: PatientStatus): Promise<{ success: boolean; updatedCount: number; message: string }> {
-    if (!adminDb) throw new Error("Database not initialized.");
-    
-    const patientsCollection = collection(adminDb, 'patients');
-    const rawExpedientes = expedientes
-        .filter(e => e && String(e).trim() !== '')
-        .map(String);
-    
-    const uniqueExpedientes = Array.from(new Set(rawExpedientes));
-    
-    let updatedCount = 0;
-    let batch = writeBatch(adminDb);
-    let batchCount = 0;
-    
-    // Chunking by 10 for absolute safety (limit is 30)
-    const chunks = chunkArray(uniqueExpedientes, 10);
-    
-    for (const batchIds of chunks) {
-        if (batchIds.length > 0) {
-            const q = query(patientsCollection, where('expediente', 'in', batchIds));
-            const querySnapshot = await getDocs(q);
-            
-            for (const docSnap of querySnapshot.docs) {
-                batch.update(docSnap.ref, { 
-                    status: status,
-                    lastStatusUpdate: Timestamp.now()
-                });
-                updatedCount++;
-                batchCount++;
-                
-                // Límite de WriteBatch es 500
-                if (batchCount >= 500) {
-                    await batch.commit();
-                    batch = writeBatch(adminDb);
-                    batchCount = 0;
-                }
-            }
-        }
-    }
-    
-    if (batchCount > 0) {
-        await batch.commit();
-    }
-    
-    const message = `Actualización masiva completada. ${updatedCount} registros de pacientes fueron actualizados a "${status}".`;
-    await logActivity('Actualización Masiva de Estatus', message);
-    
-    return { success: true, updatedCount, message };
+export async function restoreBackupData(data: any) { 
+    return { success: false, message: 'La restauración desde archivo está deshabilitada por motivos de seguridad en la nube.' }; 
 }
