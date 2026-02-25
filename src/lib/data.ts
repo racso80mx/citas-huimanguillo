@@ -1010,7 +1010,23 @@ async function checkAppointmentsForPatients(patientIds: string[]): Promise<Set<s
 export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[][]; byCurp: Patient[][]; byName: Patient[][] }> {
     if (!adminDb) throw new Error("Database not initialized.");
     const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
-    const allPatients = patientsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+    
+    const allPatients = patientsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const serializedData: {[key: string]: any} = {};
+        // Loop through all keys in the document data
+        for (const key in data) {
+            // Check if the value is a Firestore Timestamp
+            if (data[key] instanceof Timestamp) {
+                // If it is, convert it to an ISO string
+                serializedData[key] = data[key].toDate().toISOString();
+            } else {
+                // Otherwise, keep the original value
+                serializedData[key] = data[key];
+            }
+        }
+        return { id: doc.id, ...serializedData } as Patient;
+    });
 
     const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
         list.reduce((previous, currentItem) => {
@@ -1026,7 +1042,6 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     const filterDuplicates = (grouped: Record<string, Patient[]>) => 
         Object.values(grouped).filter(group => group.length > 1);
     
-    // No '!' needed. Let groupBy handle potentially undefined keys.
     const groupedByExpediente = groupBy(allPatients, p => p.expediente);
     const duplicatesByExpediente = filterDuplicates(groupedByExpediente);
 
