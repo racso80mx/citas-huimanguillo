@@ -47,8 +47,39 @@ import type {
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 // =====================================================================
-// UTILS
+// UTILS & SERIALIZATION
 // =====================================================================
+
+/**
+ * Convierte recursivamente cualquier objeto Timestamp de Firestore en una cadena ISO.
+ * Esto es crucial para que Next.js pueda pasar objetos del Servidor al Cliente.
+ */
+function serializeData(data: any): any {
+  if (data === null || data === undefined) return data;
+
+  // Si es un Timestamp de Firestore
+  if (typeof data.toDate === 'function') {
+    return data.toDate().toISOString();
+  }
+
+  // Si es un arreglo
+  if (Array.isArray(data)) {
+    return data.map(item => serializeData(item));
+  }
+
+  // Si es un objeto literal
+  if (typeof data === 'object' && data !== null && !(data instanceof Date)) {
+    const serialized: any = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        serialized[key] = serializeData(data[key]);
+      }
+    }
+    return serialized;
+  }
+
+  return data;
+}
 
 function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -63,7 +94,7 @@ async function getSettingsDoc<T>(docId: string, defaultVal: T): Promise<T> {
   if (!adminDb) return defaultVal;
   const docRef = doc(adminDb, 'settings', docId);
   const docSnap = await getDoc(docRef);
-  return docSnap.exists() ? (docSnap.data() as T) : defaultVal;
+  return docSnap.exists() ? serializeData(docSnap.data()) as T : defaultVal;
 }
 
 async function setSettingsDoc(docId: string, data: any) {
@@ -82,7 +113,7 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
     const q = query(collection(adminDb, 'patients'), where('curp', '==', curp.toUpperCase().trim()), limit(1));
     const snap = await getDocs(q);
     if (snap.empty) return null;
-    return { id: snap.docs[0].id, ...snap.docs[0].data() } as Patient;
+    return serializeData({ id: snap.docs[0].id, ...snap.docs[0].data() }) as Patient;
   } catch (e) {
     console.error("Error fetching patient by CURP:", e);
     return null;
@@ -94,7 +125,7 @@ export async function getPatients(options?: { searchTerm?: string }): Promise<Pa
   try {
     const q = query(collection(adminDb, 'patients'), orderBy('paternalLastName'), limit(1000));
     const snap = await getDocs(q);
-    const all = snap.docs.map(d => ({ id: d.id, ...d.data() } as Patient));
+    const all = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
     if (options?.searchTerm) {
       const term = options.searchTerm.toLowerCase();
       return all.filter(p => 
@@ -174,7 +205,7 @@ async function enrichWithPatientData(apps: any[]): Promise<any[]> {
   if (!adminDb || !apps || apps.length === 0) return apps;
   
   const patientIds = Array.from(new Set(apps.map(a => a.patientId).filter(id => id && typeof id === 'string')));
-  if (patientIds.length === 0) return apps;
+  if (patientIds.length === 0) return apps.map(a => serializeData(a));
 
   const patientsMap: Record<string, Patient> = {};
   const chunks = chunkArray(patientIds, 10);
@@ -183,24 +214,15 @@ async function enrichWithPatientData(apps: any[]): Promise<any[]> {
     const q = query(collection(adminDb, 'patients'), where(documentId(), 'in', batch));
     const snap = await getDocs(q);
     snap.forEach(d => {
-      patientsMap[d.id] = { id: d.id, ...d.data() } as Patient;
+      patientsMap[d.id] = serializeData({ id: d.id, ...d.data() }) as Patient;
     });
   }
 
   return apps.map(app => {
-    // Verificación robusta de fecha para serialización
-    let formattedDate = app.date;
-    if (app.date && typeof app.date.toDate === 'function') {
-      formattedDate = app.date.toDate().toISOString();
-    } else if (app.date instanceof Timestamp) {
-      formattedDate = app.date.toDate().toISOString();
-    }
-
-    return {
+    return serializeData({
       ...app,
-      patient: patientsMap[app.patientId] || null,
-      date: formattedDate
-    };
+      patient: patientsMap[app.patientId] || null
+    });
   });
 }
 
@@ -209,7 +231,8 @@ export async function getAppointments(): Promise<Appointment[]> {
   try {
     const q = query(collection(adminDb, 'appointments'), orderBy('date', 'desc'), limit(1000));
     const snap = await getDocs(q);
-    return enrichWithPatientData(snap.docs.map(d => ({ id: d.id, ...d.data() }))) as Promise<Appointment[]>;
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await enrichWithPatientData(data) as Appointment[];
   } catch (e) {
     console.error("Error fetching medical appointments:", e);
     return [];
@@ -221,7 +244,8 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
   try {
     const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), orderBy('date', 'desc'), limit(1000));
     const snap = await getDocs(q);
-    return enrichWithPatientData(snap.docs.map(d => ({ id: d.id, ...d.data() }))) as Promise<Appointment[]>;
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await enrichWithPatientData(data) as Appointment[];
   } catch (e) {
     console.error("Error fetching clinic appointments:", e);
     return [];
@@ -233,7 +257,8 @@ export async function getLabAppointments(): Promise<LabAppointment[]> {
   try {
     const q = query(collection(adminDb, 'labAppointments'), orderBy('date', 'desc'), limit(1000));
     const snap = await getDocs(q);
-    return enrichWithPatientData(snap.docs.map(d => ({ id: d.id, ...d.data() }))) as Promise<LabAppointment[]>;
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await enrichWithPatientData(data) as LabAppointment[];
   } catch (e) {
     console.error("Error fetching lab appointments:", e);
     return [];
@@ -245,7 +270,8 @@ export async function getXRayAppointments(): Promise<XRayAppointment[]> {
   try {
     const q = query(collection(adminDb, 'xrayAppointments'), orderBy('date', 'desc'), limit(1000));
     const snap = await getDocs(q);
-    return enrichWithPatientData(snap.docs.map(d => ({ id: d.id, ...d.data() }))) as Promise<XRayAppointment[]>;
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await enrichWithPatientData(data) as XRayAppointment[];
   } catch (e) {
     console.error("Error fetching xray appointments:", e);
     return [];
@@ -257,7 +283,8 @@ export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment
   try {
     const q = query(collection(adminDb, 'ultrasoundAppointments'), orderBy('date', 'desc'), limit(1000));
     const snap = await getDocs(q);
-    return enrichWithPatientData(snap.docs.map(d => ({ id: d.id, ...d.data() }))) as Promise<UltrasoundAppointment[]>;
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await enrichWithPatientData(data) as UltrasoundAppointment[];
   } catch (e) {
     console.error("Error fetching ultrasound appointments:", e);
     return [];
@@ -269,7 +296,8 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   try {
     const q = query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'), limit(1000));
     const snap = await getDocs(q);
-    return enrichWithPatientData(snap.docs.map(d => ({ id: d.id, ...d.data() }))) as Promise<VaccineAppointment[]>;
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await enrichWithPatientData(data) as VaccineAppointment[];
   } catch (e) {
     console.error("Error fetching vaccine appointments:", e);
     return [];
@@ -307,10 +335,10 @@ export async function saveAppointment(appointment: any, patientData: any, coloni
     const clinic = await getClinicById(appointment.clinicId);
     return { 
       success: true, 
-      data: { 
-        appointment: { ...finalApp, id: appRef.id, date: appointment.date, patient: { ...patientData, id: patientId } }, 
+      data: serializeData({ 
+        appointment: { ...finalApp, id: appRef.id, patient: { ...patientData, id: patientId } }, 
         clinic 
-      } 
+      }) 
     };
   } catch (e: any) {
     console.error("Error saving medical appointment:", e);
@@ -339,7 +367,7 @@ export async function saveLabAppointment(appointment: any, patientData: any) {
     
     return { 
       success: true, 
-      data: { ...finalApp, id: appRef.id, date: appointment.date, patient: { ...patientData, id: patientId } } 
+      data: serializeData({ ...finalApp, id: appRef.id, patient: { ...patientData, id: patientId } }) 
     };
   } catch (e: any) {
     console.error("Error saving lab appointment:", e);
@@ -369,10 +397,10 @@ export async function saveNewXRayAppointment(appointment: any, patientData: any)
     
     return { 
       success: true, 
-      data: { 
-        appointment: { ...finalApp, id: appRef.id, date: appointment.date, patient: { ...patientData, id: patientId } }, 
+      data: serializeData({ 
+        appointment: { ...finalApp, id: appRef.id, patient: { ...patientData, id: patientId } }, 
         study: { name: appointment.studyName, indications: '' } 
-      } 
+      }) 
     };
   } catch (e: any) {
     console.error("Error saving xray appointment:", e);
@@ -402,10 +430,10 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientData
     
     return { 
       success: true, 
-      data: { 
-        appointment: { ...finalApp, id: appRef.id, date: appointment.date, patient: { ...patientData, id: patientId } }, 
+      data: serializeData({ 
+        appointment: { ...finalApp, id: appRef.id, patient: { ...patientData, id: patientId } }, 
         study: { name: appointment.studyName, indications: '' } 
-      } 
+      }) 
     };
   } catch (e: any) {
     console.error("Error saving ultrasound appointment:", e);
@@ -434,7 +462,7 @@ export async function saveNewVaccineAppointment(appointment: any, patientData: a
     
     return { 
       success: true, 
-      data: { ...finalApp, id: appRef.id, date: appointment.date, patient: { ...patientData, id: patientId } } 
+      data: serializeData({ ...finalApp, id: appRef.id, patient: { ...patientData, id: patientId } }) 
     };
   } catch (e: any) {
     console.error("Error saving vaccine appointment:", e);
@@ -463,7 +491,7 @@ export async function getClinics(): Promise<Clinic[]> {
   if (!adminDb) return [];
   try {
     const snap = await getDocs(collection(adminDb, 'clinics'));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Clinic));
+    return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Clinic);
   } catch (e) {
     return [];
   }
@@ -473,7 +501,7 @@ export async function getClinicById(id: string): Promise<Clinic | null> {
   if (!adminDb) return null;
   try {
     const d = await getDoc(doc(adminDb, 'clinics', id));
-    return d.exists() ? ({ id: d.id, ...d.data() } as Clinic) : null;
+    return d.exists() ? serializeData({ id: d.id, ...d.data() }) as Clinic : null;
   } catch (e) {
     return null;
   }
@@ -495,7 +523,7 @@ export async function getColonias(): Promise<Colonia[]> {
   if (!adminDb) return [];
   try {
     const snap = await getDocs(collection(adminDb, 'colonias'));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Colonia));
+    return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Colonia);
   } catch (e) {
     return [];
   }
@@ -527,7 +555,7 @@ export async function updateLabSettings(s: LabSettings) { return setSettingsDoc(
 export async function getLabStudies() {
   if (!adminDb) return [];
   const snap = await getDocs(collection(adminDb, 'labStudies'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as LabStudy));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as LabStudy);
 }
 export async function updateLabStudies(studies: LabStudy[]) {
   if (!adminDb) return { success: false };
@@ -545,7 +573,7 @@ export async function updateXRaySettings(s: XRaySettings) { return setSettingsDo
 export async function getXRayStudies() {
   if (!adminDb) return [];
   const snap = await getDocs(collection(adminDb, 'xrayStudies'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as XRayStudy));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as XRayStudy);
 }
 export async function updateXRayStudies(studies: XRayStudy[]) {
   if (!adminDb) return { success: false };
@@ -563,7 +591,7 @@ export async function updateUltrasoundSettings(s: UltrasoundSettings) { return s
 export async function getUltrasoundStudies() {
   if (!adminDb) return [];
   const snap = await getDocs(collection(adminDb, 'ultrasoundStudies'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as UltrasoundStudy));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as UltrasoundStudy);
 }
 export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   if (!adminDb) return { success: false };
@@ -581,7 +609,7 @@ export async function updateVaccineSettings(s: VaccineSettings) { return setSett
 export async function getVaccines() {
   if (!adminDb) return [];
   const snap = await getDocs(collection(adminDb, 'vaccines'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Vaccine));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Vaccine);
 }
 export async function updateVaccines(vaccines: Vaccine[]) {
   if (!adminDb) return { success: false };
@@ -596,7 +624,7 @@ export async function updateVaccines(vaccines: Vaccine[]) {
 export async function getUsers(): Promise<User[]> {
   if (!adminDb) return [];
   const snap = await getDocs(collection(adminDb, 'users'));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as User));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as User);
 }
 export async function updateUsers(users: User[]) {
   if (!adminDb) return { success: false };
@@ -619,7 +647,7 @@ export async function verifyVaccinePassword(p: string) { const s = await getVacc
 export async function getLogs(): Promise<ActivityLog[]> {
   if (!adminDb) return [];
   const snap = await getDocs(query(collection(adminDb, 'activityLog'), orderBy('timestamp', 'desc'), limit(500)));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as ActivityLog);
 }
 export async function logActivity(action: string, details: string) {
   if (!adminDb) return;
@@ -632,6 +660,7 @@ export async function logActivity(action: string, details: string) {
 
 export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
   if (!adminDb) return [];
+  // Escaneo ligero: solo traemos los campos necesarios para comparar
   const snap = await getDocs(query(collection(adminDb, 'patients'), limit(5000)));
   const all = snap.docs.map(doc => {
     const d = doc.data();
@@ -666,7 +695,11 @@ export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'n
 export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
   if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
+  // 1. Normalizar expedientes de entrada
   const targetExps = Array.from(new Set(expedientes.map(e => e?.toString().trim().replace(/^0+/, '')).filter(Boolean)));
+  
+  // 2. Traer todos los pacientes (limitado a 10k para seguridad, o hacer un stream)
+  // Nota: Para 20k+ registros, lo ideal sería un escaneo por partes, pero aquí optimizamos la búsqueda.
   const snap = await getDocs(collection(adminDb, 'patients'));
   const foundDocRefs = [];
 
@@ -675,11 +708,13 @@ export async function bulkUpdateStatusChunk(expedientes: string[], status: Patie
     const expRaw = data.expediente?.toString().trim() || '';
     const expNormalized = expRaw.replace(/^0+/, '');
     
+    // Si el expediente normalizado o el raw coinciden con nuestra lista
     if (targetExps.includes(expNormalized) || targetExps.includes(expRaw)) {
       foundDocRefs.push(doc.ref);
     }
   });
 
+  // 3. Actualizar en lotes de 500 (límite de batch)
   if (foundDocRefs.length > 0) {
     const chunks = chunkArray(foundDocRefs, 500);
     for (const batchRefs of chunks) {
@@ -703,7 +738,7 @@ export async function createBackupData() {
   const data: any = {};
   for (const col of collections) {
     const snap = await getDocs(collection(adminDb, col));
-    data[col] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    data[col] = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
   }
   return data;
 }
@@ -780,9 +815,7 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
   const taken = snap.docs.map(d => d.data()).filter(a => {
-    let dStr = '';
-    if (a.date && typeof a.date.toDate === 'function') dStr = a.date.toDate().toISOString();
-    else dStr = String(a.date);
+    const dStr = serializeData(a.date);
     return dStr.split('T')[0] === dateOnly;
   }).map(a => a.time);
   if (clinic.bookingMode === BookingMode.Time) {
