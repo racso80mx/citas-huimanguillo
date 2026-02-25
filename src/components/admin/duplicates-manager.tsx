@@ -13,9 +13,10 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { Trash2, Loader2, Info } from 'lucide-react';
+import { Trash2, Loader2, Info, ChevronsUpDown, CheckSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { deletePatients } from '@/lib/actions';
+import { cn } from '@/lib/utils';
 
 type DuplicatesData = {
     byExpediente: Patient[][];
@@ -27,7 +28,7 @@ type DuplicatesManagerProps = {
     initialDuplicates: DuplicatesData;
 };
 
-const DuplicateGroup = ({ group, onSelectionChange }: { group: Patient[], onSelectionChange: (id: string, isSelected: boolean) => void }) => {
+const DuplicateGroup = ({ group, onSelectionChange, selectedIds }: { group: Patient[], onSelectionChange: (id: string, isSelected: boolean) => void, selectedIds: string[] }) => {
     return (
         <Table>
             <TableHeader>
@@ -42,10 +43,11 @@ const DuplicateGroup = ({ group, onSelectionChange }: { group: Patient[], onSele
             </TableHeader>
             <TableBody>
                 {group.map(patient => (
-                    <TableRow key={patient.id}>
+                    <TableRow key={patient.id} className={cn(selectedIds.includes(patient.id) && 'bg-muted/50')}>
                         <TableCell>
                             <Checkbox 
                                 onCheckedChange={(checked) => onSelectionChange(patient.id, !!checked)}
+                                checked={selectedIds.includes(patient.id)}
                             />
                         </TableCell>
                         <TableCell className="font-medium">{`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`}</TableCell>
@@ -61,17 +63,27 @@ const DuplicateGroup = ({ group, onSelectionChange }: { group: Patient[], onSele
 };
 
 export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps) {
+    const [activeTab, setActiveTab] = useState('expediente');
     const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
+    const [expandedItems, setExpandedItems] = useState<string[]>([]);
     const [isDeleting, startDeleteTransition] = useTransition();
     const { toast } = useToast();
+    
+    const accordionKeys = useMemo(() => ({
+        expediente: initialDuplicates.byExpediente.map((group, index) => `expediente-${group[0].expediente}-${index}`),
+        curp: initialDuplicates.byCurp.map((group, index) => `curp-${group[0].curp}-${index}`),
+        name: initialDuplicates.byName.map((group, index) => `name-${group[0].name}-${index}`),
+    }), [initialDuplicates]);
 
     const handleSelectionChange = (id: string, isSelected: boolean) => {
         setSelectedPatientIds(prev => {
+            const newSet = new Set(prev);
             if (isSelected) {
-                return [...prev, id];
+                newSet.add(id);
             } else {
-                return prev.filter(patientId => patientId !== id);
+                newSet.delete(id);
             }
+            return Array.from(newSet);
         });
     };
 
@@ -89,8 +101,6 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
                     description: result.message,
                     duration: 8000
                 });
-                // We don't have a way to easily refresh server data from here without a full page reload,
-                // so we'll just clear selections and let the user see the result after a manual refresh.
                 setSelectedPatientIds([]);
             } else {
                 toast({
@@ -101,29 +111,49 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
             }
         });
     };
+    
+    const toggleAllAccordions = () => {
+        const currentKeys = accordionKeys[activeTab as keyof typeof accordionKeys];
+        if (expandedItems.length === currentKeys.length) {
+            setExpandedItems([]);
+        } else {
+            setExpandedItems(currentKeys);
+        }
+    };
 
-    const renderDuplicateList = (groups: Patient[][], criteria: string) => {
+    const handleSelectFirstInEachGroup = () => {
+        const currentGroups = initialDuplicates[activeTab as keyof typeof initialDuplicates];
+        const idsToSelect = currentGroups.map(group => group[0]?.id).filter(Boolean);
+        
+        setSelectedPatientIds(prev => Array.from(new Set([...prev, ...idsToSelect])));
+        
+        toast({
+            title: "Selección Rápida",
+            description: `Se han seleccionado los primeros registros de cada grupo.`
+        });
+    };
+
+    const renderDuplicateList = (groups: Patient[][], criteria: 'expediente' | 'curp' | 'name') => {
         if (groups.length === 0) {
-            return <p className="text-muted-foreground text-center py-8">No se encontraron duplicados por {criteria}.</p>;
+            return <p className="text-muted-foreground text-center py-8">No se encontraron duplicados por este criterio.</p>;
         }
 
         return (
-             <Accordion type="multiple" className="w-full space-y-4">
+             <Accordion type="multiple" className="w-full space-y-4" value={expandedItems} onValueChange={setExpandedItems}>
                 {groups.map((group, index) => {
-                    const identifier = group[0].expediente || group[0].curp || group[0].name;
+                    const identifier = group[0][criteria] || `${group[0].name} ${group[0].paternalLastName}`;
                     const key = `${criteria}-${identifier}-${index}`;
-                    const triggerLabel = group[0].expediente || group[0].curp || `${group[0].name} ${group[0].paternalLastName}`;
                     
                     return (
                         <AccordionItem value={key} key={key} className="border rounded-lg">
                             <AccordionTrigger className="p-4 bg-muted/50 hover:no-underline rounded-t-lg">
                                 <div className="flex items-center gap-4">
                                      <Badge variant="destructive">{group.length} Registros</Badge>
-                                     <span className="font-mono text-sm">{triggerLabel}</span>
+                                     <span className="font-mono text-sm">{identifier}</span>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="p-0">
-                                <DuplicateGroup group={group} onSelectionChange={handleSelectionChange} />
+                                <DuplicateGroup group={group} onSelectionChange={handleSelectionChange} selectedIds={selectedPatientIds} />
                             </AccordionContent>
                         </AccordionItem>
                     )
@@ -141,7 +171,21 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
                     El sistema no permitirá eliminar pacientes que tengan citas registradas para preservar el historial. Si necesitas eliminar un paciente con citas, primero debes eliminar sus citas manualmente. Se recomienda conservar el registro con la información más completa o la fecha de última cita más reciente.
                 </AlertDescription>
             </Alert>
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center gap-2">
+                 <Button 
+                    variant="outline"
+                    onClick={toggleAllAccordions}
+                >
+                    <ChevronsUpDown className="mr-2 h-4 w-4" />
+                    Desplegar/Cerrar Todos
+                </Button>
+                 <Button 
+                    variant="outline"
+                    onClick={handleSelectFirstInEachGroup}
+                >
+                    <CheckSquare className="mr-2 h-4 w-4" />
+                    Seleccionar Primeros
+                </Button>
                 <Button 
                     variant="destructive"
                     onClick={handleDeleteSelected}
@@ -151,20 +195,20 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
                     Eliminar {selectedPatientIds.length > 0 ? `${selectedPatientIds.length} Seleccionado(s)` : 'Seleccionados'}
                 </Button>
             </div>
-            <Tabs defaultValue="expediente">
+            <Tabs defaultValue="expediente" value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="expediente">Por No. de Expediente ({initialDuplicates.byExpediente.length})</TabsTrigger>
                     <TabsTrigger value="curp">Por CURP ({initialDuplicates.byCurp.length})</TabsTrigger>
                     <TabsTrigger value="name">Por Nombre ({initialDuplicates.byName.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="expediente" className="mt-4">
-                    {renderDuplicateList(initialDuplicates.byExpediente, 'No. de Expediente')}
+                    {renderDuplicateList(initialDuplicates.byExpediente, 'expediente')}
                 </TabsContent>
                 <TabsContent value="curp" className="mt-4">
-                    {renderDuplicateList(initialDuplicates.byCurp, 'CURP')}
+                    {renderDuplicateList(initialDuplicates.byCurp, 'curp')}
                 </TabsContent>
                 <TabsContent value="name" className="mt-4">
-                    {renderDuplicateList(initialDuplicates.byName, 'Nombre')}
+                    {renderDuplicateList(initialDuplicates.byName, 'name')}
                 </TabsContent>
             </Tabs>
         </div>
