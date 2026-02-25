@@ -244,9 +244,9 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                             <SelectContent>
                                                 <SelectItem value={ClinicType.ConsultaExterna}>Consulta Externa</SelectItem>
                                                 <SelectItem value={ClinicType.Especializada}>Consulta Externa Especializada</SelectItem>
-                                                <SelectItem value={ClinicType.Psicologia}>Psicología</SelectItem>
                                                 <SelectItem value={ClinicType.Nutricion}>Nutrición</SelectItem>
                                                 <SelectItem value={ClinicType.Odontologia}>Odontología</SelectItem>
+                                                <SelectItem value={ClinicType.Psicologia}>Psicología</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </CardContent>
