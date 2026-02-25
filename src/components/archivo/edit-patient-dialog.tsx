@@ -72,40 +72,29 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
   React.useEffect(() => {
     if (isOpen) {
-      if (!patient) {
-        // Correctly reset the form for a NEW patient
-        form.reset({
-          name: '', paternalLastName: '', maternalLastName: '', curp: '', phoneNumber: '',
-          expediente: '', birthDate: '', sex: 'Hombre', age: undefined, birthState: '',
-          address: '', coloniaName: '', fatherName: '', motherName: '', fatherAge: undefined,
-          motherAge: undefined, registrationDate: '', derechoAbiencia: '',
-          status: PatientStatus.Vigente, lastAppointmentDate: '',
-        });
-      } else {
-        // Correctly reset the form for an EXISTING patient
-        form.reset({
-          name: patient.name ?? '',
-          paternalLastName: patient.paternalLastName ?? '',
-          maternalLastName: patient.maternalLastName ?? '',
-          curp: patient.curp ?? '',
-          phoneNumber: patient.phoneNumber ?? '',
-          expediente: patient.expediente ?? '',
-          birthDate: patient.birthDate ?? '',
-          sex: patient.sex ?? 'Hombre',
-          age: patient.age ?? undefined,
-          birthState: patient.birthState ?? '',
-          address: patient.address ?? '',
-          coloniaName: patient.coloniaName ?? '',
-          fatherName: patient.fatherName ?? '',
-          motherName: patient.motherName ?? '',
-          fatherAge: patient.fatherAge ?? undefined,
-          motherAge: patient.motherAge ?? undefined,
-          registrationDate: patient.registrationDate ?? '',
-          derechoAbiencia: patient.derechoAbiencia ?? '',
-          status: patient.status || PatientStatus.Vigente,
-          lastAppointmentDate: patient.lastAppointmentDate ?? '',
-        });
-      }
+      const defaultValues = {
+        name: patient?.name ?? '',
+        paternalLastName: patient?.paternalLastName ?? '',
+        maternalLastName: patient?.maternalLastName ?? '',
+        curp: patient?.curp ?? '',
+        phoneNumber: patient?.phoneNumber ?? '',
+        expediente: patient?.expediente ?? '',
+        birthDate: patient?.birthDate ?? '',
+        sex: patient?.sex ?? 'Hombre',
+        age: patient?.age ?? undefined,
+        birthState: patient?.birthState ?? '',
+        address: patient?.address ?? '',
+        coloniaName: patient?.coloniaName ?? '',
+        fatherName: patient?.fatherName ?? '',
+        motherName: patient?.motherName ?? '',
+        fatherAge: patient?.fatherAge ?? undefined,
+        motherAge: patient?.motherAge ?? undefined,
+        registrationDate: patient?.registrationDate ?? '',
+        derechoAbiencia: patient?.derechoAbiencia ?? '',
+        status: patient?.status || PatientStatus.Vigente,
+        lastAppointmentDate: patient?.lastAppointmentDate ?? '',
+      };
+      form.reset(defaultValues);
     }
   }, [isOpen, patient, form]);
 

@@ -783,49 +783,10 @@ export async function verifyXRayPassword(passwordAttempt: string): Promise<{ isV
 export async function verifyUltrasoundPassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getUltrasoundSettings(); return { isValid: settings.password === passwordAttempt }; }
 export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ isValid: boolean }> { const settings = await getVaccineSettings(); return { isValid: settings.password === passwordAttempt }; }
 
-export async function getPatients(options?: { searchTerm?: string }): Promise<Patient[]> {
+export async function getPatients(): Promise<Patient[]> {
     if (!adminDb) return [];
-    
-    // If no search term, return empty to force search-first interaction.
-    if (!options?.searchTerm || options.searchTerm.length < 3) {
-        return [];
-    }
-
-    const term = options.searchTerm.toUpperCase();
-    const patientsCollection = collection(adminDb, 'patients');
-    const limitPerQuery = 50;
-
-    const nameQuery = query(patientsCollection, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(limitPerQuery));
-    const pLastNameQuery = query(patientsCollection, where('paternalLastName', '>=', term), where('paternalLastName', '<=', term + '\uf8ff'), limit(limitPerQuery));
-    const mLastNameQuery = query(patientsCollection, where('maternalLastName', '>=', term), where('maternalLastName', '<=', term + '\uf8ff'), limit(limitPerQuery));
-    const curpQuery = query(patientsCollection, where('curp', '>=', term), where('curp', '<=', term + '\uf8ff'), limit(limitPerQuery));
-
-    const [nameSnap, pLastNameSnap, mLastNameSnap, curpSnap] = await Promise.all([
-        getDocs(nameQuery),
-        getDocs(pLastNameQuery),
-        getDocs(mLastNameQuery),
-        getDocs(curpQuery),
-    ]);
-
-    const patientsMap = new Map<string, Patient>();
-
-    const processSnapshot = (snapshot: QuerySnapshot) => {
-        snapshot.forEach(doc => {
-            if (!patientsMap.has(doc.id)) {
-                patientsMap.set(doc.id, { id: doc.id, ...doc.data() } as Patient);
-            }
-        });
-    };
-
-    processSnapshot(nameSnap);
-    processSnapshot(pLastNameSnap);
-    processSnapshot(mLastNameSnap);
-    processSnapshot(curpSnap);
-
-    const results = Array.from(patientsMap.values());
-    results.sort((a, b) => (a.paternalLastName || '').localeCompare(b.paternalLastName || ''));
-
-    return results;
+    const snapshot = await getDocs(query(collection(adminDb, 'patients'), orderBy('paternalLastName')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
 }
 
 
