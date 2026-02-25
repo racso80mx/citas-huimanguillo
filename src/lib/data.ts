@@ -20,6 +20,8 @@ import {
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import { v4 as uuidv4 } from 'uuid';
+import { format as formatDate } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import type {
   Appointment,
@@ -129,7 +131,7 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
 export async function getPatients(): Promise<Patient[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'patients'), limit(5000)));
+    const snap = await getDocs(query(collection(adminDb, 'patients'), limit(10000)));
     return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
   } catch (e) {
     return [];
@@ -222,7 +224,7 @@ async function enrichWithPatientData(apps: any[]): Promise<any[]> {
 export async function getAppointments(): Promise<Appointment[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'appointments'), orderBy('date', 'desc'), limit(1000)));
+    const snap = await getDocs(query(collection(adminDb, 'appointments'), orderBy('date', 'desc'), limit(2000)));
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return await enrichWithPatientData(data) as Appointment[];
   } catch (e) {
@@ -233,7 +235,7 @@ export async function getAppointments(): Promise<Appointment[]> {
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
   if (!adminDb) return [];
   try {
-    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), orderBy('date', 'desc'), limit(1000));
+    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), orderBy('date', 'desc'), limit(2000));
     const snap = await getDocs(q);
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return await enrichWithPatientData(data) as Appointment[];
@@ -245,7 +247,7 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
 export async function getLabAppointments(): Promise<LabAppointment[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'labAppointments'), orderBy('date', 'desc'), limit(1000)));
+    const snap = await getDocs(query(collection(adminDb, 'labAppointments'), orderBy('date', 'desc'), limit(2000)));
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return await enrichWithPatientData(data) as LabAppointment[];
   } catch (e) {
@@ -256,7 +258,7 @@ export async function getLabAppointments(): Promise<LabAppointment[]> {
 export async function getXRayAppointments(): Promise<XRayAppointment[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'xrayAppointments'), orderBy('date', 'desc'), limit(1000)));
+    const snap = await getDocs(query(collection(adminDb, 'xrayAppointments'), orderBy('date', 'desc'), limit(2000)));
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return await enrichWithPatientData(data) as XRayAppointment[];
   } catch (e) {
@@ -267,7 +269,7 @@ export async function getXRayAppointments(): Promise<XRayAppointment[]> {
 export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'ultrasoundAppointments'), orderBy('date', 'desc'), limit(1000)));
+    const snap = await getDocs(query(collection(adminDb, 'ultrasoundAppointments'), orderBy('date', 'desc'), limit(2000)));
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return await enrichWithPatientData(data) as UltrasoundAppointment[];
   } catch (e) {
@@ -278,7 +280,7 @@ export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment
 export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   if (!adminDb) return [];
   try {
-    const snap = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'), limit(1000)));
+    const snap = await getDocs(query(collection(adminDb, 'vaccineAppointments'), orderBy('date', 'desc'), limit(2000)));
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return await enrichWithPatientData(data) as VaccineAppointment[];
   } catch (e) {
@@ -286,18 +288,35 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   }
 }
 
-/**
- * Función centralizada para guardar una cita médica general.
- */
 export async function saveAppointment(appointmentData: any, patientInput: any, coloniaName?: string) {
   if (!adminDb) return { success: false, error: 'DB no conectada' };
   try {
-    const batch = writeBatch(adminDb);
     const curp = String(patientInput.curp).toUpperCase().trim();
-    
-    // 1. Gestionar Paciente
-    let patientId = '';
-    const existing = await getPatientByCURP(curp);
+    const existingPatient = await getPatientByCURP(curp);
+
+    // 1. Validar duplicados para el mismo día y CURP (excepto recién nacidos temporales)
+    if (existingPatient && !curp.startsWith('RN-')) {
+      const selectedDate = new Date(appointmentData.date);
+      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
+      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+
+      const q = query(
+        collection(adminDb, 'appointments'),
+        where('patientId', '==', existingPatient.id),
+        where('date', '>=', Timestamp.fromDate(start)),
+        where('date', '<=', Timestamp.fromDate(end))
+      );
+      const existingAppSnap = await getDocs(q);
+      if (!existingAppSnap.empty) {
+        return { 
+          success: false, 
+          error: `El paciente con CURP ${curp} ya tiene una cita médica agendada para el día ${formatDate(start, 'dd/MM/yyyy')}.` 
+        };
+      }
+    }
+
+    const batch = writeBatch(adminDb);
+    let patientId = existingPatient ? existingPatient.id : uuidv4();
     
     const cleanPatient = {
       curp,
@@ -314,15 +333,8 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
       updatedAt: Timestamp.now()
     };
 
-    if (existing) {
-      patientId = existing.id;
-      batch.update(doc(adminDb, 'patients', patientId), cleanPatient);
-    } else {
-      patientId = uuidv4();
-      batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId, registrationDate: Timestamp.now().toDate().toISOString().split('T')[0] });
-    }
+    batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
 
-    // 2. Crear Cita
     const appRef = doc(collection(adminDb, 'appointments'));
     const appointmentNumber = `FOLIO-${uuidv4().split('-')[0].toUpperCase()}`;
     
@@ -339,24 +351,13 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
     };
     
     batch.set(appRef, cleanApp);
-    
-    // 3. Confirmar Lote
     await batch.commit();
     
-    // 4. Actividad
-    await logActivity("Nueva Cita Médica", `Cita ${appointmentNumber} para ${cleanPatient.name} en ${appointmentData.clinicId}`);
-    
+    await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
     const clinic = await getClinicById(appointmentData.clinicId);
     
-    return { 
-      success: true, 
-      data: serializeData({ 
-        appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, 
-        clinic 
-      }) 
-    };
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic }) };
   } catch (e: any) {
-    console.error("Error saving medical appointment:", e);
     return { success: false, error: e.message };
   }
 }
@@ -364,11 +365,20 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
 export async function saveLabAppointment(appointmentData: any, patientInput: any) {
   if (!adminDb) return { success: false };
   try {
-    const batch = writeBatch(adminDb);
     const curp = String(patientInput.curp).toUpperCase().trim();
-    const existing = await getPatientByCURP(curp);
-    const patientId = existing ? existing.id : uuidv4();
-    
+    const existingPatient = await getPatientByCURP(curp);
+
+    if (existingPatient && !curp.startsWith('RN-')) {
+      const selectedDate = new Date(appointmentData.date);
+      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
+      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+      const q = query(collection(adminDb, 'labAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
+      const existingSnap = await getDocs(q);
+      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de laboratorio para hoy.' };
+    }
+
+    const batch = writeBatch(adminDb);
+    const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -382,28 +392,12 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(adminDb, 'labAppointments'));
-    const cleanApp = { 
-      appointmentNumber: appointmentData.appointmentNumber,
-      patientId, 
-      date: Timestamp.fromDate(new Date(appointmentData.date)),
-      time: String(appointmentData.time),
-      studies: appointmentData.studies,
-      status: 'Agendada',
-      patientType: appointmentData.patientType,
-      createdAt: Timestamp.now()
-    };
-    
+    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studies: appointmentData.studies, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    
-    await logActivity("Nueva Cita Laboratorio", `Cita ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
-
-    return { 
-      success: true, 
-      data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) 
-    };
+    await logActivity("Nueva Cita Laboratorio", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
+    return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
@@ -412,11 +406,20 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
 export async function saveNewXRayAppointment(appointmentData: any, patientInput: any) {
   if (!adminDb) return { success: false };
   try {
-    const batch = writeBatch(adminDb);
     const curp = String(patientInput.curp).toUpperCase().trim();
-    const existing = await getPatientByCURP(curp);
-    const patientId = existing ? existing.id : uuidv4();
-    
+    const existingPatient = await getPatientByCURP(curp);
+
+    if (existingPatient && !curp.startsWith('RN-')) {
+      const selectedDate = new Date(appointmentData.date);
+      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
+      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+      const q = query(collection(adminDb, 'xrayAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
+      const existingSnap = await getDocs(q);
+      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para hoy.' };
+    }
+
+    const batch = writeBatch(adminDb);
+    const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -430,32 +433,12 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(adminDb, 'xrayAppointments'));
-    const cleanApp = { 
-      appointmentNumber: appointmentData.appointmentNumber,
-      patientId, 
-      date: Timestamp.fromDate(new Date(appointmentData.date)),
-      time: String(appointmentData.time),
-      studyId: appointmentData.studyId,
-      studyName: appointmentData.studyName,
-      status: 'Agendada',
-      patientType: appointmentData.patientType,
-      createdAt: Timestamp.now()
-    };
-    
+    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    
-    await logActivity("Nueva Cita Rayos X", `Cita ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
-
-    return { 
-      success: true, 
-      data: serializeData({ 
-        appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, 
-        study: { name: appointmentData.studyName, indications: '' } 
-      }) 
-    };
+    await logActivity("Nueva Cita Rayos X", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
@@ -464,11 +447,20 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
 export async function saveNewUltrasoundAppointment(appointmentData: any, patientInput: any) {
   if (!adminDb) return { success: false };
   try {
-    const batch = writeBatch(adminDb);
     const curp = String(patientInput.curp).toUpperCase().trim();
-    const existing = await getPatientByCURP(curp);
-    const patientId = existing ? existing.id : uuidv4();
-    
+    const existingPatient = await getPatientByCURP(curp);
+
+    if (existingPatient && !curp.startsWith('RN-')) {
+      const selectedDate = new Date(appointmentData.date);
+      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
+      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+      const q = query(collection(adminDb, 'ultrasoundAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
+      const existingSnap = await getDocs(q);
+      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para hoy.' };
+    }
+
+    const batch = writeBatch(adminDb);
+    const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -482,32 +474,12 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(adminDb, 'ultrasoundAppointments'));
-    const cleanApp = { 
-      appointmentNumber: appointmentData.appointmentNumber,
-      patientId, 
-      date: Timestamp.fromDate(new Date(appointmentData.date)),
-      time: String(appointmentData.time),
-      studyId: appointmentData.studyId,
-      studyName: appointmentData.studyName,
-      status: 'Agendada',
-      patientType: appointmentData.patientType,
-      createdAt: Timestamp.now()
-    };
-    
+    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    
-    await logActivity("Nueva Cita Ultrasonido", `Cita ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
-
-    return { 
-      success: true, 
-      data: serializeData({ 
-        appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, 
-        study: { name: appointmentData.studyName, indications: '' } 
-      }) 
-    };
+    await logActivity("Nueva Cita Ultrasonido", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
@@ -516,11 +488,20 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
 export async function saveNewVaccineAppointment(appointmentData: any, patientInput: any) {
   if (!adminDb) return { success: false };
   try {
-    const batch = writeBatch(adminDb);
     const curp = String(patientInput.curp).toUpperCase().trim();
-    const existing = await getPatientByCURP(curp);
-    const patientId = existing ? existing.id : uuidv4();
-    
+    const existingPatient = await getPatientByCURP(curp);
+
+    if (existingPatient && !curp.startsWith('RN-')) {
+      const selectedDate = new Date(appointmentData.date);
+      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
+      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+      const q = query(collection(adminDb, 'vaccineAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
+      const existingSnap = await getDocs(q);
+      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para hoy.' };
+    }
+
+    const batch = writeBatch(adminDb);
+    const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = {
       curp,
       name: String(patientInput.name || '').toUpperCase().trim(),
@@ -534,29 +515,12 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
     };
 
     batch.set(doc(adminDb, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(adminDb, 'vaccineAppointments'));
-    const cleanApp = { 
-      appointmentNumber: appointmentData.appointmentNumber,
-      patientId, 
-      date: Timestamp.fromDate(new Date(appointmentData.date)),
-      time: String(appointmentData.time),
-      vaccines: appointmentData.vaccines,
-      status: 'Agendada',
-      patientType: appointmentData.patientType,
-      coloniaName: appointmentData.coloniaName || null,
-      createdAt: Timestamp.now()
-    };
-    
+    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), vaccines: appointmentData.vaccines, status: 'Agendada', patientType: appointmentData.patientType, coloniaName: appointmentData.coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    
-    await logActivity("Nueva Cita Vacuna", `Cita ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
-
-    return { 
-      success: true, 
-      data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) 
-    };
+    await logActivity("Nueva Cita Vacuna", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
+    return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
@@ -779,35 +743,28 @@ export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'n
   return Array.from(map.values()).filter(g => g.length > 1).slice(0, 300);
 }
 
-export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
+export async function bulkUpdateStatusByExpediente(expedientes: string[], status: PatientStatus) {
   if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
-  const targetExps = Array.from(new Set(expedientes.map(e => e?.toString().trim().replace(/^0+/, '')).filter(Boolean)));
-  
   const snap = await getDocs(collection(adminDb, 'patients'));
-  const foundDocRefs = [];
-
-  snap.docs.forEach(doc => {
-    const data = doc.data();
-    const expRaw = data.expediente?.toString().trim() || '';
-    const expNormalized = expRaw.replace(/^0+/, '');
-    
-    if (targetExps.includes(expNormalized) || targetExps.includes(expRaw)) {
-      foundDocRefs.push(doc.ref);
-    }
+  const targetExps = Array.from(new Set(expedientes.map(e => e.toString().trim().replace(/^0+/, ''))));
+  
+  const foundDocs = snap.docs.filter(d => {
+    const exp = (d.data().expediente || '').toString().trim().replace(/^0+/, '');
+    return targetExps.includes(exp);
   });
 
-  if (foundDocRefs.length > 0) {
-    const chunks = chunkArray(foundDocRefs, 500);
-    for (const batchRefs of chunks) {
+  if (foundDocs.length > 0) {
+    const chunks = chunkArray(foundDocs, 500);
+    for (const chunk of chunks) {
       const batch = writeBatch(adminDb);
-      batchRefs.forEach(ref => batch.update(ref, { status, updatedAt: Timestamp.now() }));
+      chunk.forEach(d => batch.update(d.ref, { status, updatedAt: Timestamp.now() }));
       await batch.commit();
     }
-    await logActivity("Mantenimiento Masivo", `Actualizados ${foundDocRefs.length} pacientes a estatus ${status}.`);
+    await logActivity("Actualización Masiva", `Se actualizaron ${foundDocs.length} expedientes a ${status}`);
   }
 
-  return { success: true, count: foundDocRefs.length };
+  return { success: true, count: foundDocs.length };
 }
 
 // =====================================================================
