@@ -19,7 +19,8 @@ import {
   limit,
   DocumentReference,
   addDoc,
-  QuerySnapshot
+  QuerySnapshot,
+  DocumentData
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import { v4 as uuidv4 } from 'uuid';
@@ -1011,57 +1012,62 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     if (!adminDb) throw new Error("Database not initialized.");
     const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
     
-    const allPatients = patientsSnapshot.docs.map(doc => {
+    const allPatients: Patient[] = patientsSnapshot.docs.map(doc => {
         const data = doc.data() || {};
+        
+        // This function will ensure every field is serializable and has a safe default
+        const sanitizePatientData = (docData: DocumentData): Patient => {
+            const safeData: any = { id: doc.id };
 
-        // Helper to safely get and serialize values, providing a default.
-        const getSafeValue = (value: any, defaultValue: any) => {
-            if (value instanceof Timestamp) {
-                return value.toDate().toISOString();
+            const pSchema: Record<keyof Omit<Patient, 'id'>, any> = {
+                expediente: null,
+                curp: '',
+                name: '',
+                paternalLastName: '',
+                maternalLastName: '',
+                birthDate: null,
+                sex: 'Hombre',
+                age: 0,
+                birthState: '',
+                address: null,
+                coloniaName: null,
+                fatherName: null,
+                motherName: null,
+                fatherAge: null,
+                motherAge: null,
+                registrationDate: null,
+                status: PatientStatusEnum.Vigente,
+                derechoAbiencia: null,
+                phoneNumber: '',
+                lastAppointmentDate: null
+            };
+
+            for (const key in pSchema) {
+                let value = docData[key];
+
+                if (value instanceof Timestamp) {
+                    safeData[key] = value.toDate().toISOString();
+                } else if (value === undefined || value === null) {
+                    safeData[key] = pSchema[key as keyof Omit<Patient, 'id'>]; // Use default from schema
+                } else {
+                    safeData[key] = value;
+                }
             }
-            if (value === undefined || value === null) {
-                return defaultValue;
-            }
-            return value;
-        };
 
-        const patient: Patient = {
-            id: doc.id,
-            expediente: getSafeValue(data.expediente, null),
-            curp: getSafeValue(data.curp, ''),
-            name: getSafeValue(data.name, ''),
-            paternalLastName: getSafeValue(data.paternalLastName, ''),
-            maternalLastName: getSafeValue(data.maternalLastName, ''),
-            birthDate: getSafeValue(data.birthDate, null),
-            sex: getSafeValue(data.sex, 'Hombre'),
-            age: getSafeValue(data.age, 0),
-            birthState: getSafeValue(data.birthState, ''),
-            address: getSafeValue(data.address, null),
-            coloniaName: getSafeValue(data.coloniaName, null),
-            fatherName: getSafeValue(data.fatherName, null),
-            motherName: getSafeValue(data.motherName, null),
-            fatherAge: getSafeValue(data.fatherAge, null),
-            motherAge: getSafeValue(data.motherAge, null),
-            registrationDate: getSafeValue(data.registrationDate, null),
-            status: getSafeValue(data.status, PatientStatusEnum.Vigente),
-            derechoAbiencia: getSafeValue(data.derechoAbiencia, null),
-            phoneNumber: getSafeValue(data.phoneNumber, ''),
-            lastAppointmentDate: getSafeValue(data.lastAppointmentDate, null),
-        };
+            // Final type casting and validation for numbers
+            safeData.age = Number.isFinite(Number(safeData.age)) ? Number(safeData.age) : 0;
+            safeData.fatherAge = Number.isFinite(Number(safeData.fatherAge)) ? Number(safeData.fatherAge) : null;
+            safeData.motherAge = Number.isFinite(Number(safeData.motherAge)) ? Number(safeData.motherAge) : null;
 
-        // Explicitly ensure numeric types are correct, handling potential non-numeric values gracefully.
-        patient.age = Number.isFinite(patient.age) ? patient.age : 0;
-        patient.fatherAge = Number.isFinite(patient.fatherAge as number) ? patient.fatherAge : null;
-        patient.motherAge = Number.isFinite(patient.motherAge as number) ? patient.motherAge : null;
+            return safeData as Patient;
+        }
 
-
-        return patient;
+        return sanitizePatientData(data);
     });
 
     const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
         list.reduce((previous, currentItem) => {
             const groupKey = getKey(currentItem);
-            // Robust check for null, undefined, and empty strings
             if (groupKey != null && String(groupKey).trim() !== '') {
                  if (!previous[groupKey]) previous[groupKey] = [];
                  previous[groupKey].push(currentItem);
@@ -1181,6 +1187,7 @@ export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean
     
     return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
 }
+
 
 
 
