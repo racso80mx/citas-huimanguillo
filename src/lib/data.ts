@@ -1199,26 +1199,41 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
     if (!adminDb) throw new Error("Database not initialized.");
     
     const patientsCollection = collection(adminDb, 'patients');
-    let updatedCount = 0;
+    const uniqueExpedientes = Array.from(new Set(expedientes)).filter(e => e && String(e).trim() !== '');
     
-    // Process in chunks of 500 (Firestore batch limit)
-    const CHUNK_SIZE = 450;
-    for (let i = 0; i < expedientes.length; i += CHUNK_SIZE) {
-        const chunk = expedientes.slice(i, i + CHUNK_SIZE);
-        const batch = writeBatch(adminDb);
+    let updatedCount = 0;
+    let batch = writeBatch(adminDb);
+    let batchCount = 0;
+    
+    // Firestore 'in' query limit is 30 elements
+    const QUERY_CHUNK_SIZE = 30;
+    
+    for (let i = 0; i < uniqueExpedientes.length; i += QUERY_CHUNK_SIZE) {
+        const chunk = uniqueExpedientes.slice(i, i + QUERY_CHUNK_SIZE);
         
-        // Find docs for these expedientes
+        // Find docs for these expedientes in chunks of 30
         const q = query(patientsCollection, where('expediente', 'in', chunk));
         const querySnapshot = await getDocs(q);
         
-        querySnapshot.forEach(docSnap => {
+        for (const docSnap of querySnapshot.docs) {
             batch.update(docSnap.ref, { 
                 status: status,
                 lastStatusUpdate: Timestamp.now()
             });
             updatedCount++;
-        });
-        
+            batchCount++;
+            
+            // Commit batch when it reaches 500 operations
+            if (batchCount >= 500) {
+                await batch.commit();
+                batch = writeBatch(adminDb);
+                batchCount = 0;
+            }
+        }
+    }
+    
+    // Final commit if any pending operations
+    if (batchCount > 0) {
         await batch.commit();
     }
     
