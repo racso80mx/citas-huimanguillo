@@ -1013,19 +1013,48 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     
     const allPatients = patientsSnapshot.docs.map(doc => {
         const data = doc.data();
-        const serializedData: {[key: string]: any} = {};
-        // Loop through all keys in the document data
-        for (const key in data) {
-            // Check if the value is a Firestore Timestamp
-            if (data[key] instanceof Timestamp) {
-                // If it is, convert it to an ISO string
-                serializedData[key] = data[key].toDate().toISOString();
-            } else {
-                // Otherwise, keep the original value
-                serializedData[key] = data[key];
+
+        // This function will handle undefined and convert Timestamps
+        const serialize = (value: any): any => {
+            if (value instanceof Timestamp) {
+                return value.toDate().toISOString();
             }
+            // If value is undefined, it becomes null, which is serializable
+            if (value === undefined) {
+                return null;
+            }
+            return value;
+        };
+
+        const patient: Patient = {
+            id: doc.id,
+            expediente: serialize(data.expediente),
+            curp: serialize(data.curp) || '',
+            name: serialize(data.name) || '',
+            paternalLastName: serialize(data.paternalLastName) || '',
+            maternalLastName: serialize(data.maternalLastName) || '',
+            birthDate: serialize(data.birthDate),
+            sex: serialize(data.sex) || 'Hombre',
+            age: serialize(data.age) === null ? 0 : serialize(data.age),
+            birthState: serialize(data.birthState) || '',
+            address: serialize(data.address),
+            coloniaName: serialize(data.coloniaName),
+            fatherName: serialize(data.fatherName),
+            motherName: serialize(data.motherName),
+            fatherAge: serialize(data.fatherAge),
+            motherAge: serialize(data.motherAge),
+            registrationDate: serialize(data.registrationDate),
+            status: serialize(data.status) || PatientStatusEnum.Vigente,
+            derechoAbiencia: serialize(data.derechoAbiencia),
+            phoneNumber: serialize(data.phoneNumber) || '',
+            lastAppointmentDate: serialize(data.lastAppointmentDate),
+        };
+        
+        if(typeof patient.age !== 'number') {
+            patient.age = 0;
         }
-        return { id: doc.id, ...serializedData } as Patient;
+
+        return patient;
     });
 
     const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
@@ -1151,4 +1180,5 @@ export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean
     
     return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
 }
+
 
