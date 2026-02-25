@@ -185,8 +185,9 @@ async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<a
 
     const patients: Record<string, Patient> = {};
     
-    for (let i = 0; i < patientIds.length; i += 30) {
-        const batchIds = patientIds.slice(i, i + 30);
+    // Firestore 'in' limit is 30, we use 25 for safety
+    for (let i = 0; i < patientIds.length; i += 25) {
+        const batchIds = patientIds.slice(i, i + 25);
         if (batchIds.length > 0) {
             const q = query(collection(adminDb, 'patients'), where('__name__', 'in', batchIds));
             const patientSnapshot = await getDocs(q);
@@ -864,9 +865,11 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
     
     const patientsCollection = collection(adminDb, 'patients');
     const existingByCurp = new Map<string, { id: string }>();
+    
+    // Chunking by 25 for safety (limit is 30)
     if (curpsInChunk.length > 0) {
-        for (let i = 0; i < curpsInChunk.length; i += 30) {
-            const chunk = curpsInChunk.slice(i, i + 30);
+        for (let i = 0; i < curpsInChunk.length; i += 25) {
+            const chunk = curpsInChunk.slice(i, i + 25);
             const q = query(patientsCollection, where('curp', 'in', chunk));
             const querySnapshot = await getDocs(q);
             querySnapshot.forEach(doc => {
@@ -878,8 +881,8 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
     
     const existingByExpediente = new Map<string, { id: string }>();
     if (expedientesInChunk.length > 0) {
-        for (let i = 0; i < expedientesInChunk.length; i += 30) {
-            const chunk = expedientesInChunk.slice(i, i + 30);
+        for (let i = 0; i < expedientesInChunk.length; i += 25) {
+            const chunk = expedientesInChunk.slice(i, i + 25);
             const q = query(patientsCollection, where('expediente', 'in', chunk));
             const querySnapshot = await getDocs(q);
             querySnapshot.forEach(doc => {
@@ -907,7 +910,7 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         
         const uniqueKey = expediente || curp;
         if(uniqueKey && seenInBatch.has(uniqueKey)) {
-            continue; // Skip if we've already processed this unique identifier in this batch
+            continue; 
         }
 
         const dataToSave: any = { ...patientData, status: patientData.status || PatientStatusEnum.Vigente };
@@ -991,8 +994,9 @@ async function checkAppointmentsForPatients(patientIds: string[]): Promise<Set<s
     const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
     const patientsWithAppointments = new Set<string>();
 
-    for (let i = 0; i < patientIds.length; i += 30) {
-        const idChunk = patientIds.slice(i, i + 30);
+    // Chunking by 25 for safety
+    for (let i = 0; i < patientIds.length; i += 25) {
+        const idChunk = patientIds.slice(i, i + 25);
         if (idChunk.length > 0) {
           for (const coll of collections) {
               const q = query(collection(adminDb, coll), where('patientId', 'in', idChunk));
@@ -1011,7 +1015,6 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     if (!adminDb) throw new Error("Database not initialized.");
     const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
     
-    // This helper function ensures that a value is safe to use.
     const getSafeValue = (value: any, defaultValue: any) => {
         if (value === undefined || value === null) {
             return defaultValue;
@@ -1056,7 +1059,6 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
             }
         }
 
-        // Ensure numeric fields are numbers
         sanitizedPatient.age = Number(sanitizedPatient.age) || 0;
         sanitizedPatient.fatherAge = Number(sanitizedPatient.fatherAge) || null;
         sanitizedPatient.motherAge = Number(sanitizedPatient.motherAge) || null;
@@ -1077,7 +1079,7 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     const filterDuplicates = (grouped: Record<string, Patient[]>) => 
         Object.values(grouped).filter(group => group.length > 1);
     
-    const groupedByExpediente = groupBy(allPatients, p => p.expediente);
+    const groupedByExpediente = groupBy(allPatients, p => String(p.expediente));
     const duplicatesByExpediente = filterDuplicates(groupedByExpediente);
 
     const groupedByCurp = groupBy(allPatients.filter(p => p.curp && !p.curp.startsWith('RN-')), p => p.curp);
@@ -1086,7 +1088,6 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     const groupedByName = groupBy(allPatients, p => `${p.name || ''} ${p.paternalLastName || ''} ${p.maternalLastName || ''}`.trim().toUpperCase());
     const duplicatesByName = filterDuplicates(groupedByName);
     
-    // Limiting the number of duplicate groups to avoid crashing the client
     const limitCount = 300;
 
     return {
@@ -1199,19 +1200,20 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
     if (!adminDb) throw new Error("Database not initialized.");
     
     const patientsCollection = collection(adminDb, 'patients');
-    const uniqueExpedientes = Array.from(new Set(expedientes)).filter(e => e && String(e).trim() !== '');
+    const uniqueExpedientes = Array.from(new Set(expedientes))
+        .filter(e => e && String(e).trim() !== '')
+        .map(String);
     
     let updatedCount = 0;
     let batch = writeBatch(adminDb);
     let batchCount = 0;
     
-    // Firestore 'in' query limit is 30 elements
-    const QUERY_CHUNK_SIZE = 30;
+    // Reduced chunk size to 25 for extra safety (official limit is 30)
+    const QUERY_CHUNK_SIZE = 25;
     
     for (let i = 0; i < uniqueExpedientes.length; i += QUERY_CHUNK_SIZE) {
         const chunk = uniqueExpedientes.slice(i, i + QUERY_CHUNK_SIZE);
         
-        // Find docs for these expedientes in chunks of 30
         const q = query(patientsCollection, where('expediente', 'in', chunk));
         const querySnapshot = await getDocs(q);
         
@@ -1223,7 +1225,6 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
             updatedCount++;
             batchCount++;
             
-            // Commit batch when it reaches 500 operations
             if (batchCount >= 500) {
                 await batch.commit();
                 batch = writeBatch(adminDb);
@@ -1232,7 +1233,6 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
         }
     }
     
-    // Final commit if any pending operations
     if (batchCount > 0) {
         await batch.commit();
     }
