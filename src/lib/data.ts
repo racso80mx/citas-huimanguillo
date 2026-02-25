@@ -1012,57 +1012,57 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     if (!adminDb) throw new Error("Database not initialized.");
     const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
     
+    // This helper function ensures that a value is safe to use.
+    const getSafeValue = (value: any, defaultValue: any) => {
+        if (value === undefined || value === null) {
+            return defaultValue;
+        }
+        if (value instanceof Timestamp) {
+            return value.toDate().toISOString();
+        }
+        return value;
+    };
+
     const allPatients: Patient[] = patientsSnapshot.docs.map(doc => {
         const data = doc.data() || {};
         
-        // This function will ensure every field is serializable and has a safe default
-        const sanitizePatientData = (docData: DocumentData): Patient => {
-            const safeData: any = { id: doc.id };
-
-            const pSchema: Record<keyof Omit<Patient, 'id'>, any> = {
-                expediente: null,
-                curp: '',
-                name: '',
-                paternalLastName: '',
-                maternalLastName: '',
-                birthDate: null,
-                sex: 'Hombre',
-                age: 0,
-                birthState: '',
-                address: null,
-                coloniaName: null,
-                fatherName: null,
-                motherName: null,
-                fatherAge: null,
-                motherAge: null,
-                registrationDate: null,
-                status: PatientStatusEnum.Vigente,
-                derechoAbiencia: null,
-                phoneNumber: '',
-                lastAppointmentDate: null
-            };
-
-            for (const key in pSchema) {
-                let value = docData[key];
-
-                if (value instanceof Timestamp) {
-                    safeData[key] = value.toDate().toISOString();
-                } else if (value === undefined || value === null) {
-                    safeData[key] = pSchema[key as keyof Omit<Patient, 'id'>]; // Use default from schema
-                } else {
-                    safeData[key] = value;
-                }
+        const patientSchema: Patient = {
+            id: doc.id,
+            expediente: null,
+            curp: '',
+            name: '',
+            paternalLastName: '',
+            maternalLastName: '',
+            birthDate: null,
+            sex: 'Hombre',
+            age: 0,
+            birthState: '',
+            address: null,
+            coloniaName: null,
+            fatherName: null,
+            motherName: null,
+            fatherAge: null,
+            motherAge: null,
+            registrationDate: null,
+            status: PatientStatusEnum.Vigente,
+            derechoAbiencia: null,
+            phoneNumber: '',
+            lastAppointmentDate: null
+        };
+        
+        const sanitizedPatient: any = { id: doc.id };
+        for (const key in patientSchema) {
+            if (key !== 'id') {
+                sanitizedPatient[key] = getSafeValue(data[key], patientSchema[key as keyof Patient]);
             }
-
-            // Final type casting and validation for numbers
-            safeData.age = Number.isFinite(Number(safeData.age)) ? Number(safeData.age) : 0;
-            safeData.fatherAge = Number.isFinite(Number(safeData.fatherAge)) ? Number(safeData.fatherAge) : null;
-            safeData.motherAge = Number.isFinite(Number(safeData.motherAge)) ? Number(safeData.motherAge) : null;
-
-            return safeData as Patient;
         }
 
-        return sanitizePatientData(data);
+        // Ensure numeric fields are numbers
+        sanitizedPatient.age = Number(sanitizedPatient.age) || 0;
+        sanitizedPatient.fatherAge = Number(sanitizedPatient.fatherAge) || null;
+        sanitizedPatient.motherAge = Number(sanitizedPatient.motherAge) || null;
+
+        return sanitizedPatient as Patient;
     });
 
     const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
@@ -1086,11 +1086,14 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
 
     const groupedByName = groupBy(allPatients, p => `${p.name || ''} ${p.paternalLastName || ''} ${p.maternalLastName || ''}`.trim().toUpperCase());
     const duplicatesByName = filterDuplicates(groupedByName);
+    
+    // Limiting the number of duplicate groups to avoid crashing the client
+    const limitCount = 300;
 
     return {
-        byExpediente: duplicatesByExpediente,
-        byCurp: duplicatesByCurp,
-        byName: duplicatesByName,
+        byExpediente: duplicatesByExpediente.slice(0, limitCount),
+        byCurp: duplicatesByCurp.slice(0, limitCount),
+        byName: duplicatesByName.slice(0, limitCount),
     };
 }
 
@@ -1187,6 +1190,7 @@ export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean
     
     return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
 }
+
 
 
 
