@@ -9,7 +9,7 @@ import type { PatientStatus, AppointmentStatus } from './definitions';
 // =====================================================================
 
 export async function scanDuplicates(criteria: 'expediente' | 'curp' | 'name') {
-  return data.findDuplicatesByCriteria(criteria);
+  return data.findDuplicatePatients(criteria);
 }
 
 export async function applyStatusUpdateChunk(expedientes: string[], status: PatientStatus) {

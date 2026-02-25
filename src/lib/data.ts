@@ -143,7 +143,7 @@ async function enrichWithPatientData(apps: any[]): Promise<any[]> {
   if (patientIds.length === 0) return apps;
 
   const patientsMap: Record<string, Patient> = {};
-  const chunks = chunkArray(patientIds, 10); 
+  const chunks = chunkArray(patientIds, 10); // Lotes seguros para consulta IN
 
   for (const batch of chunks) {
     const q = query(collection(adminDb, 'patients'), where(documentId(), 'in', batch));
@@ -438,7 +438,7 @@ export async function logActivity(action: string, details: string) {
 export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
   if (!adminDb) return [];
   // Escaneo ligero de solo campos necesarios para evitar "Unexpected response"
-  const snap = await getDocs(query(collection(adminDb, 'patients'), orderBy('curp'), limit(5000)));
+  const snap = await getDocs(query(collection(adminDb, 'patients'), limit(5000)));
   const all = snap.docs.map(doc => {
     const d = doc.data();
     return {
@@ -472,46 +472,35 @@ export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'n
 export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
   if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
-  // Limpieza agresiva de duplicados y vacíos
-  const uniqueExps = Array.from(new Set(expedientes.map(e => e?.toString().trim()).filter(Boolean)));
+  // Limpieza agresiva de duplicados y vacíos en la lista de entrada
+  const targetExps = Array.from(new Set(expedientes.map(e => e?.toString().trim().replace(/^0+/, '')).filter(Boolean)));
   
-  // Generar variantes de búsqueda (exacto, numérico, relleno ceros)
-  const searchValues = new Set<string | number>();
-  uniqueExps.forEach(e => {
-    searchValues.add(e);
-    if (/^\d+$/.test(e)) {
-      const num = parseInt(e, 10);
-      searchValues.add(num);
-      searchValues.add(e.padStart(5, '0'));
-      searchValues.add(e.padStart(6, '0'));
+  // ESTRATEGIA DE ÍNDICE: Leemos el padrón completo (IDs y expedientes) para cruzar en memoria
+  // Esto es mucho más preciso que las consultas IN de Firestore para múltiples formatos
+  const snap = await getDocs(collection(adminDb, 'patients'));
+  const foundDocRefs = [];
+
+  snap.docs.forEach(doc => {
+    const data = doc.data();
+    const expRaw = data.expediente?.toString().trim() || '';
+    const expNormalized = expRaw.replace(/^0+/, ''); // Quitamos ceros a la izquierda
+    
+    if (targetExps.includes(expNormalized) || targetExps.includes(expRaw)) {
+      foundDocRefs.push(doc.ref);
     }
   });
 
-  const valuesArray = Array.from(searchValues);
-  const chunks = chunkArray(valuesArray, 10); // Lote de 10 para IN (máximo 30 en Firebase)
-  let totalUpdated = 0;
-
-  for (const valBatch of chunks) {
-    if (valBatch.length === 0) continue;
-    
-    const q = query(collection(adminDb, 'patients'), where('expediente', 'in', valBatch));
-    const snap = await getDocs(q);
-    
-    if (!snap.empty) {
+  if (foundDocRefs.length > 0) {
+    const chunks = chunkArray(foundDocRefs, 500); // Lotes de escritura atómica
+    for (const batchRefs of chunks) {
       const batch = writeBatch(adminDb);
-      snap.docs.forEach(d => {
-        batch.update(d.ref, { status, updatedAt: Timestamp.now() });
-        totalUpdated++;
-      });
+      batchRefs.forEach(ref => batch.update(ref, { status, updatedAt: Timestamp.now() }));
       await batch.commit();
     }
+    await logActivity("Mantenimiento Masivo", `Actualizados ${foundDocRefs.length} pacientes a estatus ${status}.`);
   }
 
-  if (totalUpdated > 0) {
-    await logActivity("Mantenimiento Masivo", `Actualizados ${totalUpdated} pacientes a estatus ${status}.`);
-  }
-
-  return { success: true, count: totalUpdated };
+  return { success: true, count: foundDocRefs.length };
 }
 
 // =====================================================================
