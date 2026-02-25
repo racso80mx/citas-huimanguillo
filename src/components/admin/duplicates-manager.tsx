@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useTransition, useMemo } from 'react';
 import type { Patient } from '@/lib/definitions';
@@ -15,8 +16,19 @@ import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Trash2, Loader2, Info, ChevronsUpDown, CheckSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { deletePatients } from '@/lib/actions';
+import { deletePatients, autoCleanupDuplicates } from '@/lib/actions';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 type DuplicatesData = {
     byExpediente: Patient[][];
@@ -67,6 +79,7 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
     const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
     const [expandedItems, setExpandedItems] = useState<string[]>([]);
     const [isDeleting, startDeleteTransition] = useTransition();
+    const [isCleaning, startCleanTransition] = useTransition();
     const { toast } = useToast();
     
     const accordionKeys = useMemo(() => ({
@@ -107,6 +120,25 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
                     title: "Error en la Eliminación",
                     description: result.message,
                     variant: "destructive"
+                });
+            }
+        });
+    };
+
+    const handleAutoCleanup = () => {
+        startCleanTransition(async () => {
+            const result = await autoCleanupDuplicates();
+            if (result.success) {
+                toast({
+                    title: "Limpieza Automática Completada",
+                    description: result.message,
+                    duration: 10000,
+                });
+            } else {
+                toast({
+                    title: "Error en Limpieza Automática",
+                    description: result.message,
+                    variant: "destructive",
                 });
             }
         });
@@ -186,14 +218,54 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
                     <CheckSquare className="mr-2 h-4 w-4" />
                     Seleccionar Primeros
                 </Button>
-                <Button 
-                    variant="destructive"
-                    onClick={handleDeleteSelected}
-                    disabled={isDeleting || selectedPatientIds.length === 0}
-                >
-                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                    Eliminar {selectedPatientIds.length > 0 ? `${selectedPatientIds.length} Seleccionado(s)` : 'Seleccionados'}
-                </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button
+                            variant="destructive"
+                            disabled={isDeleting || selectedPatientIds.length === 0}
+                        >
+                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            Eliminar {selectedPatientIds.length > 0 ? `${selectedPatientIds.length} Seleccionado(s)` : 'Seleccionados'}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Confirmar eliminación manual?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta acción intentará eliminar los {selectedPatientIds.length} registros que has seleccionado. Recuerda que los pacientes con citas no serán eliminados.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDeleteSelected} disabled={isDeleting}>
+                                Sí, eliminar seleccionados
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button className="bg-blue-600 hover:bg-blue-700" disabled={isCleaning}>
+                            {isCleaning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            Limpieza Automática
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Confirmar Limpieza Automática?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta acción buscará todos los grupos de pacientes duplicados y eliminará los registros redundantes que no tengan citas asociadas.
+                                Se conservará el registro más antiguo o completo de cada grupo. Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleAutoCleanup} disabled={isCleaning}>
+                                {isCleaning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, limpiar duplicados"}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
             <Tabs defaultValue="expediente" value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-3">

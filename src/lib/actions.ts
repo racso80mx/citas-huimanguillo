@@ -72,6 +72,7 @@ import {
   verifyArchivePassword as dataVerifyArchivePassword,
   findDuplicatePatients,
   deletePatients as dataDeletePatients,
+  autoCleanupDuplicatePatients,
 } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -420,6 +421,14 @@ export async function deletePatients(patientIds: string[]) {
     if (result.success) {
         revalidatePath('/admin/duplicates');
         revalidatePath('/archivo');
+    }
+    return result;
+}
+
+export async function autoCleanupDuplicates() {
+    const result = await autoCleanupDuplicatePatients();
+    if (result.success) {
+        revalidatePath('/admin/duplicates');
     }
     return result;
 }

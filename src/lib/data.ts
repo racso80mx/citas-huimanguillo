@@ -984,6 +984,28 @@ export async function cleanupOldRecords() {
     return { deletedCount: totalDeleted };
 }
 
+async function checkAppointmentsForPatients(patientIds: string[]): Promise<Set<string>> {
+    if (!adminDb || patientIds.length === 0) return new Set();
+
+    const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
+    const patientsWithAppointments = new Set<string>();
+
+    for (let i = 0; i < patientIds.length; i += 30) {
+        const idChunk = patientIds.slice(i, i + 30);
+        if (idChunk.length > 0) {
+          for (const coll of collections) {
+              const q = query(collection(adminDb, coll), where('patientId', 'in', idChunk));
+              const snapshot = await getDocs(q);
+              snapshot.forEach(doc => {
+                  patientsWithAppointments.add(doc.data().patientId);
+              });
+          }
+        }
+    }
+
+    return patientsWithAppointments;
+}
+
 export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[][]; byCurp: Patient[][]; byName: Patient[][] }> {
     if (!adminDb) throw new Error("Database not initialized.");
     const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
@@ -1021,19 +1043,7 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
 export async function deletePatients(patientIds: string[]): Promise<{ success: boolean; message: string; undeletedCount: number }> {
     if (!adminDb) throw new Error("Database not initialized.");
 
-    const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
-    let patientHasAppointments = new Set<string>();
-
-    for (let i = 0; i < patientIds.length; i += 30) {
-        const idChunk = patientIds.slice(i, i + 30);
-        for (const coll of collections) {
-            const q = query(collection(adminDb, coll), where('patientId', 'in', idChunk));
-            const snapshot = await getDocs(q);
-            snapshot.forEach(doc => {
-                patientHasAppointments.add(doc.data().patientId);
-            });
-        }
-    }
+    const patientHasAppointments = await checkAppointmentsForPatients(patientIds);
     
     const batch = writeBatch(adminDb);
     const deletablePatientIds = patientIds.filter(id => !patientHasAppointments.has(id));
@@ -1056,25 +1066,69 @@ export async function deletePatients(patientIds: string[]): Promise<{ success: b
     return { success: true, message, undeletedCount };
 }
     
-export { 
-    getLogs as dataGetLogs,
-    getClinics as dataGetClinics, 
-    getColonias as dataGetColonias, 
-    getAnnouncements as dataGetAnnouncements, 
-    getUsers as dataGetUsers,
-    getModuleSettings as dataGetModuleSettings, 
-    getLabSettings as dataGetLabSettings, 
-    getLabStudies as dataGetLabStudies, 
-    getXRaySettings as dataGetXRaySettings, 
-    getXRayStudies as dataGetXRayStudies, 
-    getUltrasoundSettings as dataGetUltrasoundSettings, 
-    getUltrasoundStudies as dataGetUltrasoundStudies, 
-    getVaccineSettings as dataGetVaccineSettings,
-    getVaccines as dataGetVaccines,
-    getAppointments as dataGetAppointments, 
-    getAppointmentsForClinic as dataGetAppointmentsForClinic, 
-    getLabAppointments as dataGetLabAppointments, 
-    getXRayAppointments as dataGetXRayAppointments, 
-    getUltrasoundAppointments as dataGetUltrasoundAppointments,
-    getVaccineAppointments as dataGetVaccineAppointments,
-};
+export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean; message: string; totalChecked: number; deletedCount: number; undeletedCount: number }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+
+    const { byExpediente, byCurp, byName } = await findDuplicatePatients();
+
+    const allDuplicateGroups = [...byExpediente, ...byCurp, ...byName];
+    const allPotentialDuplicates = new Map<string, Patient>();
+    const masterPatientIds = new Set<string>();
+
+    for (const group of allDuplicateGroups) {
+        if (group.length < 2) continue;
+
+        const sortedGroup = group.sort((a, b) => {
+            if (a.registrationDate && b.registrationDate) {
+                const dateA = new Date(a.registrationDate).getTime();
+                const dateB = new Date(b.registrationDate).getTime();
+                if (dateA !== dateB) return dateA - dateB;
+            }
+            if (a.registrationDate && !b.registrationDate) return -1;
+            if (!a.registrationDate && b.registrationDate) return 1;
+            if (a.lastAppointmentDate && b.lastAppointmentDate) {
+                const dateA = new Date(a.lastAppointmentDate).getTime();
+                const dateB = new Date(b.lastAppointmentDate).getTime();
+                if (dateA !== dateB) return dateB - dateA;
+            }
+            if (a.lastAppointmentDate && !b.lastAppointmentDate) return -1;
+            if (!a.lastAppointmentDate && b.lastAppointmentDate) return 1;
+            const aScore = Object.values(a).filter(v => v != null && v !== '').length;
+            const bScore = Object.values(b).filter(v => v != null && v !== '').length;
+            if (aScore !== bScore) return bScore - aScore;
+            return 0;
+        });
+
+        const masterPatient = sortedGroup[0];
+        masterPatientIds.add(masterPatient.id);
+
+        for (let i = 1; i < sortedGroup.length; i++) {
+            allPotentialDuplicates.set(sortedGroup[i].id, sortedGroup[i]);
+        }
+    }
+
+    const candidateIdsToDelete = Array.from(allPotentialDuplicates.keys()).filter(id => !masterPatientIds.has(id));
+    if (candidateIdsToDelete.length === 0) {
+        return { success: true, message: "No se encontraron duplicados para limpiar automáticamente.", totalChecked: 0, deletedCount: 0, undeletedCount: 0 };
+    }
+
+    const patientsWithAppointments = await checkAppointmentsForPatients(candidateIdsToDelete);
+    
+    const safeToDeleteIds = candidateIdsToDelete.filter(id => !patientsWithAppointments.has(id));
+
+    if (safeToDeleteIds.length > 0) {
+        const batch = writeBatch(adminDb);
+        safeToDeleteIds.forEach(id => {
+            batch.delete(doc(adminDb, 'patients', id));
+        });
+        await batch.commit();
+    }
+    
+    const deletedCount = safeToDeleteIds.length;
+    const undeletedCount = candidateIdsToDelete.length - deletedCount;
+    const message = `Limpieza completada. Se eliminaron ${deletedCount} registros duplicados. ${undeletedCount} registros no se eliminaron por tener citas asociadas.`;
+
+    await logActivity('Limpieza Automática de Duplicados', message);
+    
+    return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
+}
