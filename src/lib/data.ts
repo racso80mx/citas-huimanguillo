@@ -54,6 +54,18 @@ import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 // HELPERS
 // =====================================================================
 
+/**
+ * Fragmenta un arreglo en trozos más pequeños.
+ * Utilizado para cumplir con los límites de Firestore (máximo 30 para consultas IN).
+ */
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
 async function getSettingsDoc<T>(docId: string, defaultVal: T): Promise<T> {
   if (!adminDb) throw new Error("Database not initialized.");
   const docRef = doc(adminDb, 'settings', docId);
@@ -175,7 +187,13 @@ async function updateCatalog<T extends { id?: string }>(collectionName: string, 
 
 async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<any[]> {
     if (!adminDb) throw new Error("Database not initialized.");
-    const patientIds = [...new Set(appointments.map(app => app.patientId).filter(Boolean))];
+    
+    // Extraer IDs únicos y asegurarse de que sean strings
+    const patientIds = Array.from(new Set(appointments.map(app => {
+        const id = app.patientId;
+        return typeof id === 'string' ? id : id?.id;
+    }).filter(Boolean)));
+
     if (patientIds.length === 0) {
         return appointments.map(app => ({
             ...app,
@@ -185,9 +203,10 @@ async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<a
 
     const patients: Record<string, Patient> = {};
     
-    // Firestore 'in' limit is 30, we use 25 for safety
-    for (let i = 0; i < patientIds.length; i += 25) {
-        const batchIds = patientIds.slice(i, i + 25);
+    // Firestore 'in' limit is 30, we use 20 for extra safety
+    const chunks = chunkArray(patientIds, 20);
+    
+    for (const batchIds of chunks) {
         if (batchIds.length > 0) {
             const q = query(collection(adminDb, 'patients'), where('__name__', 'in', batchIds));
             const patientSnapshot = await getDocs(q);
@@ -860,17 +879,17 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         return mappedPatient;
     });
 
-    const expedientesInChunk = [...new Set(mappedPatients.map(p => p.expediente).filter(e => e != null && String(e).trim() !== ''))].map(String);
-    const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1 && !c.startsWith('RN-')))];
+    const expedientesInChunk = Array.from(new Set(mappedPatients.map(p => p.expediente).filter(e => e != null && String(e).trim() !== ''))).map(String);
+    const curpsInChunk = Array.from(new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1 && !c.startsWith('RN-'))));
     
     const patientsCollection = collection(adminDb, 'patients');
     const existingByCurp = new Map<string, { id: string }>();
     
-    // Chunking by 25 for safety (limit is 30)
+    // Chunking by 20 for safety (official limit is 30)
     if (curpsInChunk.length > 0) {
-        for (let i = 0; i < curpsInChunk.length; i += 25) {
-            const chunk = curpsInChunk.slice(i, i + 25);
-            const q = query(patientsCollection, where('curp', 'in', chunk));
+        const chunks = chunkArray(curpsInChunk, 20);
+        for (const batchIds of chunks) {
+            const q = query(patientsCollection, where('curp', 'in', batchIds));
             const querySnapshot = await getDocs(q);
             querySnapshot.forEach(doc => {
                 const docData = doc.data() as Patient;
@@ -881,9 +900,9 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
     
     const existingByExpediente = new Map<string, { id: string }>();
     if (expedientesInChunk.length > 0) {
-        for (let i = 0; i < expedientesInChunk.length; i += 25) {
-            const chunk = expedientesInChunk.slice(i, i + 25);
-            const q = query(patientsCollection, where('expediente', 'in', chunk));
+        const chunks = chunkArray(expedientesInChunk, 20);
+        for (const batchIds of chunks) {
+            const q = query(patientsCollection, where('expediente', 'in', batchIds));
             const querySnapshot = await getDocs(q);
             querySnapshot.forEach(doc => {
                 const docData = doc.data() as Patient;
@@ -994,9 +1013,10 @@ async function checkAppointmentsForPatients(patientIds: string[]): Promise<Set<s
     const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
     const patientsWithAppointments = new Set<string>();
 
-    // Chunking by 25 for safety
-    for (let i = 0; i < patientIds.length; i += 25) {
-        const idChunk = patientIds.slice(i, i + 25);
+    // Chunking by 20 for extra safety
+    const chunks = chunkArray(patientIds, 20);
+
+    for (const idChunk of chunks) {
         if (idChunk.length > 0) {
           for (const coll of collections) {
               const q = query(collection(adminDb, coll), where('patientId', 'in', idChunk));
@@ -1208,13 +1228,11 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
     let batch = writeBatch(adminDb);
     let batchCount = 0;
     
-    // Reduced chunk size to 25 for extra safety (official limit is 30)
-    const QUERY_CHUNK_SIZE = 25;
+    // Chunking by 20 for extra safety (limit is 30)
+    const chunks = chunkArray(uniqueExpedientes, 20);
     
-    for (let i = 0; i < uniqueExpedientes.length; i += QUERY_CHUNK_SIZE) {
-        const chunk = uniqueExpedientes.slice(i, i + QUERY_CHUNK_SIZE);
-        
-        const q = query(patientsCollection, where('expediente', 'in', chunk));
+    for (const batchIds of chunks) {
+        const q = query(patientsCollection, where('expediente', 'in', batchIds));
         const querySnapshot = await getDocs(q);
         
         for (const docSnap of querySnapshot.docs) {
@@ -1225,6 +1243,7 @@ export async function bulkUpdateStatusByExpediente(expedientes: string[], status
             updatedCount++;
             batchCount++;
             
+            // Límite de WriteBatch es 500
             if (batchCount >= 500) {
                 await batch.commit();
                 batch = writeBatch(adminDb);
