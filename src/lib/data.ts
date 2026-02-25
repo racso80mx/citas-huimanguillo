@@ -820,8 +820,6 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
     }
     
     await setDoc(docRef, dataToSave, { merge: true });
-    await logActivity('Guardado de Paciente', `Paciente ${patient.name} ${patient.paternalLastName} guardado.`);
-    revalidatePath('/archivo');
     return { success: true };
 }
 
