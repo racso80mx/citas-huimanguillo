@@ -144,6 +144,22 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               </Link>
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className={cn(
+              'transition-colors',
+              pathname === '/bi'
+                ? 'text-primary font-bold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Link href="/bi">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              BI
+            </Link>
+          </Button>
            <Button
             variant="ghost"
             size="sm"

@@ -92,9 +92,40 @@ import type {
   VaccineSettings,
   VaccineAppointment,
   User,
+  ActivityLog,
   ArchiveSettings,
   PatientStatus,
 } from './definitions';
+
+export async function getBIData() {
+  const [
+    appointments,
+    labAppointments,
+    xRayAppointments,
+    ultrasoundAppointments,
+    vaccineAppointments,
+    clinics,
+    colonias,
+  ] = await Promise.all([
+    dataGetAppointments(),
+    dataGetLabAppointments(),
+    dataGetXRayAppointments(),
+    dataGetUltrasoundAppointments(),
+    dataGetVaccineAppointments(),
+    dataGetClinics(),
+    dataGetColonias(),
+  ]);
+
+  return {
+    appointments,
+    labAppointments,
+    xRayAppointments,
+    ultrasoundAppointments,
+    vaccineAppointments,
+    clinics,
+    colonias,
+  };
+}
 
 export async function getAvailableSlotsForDate(clinicId: string, date: string) {
     return dataGetAvailableSlotsForDate(clinicId, date);

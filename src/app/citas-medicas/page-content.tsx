@@ -423,12 +423,12 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                           <CardDescription>Elige el núcleo básico al que perteneces.</CardDescription>
                       </CardHeader>
                       <CardContent>
-                          <Select onValueChange={handleClinicSelect} value={selectedClinicId}>
+                          <Select key={selectedDate?.toISOString() ?? 'no-date'} onValueChange={handleClinicSelect} value={selectedClinicId || ''}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un núcleo..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {clinicOptions.map(opt => (
+                                {clinicOptions.length > 0 ? clinicOptions.map(opt => (
                                     <SelectItem 
                                         key={opt.value} 
                                         value={opt.value} 
@@ -439,7 +439,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                     >
                                         {opt.label}
                                     </SelectItem>
-                                ))}
+                                )) : <div className="p-4 text-center text-sm text-muted-foreground">No hay núcleos disponibles para esta fecha y tipo de consulta.</div>}
                             </SelectContent>
                           </Select>
                       </CardContent>
