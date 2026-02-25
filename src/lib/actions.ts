@@ -37,6 +37,7 @@ export async function getPatients(options?: any) {
 export async function savePatient(patient: any, id?: string) {
   const res = await data.savePatient(patient, id);
   revalidatePath('/archivo');
+  revalidatePath('/admin');
   return res;
 }
 
@@ -50,6 +51,7 @@ export async function updatePatient(id: string, patientData: any) {
 export async function deletePatient(id: string) {
   const res = await data.deletePatient(id);
   revalidatePath('/archivo');
+  revalidatePath('/admin');
   return res;
 }
 
@@ -57,12 +59,14 @@ export async function deletePatients(ids: string[]) {
   const res = await data.deletePatients(ids);
   revalidatePath('/admin/duplicates');
   revalidatePath('/archivo');
+  revalidatePath('/admin');
   return res;
 }
 
 export async function updatePatientStatus(id: string, status: PatientStatus) {
   const res = await data.updatePatientStatus(id, status);
   revalidatePath('/archivo');
+  revalidatePath('/admin');
   return res;
 }
 
@@ -79,26 +83,52 @@ export async function getVaccineAppointments() { return data.getVaccineAppointme
 
 export async function saveNewAppointment(appointment: any, patient: any, colonia: any) {
   const res = await data.saveAppointment(appointment, patient, colonia);
-  revalidatePath('/citas-medicas');
+  if (res.success) {
+    revalidatePath('/citas-medicas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
   return res;
 }
 
 export async function saveNewLabAppointment(appointment: any, patient: any) {
   const res = await data.saveLabAppointment(appointment, patient);
-  revalidatePath('/laboratorio');
+  if (res.success) {
+    revalidatePath('/laboratorio');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
   return res;
 }
 
 export async function saveNewXRayAppointment(appointment: any, patient: any) {
-  return data.saveNewXRayAppointment(appointment, patient);
+  const res = await data.saveNewXRayAppointment(appointment, patient);
+  if (res.success) {
+    revalidatePath('/rayos-x');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return res;
 }
 
 export async function saveNewUltrasoundAppointment(appointment: any, patient: any) {
-  return data.saveNewUltrasoundAppointment(appointment, patient);
+  const res = await data.saveNewUltrasoundAppointment(appointment, patient);
+  if (res.success) {
+    revalidatePath('/ultrasonidos');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return res;
 }
 
 export async function saveNewVaccineAppointment(appointment: any, patient: any) {
-  return data.saveNewVaccineAppointment(appointment, patient);
+  const res = await data.saveNewVaccineAppointment(appointment, patient);
+  if (res.success) {
+    revalidatePath('/vacunas');
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return res;
 }
 
 export async function deleteAppointment(id: string) {
@@ -144,11 +174,21 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
 }
 
 export async function rescheduleAppointment(id: string, date: string, type: string) {
-  return data.rescheduleAppointment(id, date, type);
+  const res = await data.rescheduleAppointment(id, date, type);
+  if (res.success) {
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return res;
 }
 
 export async function cloneAppointment(id: string, date: string, type: string, time?: string) {
-  return data.cloneAppointment(id, date, type, time);
+  const res = await data.cloneAppointment(id, date, type, time);
+  if (res.success) {
+    revalidatePath('/admin');
+    revalidatePath('/reports');
+  }
+  return res;
 }
 
 export async function getAvailableSlotsForDate(clinicId: string, date: string) {
