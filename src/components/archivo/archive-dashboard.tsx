@@ -10,10 +10,10 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown, Calendar as CalendarIcon, Check, PlusCircle, User, UserCheck, UserX, Clock } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
-import type { Patient, Appointment, Clinic, Colonia } from '@/lib/definitions';
+import type { Patient, Appointment, Clinic } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
@@ -27,17 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppointmentList } from '../appointment-list';
 import { DateRange } from 'react-day-picker';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Calendar } from '../ui/calendar';
 import { cn } from '@/lib/utils';
-import { Separator } from '../ui/separator';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '../ui/command';
-import { Badge } from '../ui/badge';
 import { downloadExcel } from '@/lib/report-helpers';
 
 type ArchiveDashboardProps = {
@@ -88,20 +82,14 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         dataGetClinics()
       ]);
       
-      // Verificamos si patientsData es un array antes de asignar
-      if (Array.isArray(patientsData)) {
-        setAllPatients(patientsData);
-      } else {
-        throw new Error("Formato de datos de pacientes inválido");
-      }
-      
-      setAllAppointments(appointmentsData);
-      setClinics(clinicsData);
+      setAllPatients(Array.isArray(patientsData) ? patientsData : []);
+      setAllAppointments(appointmentsData || []);
+      setClinics(clinicsData || []);
     } catch (error: any) {
       console.error("Dashboard load error:", error);
       toast({
         title: 'Error de Carga',
-        description: error.message || 'No se pudieron recuperar los registros de la base de datos.',
+        description: error.message || 'No se pudieron recuperar los registros.',
         variant: 'destructive',
       });
     } finally {
@@ -118,9 +106,8 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
     if (statusFilter !== 'Total') {
         result = result.filter(p => {
-            // Vigentes son aquellos que NO tienen estatus de baja
             if (statusFilter === PatientStatusEnum.Vigente) {
-                return p.status !== PatientStatusEnum.Baja && p.status !== PatientStatusEnum.BajaDefinitiva;
+                return !p.status || p.status === PatientStatusEnum.Vigente;
             }
             return p.status === statusFilter;
         });
@@ -128,7 +115,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
     if (!searchTerm) return result;
     
-    const lowercasedTerm = searchTerm.toLowerCase();
+    const lowercasedTerm = searchTerm.toLowerCase().trim();
     const searchParts = lowercasedTerm.split(' ').filter(part => part);
     
     return result.filter(patient => {
@@ -153,9 +140,9 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const summaryCounts = useMemo(() => {
     const total = allPatients.length;
+    const vigente = allPatients.filter(p => !p.status || p.status === PatientStatusEnum.Vigente).length;
     const bajaTemporal = allPatients.filter(p => p.status === PatientStatusEnum.Baja).length;
     const bajaDefinitiva = allPatients.filter(p => p.status === PatientStatusEnum.BajaDefinitiva).length;
-    const vigente = total - bajaTemporal - bajaDefinitiva;
 
     return { total, vigente, bajaTemporal, bajaDefinitiva };
   }, [allPatients]);
@@ -180,7 +167,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     startSubmitTransition(async () => {
         const result = await deleteAppointment(appointmentId);
         if (result.success) {
-            toast({ title: 'Cita Eliminada', description: 'La cita ha sido eliminada del sistema.' });
+            toast({ title: 'Cita Eliminada', description: 'La cita ha sido eliminada.' });
             loadInitialData();
         } else {
             toast({ title: 'Error', description: 'No se pudo eliminar la cita.', variant: 'destructive' });
@@ -219,7 +206,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const handleDownloadExcel = async () => {
     if (filteredPatients.length === 0) {
-        toast({ title: "No hay datos", description: "No hay pacientes para descargar con el filtro actual.", variant: "destructive"});
+        toast({ title: "No hay datos", description: "No hay pacientes para descargar.", variant: "destructive"});
         return;
     }
     const xlsx = await import('xlsx');
@@ -292,21 +279,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     await downloadExcel(enrichedAppointments, `reporte_citas_${activeFilter}`);
   };
 
-  const handleGeneratePDF = async (appointments: Appointment[]) => {
-    if (appointments.length === 0) {
-        toast({ title: 'No hay datos', variant: 'destructive' });
-        return;
-    }
-    const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
-    const doc = new jsPDF({ orientation: 'portrait' }) as any;
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text("SECRETARÍA DE SALUD", doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-    doc.text("Hospital General de Huimanguillo", doc.internal.pageSize.getWidth() / 2, 26, { align: 'center' });
-    doc.save(`Vale_Expedientes.pdf`);
-  };
-
   const mainHeader = (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -332,17 +304,41 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         </TabsList>
         <TabsContent value="patients" className="space-y-4 mt-4">
            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onClick={() => { setStatusFilter('Total'); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === 'Total' ? "ring-2 ring-primary scale-105" : "")}>
-                    <Card className={cn(statusFilter === 'Total' && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Total</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold">{summaryCounts.total}</div></CardContent></Card>
+                <button 
+                  onClick={() => { setStatusFilter('Total'); setCurrentPage(1); }} 
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === 'Total' ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                >
+                    <Card className={cn(statusFilter === 'Total' && "bg-primary/5 border-primary shadow-md")}>
+                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Total de Pacientes</CardTitle></CardHeader>
+                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold">{summaryCounts.total}</div></CardContent>
+                    </Card>
                 </button>
-                <button onClick={() => { setStatusFilter(PatientStatusEnum.Vigente); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary scale-105" : "")}>
-                    <Card className={cn(statusFilter === PatientStatusEnum.Vigente && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Vigentes</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold text-green-600">{summaryCounts.vigente}</div></CardContent></Card>
+                <button 
+                  onClick={() => { setStatusFilter(PatientStatusEnum.Vigente); setCurrentPage(1); }} 
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                >
+                    <Card className={cn(statusFilter === PatientStatusEnum.Vigente && "bg-primary/5 border-primary shadow-md")}>
+                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Vigentes</CardTitle></CardHeader>
+                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold text-green-600">{summaryCounts.vigente}</div></CardContent>
+                    </Card>
                 </button>
-                <button onClick={() => { setStatusFilter(PatientStatusEnum.Baja); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary scale-105" : "")}>
-                    <Card className={cn(statusFilter === PatientStatusEnum.Baja && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Temporal</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div></CardContent></Card>
+                <button 
+                  onClick={() => { setStatusFilter(PatientStatusEnum.Baja); setCurrentPage(1); }} 
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                >
+                    <Card className={cn(statusFilter === PatientStatusEnum.Baja && "bg-primary/5 border-primary shadow-md")}>
+                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Temporal</CardTitle></CardHeader>
+                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div></CardContent>
+                    </Card>
                 </button>
-                <button onClick={() => { setStatusFilter(PatientStatusEnum.BajaDefinitiva); setCurrentPage(1); }} className={cn("text-left transition-all", statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary scale-105" : "")}>
-                    <Card className={cn(statusFilter === PatientStatusEnum.BajaDefinitiva && "bg-primary/5")}><CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Definitiva</CardTitle></CardHeader><CardContent className="p-4 pt-0"><div className="text-xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div></CardContent></Card>
+                <button 
+                  onClick={() => { setStatusFilter(PatientStatusEnum.BajaDefinitiva); setCurrentPage(1); }} 
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                >
+                    <Card className={cn(statusFilter === PatientStatusEnum.BajaDefinitiva && "bg-primary/5 border-primary shadow-md")}>
+                      <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Definitiva</CardTitle></CardHeader>
+                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div></CardContent>
+                    </Card>
                 </button>
            </div>
           <Card>
@@ -363,10 +359,10 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               {isDataLoading ? (
                 <div className="flex flex-col justify-center items-center h-64 gap-4">
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-muted-foreground animate-pulse">Recuperando registros de la base de datos...</p>
+                  <p className="text-muted-foreground animate-pulse">Recuperando registros...</p>
                 </div>
               ) : (
-                <>
+                <div className="space-y-4">
                   <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>
                   <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
                     <div className="flex items-center gap-2">
@@ -379,7 +375,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                         <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
                     </div>
                   </div>
-                </>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -393,7 +389,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Mes</Button>
                     <div className="flex-grow" />
-                    <Button onClick={() => handleGeneratePDF(appointmentsToDisplay)} variant="secondary"><FileDown className="h-4 w-4 mr-2"/>PDF</Button>
                     <Button onClick={handleAppointmentsExcelDownload} variant="outline"><Download className="h-4 w-4 mr-2"/>Excel</Button>
                 </div>
                 <div className="mt-6">

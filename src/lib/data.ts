@@ -61,7 +61,6 @@ function getDb() {
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
 
-  // Manejo de Timestamps de Firestore
   if (typeof data.toDate === 'function') {
     return data.toDate().toISOString();
   }
@@ -133,7 +132,6 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
 
 export async function getPatients(): Promise<Patient[]> {
   const db = getDb();
-  // Aumentamos la resiliencia devolviendo error real si falla en lugar de []
   const snap = await getDocs(query(collection(db, 'patients'), limit(25000)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 }
@@ -316,8 +314,8 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
     batch.set(appRef, cleanApp);
     await batch.commit();
     await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
-    const clinic = await getClinicById(appointmentData.clinicId);
-    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic }) };
+    const clinicData = await getClinicById(appointmentData.clinicId);
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
