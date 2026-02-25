@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings }) {
   const pathname = usePathname();
@@ -156,22 +162,31 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
           </Button>
         </nav>
         <div className="flex flex-1 items-center justify-end">
-             <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                className={cn(
-                'transition-colors h-9 w-9',
-                pathname === '/admin'
-                    ? 'text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-            >
-                <Link href="/admin" title="Administración">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  asChild
+                  className={cn(
+                    'transition-colors h-9 w-9',
+                    pathname === '/admin'
+                      ? 'text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Link href="/admin">
                     <LayoutGrid className="h-5 w-5" />
                     <span className="sr-only">Administración</span>
-                </Link>
-            </Button>
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Administración</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </header>
