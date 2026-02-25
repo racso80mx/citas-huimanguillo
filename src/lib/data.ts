@@ -58,17 +58,24 @@ function getDb() {
   return getFirestore(app);
 }
 
+/**
+ * Procesa datos de Firestore para que sean serializables por Next.js.
+ * Convierte Timestamps en strings ISO.
+ */
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
 
-  if (typeof data.toDate === 'function') {
+  // Si es un Timestamp de Firebase
+  if (data instanceof Timestamp || (typeof data.toDate === 'function')) {
     return data.toDate().toISOString();
   }
 
+  // Si es un Array, procesar cada elemento
   if (Array.isArray(data)) {
     return data.map(item => serializeData(item));
   }
 
+  // Si es un Objeto plano
   if (typeof data === 'object' && data !== null && !(data instanceof Date)) {
     const serialized: any = {};
     for (const key in data) {
@@ -132,7 +139,8 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
 
 export async function getPatients(): Promise<Patient[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'patients'), limit(25000)));
+  // Firestore tiene un límite de 10,000 para consultas estructuradas en ciertos contextos
+  const snap = await getDocs(query(collection(db, 'patients'), limit(10000)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 }
 
@@ -250,30 +258,23 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   return await enrichWithPatientData(data) as VaccineAppointment[];
 }
 
-async function validateDailyDuplicate(collectionName: string, patientId: string, isoDate: string) {
-  const db = getDb();
-  const selectedDate = new Date(isoDate);
-  const dayString = selectedDate.toISOString().split('T')[0];
-  const q = query(collection(db, collectionName), where('patientId', '==', patientId));
-  const snap = await getDocs(q);
-  if (snap.empty) return false;
-  return snap.docs.some(doc => {
-    const d = doc.data();
-    if (!d.date) return false;
-    const appDateStr = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-    return appDateStr === dayString;
-  });
-}
-
 export async function saveAppointment(appointmentData: any, patientInput: any, coloniaName?: string) {
   const db = getDb();
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
+    // Validación de duplicados en el servidor (evita Index Required error)
     if (existingPatient && !curp.startsWith('RN-')) {
-      const isDuplicate = await validateDailyDuplicate('appointments', existingPatient.id, appointmentData.date);
-      if (isDuplicate) return { success: false, error: `El paciente ya tiene una cita médica para este día.` };
+      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const q = query(collection(db, 'appointments'), where('patientId', '==', existingPatient.id));
+      const snap = await getDocs(q);
+      const isDuplicate = snap.docs.some(doc => {
+        const d = doc.data();
+        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+        return appDate === selectedDate;
+      });
+      if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita médica para este día.` };
     }
 
     const batch = writeBatch(db);
@@ -326,14 +327,24 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    
     if (existingPatient && !curp.startsWith('RN-')) {
-      const isDuplicate = await validateDailyDuplicate('labAppointments', existingPatient.id, appointmentData.date);
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de laboratorio para hoy.' };
+      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const q = query(collection(db, 'labAppointments'), where('patientId', '==', existingPatient.id));
+      const snap = await getDocs(q);
+      const isDuplicate = snap.docs.some(doc => {
+        const d = doc.data();
+        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+        return appDate === selectedDate;
+      });
+      if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita de laboratorio para este día.` };
     }
+
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    
     const appRef = doc(collection(db, 'labAppointments'));
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studies: appointmentData.studies, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -348,14 +359,24 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    
     if (existingPatient && !curp.startsWith('RN-')) {
-      const isDuplicate = await validateDailyDuplicate('xrayAppointments', existingPatient.id, appointmentData.date);
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para hoy.' };
+      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const q = query(collection(db, 'xrayAppointments'), where('patientId', '==', existingPatient.id));
+      const snap = await getDocs(q);
+      const isDuplicate = snap.docs.some(doc => {
+        const d = doc.data();
+        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+        return appDate === selectedDate;
+      });
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para este día.' };
     }
+
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    
     const appRef = doc(collection(db, 'xrayAppointments'));
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -369,14 +390,24 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    
     if (existingPatient && !curp.startsWith('RN-')) {
-      const isDuplicate = await validateDailyDuplicate('ultrasoundAppointments', existingPatient.id, appointmentData.date);
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para hoy.' };
+      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const q = query(collection(db, 'ultrasoundAppointments'), where('patientId', '==', existingPatient.id));
+      const snap = await getDocs(q);
+      const isDuplicate = snap.docs.some(doc => {
+        const d = doc.data();
+        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+        return appDate === selectedDate;
+      });
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para este día.' };
     }
+
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    
     const appRef = doc(collection(db, 'ultrasoundAppointments'));
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -390,14 +421,24 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    
     if (existingPatient && !curp.startsWith('RN-')) {
-      const isDuplicate = await validateDailyDuplicate('vaccineAppointments', existingPatient.id, appointmentData.date);
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para hoy.' };
+      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const q = query(collection(db, 'vaccineAppointments'), where('patientId', '==', existingPatient.id));
+      const snap = await getDocs(q);
+      const isDuplicate = snap.docs.some(doc => {
+        const d = doc.data();
+        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+        return appDate === selectedDate;
+      });
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para este día.' };
     }
+
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    
     const appRef = doc(collection(db, 'vaccineAppointments'));
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), vaccines: appointmentData.vaccines, status: 'Agendada', patientType: appointmentData.patientType, coloniaName: appointmentData.coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -596,44 +637,27 @@ export async function bulkUpdateStatusChunk(expedientes: string[], status: Patie
   const db = getDb();
   if (!expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
-  const results: any[] = [];
-  const cleanExpedientes = expedientes.map(e => e.toString().trim());
+  // Realizar coincidencia flexible en memoria para evitar fallos por ceros iniciales
+  const allSnap = await getDocs(query(collection(db, 'patients'), limit(10000)));
+  const allPatients = allSnap.docs;
   
-  const chunkSize = 10;
-  for (let i = 0; i < cleanExpedientes.length; i += chunkSize) {
-    const subset = cleanExpedientes.slice(i, i + chunkSize);
-    const variations: string[] = [];
-    subset.forEach(e => {
-      const clean = e.replace(/^0+/, '');
-      variations.push(clean);
-      variations.push('0' + clean);
-      variations.push('00' + clean);
-      variations.push('000' + clean);
-      variations.push('0000' + clean);
-      variations.push('00000' + clean);
-    });
-    
-    const varChunks = chunkArray(Array.from(new Set(variations)), 30);
-    for (const vChunk of varChunks) {
-      const q = query(collection(db, 'patients'), where('expediente', 'in', vChunk));
-      const snap = await getDocs(q);
-      snap.docs.forEach(d => results.push(d));
-    }
-  }
+  const cleanExpedientes = expedientes.map(e => e.toString().trim().replace(/^0+/, ''));
+  const matches = allPatients.filter(doc => {
+    const exp = (doc.data().expediente || '').toString().trim().replace(/^0+/, '');
+    return cleanExpedientes.includes(exp);
+  });
 
-  const uniqueMatches = Array.from(new Map(results.map(d => [d.id, d])).values());
-
-  if (uniqueMatches.length > 0) {
-    const updateChunks = chunkArray(uniqueMatches, 500);
+  if (matches.length > 0) {
+    const updateChunks = chunkArray(matches, 500);
     for (const chunk of updateChunks) {
       const batch = writeBatch(db);
       chunk.forEach(d => batch.update(d.ref, { status, updatedAt: Timestamp.now() }));
       await batch.commit();
     }
-    await logActivity("Actualización Masiva", `Se actualizaron ${uniqueMatches.length} registros a ${status}`);
+    await logActivity("Actualización Masiva", `Se actualizaron ${matches.length} registros a ${status}`);
   }
   
-  return { success: true, count: uniqueMatches.length };
+  return { success: true, count: matches.length };
 }
 
 // =====================================================================

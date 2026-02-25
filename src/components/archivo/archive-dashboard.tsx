@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search, FileDown } from 'lucide-react';
+import { Loader2, LogOut, Plus, Upload, Download, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getPatients as fetchPatients, deletePatient, updatePatientStatus, savePatient, getAppointments as dataGetAppointments, getClinics as dataGetClinics, updatePatient, deleteAppointment } from '@/lib/actions';
 import type { Patient, Appointment, Clinic } from '@/lib/definitions';
@@ -104,6 +104,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const filteredPatients = useMemo(() => {
     let result = [...allPatients];
 
+    // Aplicar filtro de estatus
     if (statusFilter !== 'Total') {
         result = result.filter(p => {
             if (statusFilter === PatientStatusEnum.Vigente) {
@@ -113,6 +114,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         });
     }
 
+    // Aplicar búsqueda de texto (Nombre, CURP, Expediente)
     if (!searchTerm) return result;
     
     const lowercasedTerm = searchTerm.toLowerCase().trim();
@@ -306,38 +308,38 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <button 
                   onClick={() => { setStatusFilter('Total'); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === 'Total' ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === 'Total' ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
                 >
-                    <Card className={cn(statusFilter === 'Total' && "bg-primary/5 border-primary shadow-md")}>
+                    <Card className={cn("h-full", statusFilter === 'Total' && "bg-primary/5 border-primary shadow-md")}>
                       <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Total de Pacientes</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold">{summaryCounts.total}</div></CardContent>
+                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold">{summaryCounts.total}</div></CardContent>
                     </Card>
                 </button>
                 <button 
                   onClick={() => { setStatusFilter(PatientStatusEnum.Vigente); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
                 >
-                    <Card className={cn(statusFilter === PatientStatusEnum.Vigente && "bg-primary/5 border-primary shadow-md")}>
+                    <Card className={cn("h-full", statusFilter === PatientStatusEnum.Vigente && "bg-primary/5 border-primary shadow-md")}>
                       <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Vigentes</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold text-green-600">{summaryCounts.vigente}</div></CardContent>
+                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold text-green-600">{summaryCounts.vigente}</div></CardContent>
                     </Card>
                 </button>
                 <button 
                   onClick={() => { setStatusFilter(PatientStatusEnum.Baja); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
                 >
-                    <Card className={cn(statusFilter === PatientStatusEnum.Baja && "bg-primary/5 border-primary shadow-md")}>
+                    <Card className={cn("h-full", statusFilter === PatientStatusEnum.Baja && "bg-primary/5 border-primary shadow-md")}>
                       <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Temporal</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div></CardContent>
+                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div></CardContent>
                     </Card>
                 </button>
                 <button 
                   onClick={() => { setStatusFilter(PatientStatusEnum.BajaDefinitiva); setCurrentPage(1); }} 
-                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none", statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:opacity-80")}
+                  className={cn("text-left transition-all p-0 border-none bg-transparent outline-none rounded-lg", statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary ring-offset-2 scale-105 shadow-lg" : "hover:opacity-80")}
                 >
-                    <Card className={cn(statusFilter === PatientStatusEnum.BajaDefinitiva && "bg-primary/5 border-primary shadow-md")}>
+                    <Card className={cn("h-full", statusFilter === PatientStatusEnum.BajaDefinitiva && "bg-primary/5 border-primary shadow-md")}>
                       <CardHeader className="p-4 pb-2"><CardTitle className="text-xs font-medium">Baja Definitiva</CardTitle></CardHeader>
-                      <CardContent className="p-4 pt-0"><div className="text-xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div></CardContent>
+                      <CardContent className="p-4 pt-0"><div className="text-2xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div></CardContent>
                     </Card>
                 </button>
            </div>
