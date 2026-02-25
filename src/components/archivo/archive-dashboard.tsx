@@ -53,6 +53,8 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   // Patient states
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Total' | PatientStatusEnum>(PatientStatusEnum.Vigente);
+  
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
@@ -106,17 +108,37 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
 
   const filteredPatients = useMemo(() => {
-    if (!searchTerm) return allPatients;
+    let result = [...allPatients];
+
+    // 1. Filtrar por estatus (Botones superiores)
+    if (statusFilter !== 'Total') {
+        result = result.filter(p => {
+            if (statusFilter === PatientStatusEnum.Vigente) {
+                // Vigentes son los que no son Bajas
+                return p.status !== PatientStatusEnum.Baja && p.status !== PatientStatusEnum.BajaDefinitiva;
+            }
+            return p.status === statusFilter;
+        });
+    }
+
+    // 2. Filtrar por búsqueda de texto
+    if (!searchTerm) return result;
+    
     const lowercasedTerm = searchTerm.toLowerCase();
     const searchParts = lowercasedTerm.split(' ').filter(part => part);
     
-    return allPatients.filter(patient => {
+    return result.filter(patient => {
       const fullName = `${patient.name || ''} ${patient.paternalLastName || ''} ${patient.maternalLastName || ''}`.toLowerCase();
       const curp = (patient.curp || '').toLowerCase();
+      const expediente = (patient.expediente || '').toLowerCase();
 
-      return searchParts.every(part => fullName.includes(part) || curp.includes(part));
+      return searchParts.every(part => 
+        fullName.includes(part) || 
+        curp.includes(part) || 
+        expediente.includes(part)
+      );
     });
-  }, [allPatients, searchTerm]);
+  }, [allPatients, searchTerm, statusFilter]);
 
   const paginatedPatients = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -437,48 +459,91 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         </TabsList>
         <TabsContent value="patients" className="space-y-4 mt-4">
            <div className="grid md:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle>
-                        <User className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{summaryCounts.total}</div>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pacientes Vigentes</CardTitle>
-                        <UserCheck className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">{summaryCounts.vigente}</div>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Baja Temporal</CardTitle>
-                        <Clock className="h-4 w-4 text-yellow-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Baja Definitiva</CardTitle>
-                        <UserX className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div>
-                    </CardContent>
-                </Card>
+                <button 
+                    onClick={() => setStatusFilter('Total')}
+                    className={cn(
+                        "text-left transition-all duration-200 focus:outline-none",
+                        statusFilter === 'Total' ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
+                    )}
+                >
+                    <Card className={cn(statusFilter === 'Total' && "border-primary bg-primary/5")}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total de Pacientes</CardTitle>
+                            <User className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{summaryCounts.total}</div>
+                        </CardContent>
+                    </Card>
+                </button>
+
+                <button 
+                    onClick={() => setStatusFilter(PatientStatusEnum.Vigente)}
+                    className={cn(
+                        "text-left transition-all duration-200 focus:outline-none",
+                        statusFilter === PatientStatusEnum.Vigente ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
+                    )}
+                >
+                    <Card className={cn(statusFilter === PatientStatusEnum.Vigente && "border-primary bg-primary/5")}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Pacientes Vigentes</CardTitle>
+                            <UserCheck className="h-4 w-4 text-green-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-green-600">{summaryCounts.vigente}</div>
+                        </CardContent>
+                    </Card>
+                </button>
+
+                <button 
+                    onClick={() => setStatusFilter(PatientStatusEnum.Baja)}
+                    className={cn(
+                        "text-left transition-all duration-200 focus:outline-none",
+                        statusFilter === PatientStatusEnum.Baja ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
+                    )}
+                >
+                    <Card className={cn(statusFilter === PatientStatusEnum.Baja && "border-primary bg-primary/5")}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Baja Temporal</CardTitle>
+                            <Clock className="h-4 w-4 text-yellow-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-yellow-600">{summaryCounts.bajaTemporal}</div>
+                        </CardContent>
+                    </Card>
+                </button>
+
+                <button 
+                    onClick={() => setStatusFilter(PatientStatusEnum.BajaDefinitiva)}
+                    className={cn(
+                        "text-left transition-all duration-200 focus:outline-none",
+                        statusFilter === PatientStatusEnum.BajaDefinitiva ? "ring-2 ring-primary ring-offset-2 scale-105" : "hover:scale-[1.02]"
+                    )}
+                >
+                    <Card className={cn(statusFilter === PatientStatusEnum.BajaDefinitiva && "border-primary bg-primary/5")}>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Baja Definitiva</CardTitle>
+                            <UserX className="h-4 w-4 text-red-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-red-600">{summaryCounts.bajaDefinitiva}</div>
+                        </CardContent>
+                    </Card>
+                </button>
            </div>
 
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="relative flex-grow w-full"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" /><Input placeholder="Buscar por nombre, apellidos o CURP..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10 w-full"/></div>
+                <div className="relative flex-grow w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar por nombre, apellidos, CURP o No. de Expediente..." 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        className="pl-10 w-full"
+                    />
+                </div>
                 <div className="flex gap-2 w-full sm:w-auto"><Button onClick={handleAddNew} className="flex-grow"><Plus className="mr-2 h-4 w-4"/> Agregar</Button><Button onClick={() => setIsUploadOpen(true)} variant="secondary" className="flex-grow"><Upload className="mr-2 h-4 w-4"/> Carga Masiva</Button><Button onClick={handleDownloadExcel} variant="outline" className="flex-grow"><Download className="mr-2 h-4 w-4"/> Descargar</Button></div>
               </div>
             </CardHeader>
@@ -503,8 +568,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     <Popover><PopoverTrigger asChild><Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}><CalendarIcon className="mr-2 h-4 w-4" />{dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} /></PopoverContent></Popover>
                     <Popover><PopoverTrigger asChild><Button variant="outline" className="h-10 border-dashed"><PlusCircle className="mr-2 h-4 w-4" />Núcleo Básico{selectedClinics.length > 0 && (<><Separator orientation="vertical" className="mx-2 h-4" /><Badge variant="secondary" className="rounded-sm px-1 font-normal">{selectedClinics.length}</Badge></>)}</Button></PopoverTrigger>
                         <PopoverContent className="w-[250px] p-0" align="start">
-                          <Command><CommandInput placeholder="Buscar núcleo..." /><CommandList><CommandEmpty>No se encontraron resultados.</CommandEmpty>{Object.entries(groupedClinics).map(([type, clinicGroup]) => (<CommandGroup key={type} heading={type}>{(clinicGroup as Clinic[]).map(clinic => { const isSelected = selectedClinics.includes(clinic.id); return (<CommandItem key={clinic.id} onSelect={() => handleClinicSelect(clinic.id)}><div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}><Check className={cn("h-4 w-4")} /></div><span>{clinic.name}</span></CommandItem>);})}</CommandGroup>))} {selectedClinics.length > 0 && (<><CommandSeparator /><CommandGroup><CommandItem onSelect={() => setSelectedClinics([])} className="justify-center text-center">Limpiar filtro</CommandItem></CommandGroup></>)}</CommandList></Command>
-                        </PopoverContent>
+                          <Command><CommandInput placeholder="Buscar núcleo..." /><CommandList><CommandEmpty>No se encontraron resultados.</CommandEmpty>{Object.entries(groupedClinics).map(([type, clinicGroup]) => (<CommandGroup key={type} heading={type}>{(clinicGroup as Clinic[]).map(clinic => { const isSelected = selectedClinics.includes(clinic.id); return (<CommandItem key={clinic.id} onSelect={() => handleClinicSelect(clinic.id)}><div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}><Check className={cn("h-4 w-4")} /></div><span>{clinic.name}</span></CommandItem>);})}</CommandGroup>))} {selectedClinics.length > 0 && (<><CommandSeparator /><CommandGroup><CommandItem onSelect={() => setSelectedClinics([])} className="justify-center text-center">Limpiar filtro</CommandItem></CommandGroup></>)}</CommandList></PopoverContent>
                     </Popover>
                     <div className="flex-grow" />
                     <Button onClick={() => handleGeneratePDF(appointmentsToDisplay)} variant="secondary" disabled={isLoading}><FileDown className="mr-2 h-4 w-4" />Descargar PDF</Button>
