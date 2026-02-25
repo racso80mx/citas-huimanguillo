@@ -110,13 +110,16 @@ export function DuplicatesManager({ initialDuplicates }: DuplicatesManagerProps)
         return (
              <Accordion type="multiple" className="w-full space-y-4">
                 {groups.map((group, index) => {
-                    const key = group[0].expediente || group[0].curp || `${group[0].name}-${index}`;
+                    const identifier = group[0].expediente || group[0].curp || group[0].name;
+                    const key = `${criteria}-${identifier}-${index}`;
+                    const triggerLabel = group[0].expediente || group[0].curp || `${group[0].name} ${group[0].paternalLastName}`;
+                    
                     return (
                         <AccordionItem value={key} key={key} className="border rounded-lg">
                             <AccordionTrigger className="p-4 bg-muted/50 hover:no-underline rounded-t-lg">
                                 <div className="flex items-center gap-4">
                                      <Badge variant="destructive">{group.length} Registros</Badge>
-                                     <span className="font-mono text-sm">{key}</span>
+                                     <span className="font-mono text-sm">{triggerLabel}</span>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="p-0">
