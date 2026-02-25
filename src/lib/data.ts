@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { 
@@ -1191,7 +1190,40 @@ export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean
     return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
 }
 
-
-
-
-
+/**
+ * Bulk updates the status of patients found by expediente number.
+ * @param expedientes List of expediente numbers to update.
+ * @param status The target status (usually Baja Temporal).
+ */
+export async function bulkUpdateStatusByExpediente(expedientes: string[], status: PatientStatus): Promise<{ success: boolean; updatedCount: number; message: string }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    
+    const patientsCollection = collection(adminDb, 'patients');
+    let updatedCount = 0;
+    
+    // Process in chunks of 500 (Firestore batch limit)
+    const CHUNK_SIZE = 450;
+    for (let i = 0; i < expedientes.length; i += CHUNK_SIZE) {
+        const chunk = expedientes.slice(i, i + CHUNK_SIZE);
+        const batch = writeBatch(adminDb);
+        
+        // Find docs for these expedientes
+        const q = query(patientsCollection, where('expediente', 'in', chunk));
+        const querySnapshot = await getDocs(q);
+        
+        querySnapshot.forEach(docSnap => {
+            batch.update(docSnap.ref, { 
+                status: status,
+                lastStatusUpdate: Timestamp.now()
+            });
+            updatedCount++;
+        });
+        
+        await batch.commit();
+    }
+    
+    const message = `Actualización masiva completada. ${updatedCount} registros de pacientes fueron actualizados a "${status}".`;
+    await logActivity('Actualización Masiva de Estatus', message);
+    
+    return { success: true, updatedCount, message };
+}

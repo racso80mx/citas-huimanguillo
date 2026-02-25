@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -74,6 +73,7 @@ import {
   findDuplicatePatients,
   deletePatients as dataDeletePatients,
   autoCleanupDuplicatePatients,
+  bulkUpdateStatusByExpediente,
 } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -430,6 +430,15 @@ export async function autoCleanupDuplicates() {
     const result = await autoCleanupDuplicatePatients();
     if (result.success) {
         revalidatePath('/admin/duplicates');
+    }
+    return result;
+}
+
+export async function applyBulkStatusUpdate(expedientes: string[], status: PatientStatus) {
+    const result = await bulkUpdateStatusByExpediente(expedientes, status);
+    if (result.success) {
+        revalidatePath('/admin/duplicates');
+        revalidatePath('/archivo');
     }
     return result;
 }
