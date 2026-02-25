@@ -70,7 +70,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [isClient, setIsClient] = useState(false);
 
   // Common states
-  const [isLoading, startLoadingTransition] = useTransition();
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [isSubmitting, startSubmitTransition] = useTransition();
 
   const { toast } = useToast();
@@ -79,25 +79,34 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       setIsClient(true);
   }, []);
 
-  const loadInitialData = useCallback(() => {
-    startLoadingTransition(async () => {
-      try {
-        const [patientsData, appointmentsData, clinicsData] = await Promise.all([
-          fetchPatients(),
-          dataGetAppointments(),
-          dataGetClinics()
-        ]);
+  const loadInitialData = useCallback(async () => {
+    setIsDataLoading(true);
+    try {
+      const [patientsData, appointmentsData, clinicsData] = await Promise.all([
+        fetchPatients(),
+        dataGetAppointments(),
+        dataGetClinics()
+      ]);
+      
+      // Verificamos si patientsData es un array antes de asignar
+      if (Array.isArray(patientsData)) {
         setAllPatients(patientsData);
-        setAllAppointments(appointmentsData);
-        setClinics(clinicsData);
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'No se pudieron cargar todos los datos iniciales.',
-          variant: 'destructive',
-        });
+      } else {
+        throw new Error("Formato de datos de pacientes inválido");
       }
-    });
+      
+      setAllAppointments(appointmentsData);
+      setClinics(clinicsData);
+    } catch (error: any) {
+      console.error("Dashboard load error:", error);
+      toast({
+        title: 'Error de Carga',
+        description: error.message || 'No se pudieron recuperar los registros de la base de datos.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDataLoading(false);
+    }
   }, [toast]);
   
   useEffect(() => {
@@ -109,6 +118,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
     if (statusFilter !== 'Total') {
         result = result.filter(p => {
+            // Vigentes son aquellos que NO tienen estatus de baja
             if (statusFilter === PatientStatusEnum.Vigente) {
                 return p.status !== PatientStatusEnum.Baja && p.status !== PatientStatusEnum.BajaDefinitiva;
             }
@@ -213,19 +223,26 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         return;
     }
     const xlsx = await import('xlsx');
-    const excelHeaders = [
-      'No.Expediente', 'Nombre', 'Apaterno', 'Amaterno', 'FNacimiento', 'Edad', 'Sexo', 'Estado', 'Domicilio', 'Colonia', 'NombrePadre', 'NombreMadre', 'EdadPadre', 'EdadMadre', 'FechaApertura', 'Estatus', 'DerechoAbiencia', 'Telefono', 'CURP',
-    ];
     const worksheetData = filteredPatients.map(patient => ({
-        'No.Expediente': patient.expediente ?? '', 'Nombre': patient.name ?? '', 'Apaterno': patient.paternalLastName ?? '', 'Amaterno': patient.maternalLastName ?? '', 'FNacimiento': patient.birthDate ?? '', 'Edad': patient.age ?? '', 'Sexo': patient.sex ?? '', 'Estado': patient.birthState ?? '', 'Domicilio': patient.address ?? '', 'Colonia': patient.coloniaName ?? '', 'NombrePadre': patient.fatherName ?? '', 'NombreMadre': patient.motherName ?? '', 'EdadPadre': patient.fatherAge ?? '', 'EdadMadre': patient.motherAge ?? '', 'FechaApertura': patient.registrationDate ?? '', 'Estatus': patient.status ?? '', 'DerechoAbiencia': patient.derechoAbiencia ?? '', 'Telefono': patient.phoneNumber ?? '', 'CURP': patient.curp ?? '',
+        'No.Expediente': patient.expediente ?? '', 
+        'Nombre': patient.name ?? '', 
+        'Apaterno': patient.paternalLastName ?? '', 
+        'Amaterno': patient.maternalLastName ?? '', 
+        'FNacimiento': patient.birthDate ?? '', 
+        'Edad': patient.age ?? '', 
+        'Sexo': patient.sex ?? '', 
+        'Estado': patient.birthState ?? '', 
+        'Domicilio': patient.address ?? '', 
+        'Colonia': patient.coloniaName ?? '', 
+        'FechaApertura': patient.registrationDate ?? '', 
+        'Estatus': patient.status ?? 'Vigente', 
+        'Telefono': patient.phoneNumber ?? '', 
+        'CURP': patient.curp ?? '',
     }));
-    const worksheet = xlsx.utils.json_to_sheet(worksheetData, { header: excelHeaders });
-    worksheet['!cols'] = [
-        { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 20 },
-    ];
+    const worksheet = xlsx.utils.json_to_sheet(worksheetData);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Pacientes');
-    xlsx.writeFile(workbook, `busqueda_pacientes.xlsx`);
+    xlsx.writeFile(workbook, `padrón_pacientes.xlsx`);
   }
 
   const getFilteredAppointments = useCallback((appointmentsToFilter: any[]) => {
@@ -283,14 +300,11 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     const { jsPDF } = await import('jspdf');
     await import('jspdf-autotable');
     const doc = new jsPDF({ orientation: 'portrait' }) as any;
-    const sortedApps = [...appointments].sort((a, b) => a.time.localeCompare(b.time));
-    const reportDate = sortedApps.length > 0 ? parseISO(sortedApps[0].date) : new Date();
-
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text("SECRETARÍA DE SALUD", doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
     doc.text("Hospital General de Huimanguillo", doc.internal.pageSize.getWidth() / 2, 26, { align: 'center' });
-    doc.save(`Vale_Expedientes_${format(reportDate, 'yyyy-MM-dd')}.pdf`);
+    doc.save(`Vale_Expedientes.pdf`);
   };
 
   const mainHeader = (
@@ -309,7 +323,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   );
 
   return (
-    <div className="space-y-6 container mx-auto px-4">
+    <div className="space-y-6 container mx-auto px-4 py-8">
       {mainHeader}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
@@ -346,18 +360,27 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               </div>
             </CardHeader>
             <CardContent>
-              {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div> : <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>}
-              <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
-                <div className="flex items-center gap-2">
-                    <Select value={String(rowsPerPage)} onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}><SelectTrigger className="w-20"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem></SelectContent></Select>
-                    <span className="text-sm text-muted-foreground">por página</span>
+              {isDataLoading ? (
+                <div className="flex flex-col justify-center items-center h-64 gap-4">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-muted-foreground animate-pulse">Recuperando registros de la base de datos...</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm">Página {currentPage} de {totalPages || 1}</span>
-                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
-                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <PatientList patients={paginatedPatients} onEdit={handleEdit} onDelete={handleDelete} onStatusChange={handleStatusChange} onSchedule={handleSchedule} isSubmitting={isSubmitting}/>
+                  <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
+                    <div className="flex items-center gap-2">
+                        <Select value={String(rowsPerPage)} onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}><SelectTrigger className="w-20"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="50">50</SelectItem><SelectItem value="100">100</SelectItem></SelectContent></Select>
+                        <span className="text-sm text-muted-foreground">por página</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm">Página {currentPage} de {totalPages || 1}</span>
+                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                        <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -374,7 +397,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     <Button onClick={handleAppointmentsExcelDownload} variant="outline"><Download className="h-4 w-4 mr-2"/>Excel</Button>
                 </div>
                 <div className="mt-6">
-                    {isLoading ? <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div> : <AppointmentList appointments={appointmentsToDisplay} clinics={clinics} isAdmin onDelete={handleAppointmentDelete} onEditSuccess={loadInitialData} />}
+                    {isDataLoading ? <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div> : <AppointmentList appointments={appointmentsToDisplay} clinics={clinics} isAdmin onDelete={handleAppointmentDelete} onEditSuccess={loadInitialData} />}
                 </div>
             </CardContent>
           </Card>

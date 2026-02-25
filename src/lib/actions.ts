@@ -5,6 +5,20 @@ import * as data from './data';
 import type { PatientStatus, AppointmentStatus } from './definitions';
 
 // =====================================================================
+// UTILS
+// =====================================================================
+
+async function handleAction<T>(promise: Promise<T>) {
+  try {
+    const result = await promise;
+    return { success: true, data: result };
+  } catch (error: any) {
+    console.error("Action error:", error);
+    return { success: false, message: error.message || "Error interno del servidor" };
+  }
+}
+
+// =====================================================================
 // MAINTENANCE ACTIONS
 // =====================================================================
 
@@ -30,7 +44,8 @@ export async function getPatientByCURP(curp: string) {
   return p ? { success: true, data: p } : { success: false };
 }
 
-export async function getPatients(options?: any) {
+export async function getPatients() {
+  // Devolvemos directamente para que el dashboard maneje el array
   return data.getPatients();
 }
 
@@ -258,7 +273,7 @@ export async function downloadBackupAction() {
   return { success: true, data: backup };
 }
 
-export async function cleanupOldRecordsAction() {
+export async function cleanupOldRecords() {
   return data.cleanupOldRecords();
 }
 
