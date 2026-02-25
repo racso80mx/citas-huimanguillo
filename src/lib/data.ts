@@ -47,23 +47,20 @@ import type {
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 // =====================================================================
-// UTILS & SERIALIZATION (Fixes NextJS Plain Object Error)
+// UTILS & SERIALIZATION
 // =====================================================================
 
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
 
-  // Handle Firestore Timestamps
   if (data instanceof Timestamp || (data && typeof data.toDate === 'function')) {
     return data.toDate().toISOString();
   }
 
-  // Handle Arrays
   if (Array.isArray(data)) {
     return data.map(item => serializeData(item));
   }
 
-  // Handle Objects
   if (typeof data === 'object' && data !== null && !(data instanceof Date)) {
     const serialized: any = {};
     for (const key in data) {
@@ -235,9 +232,18 @@ export async function getAppointments(): Promise<Appointment[]> {
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
   if (!adminDb) return [];
   try {
-    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), orderBy('date', 'desc'), limit(2000));
+    // Equality + OrderBy requires index. To avoid this, we filter by clinic and sort in memory.
+    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId), limit(2000));
     const snap = await getDocs(q);
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Sort in memory by date descending
+    data.sort((a: any, b: any) => {
+        const timeA = (a.date as Timestamp).toMillis();
+        const timeB = (b.date as Timestamp).toMillis();
+        return timeB - timeA;
+    });
+
     return await enrichWithPatientData(data) as Appointment[];
   } catch (e) {
     return [];
@@ -290,19 +296,34 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
 
 // Validation helper for same-day appointments by CURP
 async function validateDailyDuplicate(collectionName: string, patientId: string, isoDate: string) {
-  const selectedDate = new Date(isoDate);
-  const start = new Date(selectedDate.setHours(0, 0, 0, 0));
-  const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+  try {
+    const selectedDate = new Date(isoDate);
+    const dayStart = new Date(selectedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(23, 59, 59, 999);
 
-  const q = query(
-    collection(adminDb, collectionName),
-    where('patientId', '==', patientId),
-    where('date', '>=', Timestamp.fromDate(start)),
-    where('date', '<=', Timestamp.fromDate(end))
-  );
-  
-  const snap = await getDocs(q);
-  return !snap.empty;
+    // Equality + Range filters require index. 
+    // To solve this without manual indexing, we filter by patientId in Firestore and by date in JS.
+    const q = query(
+      collection(adminDb, collectionName),
+      where('patientId', '==', patientId)
+    );
+    
+    const snap = await getDocs(q);
+    if (snap.empty) return false;
+
+    // Check if any appointment for this patient falls within the selected day
+    return snap.docs.some(doc => {
+      const d = doc.data();
+      if (!d.date) return false;
+      const appDate = (d.date as Timestamp).toDate();
+      return appDate >= dayStart && appDate <= dayEnd;
+    });
+  } catch (e) {
+    console.error("Error checking daily duplicates:", e);
+    return false;
+  }
 }
 
 export async function saveAppointment(appointmentData: any, patientInput: any, coloniaName?: string) {
