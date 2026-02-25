@@ -1012,47 +1012,48 @@ export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[]
     const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
     
     const allPatients = patientsSnapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() || {};
 
-        // This function will handle undefined and convert Timestamps
-        const serialize = (value: any): any => {
+        // Helper to safely get and serialize values, providing a default.
+        const getSafeValue = (value: any, defaultValue: any) => {
             if (value instanceof Timestamp) {
                 return value.toDate().toISOString();
             }
-            // If value is undefined, it becomes null, which is serializable
-            if (value === undefined) {
-                return null;
+            if (value === undefined || value === null) {
+                return defaultValue;
             }
             return value;
         };
 
         const patient: Patient = {
             id: doc.id,
-            expediente: serialize(data.expediente),
-            curp: serialize(data.curp) || '',
-            name: serialize(data.name) || '',
-            paternalLastName: serialize(data.paternalLastName) || '',
-            maternalLastName: serialize(data.maternalLastName) || '',
-            birthDate: serialize(data.birthDate),
-            sex: serialize(data.sex) || 'Hombre',
-            age: serialize(data.age) === null ? 0 : serialize(data.age),
-            birthState: serialize(data.birthState) || '',
-            address: serialize(data.address),
-            coloniaName: serialize(data.coloniaName),
-            fatherName: serialize(data.fatherName),
-            motherName: serialize(data.motherName),
-            fatherAge: serialize(data.fatherAge),
-            motherAge: serialize(data.motherAge),
-            registrationDate: serialize(data.registrationDate),
-            status: serialize(data.status) || PatientStatusEnum.Vigente,
-            derechoAbiencia: serialize(data.derechoAbiencia),
-            phoneNumber: serialize(data.phoneNumber) || '',
-            lastAppointmentDate: serialize(data.lastAppointmentDate),
+            expediente: getSafeValue(data.expediente, null),
+            curp: getSafeValue(data.curp, ''),
+            name: getSafeValue(data.name, ''),
+            paternalLastName: getSafeValue(data.paternalLastName, ''),
+            maternalLastName: getSafeValue(data.maternalLastName, ''),
+            birthDate: getSafeValue(data.birthDate, null),
+            sex: getSafeValue(data.sex, 'Hombre'),
+            age: getSafeValue(data.age, 0),
+            birthState: getSafeValue(data.birthState, ''),
+            address: getSafeValue(data.address, null),
+            coloniaName: getSafeValue(data.coloniaName, null),
+            fatherName: getSafeValue(data.fatherName, null),
+            motherName: getSafeValue(data.motherName, null),
+            fatherAge: getSafeValue(data.fatherAge, null),
+            motherAge: getSafeValue(data.motherAge, null),
+            registrationDate: getSafeValue(data.registrationDate, null),
+            status: getSafeValue(data.status, PatientStatusEnum.Vigente),
+            derechoAbiencia: getSafeValue(data.derechoAbiencia, null),
+            phoneNumber: getSafeValue(data.phoneNumber, ''),
+            lastAppointmentDate: getSafeValue(data.lastAppointmentDate, null),
         };
-        
-        if(typeof patient.age !== 'number') {
-            patient.age = 0;
-        }
+
+        // Explicitly ensure numeric types are correct, handling potential non-numeric values gracefully.
+        patient.age = Number.isFinite(patient.age) ? patient.age : 0;
+        patient.fatherAge = Number.isFinite(patient.fatherAge as number) ? patient.fatherAge : null;
+        patient.motherAge = Number.isFinite(patient.motherAge as number) ? patient.motherAge : null;
+
 
         return patient;
     });
@@ -1180,5 +1181,6 @@ export async function autoCleanupDuplicatePatients(): Promise<{ success: boolean
     
     return { success: true, message, totalChecked: candidateIdsToDelete.length, deletedCount, undeletedCount };
 }
+
 
 
