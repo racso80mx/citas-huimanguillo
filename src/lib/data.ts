@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -20,8 +19,6 @@ import {
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import { v4 as uuidv4 } from 'uuid';
-import { format as formatDate } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 import type {
   Appointment,
@@ -50,20 +47,23 @@ import type {
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 // =====================================================================
-// UTILS & SERIALIZATION
+// UTILS & SERIALIZATION (Fixes NextJS Plain Object Error)
 // =====================================================================
 
 function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
 
-  if (typeof data.toDate === 'function') {
+  // Handle Firestore Timestamps
+  if (data instanceof Timestamp || (data && typeof data.toDate === 'function')) {
     return data.toDate().toISOString();
   }
 
+  // Handle Arrays
   if (Array.isArray(data)) {
     return data.map(item => serializeData(item));
   }
 
+  // Handle Objects
   if (typeof data === 'object' && data !== null && !(data instanceof Date)) {
     const serialized: any = {};
     for (const key in data) {
@@ -205,7 +205,7 @@ async function enrichWithPatientData(apps: any[]): Promise<any[]> {
   if (patientIds.length === 0) return apps.map(a => serializeData(a));
 
   const patientsMap: Record<string, Patient> = {};
-  const chunks = chunkArray(patientIds, 10);
+  const chunks = chunkArray(patientIds, 10); 
 
   for (const batch of chunks) {
     const q = query(collection(adminDb, 'patients'), where(documentId(), 'in', batch));
@@ -288,31 +288,32 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   }
 }
 
+// Validation helper for same-day appointments by CURP
+async function validateDailyDuplicate(collectionName: string, patientId: string, isoDate: string) {
+  const selectedDate = new Date(isoDate);
+  const start = new Date(selectedDate.setHours(0, 0, 0, 0));
+  const end = new Date(selectedDate.setHours(23, 59, 59, 999));
+
+  const q = query(
+    collection(adminDb, collectionName),
+    where('patientId', '==', patientId),
+    where('date', '>=', Timestamp.fromDate(start)),
+    where('date', '<=', Timestamp.fromDate(end))
+  );
+  
+  const snap = await getDocs(q);
+  return !snap.empty;
+}
+
 export async function saveAppointment(appointmentData: any, patientInput: any, coloniaName?: string) {
   if (!adminDb) return { success: false, error: 'DB no conectada' };
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
 
-    // 1. Validar duplicados para el mismo día y CURP (excepto recién nacidos temporales)
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date);
-      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
-      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
-
-      const q = query(
-        collection(adminDb, 'appointments'),
-        where('patientId', '==', existingPatient.id),
-        where('date', '>=', Timestamp.fromDate(start)),
-        where('date', '<=', Timestamp.fromDate(end))
-      );
-      const existingAppSnap = await getDocs(q);
-      if (!existingAppSnap.empty) {
-        return { 
-          success: false, 
-          error: `El paciente con CURP ${curp} ya tiene una cita médica agendada para el día ${formatDate(start, 'dd/MM/yyyy')}.` 
-        };
-      }
+      const isDuplicate = await validateDailyDuplicate('appointments', existingPatient.id, appointmentData.date);
+      if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita médica para este día.` };
     }
 
     const batch = writeBatch(adminDb);
@@ -369,12 +370,8 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
     const existingPatient = await getPatientByCURP(curp);
 
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date);
-      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
-      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
-      const q = query(collection(adminDb, 'labAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
-      const existingSnap = await getDocs(q);
-      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de laboratorio para hoy.' };
+      const isDuplicate = await validateDailyDuplicate('labAppointments', existingPatient.id, appointmentData.date);
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de laboratorio para hoy.' };
     }
 
     const batch = writeBatch(adminDb);
@@ -410,12 +407,8 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
     const existingPatient = await getPatientByCURP(curp);
 
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date);
-      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
-      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
-      const q = query(collection(adminDb, 'xrayAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
-      const existingSnap = await getDocs(q);
-      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para hoy.' };
+      const isDuplicate = await validateDailyDuplicate('xrayAppointments', existingPatient.id, appointmentData.date);
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para hoy.' };
     }
 
     const batch = writeBatch(adminDb);
@@ -437,7 +430,6 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Rayos X", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -451,12 +443,8 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
     const existingPatient = await getPatientByCURP(curp);
 
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date);
-      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
-      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
-      const q = query(collection(adminDb, 'ultrasoundAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
-      const existingSnap = await getDocs(q);
-      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para hoy.' };
+      const isDuplicate = await validateDailyDuplicate('ultrasoundAppointments', existingPatient.id, appointmentData.date);
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para hoy.' };
     }
 
     const batch = writeBatch(adminDb);
@@ -478,7 +466,6 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Ultrasonido", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -492,12 +479,8 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
     const existingPatient = await getPatientByCURP(curp);
 
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date);
-      const start = new Date(selectedDate.setHours(0, 0, 0, 0));
-      const end = new Date(selectedDate.setHours(23, 59, 59, 999));
-      const q = query(collection(adminDb, 'vaccineAppointments'), where('patientId', '==', existingPatient.id), where('date', '>=', Timestamp.fromDate(start)), where('date', '<=', Timestamp.fromDate(end)));
-      const existingSnap = await getDocs(q);
-      if (!existingSnap.empty) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para hoy.' };
+      const isDuplicate = await validateDailyDuplicate('vaccineAppointments', existingPatient.id, appointmentData.date);
+      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para hoy.' };
     }
 
     const batch = writeBatch(adminDb);
@@ -519,7 +502,6 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
     const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), vaccines: appointmentData.vaccines, status: 'Agendada', patientType: appointmentData.patientType, coloniaName: appointmentData.coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Vacuna", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
     return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -743,15 +725,15 @@ export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'n
   return Array.from(map.values()).filter(g => g.length > 1).slice(0, 300);
 }
 
-export async function bulkUpdateStatusByExpediente(expedientes: string[], status: PatientStatus) {
+export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
   if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
   const snap = await getDocs(collection(adminDb, 'patients'));
-  const targetExps = Array.from(new Set(expedientes.map(e => e.toString().trim().replace(/^0+/, ''))));
+  const targetExpsClean = expedientes.map(e => e.toString().trim().replace(/^0+/, ''));
   
   const foundDocs = snap.docs.filter(d => {
     const exp = (d.data().expediente || '').toString().trim().replace(/^0+/, '');
-    return targetExps.includes(exp);
+    return targetExpsClean.includes(exp);
   });
 
   if (foundDocs.length > 0) {
@@ -828,7 +810,8 @@ export async function bulkInsertPatients(chunk: any[]) {
         status: raw.Estatus || PatientStatusEnum.Vigente,
         derechoAbiencia: String(raw.DerechoAbiencia || '').toUpperCase().trim(),
         phoneNumber: String(raw.Telefono || '').trim(),
-        curp
+        curp,
+        updatedAt: Timestamp.now()
       };
       const existing = await getPatientByCURP(curp);
       if (existing) { 
@@ -857,6 +840,7 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
     const dStr = serializeData(a.date);
     return dStr.split('T')[0] === dateOnly;
   }).map(a => a.time);
+  
   if (clinic.bookingMode === BookingMode.Time) {
     const slots = [];
     let curr = new Date(`1970-01-01T${clinic.startTime}:00`);
