@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -302,6 +301,15 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) { cons
 export async function updateVaccineSettings(settings: VaccineSettings) { const result = await dataUpdateVaccineSettings(settings); if (result.success) { await logActivity('Actualización Configuración Vacunación', `Ajustes de Vacunación actualizados.`); revalidatePath('/', 'layout'); } return result; }
 export async function updateVaccines(vaccines: Vaccine[]) { const result = await dataUpdateVaccines(vaccines); if (result.success) { await logActivity('Actualización de Vacunas', `Catálogo de vacunas actualizado.`); revalidatePath('/', 'layout'); } return result; }
 export async function updateUsers(users: User[]) { const result = await dataUpdateUsers(users); if (result.success) { await logActivity('Actualización de Usuarios', `Se actualizó la lista de usuarios.`); revalidatePath('/admin'); } return result; }
+
+export async function updateModuleSettings(settings: ModuleSettings) {
+    const result = await dataUpdateModuleSettings(settings);
+    if (result.success) {
+        await logActivity('Actualización Configuración Módulos', `Se actualizaron los módulos activos.`);
+        revalidatePath('/', 'layout');
+    }
+    return result;
+}
 
 export async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine') {
     const result = await dataUpdateAppointmentStatus(appointmentId, status, type);
