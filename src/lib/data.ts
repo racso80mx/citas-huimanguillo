@@ -74,7 +74,6 @@ async function findPatient(patientData: Partial<Patient>): Promise<Patient | nul
     if (!adminDb) throw new Error("Database not initialized.");
     const patientsCollection = collection(adminDb, 'patients');
 
-    // 1. Try to find by expediente (file number)
     const expediente = patientData.expediente ? String(patientData.expediente).trim() : '';
     if (expediente) {
         const q = query(patientsCollection, where('expediente', '==', expediente), limit(1));
@@ -85,8 +84,7 @@ async function findPatient(patientData: Partial<Patient>): Promise<Patient | nul
         }
     }
 
-    // 2. Try to find by CURP
-    const curp = patientData.curp ? patientData.curp.trim() : '';
+    const curp = patientData.curp ? patientData.curp.trim().toUpperCase() : '';
     if (curp && !curp.startsWith('RN-')) {
         const q = query(patientsCollection, where('curp', '==', curp), limit(1));
         const snapshot = await getDocs(q);
@@ -99,6 +97,7 @@ async function findPatient(patientData: Partial<Patient>): Promise<Patient | nul
     return null;
 }
 
+
 async function upsertPatient(patientData: Omit<Patient, 'id'>): Promise<DocumentReference> {
     if (!adminDb) throw new Error("Database not initialized.");
     
@@ -107,7 +106,6 @@ async function upsertPatient(patientData: Omit<Patient, 'id'>): Promise<Document
         lastAppointmentDate: new Date().toISOString().split('T')[0],
     };
 
-    // If CURP indicates newborn, always create a new record.
     if (patientData.curp && patientData.curp.startsWith('RN-')) {
         const patientRef = doc(collection(adminDb, 'patients'));
         await setDoc(patientRef, { ...dataToSave, status: PatientStatusEnum.Vigente, registrationDate: new Date().toISOString().split('T')[0] });
@@ -121,7 +119,6 @@ async function upsertPatient(patientData: Omit<Patient, 'id'>): Promise<Document
         await updateDoc(patientRef, dataToSave);
         return patientRef;
     } else {
-        // Create new patient
         if (!dataToSave.registrationDate) {
             dataToSave.registrationDate = new Date().toISOString().split('T')[0];
         }
@@ -187,7 +184,6 @@ async function enrichAppointmentsWithPatientData(appointments: any[]): Promise<a
 
     const patients: Record<string, Patient> = {};
     
-    // Firestore 'in' query is limited to 30 items. We batch the requests.
     for (let i = 0; i < patientIds.length; i += 30) {
         const batchIds = patientIds.slice(i, i + 30);
         if (batchIds.length > 0) {
@@ -759,8 +755,6 @@ export async function verifyVaccinePassword(passwordAttempt: string): Promise<{ 
 export async function getPatients(options?: { searchTerm?: string }): Promise<Patient[]> {
     if (!adminDb) return [];
     
-    // For simplicity and better partial matching, fetching all and filtering in-memory.
-    // This is not optimal for very large datasets but provides the best search experience for this context.
     const snapshot = await getDocs(query(collection(adminDb, 'patients'), orderBy('paternalLastName')));
     const allPatients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
 
@@ -820,10 +814,14 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
 
 export async function bulkInsertPatients(patients: any[]): Promise<{ success: boolean; message?: string, processedCount?: number, addedCount?: number, updatedCount?: number }> {
     if (!adminDb) throw new Error("Database not initialized.");
-    
-    let addedCount = 0;
-    let updatedCount = 0;
 
+    const statusValueMap: { [key: string]: PatientStatus } = {
+        'BAJA TEMPORAL': PatientStatusEnum.Baja,
+        'BAJA': PatientStatusEnum.Baja,
+        'BAJA DEFINITIVA': PatientStatusEnum.BajaDefinitiva,
+        'VIGENTE': PatientStatusEnum.Vigente,
+    };
+    
     const columnMapping: { [key: string]: string } = {
         'No.Expediente': 'expediente', 'Nombre': 'name', 'Apaterno': 'paternalLastName',
         'Amaterno': 'maternalLastName', 'FNacimiento': 'birthDate', 'YearNacimiento': 'birthDate', 'Edad': 'age', 'EdadActual': 'age',
@@ -833,8 +831,6 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         'DerechoAbiencia': 'derechoAbiencia',
         'Telefono': 'phoneNumber', 'CURP': 'curp'
     };
-
-    const patientsCollection = collection(adminDb, 'patients');
 
     const mappedPatients = patients.map(row => {
         const mappedPatient: Partial<Patient> = {};
@@ -851,6 +847,9 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
 
                 if (typeof value === 'string') {
                     value = value.trim();
+                    if (mappedKey === 'status') {
+                        value = statusValueMap[value.toUpperCase() as string] || PatientStatusEnum.Vigente;
+                    }
                 }
                 
                 (mappedPatient as any)[mappedKey] = value;
@@ -859,57 +858,44 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
         return mappedPatient;
     });
 
-    const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1))];
-    const expedientesInChunk = [...new Set(mappedPatients.map(p => p.expediente).filter(e => e && (typeof e === 'string' || typeof e === 'number')))].map(String);
-
+    const expedientesInChunk = [...new Set(mappedPatients.map(p => p.expediente).filter(e => e !== null && e !== undefined && String(e).trim() !== ''))].map(String);
+    const curpsInChunk = [...new Set(mappedPatients.map(p => p.curp).filter(c => c && typeof c === 'string' && c.length > 1 && !c.startsWith('RN-')))];
+    
+    const patientsCollection = collection(adminDb, 'patients');
     const existingByCurp = new Map<string, { id: string }>();
     if (curpsInChunk.length > 0) {
-        const curpChunks: string[][] = [];
         for (let i = 0; i < curpsInChunk.length; i += 30) {
-            curpChunks.push(curpsInChunk.slice(i, i + 30));
-        }
-
-        const queryPromises = curpChunks.map(chunk => getDocs(query(patientsCollection, where('curp', 'in', chunk))));
-        const querySnapshots = await Promise.all(queryPromises);
-
-        for (const querySnapshot of querySnapshots) {
+            const chunk = curpsInChunk.slice(i, i + 30);
+            const q = query(patientsCollection, where('curp', 'in', chunk));
+            const querySnapshot = await getDocs(q);
             querySnapshot.forEach(doc => {
                 const docData = doc.data() as Patient;
-                if (docData.curp) {
-                    existingByCurp.set(docData.curp, { id: doc.id });
-                }
+                if (docData.curp) existingByCurp.set(docData.curp, { id: doc.id });
             });
         }
     }
-
+    
     const existingByExpediente = new Map<string, { id: string }>();
     if (expedientesInChunk.length > 0) {
-        const expedienteChunks: string[][] = [];
         for (let i = 0; i < expedientesInChunk.length; i += 30) {
-            expedienteChunks.push(expedientesInChunk.slice(i, i + 30));
-        }
-
-        const queryPromises = expedienteChunks.map(chunk => getDocs(query(patientsCollection, where('expediente', 'in', chunk))));
-        const querySnapshots = await Promise.all(queryPromises);
-        
-        for (const querySnapshot of querySnapshots) {
+            const chunk = expedientesInChunk.slice(i, i + 30);
+            const q = query(patientsCollection, where('expediente', 'in', chunk));
+            const querySnapshot = await getDocs(q);
             querySnapshot.forEach(doc => {
                 const docData = doc.data() as Patient;
-                if (docData.expediente) {
-                    existingByExpediente.set(String(docData.expediente), { id: doc.id });
-                }
+                if (docData.expediente) existingByExpediente.set(String(docData.expediente), { id: doc.id });
             });
         }
     }
     
     const batch = writeBatch(adminDb);
+    let addedCount = 0;
+    let updatedCount = 0;
+    const seenInBatch = new Set<string>();
 
-    for (const mappedPatient of mappedPatients) {
-        const dataToSave: any = { ...mappedPatient, status: mappedPatient.status || PatientStatusEnum.Vigente };
-        
-        const curp = dataToSave.curp;
-        const expediente = dataToSave.expediente ? String(dataToSave.expediente) : undefined;
-        
+    for (const patientData of mappedPatients) {
+        const expediente = patientData.expediente ? String(patientData.expediente).trim() : undefined;
+        const curp = patientData.curp ? patientData.curp.trim().toUpperCase() : undefined;
         let existingPatientId: string | undefined;
 
         if (expediente && existingByExpediente.has(expediente)) {
@@ -918,22 +904,33 @@ export async function bulkInsertPatients(patients: any[]): Promise<{ success: bo
             existingPatientId = existingByCurp.get(curp)!.id;
         }
         
+        const uniqueKey = expediente || curp;
+        if(uniqueKey && seenInBatch.has(uniqueKey)) {
+            continue; // Skip if we've already processed this unique identifier in this batch
+        }
+
+        const dataToSave: any = { ...patientData, status: patientData.status || PatientStatusEnum.Vigente };
+
         if (existingPatientId) {
             const docRef = doc(patientsCollection, existingPatientId);
-            batch.update(docRef, dataToSave);
+            const { registrationDate, ...updateData } = dataToSave;
+            batch.update(docRef, updateData);
             updatedCount++;
         } else {
+            const newDocRef = doc(patientsCollection);
             if (!dataToSave.registrationDate) {
                 dataToSave.registrationDate = new Date().toISOString().split('T')[0];
             }
-            const newDocRef = doc(patientsCollection);
             batch.set(newDocRef, dataToSave);
             addedCount++;
+        }
+
+        if (uniqueKey) {
+            seenInBatch.add(uniqueKey);
         }
     }
     
     await batch.commit();
-    
     return { success: true, processedCount: patients.length, addedCount, updatedCount };
 }
 
@@ -985,6 +982,78 @@ export async function cleanupOldRecords() {
     }
     
     return { deletedCount: totalDeleted };
+}
+
+export async function findDuplicatePatients(): Promise<{ byExpediente: Patient[][]; byCurp: Patient[][]; byName: Patient[][] }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+    const patientsSnapshot = await getDocs(collection(adminDb, 'patients'));
+    const allPatients = patientsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+
+    const groupBy = <T, K extends keyof any>(list: T[], getKey: (item: T) => K) =>
+        list.reduce((previous, currentItem) => {
+            const groupKey = getKey(currentItem);
+            if(groupKey) {
+                 if (!previous[groupKey]) previous[groupKey] = [];
+                 previous[groupKey].push(currentItem);
+            }
+            return previous;
+        }, {} as Record<K, T[]>);
+
+    const filterDuplicates = (grouped: Record<string, Patient[]>) => 
+        Object.values(grouped).filter(group => group.length > 1);
+    
+    const groupedByExpediente = groupBy(allPatients.filter(p => p.expediente), p => p.expediente!);
+    const duplicatesByExpediente = filterDuplicates(groupedByExpediente);
+
+    const groupedByCurp = groupBy(allPatients.filter(p => p.curp && !p.curp.startsWith('RN-')), p => p.curp);
+    const duplicatesByCurp = filterDuplicates(groupedByCurp);
+
+    const groupedByName = groupBy(allPatients, p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.trim().toUpperCase());
+    const duplicatesByName = filterDuplicates(groupedByName);
+
+    return {
+        byExpediente: duplicatesByExpediente,
+        byCurp: duplicatesByCurp,
+        byName: duplicatesByName,
+    };
+}
+
+export async function deletePatients(patientIds: string[]): Promise<{ success: boolean; message: string; undeletedCount: number }> {
+    if (!adminDb) throw new Error("Database not initialized.");
+
+    const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
+    let patientHasAppointments = new Set<string>();
+
+    for (let i = 0; i < patientIds.length; i += 30) {
+        const idChunk = patientIds.slice(i, i + 30);
+        for (const coll of collections) {
+            const q = query(collection(adminDb, coll), where('patientId', 'in', idChunk));
+            const snapshot = await getDocs(q);
+            snapshot.forEach(doc => {
+                patientHasAppointments.add(doc.data().patientId);
+            });
+        }
+    }
+    
+    const batch = writeBatch(adminDb);
+    const deletablePatientIds = patientIds.filter(id => !patientHasAppointments.has(id));
+    
+    deletablePatientIds.forEach(id => {
+        batch.delete(doc(adminDb, 'patients', id));
+    });
+
+    if (deletablePatientIds.length > 0) {
+        await batch.commit();
+    }
+
+    const undeletedCount = patientIds.length - deletablePatientIds.length;
+    let message = `${deletablePatientIds.length} pacientes eliminados.`;
+    if (undeletedCount > 0) {
+        message += ` ${undeletedCount} no se pudieron eliminar porque tienen citas registradas.`;
+    }
+
+    await logActivity('Limpieza de Duplicados', message);
+    return { success: true, message, undeletedCount };
 }
     
 export { 

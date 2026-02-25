@@ -25,6 +25,7 @@ import {
   RefreshCw,
   Check,
   PlusCircle,
+  DatabaseZap,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -36,6 +37,7 @@ import {
   parseISO,
   isWithinInterval,
 } from 'date-fns';
+import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
 import {
@@ -414,6 +416,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ArchiveSettingsManager />
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><DatabaseZap /> Mantenimiento de Base de Datos</CardTitle>
+                        <CardDescription>
+                            Herramientas para limpiar y mantener la integridad de los datos de pacientes.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Link href="/admin/duplicates" passHref>
+                            <Button variant="outline">
+                                Gestionar Pacientes Duplicados
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
                 <ActivityLogViewer />
             </div>
         </TabsContent>

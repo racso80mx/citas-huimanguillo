@@ -70,6 +70,8 @@ import {
   getArchiveSettings as dataGetArchiveSettings,
   updateArchiveSettings as dataUpdateArchiveSettings,
   verifyArchivePassword as dataVerifyArchivePassword,
+  findDuplicatePatients,
+  deletePatients as dataDeletePatients,
 } from './data';
 import { v4 as uuidv4 } from 'uuid';
 import type {
@@ -256,10 +258,6 @@ export async function saveNewVaccineAppointment(
   }
 }
 
-// =====================================================================
-// Admin & Other Actions
-// =====================================================================
-
 export async function cloneAppointment(originalAppointmentId: string, newDate: string, type: 'medical' | 'lab' | 'xray' | 'ultrasound' | 'vaccine', newTimeOrToken?: string) {
     const result = await dataCloneAppointment(originalAppointmentId, newDate, type, newTimeOrToken);
     if(result.success) {
@@ -334,8 +332,8 @@ export async function getArchiveSettings() {
     return dataGetArchiveSettings();
 }
 
-export async function getPatients() { 
-    return dataGetPatients(); 
+export async function getPatients(options?: { searchTerm?: string }) { 
+    return dataGetPatients(options); 
 }
 export async function deletePatient(patientId: string) { 
     const result = await dataDeletePatient(patientId);
@@ -364,7 +362,7 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
 export async function bulkInsertPatients(patients: any[]) { 
     const result = await dataBulkInsertPatients(patients);
     if(result.success) {
-        await logActivity('Carga Masiva Pacientes', `Se procesaron ${result.processedCount} registros.`);
+        await logActivity('Carga Masiva Pacientes', `Se procesaron ${result.processedCount} registros. ${result.addedCount} agregados, ${result.updatedCount} actualizados.`);
         revalidatePath('/archivo');
     }
     return result;
@@ -411,6 +409,19 @@ export async function cleanupOldRecordsAction(): Promise<{ success: boolean; del
     } catch (e: any) {
         return { success: false, message: e.message || 'Error durante la limpieza de registros.' };
     }
+}
+
+export async function getDuplicatePatients() {
+    return findDuplicatePatients();
+}
+
+export async function deletePatients(patientIds: string[]) {
+    const result = await dataDeletePatients(patientIds);
+    if (result.success) {
+        revalidatePath('/admin/duplicates');
+        revalidatePath('/archivo');
+    }
+    return result;
 }
 
 export async function getLogs() { return dataGetLogs(); }
