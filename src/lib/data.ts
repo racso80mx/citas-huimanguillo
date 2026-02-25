@@ -52,6 +52,7 @@ import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
+  if (!array) return chunks;
   for (let i = 0; i < array.length; i += size) {
     chunks.push(array.slice(i, i + size));
   }
@@ -115,8 +116,8 @@ export async function deletePatient(id: string) {
 }
 
 export async function deletePatients(ids: string[]) {
-  if (!adminDb || ids.length === 0) return { success: true };
-  const chunks = chunkArray(ids, 10); // Batch de 10 para IN
+  if (!adminDb || !ids || ids.length === 0) return { success: true };
+  const chunks = chunkArray(ids, 500); 
   for (const chunk of chunks) {
     const batch = writeBatch(adminDb);
     chunk.forEach(id => batch.delete(doc(adminDb, 'patients', id)));
@@ -136,7 +137,7 @@ export async function updatePatientStatus(id: string, status: PatientStatus) {
 // =====================================================================
 
 async function enrichWithPatientData(apps: any[]): Promise<any[]> {
-  if (!adminDb || apps.length === 0) return apps;
+  if (!adminDb || !apps || apps.length === 0) return apps;
   
   const patientIds = Array.from(new Set(apps.map(a => a.patientId).filter(id => id && typeof id === 'string')));
   if (patientIds.length === 0) return apps;
@@ -434,9 +435,10 @@ export async function logActivity(action: string, details: string) {
 // MAINTENANCE
 // =====================================================================
 
-export async function findDuplicatesByCriteria(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
+export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
   if (!adminDb) return [];
-  const snap = await getDocs(query(collection(adminDb, 'patients'), limit(5000)));
+  // Escaneo ligero de solo campos necesarios para evitar "Unexpected response"
+  const snap = await getDocs(query(collection(adminDb, 'patients'), orderBy('curp'), limit(5000)));
   const all = snap.docs.map(doc => {
     const d = doc.data();
     return {
@@ -467,36 +469,31 @@ export async function findDuplicatesByCriteria(criteria: 'expediente' | 'curp' |
   return Array.from(map.values()).filter(g => g.length > 1).slice(0, 300);
 }
 
-/**
- * Actualiza el estatus de pacientes por expediente de forma robusta.
- * Intenta coincidir con múltiples formatos (string, número, ceros a la izquierda).
- */
 export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
-  if (!adminDb || expedientes.length === 0) return { success: true, count: 0 };
+  if (!adminDb || !expedientes || expedientes.length === 0) return { success: true, count: 0 };
   
-  const cleanExpedientes = Array.from(new Set(expedientes.filter(e => e && typeof e === 'string')));
+  // Limpieza agresiva de duplicados y vacíos
+  const uniqueExps = Array.from(new Set(expedientes.map(e => e?.toString().trim()).filter(Boolean)));
   
-  // Estrategia: Firestore IN query es sensible al tipo. 
-  // Intentamos buscar por string exacto, número exacto y ceros a la izquierda.
+  // Generar variantes de búsqueda (exacto, numérico, relleno ceros)
   const searchValues = new Set<string | number>();
-  cleanExpedientes.forEach(e => {
-    const trimmed = e.trim();
-    if (!trimmed) return;
-    searchValues.add(trimmed); // Exacto string
-    if (/^\d+$/.test(trimmed)) {
-      const num = parseInt(trimmed, 10);
-      searchValues.add(num); // Como número
-      searchValues.add(trimmed.padStart(5, '0')); // Común en registros de 5 dígitos
-      searchValues.add(trimmed.padStart(6, '0')); // Común en registros de 6 dígitos
+  uniqueExps.forEach(e => {
+    searchValues.add(e);
+    if (/^\d+$/.test(e)) {
+      const num = parseInt(e, 10);
+      searchValues.add(num);
+      searchValues.add(e.padStart(5, '0'));
+      searchValues.add(e.padStart(6, '0'));
     }
   });
 
   const valuesArray = Array.from(searchValues);
-  const chunks = chunkArray(valuesArray, 10); // Lotes de 10 para absoluta seguridad con 'IN'
+  const chunks = chunkArray(valuesArray, 10); // Lote de 10 para IN (máximo 30 en Firebase)
   let totalUpdated = 0;
 
   for (const valBatch of chunks) {
-    // Buscar pacientes que coincidan con cualquier formato en este lote
+    if (valBatch.length === 0) continue;
+    
     const q = query(collection(adminDb, 'patients'), where('expediente', 'in', valBatch));
     const snap = await getDocs(q);
     
@@ -542,39 +539,41 @@ export async function cleanupOldRecords() {
   for (const col of collections) {
     const q = query(collection(adminDb, col), where('date', '<', cutoff));
     const snap = await getDocs(q);
-    const batch = writeBatch(adminDb);
-    snap.docs.forEach(d => { batch.delete(d.ref); total++; });
-    await batch.commit();
+    if (!snap.empty) {
+        const batch = writeBatch(adminDb);
+        snap.docs.forEach(d => { batch.delete(d.ref); total++; });
+        await batch.commit();
+    }
   }
   return { success: true, deletedCount: total };
 }
 
 export async function bulkInsertPatients(chunk: any[]) {
-  if (!adminDb) return { success: false };
+  if (!adminDb || !chunk || chunk.length === 0) return { success: false };
   const batch = writeBatch(adminDb);
   let added = 0, updated = 0;
   for (const raw of chunk) {
     if (!raw.CURP) continue;
     const curp = String(raw.CURP).toUpperCase().trim();
     const patientData = {
-      expediente: raw['No.Expediente'] ? String(raw['No.Expediente']) : null,
-      name: String(raw.Nombre || '').toUpperCase(),
-      paternalLastName: String(raw.Apaterno || '').toUpperCase(),
-      maternalLastName: String(raw.Amaterno || '').toUpperCase(),
+      expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null,
+      name: String(raw.Nombre || '').toUpperCase().trim(),
+      paternalLastName: String(raw.Apaterno || '').toUpperCase().trim(),
+      maternalLastName: String(raw.Amaterno || '').toUpperCase().trim(),
       birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null,
       age: Number(raw.Edad) || 0,
       sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre',
-      birthState: String(raw.Estado || 'TABASCO').toUpperCase(),
-      address: String(raw.Domicilio || '').toUpperCase(),
-      coloniaName: String(raw.Colonia || '').toUpperCase(),
-      fatherName: String(raw.NombrePadre || '').toUpperCase(),
-      motherName: String(raw.NombreMadre || '').toUpperCase(),
+      birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(),
+      address: String(raw.Domicilio || '').toUpperCase().trim(),
+      coloniaName: String(raw.Colonia || '').toUpperCase().trim(),
+      fatherName: String(raw.NombrePadre || '').toUpperCase().trim(),
+      motherName: String(raw.NombreMadre || '').toUpperCase().trim(),
       fatherAge: Number(raw.EdadPadre) || null,
       motherAge: Number(raw.EdadMadre) || null,
       registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null,
       status: raw.Estatus || PatientStatusEnum.Vigente,
-      derechoAbiencia: String(raw.DerechoAbiencia || '').toUpperCase(),
-      phoneNumber: String(raw.Telefono || ''),
+      derechoAbiencia: String(raw.DerechoAbiencia || '').toUpperCase().trim(),
+      phoneNumber: String(raw.Telefono || '').trim(),
       curp
     };
     const existing = await getPatientByCURP(curp);
@@ -592,8 +591,8 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
   const taken = snap.docs.map(d => d.data()).filter(a => {
-    const d = a.date instanceof Timestamp ? a.date.toDate().toISOString() : String(a.date);
-    return d.split('T')[0] === dateOnly;
+    const dStr = a.date instanceof Timestamp ? a.date.toDate().toISOString() : String(a.date);
+    return dStr.split('T')[0] === dateOnly;
   }).map(a => a.time);
   if (clinic.bookingMode === BookingMode.Time) {
     const slots = [];

@@ -126,11 +126,18 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
 
   const summaryCounts = useMemo(() => {
+    const total = allPatients.length;
+    const bajaTemporal = allPatients.filter(p => p.status === PatientStatusEnum.Baja).length;
+    const bajaDefinitiva = allPatients.filter(p => p.status === PatientStatusEnum.BajaDefinitiva).length;
+    
+    // Para que la suma coincida siempre con el total, Vigentes es todo lo que no es una Baja
+    const vigente = total - bajaTemporal - bajaDefinitiva;
+
     return {
-      total: allPatients.length,
-      vigente: allPatients.filter(p => p.status === PatientStatusEnum.Vigente || !p.status).length,
-      bajaTemporal: allPatients.filter(p => p.status === PatientStatusEnum.Baja).length,
-      bajaDefinitiva: allPatients.filter(p => p.status === PatientStatusEnum.BajaDefinitiva).length,
+      total,
+      vigente,
+      bajaTemporal,
+      bajaDefinitiva,
     }
   }, [allPatients]);
 
@@ -392,7 +399,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     });
 
     // --- Footer ---
-    const finalY = doc.lastAutoTable.finalY + 20;
+    const finalY = doc.autoTable.previous.finalY + 20;
     doc.text("RECIBIO:", 30, finalY);
     doc.line(30, finalY + 5, 90, finalY + 5);
     doc.text("Nombre y Firma", 45, finalY + 10);
