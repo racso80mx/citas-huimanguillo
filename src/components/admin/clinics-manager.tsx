@@ -169,26 +169,30 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                         />
                     </div>
                 </div>
-                <div className='grid sm:grid-cols-3 gap-4'>
+                <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor={`start-${editedClinic.id}`}>Hora Inicio</Label>
                         <Select value={editedClinic.startTime} onValueChange={(value) => handleFieldChange('startTime', value)}>
-                            <SelectTrigger id={`start-${editedClinic.id}`}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
-                            </SelectContent>
+                            <SelectTrigger id={`start-${editedClinic.id}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                     <div className='space-y-2'>
                         <Label htmlFor={`end-${editedClinic.id}`}>Hora Fin</Label>
                         <Select value={editedClinic.endTime} onValueChange={(value) => handleFieldChange('endTime', value)}>
-                            <SelectTrigger id={`end-${editedClinic.id}`}>
-                                <SelectValue />
-                            </SelectTrigger>
+                            <SelectTrigger id={`end-${editedClinic.id}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`break-${editedClinic.id}`}>Tiempo de Descanso</Label>
+                        <Select value={editedClinic.breakTime || ''} onValueChange={(value) => handleFieldChange('breakTime', value === 'none' ? undefined : value)}>
+                            <SelectTrigger id={`break-${editedClinic.id}`}><SelectValue placeholder="Seleccionar descanso..." /></SelectTrigger>
                             <SelectContent>
-                                {timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}
+                                <SelectItem value="none">Sin Descanso</SelectItem>
+                                {timeSlots30Min.filter(slot => slot.value >= editedClinic.startTime && slot.value < editedClinic.endTime).map(slot => (
+                                    <SelectItem key={`break-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -371,6 +375,7 @@ export function ClinicsManager() {
         dailySlots: 15,
         startTime: '08:00',
         endTime: '13:00',
+        breakTime: undefined,
         weekendBookingEnabled: false,
         daysOfAction: [],
         unavailableDates: [],

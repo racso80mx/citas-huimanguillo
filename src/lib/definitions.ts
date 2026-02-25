@@ -91,6 +91,7 @@ export const ClinicSchema = z.object({
   dailySlots: z.number().min(1, "Debe haber al menos 1 cita."),
   startTime: z.string(),
   endTime: z.string(),
+  breakTime: z.string().optional(),
   weekendBookingEnabled: z.boolean(),
   daysOfAction: z.array(z.string()).optional(),
   unavailableDates: z.array(z.string()).optional(),

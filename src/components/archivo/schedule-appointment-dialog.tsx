@@ -208,7 +208,8 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const availableTimeSlots = React.useMemo(() => {
         if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Time) return [];
         const takenTimes = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
-        return allTimeSlots.filter(slot => !takenTimes.includes(slot));
+        const timesToExclude = selectedClinic.breakTime ? [...takenTimes, selectedClinic.breakTime] : takenTimes;
+        return allTimeSlots.filter(slot => !timesToExclude.includes(slot));
     }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
 
     const availableTokens = React.useMemo(() => {
