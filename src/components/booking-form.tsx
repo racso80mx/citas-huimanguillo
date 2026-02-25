@@ -30,7 +30,7 @@ import { Combobox } from './ui/combobox';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { format } from 'date-fns';
+import { format as formatDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { generateAppointmentPDF } from '@/lib/report-helpers';
 
@@ -46,6 +46,7 @@ const baseSchema = z.object({
   phoneNumber: z.string().regex(phoneRegex, 'El número de teléfono debe tener 10 dígitos.'),
   sex: z.enum(['Hombre', 'Mujer']),
   age: z.number().min(0, 'La edad no puede ser negativa.'),
+  birthDate: z.string().min(1, 'La fecha de nacimiento es requerida.'),
 });
 
 const formSchemaWithCurp = baseSchema.extend({
@@ -98,6 +99,7 @@ export function BookingForm({
       phoneNumber: '',
       sex: undefined,
       age: undefined,
+      birthDate: '',
       birthState: '',
     },
   });
@@ -112,6 +114,7 @@ export function BookingForm({
             phoneNumber: initialPatientData.phoneNumber ?? '',
             sex: initialPatientData.sex,
             age: initialPatientData.age,
+            birthDate: initialPatientData.birthDate,
             birthState: initialPatientData.birthState,
         });
     } else {
@@ -155,6 +158,7 @@ export function BookingForm({
         form.setValue('sex', data.sex as 'Hombre' | 'Mujer');
         form.setValue('birthState', data.estadoNacimiento || 'NACIDO EN EL EXTRANJERO');
         form.setValue('age', calculateAge(data.birthDate));
+        form.setValue('birthDate', formatDate(data.birthDate, 'yyyy-MM-dd'));
       }
     }
   }, [curp, form, isNewborn]);
@@ -187,6 +191,7 @@ export function BookingForm({
           maternalLastName: data.maternalLastName.toUpperCase(),
           sex: data.sex,
           age: data.age || 0,
+          birthDate: data.birthDate,
           birthState: data.birthState || "No especificado",
           phoneNumber: data.phoneNumber,
           coloniaName: selectedColoniaName
@@ -257,7 +262,6 @@ export function BookingForm({
                           handleCurpBlur();
                         }}
                         maxLength={18}
-                        className="uppercase"
                       />
                     </FormControl>
                     <FormMessage />
@@ -273,7 +277,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Nombre(s)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Tu(s) nombre(s)" {...field} className="uppercase" />
+                        <Input placeholder="Tu(s) nombre(s)" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -286,7 +290,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Apellido Paterno</FormLabel>
                       <FormControl>
-                        <Input placeholder="Tu apellido paterno" {...field} className="uppercase" />
+                        <Input placeholder="Tu apellido paterno" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -300,7 +304,7 @@ export function BookingForm({
                 <FormItem>
                   <FormLabel>Apellido Materno</FormLabel>
                   <FormControl>
-                    <Input placeholder="Tu apellido materno" {...field} className="uppercase" />
+                    <Input placeholder="Tu apellido materno" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -319,6 +323,15 @@ export function BookingForm({
                     </FormItem>
                   )}
                 />
+            <FormField control={form.control} name="birthDate" render={({ field }) => (
+                <FormItem>
+                <FormLabel>Fecha de Nacimiento</FormLabel>
+                <FormControl>
+                    <Input type="date" {...field} value={field.value ?? ''} disabled={!!curp && !isNewborn} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )} />
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <FormField
                   control={form.control}
@@ -326,10 +339,10 @@ export function BookingForm({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sexo</FormLabel>
-                       <Select onValueChange={field.onChange} value={field.value} disabled={!isNewborn}>
+                       <Select onValueChange={field.onChange} value={field.value} disabled={!!curp && !isNewborn}>
                          <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder={!isNewborn ? "Derivado de CURP" : "Selecciona..."} />
+                            <SelectValue placeholder="Selecciona..." />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -348,7 +361,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Edad (años)</FormLabel>
                         <FormControl>
-                        <Input type="number" placeholder={!isNewborn ? "Derivado de CURP" : "Años cumplidos"} {...field} disabled={!isNewborn} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                        <Input type="number" placeholder="Años cumplidos" {...field} disabled={!!curp && !isNewborn} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -366,11 +379,11 @@ export function BookingForm({
                         <Combobox 
                           options={estados.map(e => ({ value: e.nombre, label: e.nombre }))}
                           value={field.value || ''}
-                          onChange={field.onChange}
+                          onChange={(value) => field.onChange(value.toUpperCase())}
                           placeholder='Selecciona un estado'
                           searchPlaceholder='Buscar estado...'
                           noResultsText='No se encontró el estado.'
-                          disabled={!isNewborn}
+                          disabled={!!curp}
                         />
                         <FormMessage />
                       </FormItem>

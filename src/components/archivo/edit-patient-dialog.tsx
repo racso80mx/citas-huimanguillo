@@ -28,6 +28,8 @@ import type { Patient } from '@/lib/definitions';
 import { PatientStatus } from '@/lib/definitions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
+import { parseCURP, calculateAge } from '@/lib/curp';
+import { format as formatDate } from 'date-fns';
 
 type EditPatientDialogProps = {
   isOpen: boolean;
@@ -67,36 +69,79 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    // Default values are now set inside the useEffect to ensure proper reset
+    defaultValues: {
+        name: '',
+        paternalLastName: '',
+        maternalLastName: '',
+        curp: '',
+        phoneNumber: '',
+        expediente: '',
+        birthDate: '',
+        sex: 'Hombre',
+        age: undefined,
+        birthState: '',
+        address: '',
+        coloniaName: '',
+        fatherName: '',
+        motherName: '',
+        fatherAge: undefined,
+        motherAge: undefined,
+        registrationDate: '',
+        derechoAbiencia: '',
+        status: PatientStatus.Vigente,
+        lastAppointmentDate: '',
+    },
   });
-
+  
+  const curp = form.watch('curp');
+  
   React.useEffect(() => {
     if (isOpen) {
-      const defaultValues = {
-        name: patient?.name ?? '',
-        paternalLastName: patient?.paternalLastName ?? '',
-        maternalLastName: patient?.maternalLastName ?? '',
-        curp: patient?.curp ?? '',
-        phoneNumber: patient?.phoneNumber ?? '',
-        expediente: patient?.expediente ?? '',
-        birthDate: patient?.birthDate ?? '',
-        sex: patient?.sex ?? 'Hombre',
-        age: patient?.age ?? undefined,
-        birthState: patient?.birthState ?? '',
-        address: patient?.address ?? '',
-        coloniaName: patient?.coloniaName ?? '',
-        fatherName: patient?.fatherName ?? '',
-        motherName: patient?.motherName ?? '',
-        fatherAge: patient?.fatherAge ?? undefined,
-        motherAge: patient?.motherAge ?? undefined,
-        registrationDate: patient?.registrationDate ?? '',
-        derechoAbiencia: patient?.derechoAbiencia ?? '',
-        status: patient?.status || PatientStatus.Vigente,
-        lastAppointmentDate: patient?.lastAppointmentDate ?? '',
-      };
-      form.reset(defaultValues);
+      if (patient) {
+        form.reset({
+          ...patient,
+          age: patient.age ?? undefined,
+          fatherAge: patient.fatherAge ?? undefined,
+          motherAge: patient.motherAge ?? undefined,
+        });
+      } else {
+        form.reset({
+          name: '',
+          paternalLastName: '',
+          maternalLastName: '',
+          curp: '',
+          phoneNumber: '',
+          expediente: '',
+          birthDate: '',
+          sex: 'Hombre',
+          age: undefined,
+          birthState: '',
+          address: '',
+          coloniaName: '',
+          fatherName: '',
+          motherName: '',
+          fatherAge: undefined,
+          motherAge: undefined,
+          registrationDate: '',
+          derechoAbiencia: '',
+          status: PatientStatus.Vigente,
+          lastAppointmentDate: '',
+        });
+      }
     }
   }, [isOpen, patient, form]);
+
+  React.useEffect(() => {
+    if (curp && curp.length === 18 && /^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z\d]\d$/.test(curp)) {
+      const data = parseCURP(curp);
+      if (data) {
+        form.setValue('sex', data.sex as 'Hombre' | 'Mujer');
+        form.setValue('birthState', data.estadoNacimiento || 'NACIDO EN EL EXTRANJERO');
+        form.setValue('age', calculateAge(data.birthDate));
+        form.setValue('birthDate', formatDate(data.birthDate, 'yyyy-MM-dd'));
+      }
+    }
+  }, [curp, form]);
 
 
   const onSubmit = (data: FormValues) => {
@@ -119,18 +164,18 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
                 <p className="text-sm font-medium text-muted-foreground">Datos Personales</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                   <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Paterno</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                   <FormField control={form.control} name="maternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Materno</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Paterno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="maternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Materno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <FormField control={form.control} name="curp" render={({ field }) => (<FormItem><FormLabel>CURP</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                     <FormField control={form.control} name="curp" render={({ field }) => (<FormItem><FormLabel>CURP</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} disabled={!!curp} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} disabled={!!curp} /></FormControl><FormMessage /></FormItem>)} />
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="sex" render={({ field }) => (<FormItem><FormLabel>Sexo</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!!curp}>
                             <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecciona el sexo"/>
@@ -142,20 +187,20 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                             </SelectContent>
                         </Select>
                     <FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado de Nacimiento</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado de Nacimiento</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} disabled={!!curp} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                  </div>
-                 <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Colonia</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Colonia</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
 
                 <Separator className="my-6" />
                 <p className="text-sm font-medium text-muted-foreground">Datos Familiares</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>Nombre del Padre</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>Nombre del Padre</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="fatherAge" render={({ field }) => (<FormItem><FormLabel>Edad del Padre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>Nombre de la Madre</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>Nombre de la Madre</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="motherAge" render={({ field }) => (<FormItem><FormLabel>Edad de la Madre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
 
@@ -167,7 +212,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                     <FormField control={form.control} name="lastAppointmentDate" render={({ field }) => (<FormItem><FormLabel>Última Cita</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} readOnly /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="status" render={({ field }) => (
                         <FormItem>
                             <FormLabel>Estatus</FormLabel>
