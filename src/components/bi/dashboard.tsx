@@ -169,10 +169,10 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
                     <CardHeader><CardTitle>Citas Médicas por Núcleo</CardTitle></CardHeader>
                     <CardContent>
                         <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-                           <BarChart data={medicalClinicBreakdown} layout="vertical">
-                                <CartesianGrid horizontal={false} />
-                                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={120} />
-                                <XAxis type="number" />
+                           <BarChart data={medicalClinicBreakdown}>
+                                <CartesianGrid vertical={false} />
+                                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                                <YAxis />
                                 <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
                                 <Bar dataKey="count" fill="var(--color-count)" radius={4} />
                             </BarChart>
@@ -194,10 +194,10 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
                             </CardHeader>
                             <CardContent>
                                 <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-                                    <BarChart data={chartData} layout="vertical">
-                                        <CartesianGrid horizontal={false} />
-                                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={10} width={150} />
-                                        <XAxis type="number" />
+                                    <BarChart data={chartData}>
+                                        <CartesianGrid vertical={false} />
+                                        <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                                        <YAxis />
                                         <ChartTooltip cursor={{fill: 'hsl(var(--accent))'}} content={<ChartTooltipContent />} />
                                         <Bar dataKey="count" fill="var(--color-count)" radius={4} />
                                     </BarChart>
