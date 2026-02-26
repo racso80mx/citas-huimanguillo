@@ -135,9 +135,11 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [loadPatientsData]);
 
   const filteredPatients = useMemo(() => {
+    // La búsqueda es puramente local para evitar sincronizaciones lentas
     if (!searchTerm || searchTerm.length < 2) return patients;
     const lowerTerm = searchTerm.toLowerCase().trim();
     return patients.filter(p => {
+      // Usamos String() para asegurar que campos numéricos no rompan toLowerCase()
       const name = String(p.name || '').toLowerCase();
       const pat = String(p.paternalLastName || '').toLowerCase();
       const mat = String(p.maternalLastName || '').toLowerCase();
