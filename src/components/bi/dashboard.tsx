@@ -152,7 +152,7 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
                     <CardTitle>Resumen de Citas por Tipo</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                    <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
                         <BarChart accessibilityLayer data={summaryData}>
                             <CartesianGrid vertical={false} />
                             <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
@@ -164,22 +164,33 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
                 </CardContent>
             </Card>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {medicalClinicBreakdown.length > 0 && <Card>
-                    <CardHeader><CardTitle>Citas Médicas por Núcleo</CardTitle></CardHeader>
+            {medicalClinicBreakdown.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Citas Médicas por Núcleo</CardTitle>
+                        <CardDescription>Resumen total de citas agendadas por cada núcleo básico.</CardDescription>
+                    </CardHeader>
                     <CardContent>
-                        <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                        <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
                            <BarChart data={medicalClinicBreakdown}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                                <XAxis 
+                                    dataKey="name" 
+                                    tickLine={false} 
+                                    tickMargin={10} 
+                                    axisLine={false}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={100}
+                                />
                                 <YAxis />
                                 <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
                                 <Bar dataKey="count" fill="var(--color-count)" radius={4} />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
-                </Card>}
-            </div>
+                </Card>
+            )}
 
              <Card>
                 <CardHeader>
