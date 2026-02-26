@@ -444,6 +444,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
+                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+                      Recargar
+                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -545,6 +549,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
+                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+                      Recargar
+                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-lab" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -582,6 +590,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
+                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+                      Recargar
+                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-xray" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -619,6 +631,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
+                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+                      Recargar
+                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-ultrasound" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -656,6 +672,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
+                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
+                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
+                      Recargar
+                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-vaccine" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>

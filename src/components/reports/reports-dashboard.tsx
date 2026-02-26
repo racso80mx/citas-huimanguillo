@@ -31,6 +31,7 @@ import {
   Clock,
   UserX,
   PlusCircle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -441,6 +442,14 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               onClick={() => setActiveFilter('month')}
             >
               Este Mes
+            </Button>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              disabled={isDataLoading}
+            >
+              <RefreshCw className={cn("mr-2 h-4 w-4", isDataLoading && "animate-spin")} />
+              Recargar
             </Button>
             <Popover>
               <PopoverTrigger asChild>
