@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -10,7 +11,21 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, LogOut, Plus, Upload, Download, Search, Users, UserCheck, Clock, UserX } from 'lucide-react';
+import { 
+  Loader2, 
+  LogOut, 
+  Plus, 
+  Upload, 
+  Download, 
+  Search, 
+  Users, 
+  UserCheck, 
+  Clock, 
+  UserX,
+  PlusCircle,
+  Check,
+  RefreshCw
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   getPatients, 
@@ -37,7 +52,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppointmentList } from '../appointment-list';
 import { cn } from '@/lib/utils';
@@ -53,6 +84,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [counts, setCounts] = useState<ArchiveCounts>({ total: 0, vigente: 0, bajaTemporal: 0, bajaDefinitiva: 0 });
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Total' | PatientStatusEnum>(PatientStatusEnum.Vigente);
   
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -67,7 +99,8 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   // Appointment states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'today' | 'week' | 'month' | 'range'>('today');
+  const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
+  const [appointmentFilter, setAppointmentFilter] = useState<'today' | 'week' | 'month' | 'range'>('today');
 
   // Common states
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -75,11 +108,19 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const { toast } = useToast();
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const loadPatientsData = useCallback(async () => {
     setIsDataLoading(true);
     try {
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
-        getPatients({ status: statusFilter, search: searchTerm, limitNum: 5000 }),
+        getPatients({ status: statusFilter, search: debouncedSearchTerm, limitNum: 5000 }),
         getPatientCounts(),
         getClinics(),
         getAppointments()
@@ -99,7 +140,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     } finally {
       setIsDataLoading(false);
     }
-  }, [statusFilter, searchTerm, toast]);
+  }, [statusFilter, debouncedSearchTerm, toast]);
   
   useEffect(() => {
     loadPatientsData();
@@ -188,6 +229,22 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     xlsx.writeFile(wb, `padron_pacientes_${statusFilter}.xlsx`);
   }
 
+  const handleClinicSelect = (clinicId: string) => {
+    setSelectedClinics(prev => 
+        prev.includes(clinicId) 
+            ? prev.filter(id => id !== clinicId)
+            : [...prev, clinicId]
+    );
+  };
+
+  const appointmentsToDisplay = useMemo(() => {
+    let filtered = [...allAppointments];
+    if (selectedClinics.length > 0) {
+        filtered = filtered.filter(app => selectedClinics.includes(app.clinicId));
+    }
+    return filtered;
+  }, [allAppointments, selectedClinics]);
+
   const mainHeader = (
     <Card className="border-none shadow-none bg-transparent">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -195,10 +252,16 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
           <h1 className="text-3xl font-bold font-headline">Control de Archivo</h1>
           <p className="text-muted-foreground">Gestión integral del padrón de pacientes y citas.</p>
         </div>
-        <Button variant="outline" onClick={onLogout} className="w-full sm:w-auto">
-          <LogOut className="mr-2 h-4 w-4" />
-          Cerrar Sesión
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={loadPatientsData} disabled={isDataLoading}>
+            <RefreshCw className={cn("mr-2 h-4 w-4", isDataLoading && "animate-spin")} />
+            Recargar
+          </Button>
+          <Button variant="outline" onClick={onLogout} className="flex-1 sm:flex-none">
+            <LogOut className="mr-2 h-4 w-4" />
+            Cerrar Sesión
+          </Button>
+        </div>
       </div>
     </Card>
   );
@@ -245,7 +308,11 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardHeader className="pb-4">
               <div className="flex flex-col lg:flex-row items-center gap-4">
                 <div className="relative flex-1 w-full">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  {isDataLoading && searchTerm !== debouncedSearchTerm ? (
+                    <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary" />
+                  ) : (
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  )}
                   <Input 
                     placeholder="Buscar por Nombre, CURP o No. de Expediente..." 
                     value={searchTerm} 
@@ -310,15 +377,93 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
         <TabsContent value="appointments" className="pt-4">
           <Card>
-            <CardHeader><CardTitle>Historial Reciente de Citas</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <CardTitle>Historial Reciente de Citas</CardTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-10 border-dashed">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Filtrar por Núcleo
+                            {selectedClinics.length > 0 && (
+                                <>
+                                    <Separator orientation="vertical" className="mx-2 h-4" />
+                                    <Badge
+                                        variant="secondary"
+                                        className="rounded-sm px-1 font-normal"
+                                    >
+                                        {selectedClinics.length}
+                                    </Badge>
+                                </>
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[250px] p-0" align="end">
+                        <Command>
+                            <CommandInput placeholder="Buscar núcleo..." />
+                            <CommandList>
+                                <CommandEmpty>No se encontraron resultados.</CommandEmpty>
+                                <CommandGroup>
+                                    {clinics.sort((a,b) => a.name.localeCompare(b.name)).map(clinic => {
+                                        const isSelected = selectedClinics.includes(clinic.id);
+                                        return (
+                                            <CommandItem
+                                                key={clinic.id}
+                                                onSelect={() => handleClinicSelect(clinic.id)}
+                                            >
+                                                <div
+                                                    className={cn(
+                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                        isSelected
+                                                            ? "bg-primary text-primary-foreground"
+                                                            : "opacity-50 [&_svg]:invisible"
+                                                    )}
+                                                >
+                                                    <Check className={cn("h-4 w-4")} />
+                                                </div>
+                                                <span>{clinic.name}</span>
+                                            </CommandItem>
+                                        );
+                                    })}
+                                </CommandGroup>
+                                {selectedClinics.length > 0 && (
+                                    <>
+                                        <CommandSeparator />
+                                        <CommandGroup>
+                                            <CommandItem
+                                                onSelect={() => setSelectedClinics([])}
+                                                className="justify-center text-center"
+                                            >
+                                                Limpiar filtro
+                                            </CommandItem>
+                                        </CommandGroup>
+                                    </>
+                                )}
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="outline" onClick={loadPatientsData} disabled={isDataLoading}>
+                    <RefreshCw className={cn("h-4 w-4", isDataLoading && "animate-spin")} />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
             <CardContent>
-              <AppointmentList 
-                appointments={allAppointments} 
-                clinics={clinics} 
-                isAdmin 
-                onDelete={handleAppointmentDelete} 
-                onEditSuccess={loadPatientsData} 
-              />
+              {isDataLoading ? (
+                <div className="flex justify-center items-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <AppointmentList 
+                  appointments={appointmentsToDisplay} 
+                  clinics={clinics} 
+                  isAdmin 
+                  onDelete={handleAppointmentDelete} 
+                  onEditSuccess={loadPatientsData} 
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
