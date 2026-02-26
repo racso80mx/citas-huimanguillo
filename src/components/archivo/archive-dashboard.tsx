@@ -43,6 +43,7 @@ import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
 import { ScheduleAppointmentDialog } from './schedule-appointment-dialog';
+import { AppointmentList } from '../appointment-list';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Select,
@@ -68,6 +69,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
@@ -132,12 +134,10 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     loadPatientsData();
   }, [loadPatientsData]);
 
-  // Client-side filtering logic with fix for non-string fields
   const filteredPatients = useMemo(() => {
     if (!searchTerm || searchTerm.length < 2) return patients;
     const lowerTerm = searchTerm.toLowerCase().trim();
     return patients.filter(p => {
-      // Ensure all fields are strings before calling toLowerCase()
       const name = String(p.name || '').toLowerCase();
       const pat = String(p.paternalLastName || '').toLowerCase();
       const mat = String(p.maternalLastName || '').toLowerCase();
@@ -254,7 +254,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [allAppointments, selectedClinics]);
 
   const mainHeader = (
-    <Card className="border-none shadow-none bg-transparent">
+    <Card className="border-none shadow-none bg-transparent mb-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-headline">Control de Archivo</h1>
@@ -275,10 +275,10 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   );
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-8">
+    <div className="container mx-auto px-4 py-6">
       {mainHeader}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Pacientes Vigentes', count: counts.vigente, status: PatientStatusEnum.Vigente, icon: UserCheck, color: 'text-green-600' },
           { label: 'Baja Temporal', count: counts.bajaTemporal, status: PatientStatusEnum.Baja, icon: Clock, color: 'text-yellow-600' },
@@ -341,7 +341,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               {isDataLoading && patients.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-muted-foreground font-medium animate-pulse">Sincronizando con la base de datos...</p>
+                  <p className="text-muted-foreground font-medium animate-pulse">Recuperando registros...</p>
                 </div>
               ) : (
                 <div className="space-y-4">
