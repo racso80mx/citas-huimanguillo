@@ -146,55 +146,34 @@ export async function getPatients(options?: {
 }): Promise<Patient[]> {
   const db = getDb();
   const collRef = collection(db, 'patients');
-  let results: Patient[] = [];
-
-  // Si hay búsqueda, priorizamos consultas exactas para CURP o Expediente
+  
+  // Exact search priority (Fast)
   if (options?.search) {
     const term = options.search.toUpperCase().trim();
     
-    // Intento 1: CURP exacta
-    const qCurp = query(collRef, where('curp', '==', term), limit(10));
+    // Check CURP
+    const qCurp = query(collRef, where('curp', '==', term), limit(5));
     const snapCurp = await getDocs(qCurp);
     if (!snapCurp.empty) {
-      results = snapCurp.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-      return results;
+      return snapCurp.docs.map(d => serializeData({ id: d.id, ...d.data() }));
     }
 
-    // Intento 2: Expediente exacto (como texto o número)
-    const qExp = query(collRef, where('expediente', '==', term), limit(10));
+    // Check Expediente
+    const qExp = query(collRef, where('expediente', '==', term), limit(5));
     const snapExp = await getDocs(qExp);
     if (!snapExp.empty) {
-      results = snapExp.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-      return results;
+      return snapExp.docs.map(d => serializeData({ id: d.id, ...d.data() }));
     }
-
-    // Si no es exacto, buscamos una muestra amplia y filtramos en memoria
-    let qBase = query(collRef);
-    if (options.status && options.status !== 'Total') {
-      qBase = query(qBase, where('status', '==', options.status));
-    }
-    
-    const snapFull = await getDocs(query(qBase, limit(10000))); // Límite máximo Firestore
-    results = snapFull.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
-    
-    results = results.filter(p => {
-      const fullName = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toLowerCase();
-      const curp = (p.curp || '').toLowerCase();
-      const exp = (p.expediente || '').toLowerCase();
-      const termLow = term.toLowerCase();
-      return fullName.includes(termLow) || curp.includes(termLow) || exp.includes(termLow);
-    });
-  } else {
-    // Si no hay búsqueda, traemos los primeros registros según estatus
-    let q = query(collRef);
-    if (options?.status && options.status !== 'Total') {
-      q = query(q, where('status', '==', options.status));
-    }
-    const snap = await getDocs(query(q, limit(options?.limitNum || 1000)));
-    results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
   }
 
-  return results;
+  // Load batch for client-side interaction
+  let q = query(collRef);
+  if (options?.status && options.status !== 'Total') {
+    q = query(q, where('status', '==', options.status));
+  }
+  
+  const snap = await getDocs(query(q, limit(options?.limitNum || 5000)));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 }
 
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {

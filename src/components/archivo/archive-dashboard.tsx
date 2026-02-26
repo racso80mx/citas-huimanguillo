@@ -84,7 +84,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [counts, setCounts] = useState<ArchiveCounts>({ total: 0, vigente: 0, bajaTemporal: 0, bajaDefinitiva: 0 });
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Total' | PatientStatusEnum>(PatientStatusEnum.Vigente);
   
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -100,7 +99,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
-  const [appointmentFilter, setAppointmentFilter] = useState<'today' | 'week' | 'month' | 'range'>('today');
 
   // Common states
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -108,19 +106,11 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const { toast } = useToast();
 
-  // Debounce search term
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
   const loadPatientsData = useCallback(async () => {
     setIsDataLoading(true);
     try {
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
-        getPatients({ status: statusFilter, search: debouncedSearchTerm, limitNum: 5000 }),
+        getPatients({ status: statusFilter, limitNum: 5000 }),
         getPatientCounts(),
         getClinics(),
         getAppointments()
@@ -140,18 +130,39 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     } finally {
       setIsDataLoading(false);
     }
-  }, [statusFilter, debouncedSearchTerm, toast]);
+  }, [statusFilter, toast]);
   
   useEffect(() => {
     loadPatientsData();
   }, [loadPatientsData]);
 
+  // Client-side filtering logic
+  const filteredPatients = useMemo(() => {
+    if (!searchTerm || searchTerm.length < 2) return patients;
+    const lowerTerm = searchTerm.toLowerCase().trim();
+    return patients.filter(p => {
+      const name = (p.name || '').toLowerCase();
+      const pat = (p.paternalLastName || '').toLowerCase();
+      const mat = (p.maternalLastName || '').toLowerCase();
+      const fullName = `${name} ${pat} ${mat}`;
+      const curp = (p.curp || '').toLowerCase();
+      const exp = (p.expediente || '').toLowerCase();
+      
+      return name.includes(lowerTerm) || 
+             pat.includes(lowerTerm) || 
+             mat.includes(lowerTerm) || 
+             fullName.includes(lowerTerm) ||
+             curp.includes(lowerTerm) || 
+             exp.includes(lowerTerm);
+    });
+  }, [patients, searchTerm]);
+
   const paginatedPatients = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
-    return patients.slice(startIndex, startIndex + rowsPerPage);
-  }, [patients, currentPage, rowsPerPage]);
+    return filteredPatients.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredPatients, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(patients.length / rowsPerPage);
+  const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
 
   const handleAddNew = () => { setEditingPatient(null); setIsEditOpen(true); };
   const handleEdit = (patient: Patient) => { setEditingPatient(patient); setIsEditOpen(true); };
@@ -205,12 +216,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }
 
   const handleDownloadExcel = async () => {
-    if (patients.length === 0) {
+    if (filteredPatients.length === 0) {
         toast({ title: "No hay datos", variant: "destructive"});
         return;
     }
     const xlsx = await import('xlsx');
-    const worksheetData = patients.map(p => ({
+    const worksheetData = filteredPatients.map(p => ({
         'No.Expediente': p.expediente ?? '', 
         'Nombre': p.name ?? '', 
         'Apaterno': p.paternalLastName ?? '', 
@@ -279,7 +290,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         ].map((item) => (
           <button
             key={item.label}
-            onClick={() => { setStatusFilter(item.status); setCurrentPage(1); }}
+            onClick={() => { setStatusFilter(item.status); setCurrentPage(1); setSearchTerm(''); }}
             className={cn(
               "group relative flex flex-col items-start p-4 rounded-xl border transition-all duration-200 text-left outline-none",
               statusFilter === item.status 
@@ -308,11 +319,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardHeader className="pb-4">
               <div className="flex flex-col lg:flex-row items-center gap-4">
                 <div className="relative flex-1 w-full">
-                  {isDataLoading && searchTerm !== debouncedSearchTerm ? (
-                    <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary" />
-                  ) : (
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  )}
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input 
                     placeholder="Buscar por Nombre, CURP o No. de Expediente..." 
                     value={searchTerm} 
@@ -334,7 +341,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               </div>
             </CardHeader>
             <CardContent>
-              {isDataLoading ? (
+              {isDataLoading && patients.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
                   <p className="text-muted-foreground font-medium animate-pulse">Sincronizando con la base de datos...</p>
@@ -361,7 +368,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                           <SelectItem value="200">200</SelectItem>
                         </SelectContent>
                       </Select>
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">de {patients.length} registros</span>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">de {filteredPatients.length} registros</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
@@ -451,7 +458,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               </div>
             </CardHeader>
             <CardContent>
-              {isDataLoading ? (
+              {isDataLoading && allAppointments.length === 0 ? (
                 <div className="flex justify-center items-center py-20">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
