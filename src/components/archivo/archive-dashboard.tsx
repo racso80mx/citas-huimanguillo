@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -68,9 +67,6 @@ import {
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AppointmentList } from '../appointment-list';
 import { cn } from '@/lib/utils';
 
 type ArchiveDashboardProps = {
@@ -136,17 +132,18 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     loadPatientsData();
   }, [loadPatientsData]);
 
-  // Client-side filtering logic
+  // Client-side filtering logic with fix for non-string fields
   const filteredPatients = useMemo(() => {
     if (!searchTerm || searchTerm.length < 2) return patients;
     const lowerTerm = searchTerm.toLowerCase().trim();
     return patients.filter(p => {
-      const name = (p.name || '').toLowerCase();
-      const pat = (p.paternalLastName || '').toLowerCase();
-      const mat = (p.maternalLastName || '').toLowerCase();
+      // Ensure all fields are strings before calling toLowerCase()
+      const name = String(p.name || '').toLowerCase();
+      const pat = String(p.paternalLastName || '').toLowerCase();
+      const mat = String(p.maternalLastName || '').toLowerCase();
       const fullName = `${name} ${pat} ${mat}`;
-      const curp = (p.curp || '').toLowerCase();
-      const exp = (p.expediente || '').toLowerCase();
+      const curp = String(p.curp || '').toLowerCase();
+      const exp = String(p.expediente || '').toLowerCase();
       
       return name.includes(lowerTerm) || 
              pat.includes(lowerTerm) || 
