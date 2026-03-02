@@ -72,7 +72,12 @@ function serializeData(data: any): any {
     const serialized: any = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
-        serialized[key] = serializeData(data[key]);
+        // Forzar conversión a string de campos que suelen ser IDs o Folios numéricos
+        if (key === 'expediente' || key === 'derechoAbiencia') {
+            serialized[key] = (data[key] !== null && data[key] !== undefined) ? String(data[key]) : null;
+        } else {
+            serialized[key] = serializeData(data[key]);
+        }
       }
     }
     return serialized;
@@ -146,26 +151,44 @@ export async function getPatients(options?: {
   const db = getDb();
   const collRef = collection(db, 'patients');
   
-  // Exact search priority (Fast)
+  // Búsqueda inteligente en el servidor
   if (options?.search) {
     const term = options.search.toUpperCase().trim();
-    
-    // Check CURP
-    const qCurp = query(collRef, where('curp', '==', term), limit(5));
+    const results: any[] = [];
+
+    // 1. Buscar por CURP exacta
+    const qCurp = query(collRef, where('curp', '==', term), limit(10));
     const snapCurp = await getDocs(qCurp);
-    if (!snapCurp.empty) {
-      return snapCurp.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    snapCurp.forEach(d => results.push({ id: d.id, ...d.data() }));
+
+    // 2. Buscar por Expediente exacto (como texto)
+    const qExpStr = query(collRef, where('expediente', '==', term), limit(10));
+    const snapExpStr = await getDocs(qExpStr);
+    snapExpStr.forEach(d => results.push({ id: d.id, ...d.data() }));
+
+    // 3. Buscar por Expediente exacto (como número, para datos antiguos)
+    if (!isNaN(Number(term))) {
+        const qExpNum = query(collRef, where('expediente', '==', Number(term)), limit(10));
+        const snapExpNum = await getDocs(qExpNum);
+        snapExpNum.forEach(d => results.push({ id: d.id, ...d.data() }));
     }
 
-    // Check Expediente
-    const qExp = query(collRef, where('expediente', '==', term), limit(5));
-    const snapExp = await getDocs(qExp);
-    if (!snapExp.empty) {
-      return snapExp.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    // 4. Buscar por inicio de nombre (si no hay resultados exactos y el término es largo)
+    if (results.length < 5 && term.length >= 3) {
+        const qName = query(collRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(20));
+        const snapName = await getDocs(qName);
+        snapName.forEach(d => results.push({ id: d.id, ...d.data() }));
+    }
+
+    if (results.length > 0) {
+        // De-duplicar resultados por ID
+        const uniqueMap = new Map();
+        results.forEach(r => uniqueMap.set(r.id, r));
+        return Array.from(uniqueMap.values()).map(d => serializeData(d));
     }
   }
 
-  // Load batch for client-side interaction
+  // Carga normal por lotes si no hay búsqueda activa o no hay resultados directos
   let q = query(collRef);
   if (options?.status && options.status !== 'Total') {
     q = query(q, where('status', '==', options.status));
@@ -187,18 +210,36 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
   const db = getDb();
   const docId = id || uuidv4();
+  
+  // Asegurar que expediente y derechoAbiencia sean strings para consistencia en búsquedas
   const dataToSave = { 
     ...patient, 
+    expediente: patient.expediente ? String(patient.expediente).trim() : null,
+    derechoAbiencia: patient.derechoAbiencia ? String(patient.derechoAbiencia).trim() : null,
     status: patient.status || PatientStatusEnum.Vigente,
     updatedAt: Timestamp.now()
   };
+  
   await setDoc(doc(db, 'patients', docId), dataToSave, { merge: true });
   return { success: true };
 }
 
 export async function updatePatient(id: string, data: Partial<Omit<Patient, 'id'>>) {
   const db = getDb();
-  await updateDoc(doc(db, 'patients', id), { ...data, updatedAt: Timestamp.now() });
+  const updateData: any = { 
+    ...data, 
+    updatedAt: Timestamp.now() 
+  };
+  
+  // Forzar conversión a string si se están actualizando estos campos
+  if (data.expediente !== undefined) {
+    updateData.expediente = data.expediente ? String(data.expediente).trim() : null;
+  }
+  if (data.derechoAbiencia !== undefined) {
+    updateData.derechoAbiencia = data.derechoAbiencia ? String(data.derechoAbiencia).trim() : null;
+  }
+
+  await updateDoc(doc(db, 'patients', id), updateData);
   return { success: true };
 }
 
@@ -331,12 +372,13 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
       phoneNumber: String(patientInput.phoneNumber || '').trim(),
       coloniaName: coloniaName || patientInput.coloniaName || null,
       status: patientInput.status || PatientStatusEnum.Vigente,
-      fatherName: patientInput.fatherName || null,
-      motherName: patientInput.motherName || null,
-      fatherAge: patientInput.fatherAge || null,
-      motherAge: patientInput.motherAge || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
+      fatherAge: Number(patientInput.fatherAge) || null,
+      motherAge: Number(patientInput.motherAge) || null,
       registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: patientInput.derechoAbiencia || null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now()
     };
 
@@ -396,12 +438,13 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: patientInput.fatherName || null,
-      motherName: patientInput.motherName || null,
-      fatherAge: patientInput.fatherAge || null,
-      motherAge: patientInput.motherAge || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
+      fatherAge: Number(patientInput.fatherAge) || null,
+      motherAge: Number(patientInput.motherAge) || null,
       registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: patientInput.derechoAbiencia || null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
@@ -444,12 +487,13 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: patientInput.fatherName || null,
-      motherName: patientInput.motherName || null,
-      fatherAge: patientInput.fatherAge || null,
-      motherAge: patientInput.motherAge || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
+      fatherAge: Number(patientInput.fatherAge) || null,
+      motherAge: Number(patientInput.motherAge) || null,
       registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: patientInput.derechoAbiencia || null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
@@ -491,12 +535,13 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: patientInput.fatherName || null,
-      motherName: patientInput.motherName || null,
-      fatherAge: patientInput.fatherAge || null,
-      motherAge: patientInput.motherAge || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
+      fatherAge: Number(patientInput.fatherAge) || null,
+      motherAge: Number(patientInput.motherAge) || null,
       registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: patientInput.derechoAbiencia || null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
@@ -538,12 +583,13 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: patientInput.fatherName || null,
-      motherName: patientInput.motherName || null,
-      fatherAge: patientInput.fatherAge || null,
-      motherAge: patientInput.motherAge || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
+      fatherAge: Number(patientInput.fatherAge) || null,
+      motherAge: Number(patientInput.motherAge) || null,
       registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: patientInput.derechoAbiencia || null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
@@ -810,7 +856,28 @@ export async function bulkInsertPatients(chunk: any[]) {
     for (const raw of chunk) {
       if (!raw.CURP) continue;
       const curp = String(raw.CURP).toUpperCase().trim();
-      const patientData = { expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null, name: String(raw.Nombre || '').toUpperCase().trim(), paternalLastName: String(raw.Apaterno || '').toUpperCase().trim(), maternalLastName: String(raw.Amaterno || '').toUpperCase().trim(), birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null, age: Number(raw.Edad) || 0, sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre', birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(), address: String(raw.Domicilio || '').toUpperCase().trim(), coloniaName: String(raw.Colonia || '').toUpperCase().trim(), fatherName: String(raw.NombrePadre || '').toUpperCase().trim(), motherName: String(raw.NombreMadre || '').toUpperCase().trim(), fatherAge: Number(raw.EdadPadre) || null, motherAge: Number(raw.EdadMadre) || null, registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null, status: raw.Estatus || PatientStatusEnum.Vigente, derechoAbiencia: String(raw.DerechoAbiencia || '').toUpperCase().trim(), phoneNumber: String(raw.Telefono || '').trim(), curp, updatedAt: Timestamp.now() };
+      const patientData = { 
+        expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null, 
+        name: String(raw.Nombre || '').toUpperCase().trim(), 
+        paternalLastName: String(raw.Apaterno || '').toUpperCase().trim(), 
+        maternalLastName: String(raw.Amaterno || '').toUpperCase().trim(), 
+        birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null, 
+        age: Number(raw.Edad) || 0, 
+        sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre', 
+        birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(), 
+        address: String(raw.Domicilio || '').toUpperCase().trim(), 
+        coloniaName: String(raw.Colonia || '').toUpperCase().trim(), 
+        fatherName: String(raw.NombrePadre || '').toUpperCase().trim() || null, 
+        motherName: String(raw.NombreMadre || '').toUpperCase().trim() || null, 
+        fatherAge: Number(raw.EdadPadre) || null, 
+        motherAge: Number(raw.EdadMadre) || null, 
+        registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null, 
+        status: raw.Estatus || PatientStatusEnum.Vigente, 
+        derechoAbiencia: raw.DerechoAbiencia ? String(raw.DerechoAbiencia).trim() : null, 
+        phoneNumber: String(raw.Telefono || '').trim(), 
+        curp, 
+        updatedAt: Timestamp.now() 
+      };
       const existing = await getPatientByCURP(curp);
       if (existing) { batch.update(doc(db, 'patients', existing.id), patientData); updated++; }
       else { const newId = uuidv4(); batch.set(doc(db, 'patients', newId), { ...patientData, id: newId }); added++; }

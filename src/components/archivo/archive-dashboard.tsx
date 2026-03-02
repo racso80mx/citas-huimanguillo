@@ -82,6 +82,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [counts, setCounts] = useState<ArchiveCounts>({ total: 0, vigente: 0, bajaTemporal: 0, bajaDefinitiva: 0 });
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Total' | PatientStatusEnum>(PatientStatusEnum.Vigente);
   
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -104,11 +105,27 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const { toast } = useToast();
 
+  // Debounce logic for search to avoid excessive server calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 600);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const loadPatientsData = useCallback(async () => {
-    setIsDataLoading(true);
+    // Solo mostrar el loader grande si la lista está vacía
+    if (patients.length === 0) setIsDataLoading(true);
+    
     try {
+      const serverSearch = debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
+      
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
-        getPatients({ status: statusFilter, limitNum: 5000 }),
+        getPatients({ 
+            status: statusFilter, 
+            search: serverSearch,
+            limitNum: serverSearch ? 100 : 5000 
+        }),
         getPatientCounts(),
         getClinics(),
         getAppointments()
@@ -128,31 +145,35 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     } finally {
       setIsDataLoading(false);
     }
-  }, [statusFilter, toast]);
+  }, [statusFilter, debouncedSearchTerm, toast, patients.length]);
   
   useEffect(() => {
     loadPatientsData();
   }, [loadPatientsData]);
 
+  const normalize = (str: string) => 
+    String(str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
   const filteredPatients = useMemo(() => {
-    // La búsqueda es puramente local para evitar sincronizaciones lentas
+    // La búsqueda local es instantánea para mejorar el UX
     if (!searchTerm || searchTerm.length < 2) return patients;
-    const lowerTerm = searchTerm.toLowerCase().trim();
+    
+    const normalizedTerm = normalize(searchTerm);
+    
     return patients.filter(p => {
-      // Usamos String() para asegurar que campos numéricos no rompan toLowerCase()
-      const name = String(p.name || '').toLowerCase();
-      const pat = String(p.paternalLastName || '').toLowerCase();
-      const mat = String(p.maternalLastName || '').toLowerCase();
+      const name = normalize(p.name);
+      const pat = normalize(p.paternalLastName);
+      const mat = normalize(p.maternalLastName);
       const fullName = `${name} ${pat} ${mat}`;
-      const curp = String(p.curp || '').toLowerCase();
-      const exp = String(p.expediente || '').toLowerCase();
+      const curp = normalize(p.curp);
+      const exp = normalize(String(p.expediente || ''));
       
-      return name.includes(lowerTerm) || 
-             pat.includes(lowerTerm) || 
-             mat.includes(lowerTerm) || 
-             fullName.includes(lowerTerm) ||
-             curp.includes(lowerTerm) || 
-             exp.includes(lowerTerm);
+      return name.includes(normalizedTerm) || 
+             pat.includes(normalizedTerm) || 
+             mat.includes(normalizedTerm) || 
+             fullName.includes(normalizedTerm) ||
+             curp.includes(normalizedTerm) || 
+             exp.includes(normalizedTerm);
     });
   }, [patients, searchTerm]);
 
@@ -318,6 +339,9 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardHeader className="pb-4">
               <div className="flex flex-col lg:flex-row items-center gap-4">
                 <div className="relative flex-1 w-full">
+                  {isDataLoading && searchTerm.length >= 3 && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+                  )}
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input 
                     placeholder="Buscar por Nombre, CURP o No. de Expediente..." 
@@ -343,7 +367,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
               {isDataLoading && patients.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-muted-foreground font-medium animate-pulse">Recuperando registros...</p>
+                  <p className="text-muted-foreground font-medium animate-pulse">Sincronizando con el servidor...</p>
                 </div>
               ) : (
                 <div className="space-y-4">
