@@ -72,7 +72,6 @@ function serializeData(data: any): any {
     const serialized: any = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
-        // Forzar conversión a string de campos críticos para búsquedas
         if (key === 'expediente' || key === 'derechoAbiencia' || key === 'curp') {
             serialized[key] = (data[key] !== null && data[key] !== undefined) ? String(data[key]).toUpperCase().trim() : null;
         } else {
@@ -83,6 +82,14 @@ function serializeData(data: any): any {
     return serialized;
   }
   return data;
+}
+
+function normalizeStr(str: string): string {
+  return (str || '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
 }
 
 function chunkArray<T>(array: T[], size: number): T[][] {
@@ -159,14 +166,12 @@ export async function getPatients(options?: {
     if (isSearching) {
       let results: any[] = [];
       
-      // Búsqueda por CURP (Consulta directa, sin filtros adicionales para evitar error de índice)
       if (options?.searchCurp) {
         const term = options.searchCurp.toUpperCase().trim();
         const q = query(patientsColl, where('curp', '==', term), limit(100));
         const snap = await getDocs(q);
         results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
       } 
-      // Búsqueda por Expediente (maneja texto y número)
       else if (options?.searchExpediente) {
         const term = options.searchExpediente.toString().trim();
         const qStr = query(patientsColl, where('expediente', '==', term), limit(100));
@@ -179,24 +184,30 @@ export async function getPatients(options?: {
           results = snapNum.docs.map(d => serializeData({ id: d.id, ...d.data() }));
         }
       } 
-      // Búsqueda por Nombre (Optimizado para evitar error de índice compuesto)
       else if (options?.searchName) {
-        const fullTerm = options.searchName.toUpperCase().trim();
-        const firstWord = fullTerm.split(/\s+/)[0]; 
+        const fullTerm = normalizeStr(options.searchName);
+        const words = fullTerm.split(/\s+/).filter(w => w.length > 2);
+        const searchWord = words.length > 0 ? words[0] : fullTerm;
         
-        // Consultamos Firestore solo por la primera palabra del nombre como rango
-        // NO incluimos el filtro de status en la consulta de Firestore para evitar el Index Error.
-        const qName = query(patientsColl, where('name', '>=', firstWord), where('name', '<=', firstWord + '\uf8ff'), limit(500));
-        const snap = await getDocs(qName);
+        // Estrategia Multi-Campo: Buscamos la primera palabra significativa en los 3 campos de nombre
+        const qName = query(patientsColl, where('name', '>=', searchWord), where('name', '<=', searchWord + '\uf8ff'), limit(500));
+        const qPat = query(patientsColl, where('paternalLastName', '>=', searchWord), where('paternalLastName', '<=', searchWord + '\uf8ff'), limit(500));
+        const qMat = query(patientsColl, where('maternalLastName', '>=', searchWord), where('maternalLastName', '<=', searchWord + '\uf8ff'), limit(500));
         
-        // Refinamos en memoria comparando con el término completo
-        results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() })).filter(p => {
-            const fullName = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase();
-            return fullName.includes(fullTerm);
+        const [snapN, snapP, snapM] = await Promise.all([getDocs(qName), getDocs(qPat), getDocs(qMat)]);
+        
+        const combined = new Map();
+        [...snapN.docs, ...snapP.docs, ...snapM.docs].forEach(d => {
+            combined.set(d.id, serializeData({ id: d.id, ...d.data() }));
+        });
+
+        // Filtrado exacto tipo "LIKE" en memoria
+        results = Array.from(combined.values()).filter(p => {
+            const searchField = normalizeStr(`${p.name} ${p.paternalLastName} ${p.maternalLastName}`);
+            return searchField.includes(fullTerm) || fullTerm.split(/\s+/).every(word => searchField.includes(word));
         });
       }
 
-      // Filtrado por status en memoria cuando hay una búsqueda activa
       if (options?.status && options.status !== 'Total') {
         results = results.filter(p => p.status === options.status);
       }
@@ -204,7 +215,6 @@ export async function getPatients(options?: {
       return results;
     }
 
-    // CARGA NORMAL POR CATEGORÍA (Sin búsqueda específica)
     let q = query(patientsColl);
     if (options?.status && options.status !== 'Total') {
       q = query(q, where('status', '==', options.status));
