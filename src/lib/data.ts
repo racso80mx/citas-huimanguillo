@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -332,6 +331,12 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
       phoneNumber: String(patientInput.phoneNumber || '').trim(),
       coloniaName: coloniaName || patientInput.coloniaName || null,
       status: patientInput.status || PatientStatusEnum.Vigente,
+      fatherName: patientInput.fatherName || null,
+      motherName: patientInput.motherName || null,
+      fatherAge: patientInput.fatherAge || null,
+      motherAge: patientInput.motherAge || null,
+      registrationDate: patientInput.registrationDate || null,
+      derechoAbiencia: patientInput.derechoAbiencia || null,
       updatedAt: Timestamp.now()
     };
 
@@ -382,7 +387,23 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    const cleanPatient = { 
+      curp, 
+      name: String(patientInput.name || '').toUpperCase().trim(), 
+      paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), 
+      maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), 
+      sex: patientInput.sex, 
+      age: Number(patientInput.age) || 0, 
+      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
+      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
+      fatherName: patientInput.fatherName || null,
+      motherName: patientInput.motherName || null,
+      fatherAge: patientInput.fatherAge || null,
+      motherAge: patientInput.motherAge || null,
+      registrationDate: patientInput.registrationDate || null,
+      derechoAbiencia: patientInput.derechoAbiencia || null,
+      updatedAt: Timestamp.now() 
+    };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'labAppointments'));
@@ -414,7 +435,23 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    const cleanPatient = { 
+      curp, 
+      name: String(patientInput.name || '').toUpperCase().trim(), 
+      paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), 
+      maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), 
+      sex: patientInput.sex, 
+      age: Number(patientInput.age) || 0, 
+      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
+      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
+      fatherName: patientInput.fatherName || null,
+      motherName: patientInput.motherName || null,
+      fatherAge: patientInput.fatherAge || null,
+      motherAge: patientInput.motherAge || null,
+      registrationDate: patientInput.registrationDate || null,
+      derechoAbiencia: patientInput.derechoAbiencia || null,
+      updatedAt: Timestamp.now() 
+    };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'xrayAppointments'));
@@ -445,7 +482,23 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    const cleanPatient = { 
+      curp, 
+      name: String(patientInput.name || '').toUpperCase().trim(), 
+      paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), 
+      maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), 
+      sex: patientInput.sex, 
+      age: Number(patientInput.age) || 0, 
+      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
+      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
+      fatherName: patientInput.fatherName || null,
+      motherName: patientInput.motherName || null,
+      fatherAge: patientInput.fatherAge || null,
+      motherAge: patientInput.motherAge || null,
+      registrationDate: patientInput.registrationDate || null,
+      derechoAbiencia: patientInput.derechoAbiencia || null,
+      updatedAt: Timestamp.now() 
+    };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'ultrasoundAppointments'));
@@ -476,7 +529,23 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: String(patientInput.name || '').toUpperCase().trim(), paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    const cleanPatient = { 
+      curp, 
+      name: String(patientInput.name || '').toUpperCase().trim(), 
+      paternalLastName: String(patientInput.paternalLastName || '').toUpperCase().trim(), 
+      maternalLastName: String(patientInput.maternalLastName || '').toUpperCase().trim(), 
+      sex: patientInput.sex, 
+      age: Number(patientInput.age) || 0, 
+      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
+      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
+      fatherName: patientInput.fatherName || null,
+      motherName: patientInput.motherName || null,
+      fatherAge: patientInput.fatherAge || null,
+      motherAge: patientInput.motherAge || null,
+      registrationDate: patientInput.registrationDate || null,
+      derechoAbiencia: patientInput.derechoAbiencia || null,
+      updatedAt: Timestamp.now() 
+    };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'vaccineAppointments'));

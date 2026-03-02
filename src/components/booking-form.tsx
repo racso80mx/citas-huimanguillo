@@ -10,6 +10,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -22,17 +23,22 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewAppointment, getPatientByCURP, getAnnouncements } from '@/lib/actions';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
 import { Combobox } from './ui/combobox';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
-import { PatientType } from '@/lib/definitions';
+import { PatientType, PatientStatus } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
 import { format as formatDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { generateAppointmentPDF } from '@/lib/report-helpers';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 
 const curpRegex = /^[A-Z]{4}(\d{2})(\d{2})(\d{2})([HM])([A-Z]{2})[A-Z]{3}[A-Z0-9]\d$/;
@@ -47,6 +53,11 @@ const baseSchema = z.object({
   sex: z.enum(['Hombre', 'Mujer']),
   age: z.number().min(0, 'La edad no puede ser negativa.'),
   birthDate: z.string().min(1, 'La fecha de nacimiento es requerida.'),
+  fatherName: z.string().optional(),
+  motherName: z.string().optional(),
+  fatherAge: z.coerce.number().optional(),
+  motherAge: z.coerce.number().optional(),
+  derechoAbiencia: z.string().optional(),
 });
 
 const formSchemaWithCurp = baseSchema.extend({
@@ -101,6 +112,11 @@ export function BookingForm({
       age: undefined,
       birthDate: '',
       birthState: '',
+      fatherName: '',
+      motherName: '',
+      fatherAge: undefined,
+      motherAge: undefined,
+      derechoAbiencia: '',
     },
   });
 
@@ -116,6 +132,11 @@ export function BookingForm({
             age: initialPatientData.age,
             birthDate: initialPatientData.birthDate,
             birthState: initialPatientData.birthState,
+            fatherName: initialPatientData.fatherName ?? '',
+            motherName: initialPatientData.motherName ?? '',
+            fatherAge: initialPatientData.fatherAge ?? undefined,
+            motherAge: initialPatientData.motherAge ?? undefined,
+            derechoAbiencia: initialPatientData.derechoAbiencia ?? '',
         });
     } else {
         form.reset();
@@ -142,6 +163,11 @@ export function BookingForm({
           form.setValue('paternalLastName', result.data.paternalLastName, { shouldValidate: true });
           form.setValue('maternalLastName', result.data.maternalLastName, { shouldValidate: true });
           form.setValue('phoneNumber', result.data.phoneNumber, { shouldValidate: true });
+          form.setValue('fatherName', result.data.fatherName ?? '', { shouldValidate: true });
+          form.setValue('motherName', result.data.motherName ?? '', { shouldValidate: true });
+          form.setValue('fatherAge', result.data.fatherAge ?? undefined, { shouldValidate: true });
+          form.setValue('motherAge', result.data.motherAge ?? undefined, { shouldValidate: true });
+          form.setValue('derechoAbiencia', result.data.derechoAbiencia ?? '', { shouldValidate: true });
            toast({
                 title: 'Paciente Encontrado',
                 description: 'Se han precargado tus datos.',
@@ -194,7 +220,14 @@ export function BookingForm({
           birthDate: data.birthDate,
           birthState: data.birthState || "No especificado",
           phoneNumber: data.phoneNumber,
-          coloniaName: selectedColoniaName
+          coloniaName: selectedColoniaName,
+          fatherName: data.fatherName?.toUpperCase() || null,
+          motherName: data.motherName?.toUpperCase() || null,
+          fatherAge: data.fatherAge || null,
+          motherAge: data.motherAge || null,
+          derechoAbiencia: data.derechoAbiencia?.toUpperCase() || null,
+          registrationDate: initialPatientData?.registrationDate || formatDate(new Date(), 'yyyy-MM-dd'),
+          status: initialPatientData?.status || PatientStatus.Vigente
       };
 
       const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber' | 'coloniaName'> = {
@@ -390,6 +423,52 @@ export function BookingForm({
                     )}
                   />
             )}
+
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full flex justify-between items-center px-0">
+                  <span>Información Adicional (Opcional)</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="fatherName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre del Padre</FormLabel>
+                      <FormControl><Input placeholder="Nombre completo" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="fatherAge" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Edad del Padre</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="motherName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre de la Madre</FormLabel>
+                      <FormControl><Input placeholder="Nombre completo" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="motherAge" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Edad de la Madre</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                    </FormItem>
+                  )} />
+                </div>
+                <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Derechoabiencia</FormLabel>
+                    <FormControl><Input placeholder="Ej. IMSS, ISSSTE, etc." {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                    <FormDescription>Si cuenta con algún seguro médico adicional.</FormDescription>
+                  </FormItem>
+                )} />
+              </CollapsibleContent>
+            </Collapsible>
 
             <Button
               type="submit"
