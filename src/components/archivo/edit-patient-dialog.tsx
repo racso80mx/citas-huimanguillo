@@ -148,20 +148,23 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle>{patient ? 'Editar Paciente' : 'Agregar Nuevo Paciente'}</DialogTitle>
           <DialogDescription>
             Completa la información del paciente. Todos los campos se guardarán en el padrón.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-hidden flex flex-col">
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-6 pb-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
+            <ScrollArea className="flex-1 px-6">
+              <div className="space-y-8 pb-8">
                 
                 <div>
-                  <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Datos Personales</h4>
+                  <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">1</span>
+                    Datos Personales
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Paterno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -198,13 +201,16 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                 <Separator />
 
                 <div>
-                  <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Datos Familiares</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">2</span>
+                    Datos Familiares
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                       <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>Nombre del Padre</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="fatherAge" render={({ field }) => (<FormItem><FormLabel>Edad del Padre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                       <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>Nombre de la Madre</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="motherAge" render={({ field }) => (<FormItem><FormLabel>Edad de la Madre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
@@ -214,7 +220,10 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                 <Separator />
 
                 <div>
-                  <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider">Datos Administrativos</h4>
+                  <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
+                    <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">3</span>
+                    Datos Administrativos
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="expediente" render={({ field }) => (<FormItem><FormLabel>No. de Expediente</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Apertura</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -241,7 +250,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
               </div>
             </ScrollArea>
-            <DialogFooter className="p-4 border-t bg-background">
+            <DialogFooter className="p-6 border-t bg-background">
               <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
               <Button type="submit" disabled={isSaving} className="min-w-[150px]">
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Paciente'}
