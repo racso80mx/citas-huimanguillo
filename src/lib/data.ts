@@ -156,53 +156,43 @@ export async function getPatients(options?: {
   // SI HAY BÚSQUEDA ESPECÍFICA: Realizar consulta global y filtrar por estatus en memoria
   // Esto evita errores de índices compuestos en Firestore.
 
-  if (options?.searchCurp) {
-    const term = options.searchCurp.toUpperCase().trim();
-    const qCurp = query(collRef, where('curp', '==', term), limit(10));
-    const snap = await getDocs(qCurp);
-    let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+  if (options?.searchCurp || options?.searchExpediente || options?.searchName) {
+    let results: any[] = [];
+    
+    if (options.searchCurp) {
+      const term = options.searchCurp.toUpperCase().trim();
+      const q = query(collRef, where('curp', '==', term), limit(10));
+      const snap = await getDocs(q);
+      results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    } else if (options.searchExpediente) {
+      const term = options.searchExpediente.toString().trim();
+      // Buscar como texto
+      const qStr = query(collRef, where('expediente', '==', term), limit(10));
+      const snapStr = await getDocs(qStr);
+      results = snapStr.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+
+      // Buscar como número si es necesario
+      if (results.length === 0 && !isNaN(Number(term))) {
+          const qNum = query(collRef, where('expediente', '==', Number(term)), limit(10));
+          const snapNum = await getDocs(qNum);
+          results = snapNum.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+      }
+    } else if (options.searchName) {
+      const term = options.searchName.toUpperCase().trim();
+      // Solo buscamos por nombre para evitar el error de índice compuesto con status
+      const qName = query(collRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(100));
+      const snap = await getDocs(qName);
+      results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    }
+
+    // Filtrado por status en memoria si es necesario
     if (options.status && options.status !== 'Total') {
         results = results.filter((p: any) => p.status === options.status);
     }
     return results;
   }
 
-  if (options?.searchExpediente) {
-    const term = options.searchExpediente.toString().trim();
-    const results: any[] = [];
-    
-    // Buscar como texto
-    const qStr = query(collRef, where('expediente', '==', term), limit(10));
-    const snapStr = await getDocs(qStr);
-    snapStr.forEach(d => results.push({ id: d.id, ...d.data() }));
-
-    // Buscar como número si es necesario
-    if (results.length === 0 && !isNaN(Number(term))) {
-        const qNum = query(collRef, where('expediente', '==', Number(term)), limit(10));
-        const snapNum = await getDocs(qNum);
-        snapNum.forEach(d => results.push({ id: d.id, ...d.data() }));
-    }
-    
-    let serialized = results.map(d => serializeData(d));
-    if (options.status && options.status !== 'Total') {
-        serialized = serialized.filter((p: any) => p.status === options.status);
-    }
-    return serialized;
-  }
-
-  if (options?.searchName) {
-    const term = options.searchName.toUpperCase().trim();
-    // Búsqueda de rango por nombre (sin filtrar estatus para evitar error de índice)
-    const qName = query(collRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(100));
-    const snap = await getDocs(qName);
-    let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-    if (options.status && options.status !== 'Total') {
-        results = results.filter((p: any) => p.status === options.status);
-    }
-    return results;
-  }
-
-  // CARGA NORMAL POR CATEGORÍA
+  // CARGA NORMAL POR CATEGORÍA (Sin búsqueda específica)
   let q = query(collRef);
   if (options?.status && options.status !== 'Total') {
     q = query(q, where('status', '==', options.status));
@@ -349,14 +339,14 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   return await enrichWithPatientData(data) as VaccineAppointment[];
 }
 
-export async function saveAppointment(appointmentData: any, patientInput: any, coloniaName?: string) {
+export async function saveAppointment(appointment: any, patientInput: any, coloniaName?: string) {
   const db = getDb();
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'appointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -400,10 +390,10 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
     const cleanApp = {
       appointmentNumber,
       patientId,
-      clinicId: appointmentData.clinicId,
-      date: Timestamp.fromDate(new Date(appointmentData.date)),
-      time: String(appointmentData.time),
-      patientType: appointmentData.patientType,
+      clinicId: appointment.clinicId,
+      date: Timestamp.fromDate(new Date(appointment.date)),
+      time: String(appointment.time),
+      patientType: appointment.patientType,
       status: 'Agendada',
       coloniaName: coloniaName || null,
       createdAt: Timestamp.now()
@@ -412,21 +402,21 @@ export async function saveAppointment(appointmentData: any, patientInput: any, c
     batch.set(appRef, cleanApp);
     await batch.commit();
     await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
-    const clinicData = await getClinicById(appointmentData.clinicId);
+    const clinicData = await getClinicById(appointment.clinicId);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
 }
 
-export async function saveLabAppointment(appointmentData: any, patientInput: any) {
+export async function saveLabAppointment(appointment: any, patientInput: any) {
   const db = getDb();
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'labAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -460,7 +450,7 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'labAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studies: appointmentData.studies, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
+    const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studies: appointment.studies, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
     await logActivity("Nueva Cita Laboratorio", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
@@ -468,14 +458,14 @@ export async function saveLabAppointment(appointmentData: any, patientInput: any
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-export async function saveNewXRayAppointment(appointmentData: any, patientInput: any) {
+export async function saveNewXRayAppointment(appointment: any, patientInput: any) {
   const db = getDb();
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'xrayAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -509,21 +499,21 @@ export async function saveNewXRayAppointment(appointmentData: any, patientInput:
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'xrayAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
+    const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studyId: appointment.studyId, studyName: appointment.studyName, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointment.studyName, indications: '' } }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-export async function saveNewUltrasoundAppointment(appointmentData: any, patientInput: any) {
+export async function saveNewUltrasoundAppointment(appointment: any, patientInput: any) {
   const db = getDb();
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'ultrasoundAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -557,21 +547,21 @@ export async function saveNewUltrasoundAppointment(appointmentData: any, patient
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'ultrasoundAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), studyId: appointmentData.studyId, studyName: appointmentData.studyName, status: 'Agendada', patientType: appointmentData.patientType, createdAt: Timestamp.now() };
+    const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studyId: appointment.studyId, studyName: appointment.studyName, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointmentData.studyName, indications: '' } }) };
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointment.studyName, indications: '' } }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-export async function saveNewVaccineAppointment(appointmentData: any, patientInput: any) {
+export async function saveNewVaccineAppointment(appointment: any, patientInput: any) {
   const db = getDb();
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointmentData.date).toISOString().split('T')[0];
+      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'vaccineAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -605,7 +595,7 @@ export async function saveNewVaccineAppointment(appointmentData: any, patientInp
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'vaccineAppointments'));
-    const cleanApp = { appointmentNumber: appointmentData.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointmentData.date)), time: String(appointmentData.time), vaccines: appointmentData.vaccines, status: 'Agendada', patientType: appointmentData.patientType, coloniaName: appointmentData.coloniaName || null, createdAt: Timestamp.now() };
+    const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), vaccines: appointment.vaccines, status: 'Agendada', patientType: appointment.patientType, coloniaName: appointment.coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
     return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
