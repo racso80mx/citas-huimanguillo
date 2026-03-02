@@ -186,36 +186,37 @@ export async function getPatients(options?: {
       } 
       else if (options?.searchName) {
         const fullTerm = normalizeStr(options.searchName);
-        const words = fullTerm.split(/\s+/).filter(w => w.length > 2);
+        // Filtramos palabras triviales para mejorar la búsqueda
+        const stopWords = ['DE', 'DEL', 'LA', 'LOS', 'Y', 'EL', 'LAS'];
+        const words = fullTerm.split(/\s+/).filter(w => w.length > 1 && !stopWords.includes(w));
         
         if (words.length === 0) return [];
 
         // Estrategia de búsqueda LIKE flexible:
-        // Buscamos candidatos que coincidan con el prefijo de la palabra más larga
-        // en cualquiera de los 3 campos de nombre.
+        // Buscamos candidatos por el término más largo (más específico)
         const searchWords = words.sort((a, b) => b.length - a.length).slice(0, 2);
         const promises: Promise<any>[] = [];
         
         searchWords.forEach(word => {
-            promises.push(getDocs(query(patientsColl, where('name', '>=', word), where('name', '<=', word + '\uf8ff'), limit(200))));
-            promises.push(getDocs(query(patientsColl, where('paternalLastName', '>=', word), where('paternalLastName', '<=', word + '\uf8ff'), limit(200))));
-            promises.push(getDocs(query(patientsColl, where('maternalLastName', '>=', word), where('maternalLastName', '<=', word + '\uf8ff'), limit(200))));
+            promises.push(getDocs(query(patientsColl, where('name', '>=', word), where('name', '<=', word + '\uf8ff'), limit(300))));
+            promises.push(getDocs(query(patientsColl, where('paternalLastName', '>=', word), where('paternalLastName', '<=', word + '\uf8ff'), limit(300))));
+            promises.push(getDocs(query(patientsColl, where('maternalLastName', '>=', word), where('maternalLastName', '<=', word + '\uf8ff'), limit(300))));
         });
 
         const snaps = await Promise.all(promises);
-        const combined = new Map();
+        const combinedMap = new Map();
         
         snaps.forEach(snap => {
             snap.docs.forEach(d => {
-                combined.set(d.id, serializeData({ id: d.id, ...d.data() }));
+                combinedMap.set(d.id, serializeData({ id: d.id, ...d.data() }));
             });
         });
 
         // Filtrado exacto tipo "CONTIENE" en memoria sobre los candidatos encontrados
-        results = Array.from(combined.values()).filter(p => {
-            const searchField = normalizeStr(`${p.name} ${p.paternalLastName} ${p.maternalLastName}`);
-            // Debe contener todas las palabras buscadas (independiente del orden)
-            return words.every(word => searchField.includes(word));
+        results = Array.from(combinedMap.values()).filter(p => {
+            const patientFullName = normalizeStr(`${p.name} ${p.paternalLastName} ${p.maternalLastName}`);
+            // Debe contener TODAS las palabras de la búsqueda en cualquier posición
+            return words.every(word => patientFullName.includes(word));
         });
       }
 
@@ -705,7 +706,7 @@ export async function updateAnnouncements(m: string[]) { return setSettingsDoc('
 export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true }); }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
 
-export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false }); }
+export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false, password: '' }); }
 export async function updateLabSettings(s: LabSettings) { return setSettingsDoc('labSettings', s); }
 
 export async function getLabStudies() {
@@ -723,7 +724,7 @@ export async function updateLabStudies(studies: LabStudy[]) {
   return { success: true };
 }
 
-export async function getXRaySettings() { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false }); }
+export async function getXRaySettings() { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateXRaySettings(s: XRaySettings) { return setSettingsDoc('xraySettings', s); }
 
 export async function getXRayStudies() {
@@ -741,7 +742,7 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
   return { success: true };
 }
 
-export async function getUltrasoundSettings() { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false }); }
+export async function getUltrasoundSettings() { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateUltrasoundSettings(s: UltrasoundSettings) { return setSettingsDoc('ultrasoundSettings', s); }
 
 export async function getUltrasoundStudies() {
@@ -759,7 +760,7 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return { success: true };
 }
 
-export async function getVaccineSettings() { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false }); }
+export async function getVaccineSettings() { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateVaccineSettings(s: VaccineSettings) { return setSettingsDoc('vaccineSettings', s); }
 
 export async function getVaccines() {
