@@ -121,7 +121,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
 
   return (
     <Form {...form}>
-       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col overflow-hidden max-h-[80vh]">
+       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col overflow-hidden h-[80vh]">
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-8 p-4 pb-20">
                 

@@ -154,50 +154,49 @@ export async function getPatients(options?: {
   const patientsColl = collection(db, 'patients');
   
   try {
-    const hasSearch = !!(options?.searchCurp || options?.searchExpediente || options?.searchName);
+    const isSearching = !!(options?.searchCurp || options?.searchExpediente || options?.searchName);
 
-    if (hasSearch) {
+    if (isSearching) {
       let results: any[] = [];
       
-      // Búsqueda por CURP
+      // Búsqueda por CURP (Consulta directa, sin filtros adicionales para evitar error de índice)
       if (options?.searchCurp) {
         const term = options.searchCurp.toUpperCase().trim();
-        const q = query(patientsColl, where('curp', '==', term), limit(50));
+        const q = query(patientsColl, where('curp', '==', term), limit(100));
         const snap = await getDocs(q);
         results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
       } 
       // Búsqueda por Expediente (maneja texto y número)
       else if (options?.searchExpediente) {
         const term = options.searchExpediente.toString().trim();
-        const qStr = query(patientsColl, where('expediente', '==', term), limit(50));
+        const qStr = query(patientsColl, where('expediente', '==', term), limit(100));
         const snapStr = await getDocs(qStr);
         results = snapStr.docs.map(d => serializeData({ id: d.id, ...d.data() }));
         
         if (results.length === 0 && !isNaN(Number(term))) {
-          const qNum = query(patientsColl, where('expediente', '==', Number(term)), limit(50));
+          const qNum = query(patientsColl, where('expediente', '==', Number(term)), limit(100));
           const snapNum = await getDocs(qNum);
           results = snapNum.docs.map(d => serializeData({ id: d.id, ...d.data() }));
         }
       } 
-      // Búsqueda por Nombre (Robusta para nombres divididos)
+      // Búsqueda por Nombre (Optimizado para evitar error de índice compuesto)
       else if (options?.searchName) {
         const fullTerm = options.searchName.toUpperCase().trim();
-        const parts = fullTerm.split(/\s+/);
-        const searchWord = parts[0]; 
+        const firstWord = fullTerm.split(/\s+/)[0]; 
         
-        // Consultamos Firestore solo por la primera palabra para evitar índices compuestos
-        const qName = query(patientsColl, where('name', '>=', searchWord), where('name', '<=', searchWord + '\uf8ff'), limit(300));
+        // Consultamos Firestore solo por la primera palabra del nombre como rango
+        // NO incluimos el filtro de status en la consulta de Firestore para evitar el Index Error.
+        const qName = query(patientsColl, where('name', '>=', firstWord), where('name', '<=', firstWord + '\uf8ff'), limit(500));
         const snap = await getDocs(qName);
         
-        // Refinamos en memoria comparando con Nombre Completo (Nombre + Apellidos)
+        // Refinamos en memoria comparando con el término completo
         results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() })).filter(p => {
             const fullName = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase();
             return fullName.includes(fullTerm);
         });
       }
 
-      // IMPORTANTE: El filtrado de status en caso de búsqueda se hace EN MEMORIA
-      // para evitar el error de Firebase: "The query requires an index".
+      // Filtrado por status en memoria cuando hay una búsqueda activa
       if (options?.status && options.status !== 'Total') {
         results = results.filter(p => p.status === options.status);
       }
@@ -206,7 +205,6 @@ export async function getPatients(options?: {
     }
 
     // CARGA NORMAL POR CATEGORÍA (Sin búsqueda específica)
-    // Aquí sí usamos status en la query de Firestore porque es filtro de igualdad único.
     let q = query(patientsColl);
     if (options?.status && options.status !== 'Total') {
       q = query(q, where('status', '==', options.status));
@@ -216,7 +214,7 @@ export async function getPatients(options?: {
     return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 
   } catch (error: any) {
-    console.error("Error crítico en getPatients:", error);
+    console.error("Error en consulta de pacientes:", error);
     throw error;
   }
 }

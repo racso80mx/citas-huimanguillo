@@ -21,7 +21,9 @@ import {
   PlusCircle,
   Check,
   RefreshCw,
-  X
+  X,
+  Upload,
+  Download
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -111,7 +113,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     setIsDataLoading(true);
     
     try {
-      // Usamos parámetros optimizados para evitar errores de índices en búsquedas por nombre/curp
       const searchOptions = { 
           status: statusFilter, 
           searchName: searchName.trim() || undefined,
@@ -146,15 +147,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]); 
 
   const handleClearSearch = () => {
       setSearchName('');
       setSearchCurp('');
       setSearchExpediente('');
-      // El useEffect anterior se encargará de recargar al resetear si fuera necesario,
-      // pero aquí forzamos la carga del filtro base.
       loadData();
   };
 
