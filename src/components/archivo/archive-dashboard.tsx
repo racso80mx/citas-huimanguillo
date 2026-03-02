@@ -114,8 +114,8 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [searchTerm]);
 
   const loadPatientsData = useCallback(async () => {
-    // Solo mostrar el loader grande si la lista está vacía
-    if (patients.length === 0) setIsDataLoading(true);
+    // Siempre mostramos carga cuando se inicia una acción de sincronización o búsqueda
+    setIsDataLoading(true);
     
     try {
       const serverSearch = debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
@@ -145,7 +145,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     } finally {
       setIsDataLoading(false);
     }
-  }, [statusFilter, debouncedSearchTerm, toast, patients.length]);
+  }, [statusFilter, debouncedSearchTerm, toast]);
   
   useEffect(() => {
     loadPatientsData();
@@ -165,7 +165,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const pat = normalize(p.paternalLastName);
       const mat = normalize(p.maternalLastName);
       const fullName = `${name} ${pat} ${mat}`;
-      const curp = normalize(p.curp);
+      const curp = normalize(String(p.curp || ''));
       const exp = normalize(String(p.expediente || ''));
       
       return name.includes(normalizedTerm) || 
@@ -339,15 +339,15 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardHeader className="pb-4">
               <div className="flex flex-col lg:flex-row items-center gap-4">
                 <div className="relative flex-1 w-full">
-                  {isDataLoading && searchTerm.length >= 3 && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+                  {isDataLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary z-10" />
                   )}
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input 
                     placeholder="Buscar por Nombre, CURP o No. de Expediente..." 
                     value={searchTerm} 
                     onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                    className="pl-10 h-11"
+                    className="pl-10 h-11 pr-10"
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
