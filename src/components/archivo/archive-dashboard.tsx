@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -114,12 +115,17 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [searchTerm]);
 
   const loadPatientsData = useCallback(async () => {
-    // Siempre mostramos carga cuando se inicia una acción de sincronización o búsqueda
+    // Iniciamos la carga
     setIsDataLoading(true);
     
     try {
       const serverSearch = debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
       
+      // Si hay una búsqueda activa, podemos limpiar los resultados anteriores para evitar confusión
+      if (serverSearch) {
+          setPatients([]);
+      }
+
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
         getPatients({ 
             status: statusFilter, 
@@ -335,12 +341,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         </TabsList>
 
         <TabsContent value="patients" className="space-y-4 pt-4">
-          <Card>
+          <Card className="relative overflow-hidden">
             <CardHeader className="pb-4">
               <div className="flex flex-col lg:flex-row items-center gap-4">
                 <div className="relative flex-1 w-full">
                   {isDataLoading && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary z-10" />
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary z-20" />
                   )}
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input 
@@ -363,14 +369,30 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative min-h-[400px]">
               {isDataLoading && patients.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <p className="text-muted-foreground font-medium animate-pulse">Sincronizando con el servidor...</p>
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-primary animate-pulse">Consultando Base de Datos...</p>
+                    <p className="text-sm text-muted-foreground">Por favor, espera un momento mientras recuperamos la información.</p>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 relative">
+                  {/* Overlay de carga cuando ya hay datos pero se está actualizando la lista */}
+                  {isDataLoading && patients.length > 0 && (
+                    <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg">
+                        <div className="bg-card border shadow-xl p-6 rounded-xl flex items-center gap-4 animate-in fade-in zoom-in duration-200">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <div>
+                                <p className="font-bold text-primary">Actualizando lista...</p>
+                                <p className="text-xs text-muted-foreground">Procesando criterios de búsqueda</p>
+                            </div>
+                        </div>
+                    </div>
+                  )}
+
                   <PatientList 
                     patients={paginatedPatients} 
                     onEdit={handleEdit} 
@@ -480,19 +502,26 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative min-h-[300px]">
               {isDataLoading && allAppointments.length === 0 ? (
                 <div className="flex justify-center items-center py-20">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : (
-                <AppointmentList 
-                  appointments={appointmentsToDisplay} 
-                  clinics={clinics} 
-                  isAdmin 
-                  onDelete={handleAppointmentDelete} 
-                  onEditSuccess={loadPatientsData} 
-                />
+                <>
+                  {isDataLoading && allAppointments.length > 0 && (
+                    <div className="absolute inset-0 z-10 bg-background/40 backdrop-blur-[1px] flex items-center justify-center rounded-lg">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    </div>
+                  )}
+                  <AppointmentList 
+                    appointments={appointmentsToDisplay} 
+                    clinics={clinics} 
+                    isAdmin 
+                    onDelete={handleAppointmentDelete} 
+                    onEditSuccess={loadPatientsData} 
+                  />
+                </>
               )}
             </CardContent>
           </Card>
