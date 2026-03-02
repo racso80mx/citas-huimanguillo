@@ -153,50 +153,61 @@ export async function getPatients(options?: {
   const db = getDb();
   const collRef = collection(db, 'patients');
   
-  let q = query(collRef);
-  
-  // Si hay una búsqueda específica, solemos buscar en todos los estados a menos que sea explícito
-  if (options?.status && options.status !== 'Total') {
-    q = query(q, where('status', '==', options.status));
-  }
+  // SI HAY BÚSQUEDA ESPECÍFICA: Realizar consulta global y filtrar por estatus en memoria
+  // Esto evita errores de índices compuestos en Firestore.
 
-  // Prioridad 1: Búsqueda exacta por CURP
   if (options?.searchCurp) {
     const term = options.searchCurp.toUpperCase().trim();
-    const qCurp = query(q, where('curp', '==', term), limit(10));
+    const qCurp = query(collRef, where('curp', '==', term), limit(10));
     const snap = await getDocs(qCurp);
-    if (!snap.empty) return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    if (options.status && options.status !== 'Total') {
+        results = results.filter((p: any) => p.status === options.status);
+    }
+    return results;
   }
 
-  // Prioridad 2: Búsqueda exacta por Expediente
   if (options?.searchExpediente) {
     const term = options.searchExpediente.toString().trim();
     const results: any[] = [];
     
-    // Buscar como texto (ej. "04876")
-    const qStr = query(q, where('expediente', '==', term), limit(10));
+    // Buscar como texto
+    const qStr = query(collRef, where('expediente', '==', term), limit(10));
     const snapStr = await getDocs(qStr);
     snapStr.forEach(d => results.push({ id: d.id, ...d.data() }));
 
-    // Si no hay resultados y es numérico, buscar como número (para datos migrados)
+    // Buscar como número si es necesario
     if (results.length === 0 && !isNaN(Number(term))) {
-        const qNum = query(q, where('expediente', '==', Number(term)), limit(10));
+        const qNum = query(collRef, where('expediente', '==', Number(term)), limit(10));
         const snapNum = await getDocs(qNum);
         snapNum.forEach(d => results.push({ id: d.id, ...d.data() }));
     }
     
-    if (results.length > 0) return results.map(d => serializeData(d));
+    let serialized = results.map(d => serializeData(d));
+    if (options.status && options.status !== 'Total') {
+        serialized = serialized.filter((p: any) => p.status === options.status);
+    }
+    return serialized;
   }
 
-  // Prioridad 3: Búsqueda por inicio de nombre
   if (options?.searchName) {
     const term = options.searchName.toUpperCase().trim();
-    const qName = query(q, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(50));
+    // Búsqueda de rango por nombre (sin filtrar estatus para evitar error de índice)
+    const qName = query(collRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(100));
     const snap = await getDocs(qName);
-    return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    if (options.status && options.status !== 'Total') {
+        results = results.filter((p: any) => p.status === options.status);
+    }
+    return results;
   }
 
-  // Carga normal por lotes si no hay filtros de búsqueda activa
+  // CARGA NORMAL POR CATEGORÍA
+  let q = query(collRef);
+  if (options?.status && options.status !== 'Total') {
+    q = query(q, where('status', '==', options.status));
+  }
+
   const snap = await getDocs(query(q, limit(options?.limitNum || 5000)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 }
