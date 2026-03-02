@@ -23,7 +23,8 @@ import {
   RefreshCw,
   X,
   Upload,
-  Download
+  Download,
+  XCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -312,37 +313,56 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardHeader className="pb-4">
               <div className="flex flex-col space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
-                    <div className="relative">
+                    <div className="relative group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
-                            placeholder="Nombre(s) o Apellido(s)..." 
+                            placeholder="Nombres o Apellidos..." 
                             value={searchName} 
                             onChange={e => setSearchName(e.target.value.toUpperCase())} 
                             onKeyDown={e => e.key === 'Enter' && loadData()}
-                            className="pl-9 h-11"
+                            className="pl-9 pr-9 h-11"
                         />
+                        {searchName && (
+                            <button onClick={() => setSearchName('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                <XCircle className="h-4 w-4" />
+                            </button>
+                        )}
                     </div>
-                    <Input 
-                        placeholder="CURP (Exacto)..." 
-                        value={searchCurp} 
-                        onChange={e => setSearchCurp(e.target.value.toUpperCase())} 
-                        onKeyDown={e => e.key === 'Enter' && loadData()}
-                        className="h-11"
-                        maxLength={18}
-                    />
-                    <Input 
-                        placeholder="No. Expediente (Exacto)..." 
-                        value={searchExpediente} 
-                        onChange={e => setSearchExpediente(e.target.value)} 
-                        onKeyDown={e => e.key === 'Enter' && loadData()}
-                        className="h-11"
-                    />
+                    <div className="relative group">
+                        <Input 
+                            placeholder="CURP (Exacto)..." 
+                            value={searchCurp} 
+                            onChange={e => setSearchCurp(e.target.value.toUpperCase())} 
+                            onKeyDown={e => e.key === 'Enter' && loadData()}
+                            className="h-11 pr-9"
+                            maxLength={18}
+                        />
+                        {searchCurp && (
+                            <button onClick={() => setSearchCurp('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                <XCircle className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                    <div className="relative group">
+                        <Input 
+                            placeholder="No. Expediente..." 
+                            value={searchExpediente} 
+                            onChange={e => setSearchExpediente(e.target.value)} 
+                            onKeyDown={e => e.key === 'Enter' && loadData()}
+                            className="h-11 pr-9"
+                        />
+                        {searchExpediente && (
+                            <button onClick={() => setSearchExpediente('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                <XCircle className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
                     <div className="flex gap-2">
                         <Button onClick={loadData} className="h-11 flex-1 font-bold" disabled={isDataLoading}>
                             {isDataLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
                             BUSCAR
                         </Button>
-                        <Button variant="outline" onClick={handleClearSearch} className="h-11" title="Limpiar Búsqueda">
+                        <Button variant="outline" onClick={handleClearSearch} className="h-11" title="Limpiar Todo">
                             <X className="h-4 w-4" />
                         </Button>
                     </div>
@@ -369,7 +389,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                         <Loader2 className="h-16 w-12 animate-spin text-primary" />
                         <div className="text-center">
                             <p className="text-xl font-black text-primary animate-pulse tracking-widest uppercase">
-                                Procesando Consulta
+                                Consultando Pacientes
                             </p>
                             <p className="text-sm text-muted-foreground mt-1 font-medium">Buscando en los registros del hospital...</p>
                         </div>
