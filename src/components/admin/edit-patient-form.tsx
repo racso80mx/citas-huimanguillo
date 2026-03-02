@@ -121,8 +121,8 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
 
   return (
     <Form {...form}>
-       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col overflow-hidden">
-            <ScrollArea className="flex-1 max-h-[75vh]">
+       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col overflow-hidden max-h-[80vh]">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-8 p-4">
                 
                 <div>
@@ -215,7 +215,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
 
               </div>
             </ScrollArea>
-            <div className="flex justify-end gap-2 p-4 border-t bg-background mt-auto">
+            <div className="flex justify-end gap-2 p-4 border-t bg-background mt-auto shrink-0">
               <Button type="button" variant="ghost" onClick={onFinished}>Cancelar</Button>
               <Button type="submit" disabled={isPending} className="min-w-[150px]">
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

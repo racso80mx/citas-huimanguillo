@@ -148,15 +148,15 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-2">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle>{patient ? 'Editar Paciente' : 'Agregar Nuevo Paciente'}</DialogTitle>
           <DialogDescription>
             Completa la información del paciente. Todos los campos se guardarán en el padrón.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <ScrollArea className="flex-1">
               <div className="space-y-8 p-6 pb-10">
                 
@@ -250,7 +250,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
               </div>
             </ScrollArea>
-            <DialogFooter className="p-6 border-t bg-background">
+            <DialogFooter className="p-6 border-t bg-background shrink-0">
               <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
               <Button type="submit" disabled={isSaving} className="min-w-[150px]">
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Paciente'}
