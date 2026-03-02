@@ -72,9 +72,9 @@ function serializeData(data: any): any {
     const serialized: any = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
-        // Forzar conversión a string de campos que suelen ser IDs o Folios numéricos
-        if (key === 'expediente' || key === 'derechoAbiencia') {
-            serialized[key] = (data[key] !== null && data[key] !== undefined) ? String(data[key]) : null;
+        // Forzar conversión a string de campos críticos para búsquedas
+        if (key === 'expediente' || key === 'derechoAbiencia' || key === 'curp') {
+            serialized[key] = (data[key] !== null && data[key] !== undefined) ? String(data[key]).toUpperCase().trim() : null;
         } else {
             serialized[key] = serializeData(data[key]);
         }
@@ -145,55 +145,58 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
 
 export async function getPatients(options?: { 
   status?: string | 'Total', 
-  search?: string, 
+  searchName?: string,
+  searchCurp?: string,
+  searchExpediente?: string,
   limitNum?: number 
 }): Promise<Patient[]> {
   const db = getDb();
   const collRef = collection(db, 'patients');
   
-  // Búsqueda inteligente en el servidor
-  if (options?.search) {
-    const term = options.search.toUpperCase().trim();
-    const results: any[] = [];
-
-    // 1. Buscar por CURP exacta
-    const qCurp = query(collRef, where('curp', '==', term), limit(10));
-    const snapCurp = await getDocs(qCurp);
-    snapCurp.forEach(d => results.push({ id: d.id, ...d.data() }));
-
-    // 2. Buscar por Expediente exacto (como texto)
-    const qExpStr = query(collRef, where('expediente', '==', term), limit(10));
-    const snapExpStr = await getDocs(qExpStr);
-    snapExpStr.forEach(d => results.push({ id: d.id, ...d.data() }));
-
-    // 3. Buscar por Expediente exacto (como número, para datos antiguos)
-    if (!isNaN(Number(term))) {
-        const qExpNum = query(collRef, where('expediente', '==', Number(term)), limit(10));
-        const snapExpNum = await getDocs(qExpNum);
-        snapExpNum.forEach(d => results.push({ id: d.id, ...d.data() }));
-    }
-
-    // 4. Buscar por inicio de nombre (si no hay resultados exactos y el término es largo)
-    if (results.length < 5 && term.length >= 3) {
-        const qName = query(collRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(20));
-        const snapName = await getDocs(qName);
-        snapName.forEach(d => results.push({ id: d.id, ...d.data() }));
-    }
-
-    if (results.length > 0) {
-        // De-duplicar resultados por ID
-        const uniqueMap = new Map();
-        results.forEach(r => uniqueMap.set(r.id, r));
-        return Array.from(uniqueMap.values()).map(d => serializeData(d));
-    }
-  }
-
-  // Carga normal por lotes si no hay búsqueda activa o no hay resultados directos
   let q = query(collRef);
+  
+  // Si hay una búsqueda específica, solemos buscar en todos los estados a menos que sea explícito
   if (options?.status && options.status !== 'Total') {
     q = query(q, where('status', '==', options.status));
   }
-  
+
+  // Prioridad 1: Búsqueda exacta por CURP
+  if (options?.searchCurp) {
+    const term = options.searchCurp.toUpperCase().trim();
+    const qCurp = query(q, where('curp', '==', term), limit(10));
+    const snap = await getDocs(qCurp);
+    if (!snap.empty) return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+  }
+
+  // Prioridad 2: Búsqueda exacta por Expediente
+  if (options?.searchExpediente) {
+    const term = options.searchExpediente.toString().trim();
+    const results: any[] = [];
+    
+    // Buscar como texto (ej. "04876")
+    const qStr = query(q, where('expediente', '==', term), limit(10));
+    const snapStr = await getDocs(qStr);
+    snapStr.forEach(d => results.push({ id: d.id, ...d.data() }));
+
+    // Si no hay resultados y es numérico, buscar como número (para datos migrados)
+    if (results.length === 0 && !isNaN(Number(term))) {
+        const qNum = query(q, where('expediente', '==', Number(term)), limit(10));
+        const snapNum = await getDocs(qNum);
+        snapNum.forEach(d => results.push({ id: d.id, ...d.data() }));
+    }
+    
+    if (results.length > 0) return results.map(d => serializeData(d));
+  }
+
+  // Prioridad 3: Búsqueda por inicio de nombre
+  if (options?.searchName) {
+    const term = options.searchName.toUpperCase().trim();
+    const qName = query(q, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(50));
+    const snap = await getDocs(qName);
+    return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+  }
+
+  // Carga normal por lotes si no hay filtros de búsqueda activa
   const snap = await getDocs(query(q, limit(options?.limitNum || 5000)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 }
@@ -211,11 +214,11 @@ export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
   const db = getDb();
   const docId = id || uuidv4();
   
-  // Asegurar que expediente y derechoAbiencia sean strings para consistencia en búsquedas
   const dataToSave = { 
     ...patient, 
     expediente: patient.expediente ? String(patient.expediente).trim() : null,
     derechoAbiencia: patient.derechoAbiencia ? String(patient.derechoAbiencia).trim() : null,
+    curp: String(patient.curp).toUpperCase().trim(),
     status: patient.status || PatientStatusEnum.Vigente,
     updatedAt: Timestamp.now()
   };
@@ -231,13 +234,9 @@ export async function updatePatient(id: string, data: Partial<Omit<Patient, 'id'
     updatedAt: Timestamp.now() 
   };
   
-  // Forzar conversión a string si se están actualizando estos campos
-  if (data.expediente !== undefined) {
-    updateData.expediente = data.expediente ? String(data.expediente).trim() : null;
-  }
-  if (data.derechoAbiencia !== undefined) {
-    updateData.derechoAbiencia = data.derechoAbiencia ? String(data.derechoAbiencia).trim() : null;
-  }
+  if (data.expediente !== undefined) updateData.expediente = data.expediente ? String(data.expediente).trim() : null;
+  if (data.derechoAbiencia !== undefined) updateData.derechoAbiencia = data.derechoAbiencia ? String(data.derechoAbiencia).trim() : null;
+  if (data.curp !== undefined) updateData.curp = String(data.curp).toUpperCase().trim();
 
   await updateDoc(doc(db, 'patients', id), updateData);
   return { success: true };

@@ -34,7 +34,13 @@ export async function getPatientByCURP(curp: string) {
   return p ? { success: true, data: p } : { success: false };
 }
 
-export async function getPatients(options?: { status?: string, search?: string, limitNum?: number }) {
+export async function getPatients(options?: { 
+  status?: string, 
+  searchName?: string, 
+  searchCurp?: string, 
+  searchExpediente?: string,
+  limitNum?: number 
+}) {
   return data.getPatients(options);
 }
 
@@ -68,10 +74,10 @@ export async function deletePatients(ids: string[]) {
 }
 
 export async function updatePatientStatus(id: string, status: PatientStatus) {
-  const res = await data.updatePatientStatus(id, status);
+  const db = data.updatePatientStatus(id, status);
   revalidatePath('/archivo');
   revalidatePath('/admin');
-  return res;
+  return db;
 }
 
 // =====================================================================

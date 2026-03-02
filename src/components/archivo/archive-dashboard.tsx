@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -24,7 +23,8 @@ import {
   UserX,
   PlusCircle,
   Check,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -82,8 +82,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   // Patient states
   const [patients, setPatients] = useState<Patient[]>([]);
   const [counts, setCounts] = useState<ArchiveCounts>({ total: 0, vigente: 0, bajaTemporal: 0, bajaDefinitiva: 0 });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  
+  // Search fields
+  const [searchName, setSearchName] = useState('');
+  const [searchCurp, setSearchCurp] = useState('');
+  const [searchExpediente, setSearchExpediente] = useState('');
+  
   const [statusFilter, setStatusFilter] = useState<'Total' | PatientStatusEnum>(PatientStatusEnum.Vigente);
   
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -106,31 +110,17 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const { toast } = useToast();
 
-  // Debounce logic for search to avoid excessive server calls
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 600);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
   const loadPatientsData = useCallback(async () => {
-    // Iniciamos la carga
     setIsDataLoading(true);
     
     try {
-      const serverSearch = debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
-      
-      // Si hay una búsqueda activa, podemos limpiar los resultados anteriores para evitar confusión
-      if (serverSearch) {
-          setPatients([]);
-      }
-
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
         getPatients({ 
             status: statusFilter, 
-            search: serverSearch,
-            limitNum: serverSearch ? 100 : 5000 
+            searchName: searchName || undefined,
+            searchCurp: searchCurp || undefined,
+            searchExpediente: searchExpediente || undefined,
+            limitNum: (searchName || searchCurp || searchExpediente) ? 100 : 5000 
         }),
         getPatientCounts(),
         getClinics(),
@@ -141,54 +131,37 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       setCounts(countsData);
       setClinics(clinicsData || []);
       setAllAppointments(appointmentsData || []);
+      setCurrentPage(1); // Reset to page 1 on new search
     } catch (error: any) {
       console.error("Dashboard load error:", error);
       toast({
         title: 'Error de Carga',
-        description: 'No se pudieron recuperar los registros. Inténtalo de nuevo.',
+        description: 'No se pudieron recuperar los registros.',
         variant: 'destructive',
       });
     } finally {
       setIsDataLoading(false);
     }
-  }, [statusFilter, debouncedSearchTerm, toast]);
+  }, [statusFilter, searchName, searchCurp, searchExpediente, toast]);
   
   useEffect(() => {
     loadPatientsData();
-  }, [loadPatientsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]); // Solo recargar automáticamente cuando cambie la categoría de estatus
 
-  const normalize = (str: string) => 
-    String(str || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-
-  const filteredPatients = useMemo(() => {
-    // La búsqueda local es instantánea para mejorar el UX
-    if (!searchTerm || searchTerm.length < 2) return patients;
-    
-    const normalizedTerm = normalize(searchTerm);
-    
-    return patients.filter(p => {
-      const name = normalize(p.name);
-      const pat = normalize(p.paternalLastName);
-      const mat = normalize(p.maternalLastName);
-      const fullName = `${name} ${pat} ${mat}`;
-      const curp = normalize(String(p.curp || ''));
-      const exp = normalize(String(p.expediente || ''));
-      
-      return name.includes(normalizedTerm) || 
-             pat.includes(normalizedTerm) || 
-             mat.includes(normalizedTerm) || 
-             fullName.includes(normalizedTerm) ||
-             curp.includes(normalizedTerm) || 
-             exp.includes(normalizedTerm);
-    });
-  }, [patients, searchTerm]);
+  const handleClearSearch = () => {
+      setSearchName('');
+      setSearchCurp('');
+      setSearchExpediente('');
+      loadPatientsData();
+  };
 
   const paginatedPatients = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
-    return filteredPatients.slice(startIndex, startIndex + rowsPerPage);
-  }, [filteredPatients, currentPage, rowsPerPage]);
+    return patients.slice(startIndex, startIndex + rowsPerPage);
+  }, [patients, currentPage, rowsPerPage]);
 
-  const totalPages = Math.ceil(filteredPatients.length / rowsPerPage);
+  const totalPages = Math.ceil(patients.length / rowsPerPage);
 
   const handleAddNew = () => { setEditingPatient(null); setIsEditOpen(true); };
   const handleEdit = (patient: Patient) => { setEditingPatient(patient); setIsEditOpen(true); };
@@ -200,8 +173,6 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       if(result.success) {
         toast({ title: "Paciente Eliminado"});
         loadPatientsData();
-      } else {
-        toast({ title: "Error", description: result.message, variant: 'destructive'});
       }
     });
   }
@@ -242,12 +213,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }
 
   const handleDownloadExcel = async () => {
-    if (filteredPatients.length === 0) {
+    if (patients.length === 0) {
         toast({ title: "No hay datos", variant: "destructive"});
         return;
     }
     const xlsx = await import('xlsx');
-    const worksheetData = filteredPatients.map(p => ({
+    const worksheetData = patients.map(p => ({
         'No.Expediente': p.expediente ?? '', 
         'Nombre': p.name ?? '', 
         'Apaterno': p.paternalLastName ?? '', 
@@ -282,30 +253,26 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     return filtered;
   }, [allAppointments, selectedClinics]);
 
-  const mainHeader = (
-    <Card className="border-none shadow-none bg-transparent mb-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">Control de Archivo</h1>
-          <p className="text-muted-foreground">Gestión integral del padrón de pacientes y citas.</p>
-        </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={loadPatientsData} disabled={isDataLoading}>
-            <RefreshCw className={cn("mr-2 h-4 w-4", isDataLoading && "animate-spin")} />
-            Recargar
-          </Button>
-          <Button variant="outline" onClick={onLogout} className="flex-1 sm:flex-none">
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-
   return (
     <div className="container mx-auto px-4 py-6">
-      {mainHeader}
+      <Card className="border-none shadow-none bg-transparent mb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold font-headline">Control de Archivo</h1>
+            <p className="text-muted-foreground">Gestión integral del padrón de pacientes y citas.</p>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={loadPatientsData} disabled={isDataLoading}>
+              <RefreshCw className={cn("mr-2 h-4 w-4", isDataLoading && "animate-spin")} />
+              Actualizar Datos
+            </Button>
+            <Button variant="outline" onClick={onLogout} className="flex-1 sm:flex-none">
+              <LogOut className="mr-2 h-4 w-4" />
+              Cerrar Sesión
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
@@ -316,7 +283,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         ].map((item) => (
           <button
             key={item.label}
-            onClick={() => { setStatusFilter(item.status); setCurrentPage(1); setSearchTerm(''); }}
+            onClick={() => { setStatusFilter(item.status); }}
             className={cn(
               "group relative flex flex-col items-start p-4 rounded-xl border transition-all duration-200 text-left outline-none",
               statusFilter === item.status 
@@ -343,56 +310,83 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         <TabsContent value="patients" className="space-y-4 pt-4">
           <Card className="relative overflow-hidden">
             <CardHeader className="pb-4">
-              <div className="flex flex-col lg:flex-row items-center gap-4">
-                <div className="relative flex-1 w-full">
-                  {isDataLoading && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-primary z-20" />
-                  )}
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input 
-                    placeholder="Buscar por Nombre, CURP o No. de Expediente..." 
-                    value={searchTerm} 
-                    onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
-                    className="pl-10 h-11 pr-10"
-                  />
+              <div className="flex flex-col space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Nombre del Paciente..." 
+                            value={searchName} 
+                            onChange={e => setSearchName(e.target.value.toUpperCase())} 
+                            onKeyDown={e => e.key === 'Enter' && loadPatientsData()}
+                            className="pl-9 h-11"
+                        />
+                    </div>
+                    <Input 
+                        placeholder="CURP (Exacto)..." 
+                        value={searchCurp} 
+                        onChange={e => setSearchCurp(e.target.value.toUpperCase())} 
+                        onKeyDown={e => e.key === 'Enter' && loadPatientsData()}
+                        className="h-11"
+                        maxLength={18}
+                    />
+                    <Input 
+                        placeholder="No. Expediente (Exacto)..." 
+                        value={searchExpediente} 
+                        onChange={e => setSearchExpediente(e.target.value)} 
+                        onKeyDown={e => e.key === 'Enter' && loadPatientsData()}
+                        className="h-11"
+                    />
+                    <div className="flex gap-2">
+                        <Button onClick={loadPatientsData} className="h-11 flex-1 font-bold" disabled={isDataLoading}>
+                            {isDataLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                            BUSCAR
+                        </Button>
+                        <Button variant="outline" onClick={handleClearSearch} className="h-11" title="Limpiar Búsqueda">
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                  <Button onClick={handleAddNew} className="h-11 flex-1 lg:flex-none">
-                    <Plus className="h-4 w-4 mr-2" /> Agregar
+                
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t mt-2">
+                  <Button onClick={handleAddNew} size="sm" className="bg-primary hover:bg-primary/90">
+                    <PlusCircle className="h-4 w-4 mr-2" /> Nuevo Paciente
                   </Button>
-                  <Button onClick={() => setIsUploadOpen(true)} variant="secondary" className="h-11 flex-1 lg:flex-none">
-                    <Upload className="h-4 w-4 mr-2" /> Cargar
+                  <Button onClick={() => setIsUploadOpen(true)} variant="secondary" size="sm">
+                    <Upload className="h-4 w-4 mr-2" /> Cargar Excel
                   </Button>
-                  <Button onClick={handleDownloadExcel} variant="outline" className="h-11 flex-1 lg:flex-none">
-                    <Download className="h-4 w-4 mr-2" /> Exportar
+                  <Button onClick={handleDownloadExcel} variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" /> Exportar Padrón
                   </Button>
                 </div>
               </div>
             </CardHeader>
+            
             <CardContent className="relative min-h-[400px]">
-              {isDataLoading && patients.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-primary animate-pulse">Consultando Base de Datos...</p>
-                    <p className="text-sm text-muted-foreground">Por favor, espera un momento mientras recuperamos la información.</p>
+              {isDataLoading && (
+                <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-lg">
+                    <div className="bg-card border shadow-2xl p-8 rounded-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+                        <Loader2 className="h-16 w-12 animate-spin text-primary" />
+                        <div className="text-center">
+                            <p className="text-xl font-black text-primary animate-pulse tracking-widest uppercase">
+                                Procesando Consulta
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1 font-medium">Buscando en los registros del hospital...</p>
+                        </div>
+                    </div>
+                </div>
+              )}
+
+              {patients.length === 0 && !isDataLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center gap-4 opacity-60">
+                  <Users className="h-16 w-16 text-muted-foreground" />
+                  <div>
+                    <p className="text-lg font-bold">No se encontraron registros</p>
+                    <p className="text-sm text-muted-foreground">Intenta con otros criterios de búsqueda o verifica el estatus seleccionado.</p>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4 relative">
-                  {/* Overlay de carga cuando ya hay datos pero se está actualizando la lista */}
-                  {isDataLoading && patients.length > 0 && (
-                    <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] flex items-center justify-center rounded-lg">
-                        <div className="bg-card border shadow-xl p-6 rounded-xl flex items-center gap-4 animate-in fade-in zoom-in duration-200">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <div>
-                                <p className="font-bold text-primary">Actualizando lista...</p>
-                                <p className="text-xs text-muted-foreground">Procesando criterios de búsqueda</p>
-                            </div>
-                        </div>
-                    </div>
-                  )}
-
+                <div className="space-y-4">
                   <PatientList 
                     patients={paginatedPatients} 
                     onEdit={handleEdit} 
@@ -404,7 +398,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                   
                   <div className="flex flex-col sm:flex-row items-center justify-between border-t pt-4 gap-4">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">Mostrar</span>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">Registros por página</span>
                       <Select value={String(rowsPerPage)} onValueChange={(v) => { setRowsPerPage(Number(v)); setCurrentPage(1); }}>
                         <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -413,12 +407,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                           <SelectItem value="200">200</SelectItem>
                         </SelectContent>
                       </Select>
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">de {filteredPatients.length} registros</span>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap font-bold">Total: {patients.length}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
                       <div className="bg-muted px-3 py-1 rounded-md text-sm font-medium">Página {currentPage} de {totalPages || 1}</div>
-                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages}>Siguiente</Button>
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage >= totalPages || totalPages === 0}>Siguiente</Button>
                     </div>
                   </div>
                 </div>
@@ -505,7 +499,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <CardContent className="relative min-h-[300px]">
               {isDataLoading && allAppointments.length === 0 ? (
                 <div className="flex justify-center items-center py-20">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
               ) : (
                 <>
