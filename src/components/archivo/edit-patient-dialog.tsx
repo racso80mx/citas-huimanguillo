@@ -148,7 +148,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-5xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle>{patient ? 'Editar Paciente' : 'Agregar Nuevo Paciente'}</DialogTitle>
           <DialogDescription>
@@ -207,12 +207,32 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                      <FormField control={form.control} name="fatherName" render={({ field }) => (<FormItem><FormLabel>Nombre del Padre</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="fatherAge" render={({ field }) => (<FormItem><FormLabel>Edad del Padre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="fatherName" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nombre del Padre</FormLabel>
+                          <FormControl><Input placeholder="Nombre completo" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="fatherAge" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Edad del Padre</FormLabel>
+                          <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                        </FormItem>
+                      )} />
                     </div>
                     <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-                      <FormField control={form.control} name="motherName" render={({ field }) => (<FormItem><FormLabel>Nombre de la Madre</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="motherAge" render={({ field }) => (<FormItem><FormLabel>Edad de la Madre</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="motherName" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nombre de la Madre</FormLabel>
+                          <FormControl><Input placeholder="Nombre completo" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="motherAge" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Edad de la Madre</FormLabel>
+                          <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                        </FormItem>
+                      )} />
                     </div>
                   </div>
                 </div>

@@ -474,7 +474,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
       </Table>
        {editingPatient && (
         <Dialog open={!!editingPatient} onOpenChange={(open) => !open && setEditingPatient(null)}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>Editar Paciente</DialogTitle>
                     <DialogDescription>
