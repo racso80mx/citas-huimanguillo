@@ -123,7 +123,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
     <Form {...form}>
        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col overflow-hidden max-h-[80vh]">
             <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-8 p-4">
+              <div className="space-y-8 p-4 pb-20">
                 
                 <div>
                   <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">

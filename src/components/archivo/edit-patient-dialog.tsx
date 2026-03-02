@@ -148,7 +148,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-5xl max-h-[95vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle>{patient ? 'Editar Paciente' : 'Agregar Nuevo Paciente'}</DialogTitle>
           <DialogDescription>
@@ -157,8 +157,8 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <ScrollArea className="flex-1">
-              <div className="space-y-8 p-6 pb-10">
+            <ScrollArea className="flex-1 w-full">
+              <div className="space-y-8 p-6 pb-20">
                 
                 <div>
                   <h4 className="text-sm font-bold text-primary mb-4 uppercase tracking-wider flex items-center gap-2">
