@@ -151,55 +151,74 @@ export async function getPatients(options?: {
   limitNum?: number 
 }): Promise<Patient[]> {
   const db = getDb();
-  const collRef = collection(db, 'patients');
+  const patientsColl = collection(db, 'patients');
   
-  // SI HAY BÚSQUEDA ESPECÍFICA: Realizar consulta global y filtrar por estatus en memoria
-  // Esto evita errores de índices compuestos en Firestore.
+  try {
+    const hasSearch = !!(options?.searchCurp || options?.searchExpediente || options?.searchName);
 
-  if (options?.searchCurp || options?.searchExpediente || options?.searchName) {
-    let results: any[] = [];
-    
-    if (options.searchCurp) {
-      const term = options.searchCurp.toUpperCase().trim();
-      const q = query(collRef, where('curp', '==', term), limit(10));
-      const snap = await getDocs(q);
-      results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-    } else if (options.searchExpediente) {
-      const term = options.searchExpediente.toString().trim();
-      // Buscar como texto
-      const qStr = query(collRef, where('expediente', '==', term), limit(10));
-      const snapStr = await getDocs(qStr);
-      results = snapStr.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-
-      // Buscar como número si es necesario
-      if (results.length === 0 && !isNaN(Number(term))) {
-          const qNum = query(collRef, where('expediente', '==', Number(term)), limit(10));
+    if (hasSearch) {
+      let results: any[] = [];
+      
+      // Búsqueda por CURP
+      if (options?.searchCurp) {
+        const term = options.searchCurp.toUpperCase().trim();
+        const q = query(patientsColl, where('curp', '==', term), limit(50));
+        const snap = await getDocs(q);
+        results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+      } 
+      // Búsqueda por Expediente (maneja texto y número)
+      else if (options?.searchExpediente) {
+        const term = options.searchExpediente.toString().trim();
+        const qStr = query(patientsColl, where('expediente', '==', term), limit(50));
+        const snapStr = await getDocs(qStr);
+        results = snapStr.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+        
+        if (results.length === 0 && !isNaN(Number(term))) {
+          const qNum = query(patientsColl, where('expediente', '==', Number(term)), limit(50));
           const snapNum = await getDocs(qNum);
           results = snapNum.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+        }
+      } 
+      // Búsqueda por Nombre (Robusta para nombres divididos)
+      else if (options?.searchName) {
+        const fullTerm = options.searchName.toUpperCase().trim();
+        const parts = fullTerm.split(/\s+/);
+        const searchWord = parts[0]; 
+        
+        // Consultamos Firestore solo por la primera palabra para evitar índices compuestos
+        const qName = query(patientsColl, where('name', '>=', searchWord), where('name', '<=', searchWord + '\uf8ff'), limit(300));
+        const snap = await getDocs(qName);
+        
+        // Refinamos en memoria comparando con Nombre Completo (Nombre + Apellidos)
+        results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() })).filter(p => {
+            const fullName = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase();
+            return fullName.includes(fullTerm);
+        });
       }
-    } else if (options.searchName) {
-      const term = options.searchName.toUpperCase().trim();
-      // Solo buscamos por nombre para evitar el error de índice compuesto con status
-      const qName = query(collRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), limit(100));
-      const snap = await getDocs(qName);
-      results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+
+      // IMPORTANTE: El filtrado de status en caso de búsqueda se hace EN MEMORIA
+      // para evitar el error de Firebase: "The query requires an index".
+      if (options?.status && options.status !== 'Total') {
+        results = results.filter(p => p.status === options.status);
+      }
+      
+      return results;
     }
 
-    // Filtrado por status en memoria si es necesario
-    if (options.status && options.status !== 'Total') {
-        results = results.filter((p: any) => p.status === options.status);
+    // CARGA NORMAL POR CATEGORÍA (Sin búsqueda específica)
+    // Aquí sí usamos status en la query de Firestore porque es filtro de igualdad único.
+    let q = query(patientsColl);
+    if (options?.status && options.status !== 'Total') {
+      q = query(q, where('status', '==', options.status));
     }
-    return results;
-  }
 
-  // CARGA NORMAL POR CATEGORÍA (Sin búsqueda específica)
-  let q = query(collRef);
-  if (options?.status && options.status !== 'Total') {
-    q = query(q, where('status', '==', options.status));
-  }
+    const snap = await getDocs(query(q, limit(options?.limitNum || 5000)));
+    return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 
-  const snap = await getDocs(query(q, limit(options?.limitNum || 5000)));
-  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
+  } catch (error: any) {
+    console.error("Error crítico en getPatients:", error);
+    throw error;
+  }
 }
 
 export async function getPatientByCURP(curp: string): Promise<Patient | null> {
@@ -438,12 +457,12 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
-      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
-      fatherAge: Number(patientInput.fatherAge) || null,
-      motherAge: Number(patientInput.motherAge) || null,
-      registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null, 
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null, 
+      fatherAge: Number(patientInput.fatherAge) || null, 
+      motherAge: Number(patientInput.motherAge) || null, 
+      registrationDate: patientInput.registrationDate || null, 
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null, 
       expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
@@ -487,12 +506,12 @@ export async function saveNewXRayAppointment(appointment: any, patientInput: any
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
-      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
-      fatherAge: Number(patientInput.fatherAge) || null,
-      motherAge: Number(patientInput.motherAge) || null,
-      registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null, 
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null, 
+      fatherAge: Number(patientInput.fatherAge) || null, 
+      motherAge: Number(patientInput.motherAge) || null, 
+      registrationDate: patientInput.registrationDate || null, 
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null, 
       expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
@@ -535,12 +554,12 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
-      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
-      fatherAge: Number(patientInput.fatherAge) || null,
-      motherAge: Number(patientInput.motherAge) || null,
-      registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null, 
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null, 
+      fatherAge: Number(patientInput.fatherAge) || null, 
+      motherAge: Number(patientInput.motherAge) || null, 
+      registrationDate: patientInput.registrationDate || null, 
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null, 
       expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
@@ -583,12 +602,12 @@ export async function saveNewVaccineAppointment(appointment: any, patientInput: 
       age: Number(patientInput.age) || 0, 
       birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
       phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null,
-      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null,
-      fatherAge: Number(patientInput.fatherAge) || null,
-      motherAge: Number(patientInput.motherAge) || null,
-      registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null,
+      fatherName: String(patientInput.fatherName || '').toUpperCase().trim() || null, 
+      motherName: String(patientInput.motherName || '').toUpperCase().trim() || null, 
+      fatherAge: Number(patientInput.fatherAge) || null, 
+      motherAge: Number(patientInput.motherAge) || null, 
+      registrationDate: patientInput.registrationDate || null, 
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').trim() || null, 
       expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };

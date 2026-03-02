@@ -13,9 +13,6 @@ import { Input } from '@/components/ui/input';
 import { 
   Loader2, 
   LogOut, 
-  Plus, 
-  Upload, 
-  Download, 
   Search, 
   Users, 
   UserCheck, 
@@ -110,18 +107,21 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
 
   const { toast } = useToast();
 
-  const loadPatientsData = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setIsDataLoading(true);
     
     try {
+      // Usamos parámetros optimizados para evitar errores de índices en búsquedas por nombre/curp
+      const searchOptions = { 
+          status: statusFilter, 
+          searchName: searchName.trim() || undefined,
+          searchCurp: searchCurp.trim() || undefined,
+          searchExpediente: searchExpediente.trim() || undefined,
+          limitNum: (searchName || searchCurp || searchExpediente) ? 100 : 5000 
+      };
+
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
-        getPatients({ 
-            status: statusFilter, 
-            searchName: searchName || undefined,
-            searchCurp: searchCurp || undefined,
-            searchExpediente: searchExpediente || undefined,
-            limitNum: (searchName || searchCurp || searchExpediente) ? 100 : 5000 
-        }),
+        getPatients(searchOptions),
         getPatientCounts(),
         getClinics(),
         getAppointments()
@@ -131,12 +131,12 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       setCounts(countsData);
       setClinics(clinicsData || []);
       setAllAppointments(appointmentsData || []);
-      setCurrentPage(1); // Reset to page 1 on new search
+      setCurrentPage(1); 
     } catch (error: any) {
-      console.error("Dashboard load error:", error);
+      console.error("Dashboard error:", error);
       toast({
-        title: 'Error de Carga',
-        description: 'No se pudieron recuperar los registros.',
+        title: 'Error de Consulta',
+        description: 'No se pudieron recuperar los registros. Por favor, intenta con una búsqueda más específica.',
         variant: 'destructive',
       });
     } finally {
@@ -145,15 +145,17 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }, [statusFilter, searchName, searchCurp, searchExpediente, toast]);
   
   useEffect(() => {
-    loadPatientsData();
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]); // Solo recargar automáticamente cuando cambie la categoría de estatus
+  }, [statusFilter]); 
 
   const handleClearSearch = () => {
       setSearchName('');
       setSearchCurp('');
       setSearchExpediente('');
-      loadPatientsData();
+      // El useEffect anterior se encargará de recargar al resetear si fuera necesario,
+      // pero aquí forzamos la carga del filtro base.
+      loadData();
   };
 
   const paginatedPatients = useMemo(() => {
@@ -172,7 +174,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const result = await deletePatient(patientId);
       if(result.success) {
         toast({ title: "Paciente Eliminado"});
-        loadPatientsData();
+        loadData();
       }
     });
   }
@@ -182,7 +184,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         const result = await deleteAppointment(appointmentId);
         if (result.success) {
             toast({ title: 'Cita Eliminada' });
-            loadPatientsData();
+            loadData();
         }
     });
   };
@@ -192,7 +194,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
       const result = await updatePatientStatus(patientId, newStatus);
        if(result.success) {
         toast({ title: "Estado Actualizado" });
-        loadPatientsData();
+        loadData();
       }
     });
   }
@@ -207,7 +209,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         toast({ title: "Paciente Guardado" });
         setIsEditOpen(false);
         setEditingPatient(null);
-        loadPatientsData();
+        loadData();
       }
     });
   }
@@ -262,7 +264,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
             <p className="text-muted-foreground">Gestión integral del padrón de pacientes y citas.</p>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={loadPatientsData} disabled={isDataLoading}>
+            <Button variant="outline" onClick={loadData} disabled={isDataLoading}>
               <RefreshCw className={cn("mr-2 h-4 w-4", isDataLoading && "animate-spin")} />
               Actualizar Datos
             </Button>
@@ -318,7 +320,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                             placeholder="Nombre del Paciente..." 
                             value={searchName} 
                             onChange={e => setSearchName(e.target.value.toUpperCase())} 
-                            onKeyDown={e => e.key === 'Enter' && loadPatientsData()}
+                            onKeyDown={e => e.key === 'Enter' && loadData()}
                             className="pl-9 h-11"
                         />
                     </div>
@@ -326,7 +328,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                         placeholder="CURP (Exacto)..." 
                         value={searchCurp} 
                         onChange={e => setSearchCurp(e.target.value.toUpperCase())} 
-                        onKeyDown={e => e.key === 'Enter' && loadPatientsData()}
+                        onKeyDown={e => e.key === 'Enter' && loadData()}
                         className="h-11"
                         maxLength={18}
                     />
@@ -334,11 +336,11 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                         placeholder="No. Expediente (Exacto)..." 
                         value={searchExpediente} 
                         onChange={e => setSearchExpediente(e.target.value)} 
-                        onKeyDown={e => e.key === 'Enter' && loadPatientsData()}
+                        onKeyDown={e => e.key === 'Enter' && loadData()}
                         className="h-11"
                     />
                     <div className="flex gap-2">
-                        <Button onClick={loadPatientsData} className="h-11 flex-1 font-bold" disabled={isDataLoading}>
+                        <Button onClick={loadData} className="h-11 flex-1 font-bold" disabled={isDataLoading}>
                             {isDataLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
                             BUSCAR
                         </Button>
@@ -490,7 +492,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                         </Command>
                     </PopoverContent>
                   </Popover>
-                  <Button variant="outline" onClick={loadPatientsData} disabled={isDataLoading}>
+                  <Button variant="outline" onClick={loadData} disabled={isDataLoading}>
                     <RefreshCw className={cn("h-4 w-4", isDataLoading && "animate-spin")} />
                   </Button>
                 </div>
@@ -513,7 +515,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     clinics={clinics} 
                     isAdmin 
                     onDelete={handleAppointmentDelete} 
-                    onEditSuccess={loadPatientsData} 
+                    onEditSuccess={loadData} 
                   />
                 </>
               )}
@@ -522,9 +524,9 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
         </TabsContent>
       </Tabs>
 
-      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadPatientsData} />
+      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadData} />
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
-      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadPatientsData(); }} clinics={clinics} colonias={[]} />}
+      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadData(); }} clinics={clinics} colonias={[]} />}
     </div>
   );
 }
