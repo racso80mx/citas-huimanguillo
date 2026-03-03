@@ -13,7 +13,7 @@ import type { LabAppointment, Patient, AppointmentStatus } from '@/lib/definitio
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, FlaskConical, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy } from 'lucide-react';
+import { Trash2, FlaskConical, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,6 +99,19 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
         variant: 'destructive',
       });
     });
+  };
+
+  const handleWhatsApp = (app: LabAppointment) => {
+    const phone = app.patient?.phoneNumber;
+    if (!phone) {
+        toast({ title: "Sin teléfono", description: "El paciente no tiene un número registrado.", variant: "destructive" });
+        return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '');
+    const formattedDate = format(parseISO(app.date), "eeee dd 'de' MMMM", { locale: es });
+    const studiesList = app.studies.map(s => s.name).join(', ');
+    const message = encodeURIComponent(`Hola ${app.patient.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${app.appointmentNumber} para el día ${formattedDate}. Estudios: ${studiesList}. Recuerde seguir las indicaciones de ayuno.`);
+    window.open(`https://wa.me/52${cleanPhone}?text=${message}`, '_blank');
   };
 
   const sortedAppointments = useMemo(() => {
@@ -394,6 +407,9 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                    <div className='flex justify-end items-center'>
+                    <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
+                        <MessageCircle className="h-4 w-4 text-green-600" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
                         <FileDown className="h-4 w-4 text-gray-500" />
                     </Button>

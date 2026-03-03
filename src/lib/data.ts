@@ -186,14 +186,11 @@ export async function getPatients(options?: {
       } 
       else if (options?.searchName) {
         const fullTerm = normalizeStr(options.searchName);
-        // Filtramos palabras triviales para mejorar la búsqueda
         const stopWords = ['DE', 'DEL', 'LA', 'LOS', 'Y', 'EL', 'LAS'];
         const words = fullTerm.split(/\s+/).filter(w => w.length > 1 && !stopWords.includes(w));
         
         if (words.length === 0) return [];
 
-        // Estrategia de búsqueda LIKE flexible:
-        // Buscamos candidatos por el término más largo (más específico)
         const searchWords = words.sort((a, b) => b.length - a.length).slice(0, 2);
         const promises: Promise<any>[] = [];
         
@@ -212,10 +209,8 @@ export async function getPatients(options?: {
             });
         });
 
-        // Filtrado exacto tipo "CONTIENE" en memoria sobre los candidatos encontrados
         results = Array.from(combinedMap.values()).filter(p => {
             const patientFullName = normalizeStr(`${p.name} ${p.paternalLastName} ${p.maternalLastName}`);
-            // Debe contener TODAS las palabras de la búsqueda en cualquier posición
             return words.every(word => patientFullName.includes(word));
         });
       }

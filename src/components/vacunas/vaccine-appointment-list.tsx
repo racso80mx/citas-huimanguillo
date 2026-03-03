@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useTransition, useMemo, useEffect } from 'react';
 import {
@@ -14,7 +13,7 @@ import type { VaccineAppointment, Patient, AppointmentStatus } from '@/lib/defin
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, Pencil, Baby, ShieldPlus, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy } from 'lucide-react';
+import { Trash2, Pencil, Baby, ShieldPlus, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,6 +94,19 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
         variant: 'destructive',
       });
     });
+  };
+
+  const handleWhatsApp = (app: VaccineAppointment) => {
+    const phone = app.patient?.phoneNumber;
+    if (!phone) {
+        toast({ title: "Sin teléfono", description: "El paciente no tiene un número registrado.", variant: "destructive" });
+        return;
+    }
+    const cleanPhone = phone.replace(/\D/g, '');
+    const formattedDate = format(parseISO(app.date), "eeee dd 'de' MMMM", { locale: es });
+    const vaccinesList = app.vaccines.map(v => v.name).join(', ');
+    const message = encodeURIComponent(`Hola ${app.patient.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de vacunación con folio ${app.appointmentNumber} para el día ${formattedDate} a las ${app.time} hrs. Vacunas: ${vaccinesList}. No olvide traer su Cartilla Nacional de Salud.`);
+    window.open(`https://wa.me/52${cleanPhone}?text=${message}`, '_blank');
   };
 
   const sortedAppointments = useMemo(() => {
@@ -413,6 +425,9 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>
+                    <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
+                        <MessageCircle className="h-4 w-4 text-green-600" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
                         <FileDown className="h-4 w-4 text-gray-500" />
                     </Button>
