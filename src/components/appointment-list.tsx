@@ -123,9 +123,14 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         toast({ title: "Sin teléfono", description: "El paciente no tiene un número registrado.", variant: "destructive" });
         return;
     }
+    const clinic = clinics.find(c => c.id === app.clinicId);
     const cleanPhone = phone.replace(/\D/g, '');
     const formattedDate = format(parseISO(app.date), "eeee dd 'de' MMMM", { locale: es });
-    const message = encodeURIComponent(`Hola ${app.patient.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${app.appointmentNumber} para el día ${formattedDate} a las ${app.time}.`);
+    
+    const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+    
+    const message = encodeURIComponent(`Hola ${app.patient.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${app.appointmentNumber} para el día ${formattedDate} a las ${app.time} en el consultorio ${clinic?.name || 'N/A'} con el Dr(a). ${clinic?.doctorName || 'N/A'}.${obs}`);
+    
     window.open(`https://wa.me/52${cleanPhone}?text=${message}`, '_blank');
   };
 
@@ -594,7 +599,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         {cloningClinic.bookingMode === 'time' && (
                           <>
                             <Label>Selecciona una Hora</Label>
-                             <Select onValueChange={setNewCloneTime} value={newCloneTime}>
+                             <Select onValueChange={newCloneTime} value={newCloneTime}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un horario disponible..." />
                               </SelectTrigger>

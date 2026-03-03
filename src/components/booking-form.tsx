@@ -248,10 +248,13 @@ export function BookingForm({
             duration: 10000,
         });
 
-        // Abrir WhatsApp automáticamente
+        // Abrir WhatsApp automáticamente con datos del consultorio y doctor
         const cleanPhone = data.phoneNumber.replace(/\D/g, '');
         const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
-        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime}.`);
+        const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+        
+        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} en el consultorio ${selectedClinic.name} con el Dr(a). ${selectedClinic.doctorName}.${obs}`);
+        
         window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
 
         const allAnnouncements = await getAnnouncements();
