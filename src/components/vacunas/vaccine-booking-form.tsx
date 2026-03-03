@@ -188,6 +188,13 @@ export function VaccineBookingForm({
             duration: 10000,
         });
 
+        // Abrir WhatsApp automáticamente
+        const cleanPhone = data.phoneNumber.replace(/\D/g, '');
+        const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
+        const vaccinesList = selectedVaccines.map(v => v.name).join(', ');
+        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de vacunación con folio ${result.data.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} hrs. Vacunas: ${vaccinesList}. No olvide traer su Cartilla Nacional de Salud.`);
+        window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
+
         const { jsPDF } = await import('jspdf');
         await import('jspdf-autotable');
         const doc = new jsPDF() as any;
@@ -355,7 +362,7 @@ export function VaccineBookingForm({
                   name="paternalLastName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Apellido Paterno</FormLabel>
+                      <FormLabel>Apellido paterno</FormLabel>
                       <FormControl>
                         <Input placeholder="Apellido paterno" {...field} className="uppercase" />
                       </FormControl>
@@ -369,7 +376,7 @@ export function VaccineBookingForm({
               name="maternalLastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Apellido Materno</FormLabel>
+                  <FormLabel>Apellido materno</FormLabel>
                   <FormControl>
                     <Input placeholder="Apellido materno" {...field} className="uppercase" />
                   </FormControl>

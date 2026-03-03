@@ -31,7 +31,7 @@ import { Combobox } from './ui/combobox';
 import type { Appointment, Clinic, Patient } from '@/lib/definitions';
 import { PatientType, PatientStatus } from '@/lib/definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { format as formatDate } from 'date-fns';
+import { format as formatDate, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { generateAppointmentPDF } from '@/lib/report-helpers';
 import {
@@ -221,13 +221,14 @@ export function BookingForm({
           birthState: data.birthState || "No especificado",
           phoneNumber: data.phoneNumber,
           coloniaName: selectedColoniaName,
+          status: initialPatientData?.status || PatientStatus.Vigente,
           fatherName: data.fatherName?.toUpperCase() || null,
           motherName: data.motherName?.toUpperCase() || null,
           fatherAge: data.fatherAge || null,
           motherAge: data.motherAge || null,
-          derechoAbiencia: data.derechoAbiencia?.toUpperCase() || null,
           registrationDate: initialPatientData?.registrationDate || formatDate(new Date(), 'yyyy-MM-dd'),
-          status: initialPatientData?.status || PatientStatus.Vigente
+          derechoAbiencia: data.derechoAbiencia?.toUpperCase() || null,
+          expediente: initialPatientData?.expediente || null
       };
 
       const newAppointmentData: Omit<Appointment, 'id' | 'patientId' | 'patient' | 'appointmentNumber' | 'coloniaName'> = {
@@ -246,6 +247,12 @@ export function BookingForm({
             description: `Tu cita ha sido agendada con éxito. Folio: ${result.data.appointment.appointmentNumber}`,
             duration: 10000,
         });
+
+        // Abrir WhatsApp automáticamente
+        const cleanPhone = data.phoneNumber.replace(/\D/g, '');
+        const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
+        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime}.`);
+        window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
 
         const allAnnouncements = await getAnnouncements();
         await generateAppointmentPDF(result.data.appointment, result.data.clinic, allAnnouncements);
@@ -426,7 +433,7 @@ export function BookingForm({
 
             <Collapsible>
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full flex justify-between items-center px-0">
+                <Button type="button" variant="ghost" className="w-full flex justify-between items-center px-0">
                   <span>Información Adicional (Opcional)</span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>

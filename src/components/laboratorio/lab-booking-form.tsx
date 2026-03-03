@@ -175,6 +175,12 @@ export function LabBookingForm({
               duration: 10000,
           });
 
+          // Abrir WhatsApp automáticamente
+          const cleanPhone = data.phoneNumber.replace(/\D/g, '');
+          const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
+          const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText}. Recuerde seguir las indicaciones de ayuno.`);
+          window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
+
           const { jsPDF } = await import('jspdf');
           await import('jspdf-autotable');
           const doc = new jsPDF() as any;
