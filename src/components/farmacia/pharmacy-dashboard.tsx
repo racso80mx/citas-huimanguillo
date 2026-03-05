@@ -101,7 +101,10 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
 
         for (let i = 0; i < totalRecords; i += CHUNK_SIZE) {
           const chunk = json.slice(i, i + CHUNK_SIZE);
-          const result = await bulkInsertMedications(chunk);
+          
+          // Sanitize data for Next.js Server Action to avoid "Only plain objects" error
+          const plainChunk = JSON.parse(JSON.stringify(chunk));
+          const result = await bulkInsertMedications(plainChunk);
 
           if (result.success) {
             processedCount += result.processedCount || 0;
