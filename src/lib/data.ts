@@ -827,6 +827,7 @@ export async function bulkInsertMedications(chunk: any[]) {
     for (const raw of chunk) {
       const clave = String(raw['CLAVE DE CUADRO BASICO'] || '').trim();
       const desc = String(raw['DESCRIPCIÓN'] || '').trim().toUpperCase();
+      const lote = String(raw['LOTE'] || '').trim();
       
       if (!clave && !desc) continue;
 
@@ -837,7 +838,7 @@ export async function bulkInsertMedications(chunk: any[]) {
         existencia: Number(raw['EXISTENCIA']) || 0,
         precioUnitario: Number(raw['PRECIO UNITARIO']) || 0,
         totalImporte: Number(raw['TOTAL IMPORTE']) || 0,
-        lote: String(raw['LOTE'] || '').trim(),
+        lote: lote,
         proveedor: String(raw['PROVEEDOR'] || '').trim(),
         rfcProveedor: String(raw['RFC PROVEEDOR'] || '').trim(),
         almacen: String(raw['ALMACEN'] || '').trim(),
@@ -849,8 +850,15 @@ export async function bulkInsertMedications(chunk: any[]) {
         updatedAt: new Date().toISOString()
       };
 
-      // We use clave + lote + descripcion as a pseudo-unique ID to update existing records or create new ones
-      const docId = `med-${clave}-${medData.lote}-${desc.substring(0, 20).replace(/\s/g, '_')}`.replace(/[^a-zA-Z0-9-_]/g, '');
+      /**
+       * LÓGICA DE CONSOLIDACIÓN:
+       * Generamos una llave basada en Clave, Lote y Descripción Completa.
+       * Esto asegura que registros que representan el mismo producto en el Excel se fusionen (actualicen) 
+       * en lugar de duplicarse. Por eso el conteo final de insumos puede ser menor al de filas procesadas.
+       */
+      const cleanDesc = normalizeStr(desc).replace(/[^A-Z0-9]/g, '');
+      const docId = `med-${clave}-${lote}-${cleanDesc.substring(0, 50)}`.replace(/[^a-zA-Z0-9-_]/g, '');
+      
       batch.set(doc(db, 'medications', docId), medData, { merge: true });
       processed++;
     }
