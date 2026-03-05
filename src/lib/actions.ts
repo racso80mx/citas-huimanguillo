@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as data from './data';
-import type { PatientStatus, AppointmentStatus } from './definitions';
+import type { PatientStatus, AppointmentStatus, Holiday } from './definitions';
 
 // =====================================================================
 // MAINTENANCE ACTIONS
@@ -275,6 +275,17 @@ export async function updateUsers(users: any[]) { return data.updateUsers(users)
 
 export async function getArchiveSettings() { return data.getArchiveSettings(); }
 export async function updateArchiveSettings(settings: any) { return data.updateArchiveSettings(settings); }
+
+export async function getHolidays() { return data.getHolidays(); }
+export async function updateHolidays(holidays: Holiday[]) {
+  const res = await data.updateHolidays(holidays);
+  revalidatePath('/citas-medicas');
+  revalidatePath('/laboratorio');
+  revalidatePath('/rayos-x');
+  revalidatePath('/ultrasonidos');
+  revalidatePath('/vacunas');
+  return res;
+}
 
 // =====================================================================
 // AUTH & LOGS ACTIONS

@@ -72,6 +72,7 @@ import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
 import { ArchiveSettingsManager } from './archive-settings-manager';
 import { PharmacySettingsManager } from './pharmacy-settings-manager';
+import { HolidaysManager } from './holidays-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -233,7 +234,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
-    setDateRange(range);
+    dateRange?.from && range?.from && dateRange.from.getTime() === range.from.getTime() ? setDateRange(undefined) : setDateRange(range);
     setActiveFilter('range');
   };
 
@@ -414,6 +415,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="space-y-8">
                 <ModuleManager />
                 <ClinicsManager />
+                <HolidaysManager />
                 <ArchiveSettingsManager />
                 <PharmacySettingsManager />
                 <AnnouncementsManager />

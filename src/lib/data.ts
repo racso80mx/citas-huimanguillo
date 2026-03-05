@@ -49,6 +49,7 @@ import type {
   PatientStatus,
   ArchiveCounts,
   Medication,
+  Holiday,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -806,6 +807,14 @@ export async function getLogs(): Promise<ActivityLog[]> {
   const db = getDb();
   const snap = await getDocs(query(collection(db, 'activityLog'), orderBy('timestamp', 'desc'), limit(500)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as ActivityLog);
+}
+
+export async function getHolidays(): Promise<Holiday[]> {
+  return (await getSettingsDoc<{ items: Holiday[] }>('holidays', { items: [] })).items;
+}
+
+export async function updateHolidays(holidays: Holiday[]) {
+  return setSettingsDoc('holidays', { items: holidays });
 }
 
 // =====================================================================

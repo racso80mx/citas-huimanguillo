@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -12,9 +11,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, LabStudy, LabSettings } from '@/lib/definitions';
+import type { DailyAvailability, LabStudy, LabSettings, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getLabAppointments } from '@/lib/data';
+import { getLabAppointments, getHolidays } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { FlaskConical, CalendarDays, Microscope, UserCheck } from 'lucide-react';
 import {
@@ -38,12 +37,14 @@ type LabPageContentProps = {
   initialStudies: LabStudy[];
   initialSettings: LabSettings;
   initialAnnouncements: string[];
+  initialHolidays: Holiday[];
 };
 
 export default function LabPageContent({
   initialStudies,
   initialSettings,
   initialAnnouncements,
+  initialHolidays,
 }: LabPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedStudies, setSelectedStudies] = React.useState<LabStudy[]>([]);
@@ -53,6 +54,7 @@ export default function LabPageContent({
   const [allStudies] = React.useState<LabStudy[]>(initialStudies);
   const [settings] = React.useState<LabSettings>(initialSettings);
   const [announcements] = React.useState<string[]>(initialAnnouncements);
+  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -63,7 +65,11 @@ export default function LabPageContent({
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const allAppointments = await getLabAppointments();
+      const [allAppointments, freshHolidays] = await Promise.all([
+        getLabAppointments(),
+        getHolidays()
+      ]);
+      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -74,10 +80,13 @@ export default function LabPageContent({
           (app) => app.date.split('T')[0] === dateString
         );
         const isWeekend = isSaturday(day) || isSunday(day);
+        const isHoliday = freshHolidays.some(h => h.date === dateString);
+        const isSpecialDay = isWeekend || isHoliday;
+
         const maxSlots =
-          isWeekend && settings.weekendBookingEnabled
+          isSpecialDay && settings.weekendBookingEnabled
             ? settings.dailySlots
-            : isWeekend
+            : isSpecialDay
             ? 0
             : settings.dailySlots;
 

@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -12,9 +11,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, UltrasoundStudy, UltrasoundSettings } from '@/lib/definitions';
+import type { DailyAvailability, UltrasoundStudy, UltrasoundSettings, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getUltrasoundAppointments } from '@/lib/data';
+import { getUltrasoundAppointments, getHolidays } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, Waves, UserCheck } from 'lucide-react';
 import {
@@ -40,12 +39,14 @@ type UltrasoundPageContentProps = {
   initialStudies: UltrasoundStudy[];
   initialSettings: UltrasoundSettings;
   initialAnnouncements: string[];
+  initialHolidays: Holiday[];
 };
 
 export default function UltrasoundPageContent({
   initialStudies,
   initialSettings,
   initialAnnouncements,
+  initialHolidays,
 }: UltrasoundPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -56,6 +57,7 @@ export default function UltrasoundPageContent({
   const [allStudies] = React.useState<UltrasoundStudy[]>(initialStudies);
   const [settings] = React.useState<UltrasoundSettings>(initialSettings);
   const [announcements] = React.useState<string[]>(initialAnnouncements);
+  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -81,7 +83,11 @@ export default function UltrasoundPageContent({
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const allAppointments = await getUltrasoundAppointments();
+      const [allAppointments, freshHolidays] = await Promise.all([
+        getUltrasoundAppointments(),
+        getHolidays()
+      ]);
+      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -92,9 +98,11 @@ export default function UltrasoundPageContent({
           (app) => app.date.split('T')[0] === dateString
         );
         const isWeekend = isSaturday(day) || isSunday(day);
+        const isHoliday = freshHolidays.some(h => h.date === dateString);
+        const isSpecialDay = isWeekend || isHoliday;
         
         let maxSlotsForDay = 0;
-        if (!isWeekend || (isWeekend && settings.weekendBookingEnabled)) {
+        if (!isSpecialDay || (isSpecialDay && settings.weekendBookingEnabled)) {
             maxSlotsForDay = allTimeSlots.length;
         }
         

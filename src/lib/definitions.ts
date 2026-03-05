@@ -300,3 +300,8 @@ export type Medication = {
   numeroContrato: string;
   updatedAt?: string;
 };
+
+export type Holiday = {
+  date: string; // YYYY-MM-DD
+  name: string;
+};

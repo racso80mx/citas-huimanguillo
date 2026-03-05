@@ -1,14 +1,14 @@
-
 'use server';
 import React from 'react';
 import XRayPageContent from './page-content';
-import { getXRayStudies, getXRaySettings, getAnnouncements } from '@/lib/data';
+import { getXRayStudies, getXRaySettings, getAnnouncements, getHolidays } from '@/lib/actions';
 
 export default async function XRayPage() {
-  const [initialStudies, initialSettings, initialAnnouncements] = await Promise.all([
+  const [initialStudies, initialSettings, initialAnnouncements, initialHolidays] = await Promise.all([
     getXRayStudies(),
     getXRaySettings(),
     getAnnouncements(),
+    getHolidays(),
   ]);
 
   return (
@@ -16,6 +16,7 @@ export default async function XRayPage() {
       initialStudies={initialStudies}
       initialSettings={initialSettings}
       initialAnnouncements={initialAnnouncements}
+      initialHolidays={initialHolidays}
     />
   );
 }

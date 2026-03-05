@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -12,9 +11,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, XRayStudy, XRaySettings } from '@/lib/definitions';
+import type { DailyAvailability, XRayStudy, XRaySettings, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getXRayAppointments } from '@/lib/data';
+import { getXRayAppointments, getHolidays } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, Stethoscope, UserCheck } from 'lucide-react';
 import {
@@ -40,12 +39,14 @@ type XRayPageContentProps = {
   initialStudies: XRayStudy[];
   initialSettings: XRaySettings;
   initialAnnouncements: string[];
+  initialHolidays: Holiday[];
 };
 
 export default function XRayPageContent({
   initialStudies,
   initialSettings,
   initialAnnouncements,
+  initialHolidays,
 }: XRayPageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -56,6 +57,7 @@ export default function XRayPageContent({
   const [allStudies] = React.useState<XRayStudy[]>(initialStudies);
   const [settings] = React.useState<XRaySettings>(initialSettings);
   const [announcements] = React.useState<string[]>(initialAnnouncements);
+  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -81,7 +83,11 @@ export default function XRayPageContent({
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const allAppointments = await getXRayAppointments();
+      const [allAppointments, freshHolidays] = await Promise.all([
+        getXRayAppointments(),
+        getHolidays()
+      ]);
+      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -92,9 +98,11 @@ export default function XRayPageContent({
           (app) => app.date.split('T')[0] === dateString
         );
         const isWeekend = isSaturday(day) || isSunday(day);
+        const isHoliday = freshHolidays.some(h => h.date === dateString);
+        const isSpecialDay = isWeekend || isHoliday;
         
         let maxSlotsForDay = 0;
-        if (!isWeekend || (isWeekend && settings.weekendBookingEnabled)) {
+        if (!isSpecialDay || (isSpecialDay && settings.weekendBookingEnabled)) {
             maxSlotsForDay = allTimeSlots.length;
         }
 

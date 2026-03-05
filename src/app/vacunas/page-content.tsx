@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -11,9 +10,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, Vaccine, VaccineSettings, Colonia, Clinic } from '@/lib/definitions';
+import type { DailyAvailability, Vaccine, VaccineSettings, Colonia, Clinic, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getVaccineAppointments } from '@/lib/data';
+import { getVaccineAppointments, getHolidays } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, ShieldPlus, UserCheck, MapPin } from 'lucide-react';
 import {
@@ -44,6 +43,7 @@ type VaccinePageContentProps = {
   initialColonias: Colonia[];
   initialClinics: Clinic[];
   initialAnnouncements: string[];
+  initialHolidays: Holiday[];
 };
 
 export default function VaccinePageContent({
@@ -52,6 +52,7 @@ export default function VaccinePageContent({
   initialColonias,
   initialClinics,
   initialAnnouncements,
+  initialHolidays,
 }: VaccinePageContentProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -65,6 +66,7 @@ export default function VaccinePageContent({
   const [colonias] = React.useState<Colonia[]>(initialColonias);
   const [clinics] = React.useState<Clinic[]>(initialClinics);
   const [announcements] = React.useState<string[]>(initialAnnouncements);
+  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -93,7 +95,11 @@ export default function VaccinePageContent({
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const allAppointments = await getVaccineAppointments();
+      const [allAppointments, freshHolidays] = await Promise.all([
+        getVaccineAppointments(),
+        getHolidays()
+      ]);
+      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -104,9 +110,11 @@ export default function VaccinePageContent({
           (app) => app.date.split('T')[0] === dateString
         );
         const isWeekend = isSaturday(day) || isSunday(day);
+        const isHoliday = freshHolidays.some(h => h.date === dateString);
+        const isSpecialDay = isWeekend || isHoliday;
         
         let maxSlotsForDay = 0;
-        if (!isWeekend || (isWeekend && settings.weekendBookingEnabled)) {
+        if (!isSpecialDay || (isSpecialDay && settings.weekendBookingEnabled)) {
             maxSlotsForDay = allTimeSlots.length;
         }
 

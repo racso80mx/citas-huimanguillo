@@ -11,9 +11,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, Colonia, Clinic } from '@/lib/definitions';
+import type { DailyAvailability, Colonia, Clinic, Holiday } from '@/lib/definitions';
 import { PatientType, BookingMode, ClinicType } from '@/lib/definitions';
-import { getAppointments, getClinics } from '@/lib/data';
+import { getAppointments, getClinics, getHolidays } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital } from 'lucide-react';
@@ -33,9 +33,10 @@ type PageContentProps = {
     initialAnnouncements: string[];
     initialColonias: Colonia[];
     initialClinics: Clinic[];
+    initialHolidays: Holiday[];
 };
 
-export default function PageContent({ initialAnnouncements, initialColonias, initialClinics }: PageContentProps) {
+export default function PageContent({ initialAnnouncements, initialColonias, initialClinics, initialHolidays }: PageContentProps) {
   const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
@@ -47,6 +48,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [announcements] = React.useState<string[]>(initialAnnouncements);
   const [colonias] = React.useState<Colonia[]>(initialColonias);
   const [clinics, setClinics] = React.useState<Clinic[]>(initialClinics);
+  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
   
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -70,11 +72,13 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const [allAppointments, freshClinics] = await Promise.all([
+      const [allAppointments, freshClinics, freshHolidays] = await Promise.all([
         getAppointments(),
-        getClinics()
+        getClinics(),
+        getHolidays()
       ]);
       setClinics(freshClinics);
+      setHolidays(freshHolidays);
       
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -90,18 +94,21 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         const availabilityByClinic: { [key: string]: number } = {};
         const takenTimesByClinic: { [key: string]: string[] } = {};
 
+        const isHoliday = freshHolidays.some(h => h.date === dateString);
+        const isWeekend = isSaturday(day) || isSunday(day);
+        const isSpecialDay = isWeekend || isHoliday;
+
         for (const clinic of freshClinics) {
-            const isWeekend = isSaturday(day) || isSunday(day);
             const dayOfWeekName = dayNames[day.getUTCDay()];
             
             const isDayOfAction = clinic.daysOfAction?.includes(dayOfWeekName);
             const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
-            const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
+            const isSpecialDayAndNotEnabled = isSpecialDay && !clinic.weekendBookingEnabled;
 
             let availableSlotsForClinic = 0;
             let takenTimes: string[] = [];
 
-            if (!isDayOfAction && !isUnavailableDate && !isWeekendAndNotEnabled) {
+            if (!isDayOfAction && !isUnavailableDate && !isSpecialDayAndNotEnabled) {
                 let totalSlotsForClinic = 0;
                 if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                     totalSlotsForClinic = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration).length;
@@ -284,7 +291,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Time) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
     const timesToExclude = selectedClinic.breakTime ? [...takenTimes, selectedClinic.breakTime] : takenTimes;
-    return allTimeSlots.filter(slot => !timesToExclude.includes(slot));
+    return allTimeSlots.filter(slot => !takenTimes.includes(slot) && slot !== selectedClinic.breakTime);
   }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
 
   const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
