@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 max-w-screen-2xl items-center">
+      <div className="container flex h-14 max-screen-2xl items-center">
         <Link href="/" className="mr-6 flex items-center space-x-2">
            <div className="text-primary">
             <Image
@@ -35,14 +35,14 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
             CitaMedicaFacil
           </span>
         </Link>
-        <nav className="flex items-center gap-1 sm:gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
           {moduleSettings.citasMedicasEnabled && (
             <Button
               variant="ghost"
               size="sm"
               asChild
               className={cn(
-                'transition-colors',
+                'transition-colors shrink-0',
                 pathname === '/citas-medicas'
                   ? 'text-primary font-bold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -60,7 +60,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
             size="sm"
             asChild
             className={cn(
-              'transition-colors',
+              'transition-colors shrink-0',
               pathname === '/laboratorio'
                 ? 'text-primary font-bold'
                 : 'text-muted-foreground hover:text-foreground'
@@ -78,7 +78,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               size="sm"
               asChild
               className={cn(
-                'transition-colors',
+                'transition-colors shrink-0',
                 pathname === '/rayos-x'
                   ? 'text-primary font-bold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -96,7 +96,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               size="sm"
               asChild
               className={cn(
-                'transition-colors',
+                'transition-colors shrink-0',
                 pathname === '/ultrasonidos'
                   ? 'text-primary font-bold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -114,7 +114,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               size="sm"
               asChild
               className={cn(
-                'transition-colors',
+                'transition-colors shrink-0',
                 pathname === '/vacunas'
                   ? 'text-primary font-bold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -132,7 +132,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               size="sm"
               asChild
               className={cn(
-                'transition-colors',
+                'transition-colors shrink-0',
                 pathname === '/archivo'
                   ? 'text-primary font-bold'
                   : 'text-muted-foreground hover:text-foreground'
@@ -144,12 +144,30 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               </Link>
             </Button>
           )}
+          {moduleSettings.farmaciaEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors shrink-0',
+                pathname === '/farmacia'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/farmacia">
+                <Pill className="h-4 w-4 mr-2" />
+                Farmacia
+              </Link>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
             asChild
             className={cn(
-              'transition-colors',
+              'transition-colors shrink-0',
               pathname === '/bi'
                 ? 'text-primary font-bold'
                 : 'text-muted-foreground hover:text-foreground'
@@ -165,7 +183,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
             size="sm"
             asChild
             className={cn(
-              'transition-colors',
+              'transition-colors shrink-0',
               pathname === '/reports'
                 ? 'text-primary font-bold'
                 : 'text-muted-foreground hover:text-foreground'

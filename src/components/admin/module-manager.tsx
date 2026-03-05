@@ -163,6 +163,16 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('archivoEnabled', checked)}
           />
         </div>
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
+          <Label htmlFor="farmacia-enabled" className="flex items-center gap-2 text-base">
+            <ToggleRight className="h-5 w-5"/> Módulo de Farmacia
+          </Label>
+          <Switch
+            id="farmacia-enabled"
+            checked={settings.farmaciaEnabled}
+            onCheckedChange={(checked) => handleSettingsChange('farmaciaEnabled', checked)}
+          />
+        </div>
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>

@@ -263,9 +263,14 @@ export type ModuleSettings = {
   ultrasoundEnabled: boolean;
   vacunasEnabled: boolean;
   archivoEnabled: boolean;
+  farmaciaEnabled: boolean;
 };
 
 export type ArchiveSettings = {
+    password?: string;
+}
+
+export type PharmacySettings = {
     password?: string;
 }
 

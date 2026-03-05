@@ -45,6 +45,7 @@ import type {
   User,
   ActivityLog,
   ArchiveSettings,
+  PharmacySettings,
   PatientStatus,
   ArchiveCounts,
   Medication,
@@ -699,7 +700,7 @@ export async function updateColonias(colonias: Colonia[]) {
 export async function getAnnouncements() { return (await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] })).messages; }
 export async function updateAnnouncements(m: string[]) { return setSettingsDoc('announcements', { messages: m.slice(0, 4) }); }
 
-export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true }); }
+export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true }); }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
 
 export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false, password: '' }); }
@@ -790,7 +791,11 @@ export async function updateUsers(users: User[]) {
 export async function getArchiveSettings() { return getSettingsDoc<ArchiveSettings>('archiveSettings', { password: '' }); }
 export async function updateArchiveSettings(s: ArchiveSettings) { return setSettingsDoc('archiveSettings', s); }
 
+export async function getPharmacySettings() { return getSettingsDoc<PharmacySettings>('pharmacySettings', { password: '' }); }
+export async function updatePharmacySettings(s: PharmacySettings) { return setSettingsDoc('pharmacySettings', s); }
+
 export async function verifyArchivePassword(p: string) { const s = await getArchiveSettings(); return { success: s.password === p }; }
+export async function verifyPharmacyPassword(p: string) { const s = await getPharmacySettings(); return { success: s.password === p }; }
 export async function verifyClinicPassword(id: string, p: string) { const c = await getClinicById(id); return { success: c?.password === p }; }
 export async function verifyLabPassword(p: string) { const s = await getLabSettings(); return { success: s.password === p }; }
 export async function verifyXRayPassword(p: string) { const s = await getXRaySettings(); return { success: s.password === p }; }

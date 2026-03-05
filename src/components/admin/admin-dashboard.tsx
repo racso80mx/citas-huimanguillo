@@ -71,7 +71,7 @@ import { ModuleManager } from './module-manager';
 import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
 import { ArchiveSettingsManager } from './archive-settings-manager';
-import { PharmacyManager } from './pharmacy-manager';
+import { PharmacySettingsManager } from './pharmacy-settings-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -183,7 +183,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       case 'today':
       default:
         const todayStart = startOfDay(now);
-        todayEnd = endOfDay(now);
+        const todayEnd = endOfDay(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
           return isWithinInterval(appDate, { start: todayStart, end: todayEnd });
@@ -401,9 +401,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
-          <TabsTrigger value="farmacia">Farmacia</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
           <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
           <TabsTrigger value="rayos-x">Rayos X</TabsTrigger>
@@ -416,6 +415,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ModuleManager />
                 <ClinicsManager />
                 <ArchiveSettingsManager />
+                <PharmacySettingsManager />
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
                  <Card>
@@ -435,10 +435,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </Card>
                 <ActivityLogViewer />
             </div>
-        </TabsContent>
-
-        <TabsContent value="farmacia" className="mt-6">
-            <PharmacyManager />
         </TabsContent>
         
         <TabsContent value="citas" className="mt-6">

@@ -221,6 +221,20 @@ export async function deleteAllMedications() {
   return data.deleteAllMedications();
 }
 
+export async function getPharmacySettings() {
+  return data.getPharmacySettings();
+}
+
+export async function updatePharmacySettings(settings: any) {
+  const res = await data.updatePharmacySettings(settings);
+  revalidatePath('/farmacia');
+  return res;
+}
+
+export async function verifyPharmacyPassword(password: string) {
+  return data.verifyPharmacyPassword(password);
+}
+
 // =====================================================================
 // SETTINGS ACTIONS
 // =====================================================================

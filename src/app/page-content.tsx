@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive } from 'lucide-react';
+import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
@@ -49,6 +49,13 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
       href: '/archivo',
       icon: <Archive className="h-10 w-10 text-primary" />,
       enabled: moduleSettings.archivoEnabled,
+    },
+    {
+      title: 'Farmacia',
+      description: 'Gestión de inventario de medicamentos.',
+      href: '/farmacia',
+      icon: <Pill className="h-10 w-10 text-primary" />,
+      enabled: moduleSettings.farmaciaEnabled,
     },
   ];
 
