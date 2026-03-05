@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
 import {
@@ -599,7 +600,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         {cloningClinic.bookingMode === 'time' && (
                           <>
                             <Label>Selecciona una Hora</Label>
-                             <Select onValueChange={newCloneTime} value={newCloneTime}>
+                             <Select onValueChange={setNewCloneTime} value={newCloneTime}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un horario disponible..." />
                               </SelectTrigger>
