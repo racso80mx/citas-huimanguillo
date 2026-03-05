@@ -275,3 +275,23 @@ export type ArchiveCounts = {
   bajaTemporal: number;
   bajaDefinitiva: number;
 };
+
+export type Medication = {
+  id: string;
+  claveCuadroBasico: string;
+  descripcion: string;
+  grupo: string;
+  existencia: number;
+  precioUnitario: number;
+  totalImporte: number;
+  lote: string;
+  proveedor: string;
+  rfcProveedor: string;
+  almacen: string;
+  fuenteFinanciamiento: string;
+  fechaCaducidad: string;
+  ordenSuministro: string;
+  tipoInsumo: string;
+  numeroContrato: string;
+  updatedAt?: string;
+};

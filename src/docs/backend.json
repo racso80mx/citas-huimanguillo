@@ -98,6 +98,30 @@
           }
         }
       },
+      "medications": {
+        "description": "Stores pharmacy inventory records.",
+        "documents": {
+          "$medicationId": {
+            "fields": {
+              "claveCuadroBasico": { "type": "string" },
+              "descripcion": { "type": "string" },
+              "grupo": { "type": "string" },
+              "existencia": { "type": "number" },
+              "precioUnitario": { "type": "number" },
+              "totalImporte": { "type": "number" },
+              "lote": { "type": "string" },
+              "proveedor": { "type": "string" },
+              "rfcProveedor": { "type": "string" },
+              "almacen": { "type": "string" },
+              "fuenteFinanciamiento": { "type": "string" },
+              "fechaCaducidad": { "type": "string" },
+              "ordenSuministro": { "type": "string" },
+              "tipoInsumo": { "type": "string" },
+              "numeroContrato": { "type": "string" }
+            }
+          }
+        }
+      },
       "clinics": {
         "description": "Configuration for each clinic (Núcleo Básico).",
         "documents": {

@@ -32,6 +32,7 @@ import {
   UserX,
   PlusCircle,
   RefreshCw,
+  Pill,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -63,6 +64,7 @@ import { LabSettingsManager } from '../admin/lab-settings-manager';
 import { XRaySettingsManager } from '../admin/x-ray-settings-manager';
 import { UltrasoundSettingsManager } from '../admin/ultrasound-settings-manager';
 import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
+import { MedicationInventoryDialog } from './medication-inventory-dialog';
 import Link from 'next/link';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
@@ -82,6 +84,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isClient, setIsClient] = useState(false);
+  const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -358,8 +361,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   return (
     <div className="space-y-8 px-4 sm:px-6 lg:px-8 py-8 md:py-12">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
+          <div className="min-w-[300px]">
             <CardTitle className="text-3xl font-bold font-headline">
               Reportes de Citas: {entity.name}
             </CardTitle>
@@ -368,10 +371,16 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               citas.
             </CardDescription>
           </div>
-          <Button variant="outline" onClick={onLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Cerrar Sesión
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="default" className="bg-primary hover:bg-primary/90" onClick={() => setIsMedicationDialogOpen(true)}>
+                <Pill className="mr-2 h-4 w-4" />
+                Consultar Farmacia
+            </Button>
+            <Button variant="outline" onClick={onLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+            </Button>
+          </div>
         </CardHeader>
       </Card>
 
@@ -519,6 +528,11 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       <div className="w-full mt-8">
         {renderSettingsManager()}
       </div>
+
+      <MedicationInventoryDialog 
+        isOpen={isMedicationDialogOpen} 
+        onClose={() => setIsMedicationDialogOpen(false)} 
+      />
     </div>
   );
 }

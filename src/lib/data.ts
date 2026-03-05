@@ -47,6 +47,7 @@ import type {
   ArchiveSettings,
   PatientStatus,
   ArchiveCounts,
+  Medication,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -800,6 +801,72 @@ export async function getLogs(): Promise<ActivityLog[]> {
   const db = getDb();
   const snap = await getDocs(query(collection(db, 'activityLog'), orderBy('timestamp', 'desc'), limit(500)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as ActivityLog);
+}
+
+// =====================================================================
+// PHARMACY
+// =====================================================================
+
+export async function getMedications(): Promise<Medication[]> {
+  const db = getDb();
+  const snap = await getDocs(query(collection(db, 'medications'), limit(5000)));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Medication);
+}
+
+export async function bulkInsertMedications(chunk: any[]) {
+  const db = getDb();
+  if (!chunk || chunk.length === 0) return { success: false };
+  try {
+    const batch = writeBatch(db);
+    let processed = 0;
+    for (const raw of chunk) {
+      const clave = String(raw['CLAVE DE CUADRO BASICO'] || '').trim();
+      const desc = String(raw['DESCRIPCIÓN'] || '').trim().toUpperCase();
+      
+      if (!clave && !desc) continue;
+
+      const medData: Partial<Medication> = {
+        claveCuadroBasico: clave,
+        descripcion: desc,
+        grupo: String(raw['GRUPO'] || '').trim(),
+        existencia: Number(raw['EXISTENCIA']) || 0,
+        precioUnitario: Number(raw['PRECIO UNITARIO']) || 0,
+        totalImporte: Number(raw['TOTAL IMPORTE']) || 0,
+        lote: String(raw['LOTE'] || '').trim(),
+        proveedor: String(raw['PROVEEDOR'] || '').trim(),
+        rfcProveedor: String(raw['RFC PROVEEDOR'] || '').trim(),
+        almacen: String(raw['ALMACEN'] || '').trim(),
+        fuenteFinanciamiento: String(raw['FUENTE FINANCIAMIENTO'] || '').trim(),
+        fechaCaducidad: String(raw['FECHA CADUCIDAD'] || '').trim(),
+        ordenSuministro: String(raw['ORDEN SUMINISTRO'] || '').trim(),
+        tipoInsumo: String(raw['TIPO_INSUMO'] || '').trim(),
+        numeroContrato: String(raw['NUMERO DE CONTRATO'] || '').trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // We use clave + lote + descripcion as a pseudo-unique ID to update existing records or create new ones
+      const docId = `med-${clave}-${medData.lote}-${desc.substring(0, 20).replace(/\s/g, '_')}`.replace(/[^a-zA-Z0-9-_]/g, '');
+      batch.set(doc(db, 'medications', docId), medData, { merge: true });
+      processed++;
+    }
+    await batch.commit();
+    return { success: true, processedCount: processed };
+  } catch (e: any) {
+    console.error("Bulk medication error:", e);
+    return { success: false, message: e.message };
+  }
+}
+
+export async function deleteAllMedications() {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'medications'));
+  const chunks = chunkArray(snap.docs, 500);
+  for (const chunk of chunks) {
+    const batch = writeBatch(db);
+    chunk.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  return { success: true };
 }
 
 // =====================================================================

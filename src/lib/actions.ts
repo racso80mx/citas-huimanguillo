@@ -206,6 +206,22 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
 }
 
 // =====================================================================
+// PHARMACY ACTIONS
+// =====================================================================
+
+export async function getMedications() {
+  return data.getMedications();
+}
+
+export async function bulkInsertMedications(chunk: any[]) {
+  return data.bulkInsertMedications(chunk);
+}
+
+export async function deleteAllMedications() {
+  return data.deleteAllMedications();
+}
+
+// =====================================================================
 // SETTINGS ACTIONS
 // =====================================================================
 
