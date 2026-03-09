@@ -16,8 +16,9 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
         (item) => {
             const baseData: any = {
                 'Folio': item.appointmentNumber,
-                'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
+                'Fecha Cita': format(parseISO(item.date), 'dd/MM/yyyy'),
                 'Hora': item.time,
+                'Fecha Registro': item.createdAt ? format(parseISO(item.createdAt), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A',
                 'Estado': item.status,
                 'Paciente': item.patient ? `${item.patient.name} ${item.patient.paternalLastName} ${item.patient.maternalLastName}`: 'N/A',
                 'CURP': item.patient?.curp || 'N/A',

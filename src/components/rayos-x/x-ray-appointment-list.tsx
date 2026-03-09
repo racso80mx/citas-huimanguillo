@@ -135,6 +135,10 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
              aValue = new Date(a.date).getTime();
              bValue = new Date(b.date).getTime();
              break;
+          case 'createdAt':
+             aValue = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+             bValue = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+             break;
           default:
             aValue = a[sortConfig.key as keyof XRayAppointment];
             bValue = b[sortConfig.key as keyof XRayAppointment];
@@ -336,6 +340,7 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
           <TableRow>
             <TableHead><Button variant="ghost" onClick={() => requestSort('appointmentNumber')}>Folio {getSortIcon('appointmentNumber')}</Button></TableHead>
             <TableHead className="w-[120px]"><Button variant="ghost" onClick={() => requestSort('date')}>Fecha / Hora {getSortIcon('date')}</Button></TableHead>
+            {isAdmin && <TableHead><Button variant="ghost" onClick={() => requestSort('createdAt')}>Registro {getSortIcon('createdAt')}</Button></TableHead>}
             <TableHead><Button variant="ghost" onClick={() => requestSort('patientName')}>Paciente {getSortIcon('patientName')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('curp')}>CURP {getSortIcon('curp')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('phoneNumber')}>Teléfono {getSortIcon('phoneNumber')}</Button></TableHead>
@@ -352,6 +357,11 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
                 <span className='block text-xs text-muted-foreground'>{app.time}</span>
               </TableCell>
+              {isAdmin && (
+                <TableCell className="text-xs text-muted-foreground">
+                  {app.createdAt ? format(parseISO(app.createdAt), 'dd/MM/yy HH:mm', { locale: es }) : 'N/A'}
+                </TableCell>
+              )}
               <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">

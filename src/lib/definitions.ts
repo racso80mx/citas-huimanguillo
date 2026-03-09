@@ -68,6 +68,7 @@ export type Appointment = {
   status: AppointmentStatus;
   patient: Patient;
   isNewborn?: boolean;
+  createdAt?: string; // ISO date of creation
 };
 
 export enum ClinicType {
@@ -155,6 +156,7 @@ export type LabAppointment = {
     status: AppointmentStatus;
     patient: Patient;
     patientType: PatientType;
+    createdAt?: string;
 }
 
 export type LabSettings = {
@@ -183,6 +185,7 @@ export type XRayAppointment = {
     status: AppointmentStatus;
     patient: Patient;
     patientType: PatientType;
+    createdAt?: string;
 }
 
 export type XRaySettings = {
@@ -212,6 +215,7 @@ export type UltrasoundAppointment = {
     status: AppointmentStatus;
     patient: Patient;
     patientType: PatientType;
+    createdAt?: string;
 }
 
 export type UltrasoundSettings = {
@@ -245,6 +249,7 @@ export type VaccineAppointment = {
   status: AppointmentStatus;
   patient: Patient; // Patient data might be partial for newborns
   patientType: PatientType;
+  createdAt?: string;
 };
 
 export type VaccineSettings = {
