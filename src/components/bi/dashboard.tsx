@@ -36,9 +36,9 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
                 filterFn = (app) => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd });
                 break;
             case 'range':
-                if (dateRange?.from && dateRange?.to) {
+                if (dateRange?.from) {
                     const rangeStart = startOfDay(dateRange.from);
-                    const rangeEnd = endOfDay(dateRange.to);
+                    const rangeEnd = endOfDay(dateRange.to || dateRange.from);
                     filterFn = (app) => isWithinInterval(parseISO(app.date), { start: rangeStart, end: rangeEnd });
                 } else {
                     return null; // Don't filter if range is incomplete

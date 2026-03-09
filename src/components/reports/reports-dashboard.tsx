@@ -151,12 +151,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         };
         break;
       case 'range':
-        if (dateRange?.from && dateRange.to) {
+        if (dateRange?.from) {
           const rangeStart = startOfDay(dateRange.from);
-          const rangeEnd = endOfDay(dateRange.to);
+          const rangeEnd = endOfDay(dateRange.to || dateRange.from);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
-            return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
+            return appDate >= rangeStart && appDate <= rangeEnd;
           };
         } else {
           return [];

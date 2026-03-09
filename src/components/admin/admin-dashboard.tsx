@@ -170,9 +170,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         };
         break;
       case 'range':
-        if (dateRange?.from && dateRange?.to) {
+        if (dateRange?.from) {
           const rangeStart = startOfDay(dateRange.from);
-          const rangeEnd = endOfDay(dateRange.to);
+          // Si no hay fecha final (to), usamos la fecha de inicio (from) para filtrar un solo día
+          const rangeEnd = endOfDay(dateRange.to || dateRange.from);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
             return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
@@ -234,7 +235,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
-    dateRange?.from && range?.from && dateRange.from.getTime() === range.from.getTime() ? setDateRange(undefined) : setDateRange(range);
+    // Si ya hay una fecha de inicio y vuelves a clicar la misma sin fecha final, limpiamos
+    if (dateRange?.from && range?.from && !range.to && dateRange.from.getTime() === range.from.getTime() && !dateRange.to) {
+        setDateRange(undefined);
+        return;
+    }
+    setDateRange(range);
     setActiveFilter('range');
   };
 
