@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -51,10 +52,7 @@ export default function LabPageContent({
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
-  const [allStudies] = React.useState<LabStudy[]>(initialStudies);
   const [settings] = React.useState<LabSettings>(initialSettings);
-  const [announcements] = React.useState<string[]>(initialAnnouncements);
-  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -69,7 +67,6 @@ export default function LabPageContent({
         getLabAppointments(),
         getHolidays()
       ]);
-      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -247,7 +244,7 @@ export default function LabPageContent({
                     3. Selecciona tus estudios
                   </h3>
                   <LabStudiesSelector
-                    allStudies={allStudies}
+                    allStudies={initialStudies}
                     selectedStudies={selectedStudies}
                     onSelectionChange={handleStudiesChange}
                   />
@@ -268,7 +265,7 @@ export default function LabPageContent({
                   onBookingSuccess={refreshData}
                   dailySlots={settings.dailySlots}
                   weekendBookingEnabled={settings.weekendBookingEnabled}
-                  announcements={announcements}
+                  announcements={initialAnnouncements}
                 />
               </div>
             </div>

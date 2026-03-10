@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import type { Vaccine } from '@/lib/definitions';
@@ -47,39 +48,45 @@ export function VaccineSelector({
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-72 w-full pr-4">
-           <div className="space-y-4">
-            {allVaccines.map((vaccine) => (
-              <div
-                key={vaccine.id}
-                className="flex items-start gap-4 p-2 rounded-md hover:bg-accent/50 cursor-pointer"
-                onClick={() => handleVaccineToggle(vaccine)}
-              >
-                <Checkbox
-                  id={vaccine.id}
-                  checked={selectedVaccines.some((v) => v.id === vaccine.id)}
-                  onCheckedChange={() => handleVaccineToggle(vaccine)}
-                  className="mt-1"
-                />
-                <div className="grid gap-1.5 leading-none flex-1">
-                  <Label
-                    htmlFor={vaccine.id}
-                    className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {vaccine.name}
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Protege contra:</strong> {vaccine.description}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Edad:</strong> {vaccine.applicationAge}
-                  </p>
-                   <p className="text-sm text-muted-foreground">
-                    <strong>Sexo:</strong> {vaccine.sex}
-                  </p>
+           {allVaccines.length > 0 ? (
+             <div className="space-y-4">
+              {allVaccines.map((vaccine) => (
+                <div
+                  key={vaccine.id}
+                  className="flex items-start gap-4 p-2 rounded-md hover:bg-accent/50 cursor-pointer"
+                  onClick={() => handleVaccineToggle(vaccine)}
+                >
+                  <Checkbox
+                    id={vaccine.id}
+                    checked={selectedVaccines.some((v) => v.id === vaccine.id)}
+                    onCheckedChange={() => handleVaccineToggle(vaccine)}
+                    className="mt-1"
+                  />
+                  <div className="grid gap-1.5 leading-none flex-1">
+                    <Label
+                      htmlFor={vaccine.id}
+                      className="font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {vaccine.name}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Protege contra:</strong> {vaccine.description}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Edad:</strong> {vaccine.applicationAge}
+                    </p>
+                     <p className="text-sm text-muted-foreground">
+                      <strong>Sexo:</strong> {vaccine.sex}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+           ) : (
+             <div className="text-center py-10 text-muted-foreground italic">
+               No hay vacunas disponibles para esta selección en este momento.
+             </div>
+           )}
         </ScrollArea>
       </CardContent>
     </Card>

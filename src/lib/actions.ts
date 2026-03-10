@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -240,41 +241,117 @@ export async function verifyPharmacyPassword(password: string) {
 // =====================================================================
 
 export async function getClinics() { return data.getClinics(); }
-export async function updateClinics(clinics: any[]) { return data.updateClinics(clinics); }
+export async function updateClinics(clinics: any[]) { 
+  const res = await data.updateClinics(clinics);
+  revalidatePath('/citas-medicas');
+  revalidatePath('/admin');
+  revalidatePath('/reports');
+  revalidatePath('/archivo');
+  return res;
+}
+
 export async function getColonias() { return data.getColonias(); }
-export async function updateColonias(colonias: any[]) { return data.updateColonias(colonias); }
+export async function updateColonias(colonias: any[]) {
+  const res = await data.updateColonias(colonias);
+  revalidatePath('/citas-medicas');
+  revalidatePath('/vacunas');
+  revalidatePath('/admin');
+  revalidatePath('/archivo');
+  return res;
+}
 
 export async function getAnnouncements() { return data.getAnnouncements(); }
-export async function updateAnnouncements(messages: string[]) { return data.updateAnnouncements(messages); }
+export async function updateAnnouncements(messages: string[]) {
+  const res = await data.updateAnnouncements(messages);
+  revalidatePath('/citas-medicas');
+  revalidatePath('/laboratorio');
+  revalidatePath('/rayos-x');
+  revalidatePath('/ultrasonidos');
+  revalidatePath('/vacunas');
+  return res;
+}
 
 export async function getModuleSettings() { return data.getModuleSettings(); }
-export async function updateModuleSettings(settings: any) { return data.updateModuleSettings(settings); }
+export async function updateModuleSettings(settings: any) {
+  const res = await data.updateModuleSettings(settings);
+  revalidatePath('/');
+  revalidatePath('/admin');
+  return res;
+}
 
 export async function getLabSettings() { return data.getLabSettings(); }
-export async function updateLabSettings(settings: any) { return data.updateLabSettings(settings); }
+export async function updateLabSettings(settings: any) {
+  const res = await data.updateLabSettings(settings);
+  revalidatePath('/laboratorio');
+  revalidatePath('/reports');
+  return res;
+}
+
 export async function getLabStudies() { return data.getLabStudies(); }
-export async function updateLabStudies(studies: any[]) { return data.updateLabStudies(studies); }
+export async function updateLabStudies(studies: any[]) {
+  const res = await data.updateLabStudies(studies);
+  revalidatePath('/laboratorio');
+  revalidatePath('/reports');
+  return res;
+}
 
 export async function getXRaySettings() { return data.getXRaySettings(); }
-export async function updateXRaySettings(settings: any) { return data.updateXRaySettings(settings); }
+export async function updateXRaySettings(settings: any) {
+  const res = await data.updateXRaySettings(settings);
+  revalidatePath('/rayos-x');
+  revalidatePath('/reports');
+  return res;
+}
+
 export async function getXRayStudies() { return data.getXRayStudies(); }
-export async function updateXRayStudies(studies: any[]) { return data.updateXRayStudies(studies); }
+export async function updateXRayStudies(studies: any[]) {
+  const res = await data.updateXRayStudies(studies);
+  revalidatePath('/rayos-x');
+  revalidatePath('/reports');
+  return res;
+}
 
 export async function getUltrasoundSettings() { return data.getUltrasoundSettings(); }
-export async function updateUltrasoundSettings(settings: any) { return data.updateUltrasoundSettings(settings); }
+export async function updateUltrasoundSettings(settings: any) {
+  const res = await data.updateUltrasoundSettings(settings);
+  revalidatePath('/ultrasonidos');
+  revalidatePath('/reports');
+  return res;
+}
+
 export async function getUltrasoundStudies() { return data.getUltrasoundStudies(); }
-export async function updateUltrasoundStudies(studies: any[]) { return data.updateUltrasoundStudies(studies); }
+export async function updateUltrasoundStudies(studies: any[]) {
+  const res = await data.updateUltrasoundStudies(studies);
+  revalidatePath('/ultrasonidos');
+  revalidatePath('/reports');
+  return res;
+}
 
 export async function getVaccineSettings() { return data.getVaccineSettings(); }
-export async function updateVaccineSettings(settings: any) { return data.updateVaccineSettings(settings); }
+export async function updateVaccineSettings(settings: any) {
+  const res = await data.updateVaccineSettings(settings);
+  revalidatePath('/vacunas');
+  revalidatePath('/reports');
+  return res;
+}
+
 export async function getVaccines() { return data.getVaccines(); }
-export async function updateVaccines(vaccines: any[]) { return data.updateVaccines(vaccines); }
+export async function updateVaccines(vaccines: any[]) {
+  const res = await data.updateVaccines(vaccines);
+  revalidatePath('/vacunas');
+  revalidatePath('/reports');
+  return res;
+}
 
 export async function getUsers() { return data.getUsers(); }
 export async function updateUsers(users: any[]) { return data.updateUsers(users); }
 
 export async function getArchiveSettings() { return data.getArchiveSettings(); }
-export async function updateArchiveSettings(settings: any) { return data.updateArchiveSettings(settings); }
+export async function updateArchiveSettings(settings: any) {
+  const res = await data.updateArchiveSettings(settings);
+  revalidatePath('/archivo');
+  return res;
+}
 
 export async function getHolidays() { return data.getHolidays(); }
 export async function updateHolidays(holidays: Holiday[]) {

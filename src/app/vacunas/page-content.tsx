@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -61,19 +62,15 @@ export default function VaccinePageContent({
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
-  const [allVaccines] = React.useState<Vaccine[]>(initialVaccines);
   const [settings] = React.useState<VaccineSettings>(initialSettings);
-  const [colonias] = React.useState<Colonia[]>(initialColonias);
-  const [clinics] = React.useState<Clinic[]>(initialClinics);
-  const [announcements] = React.useState<string[]>(initialAnnouncements);
-  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
-
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
 
   const isNewborn = patientType === PatientType.RecienNacido;
-  const availableVaccines = React.useMemo(() => allVaccines.filter(v => v.available), [allVaccines]);
+  
+  // Use props directly to ensure reactivity with revalidation
+  const availableVaccines = React.useMemo(() => initialVaccines.filter(v => v.available), [initialVaccines]);
 
   const generateTimeSlots = (): string[] => {
     if (!settings || !settings.startTime || !settings.endTime) return [];
@@ -99,7 +96,6 @@ export default function VaccinePageContent({
         getVaccineAppointments(),
         getHolidays()
       ]);
-      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -224,8 +220,8 @@ export default function VaccinePageContent({
 }, [selectedDayAvailability, allTimeSlots]);
   
   const coloniaOptions = React.useMemo(() => {
-    const options = colonias.map(colonia => {
-        const clinic = clinics.find(c => c.id === colonia.clinicId);
+    const options = initialColonias.map(colonia => {
+        const clinic = initialClinics.find(c => c.id === colonia.clinicId);
         return {
             value: colonia.id,
             label: `${colonia.name} (${clinic?.name || 'N/A'})`,
@@ -244,10 +240,10 @@ export default function VaccinePageContent({
     });
 
     return options;
-  }, [colonias, clinics]);
+  }, [initialColonias, initialClinics]);
 
-  const selectedColonia = colonias.find(c => c.id === selectedColoniaId);
-  const selectedClinic = clinics.find(c => c.id === selectedColonia?.clinicId);
+  const selectedColonia = initialColonias.find(c => c.id === selectedColoniaId);
+  const selectedClinic = initialClinics.find(c => c.id === selectedColonia?.clinicId);
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -418,7 +414,7 @@ export default function VaccinePageContent({
                   clinicId={selectedClinic?.id}
                   coloniaName={selectedColonia?.name}
                   onBookingSuccess={refreshData}
-                  announcements={announcements}
+                  announcements={initialAnnouncements}
                 />
               </div>
             </div>

@@ -1,3 +1,4 @@
+
 'use client';
 import React from 'react';
 import Image from 'next/image';
@@ -54,10 +55,7 @@ export default function XRayPageContent({
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
-  const [allStudies] = React.useState<XRayStudy[]>(initialStudies);
   const [settings] = React.useState<XRaySettings>(initialSettings);
-  const [announcements] = React.useState<string[]>(initialAnnouncements);
-  const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -87,7 +85,6 @@ export default function XRayPageContent({
         getXRayAppointments(),
         getHolidays()
       ]);
-      setHolidays(freshHolidays);
 
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -188,7 +185,7 @@ export default function XRayPageContent({
   };
   
   const handleStudyChange = (studyId: string) => {
-    const study = allStudies.find(s => s.id === studyId);
+    const study = initialStudies.find(s => s.id === studyId);
     setSelectedStudy(study);
   }
 
@@ -208,7 +205,7 @@ export default function XRayPageContent({
     return allTimeSlots.filter(slot => !takenTimes.includes(slot));
 }, [selectedDayAvailability, allTimeSlots]);
 
-  const availableStudies = allStudies.filter(s => s.available);
+  const availableStudies = initialStudies.filter(s => s.available);
 
 
   return (
@@ -365,7 +362,7 @@ export default function XRayPageContent({
                   selectedStudy={selectedStudy}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
-                  announcements={announcements}
+                  announcements={initialAnnouncements}
                 />
               </div>
             </div>
