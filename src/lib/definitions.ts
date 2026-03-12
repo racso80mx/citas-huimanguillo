@@ -279,6 +279,14 @@ export type PharmacySettings = {
     password?: string;
 }
 
+export type BISettings = {
+    password?: string;
+}
+
+export type AdminSettings = {
+    password?: string;
+}
+
 export type ArchiveCounts = {
   total: number;
   vigente: number;

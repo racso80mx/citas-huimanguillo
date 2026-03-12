@@ -46,6 +46,8 @@ import type {
   ActivityLog,
   ArchiveSettings,
   PharmacySettings,
+  BISettings,
+  AdminSettings,
   PatientStatus,
   ArchiveCounts,
   Medication,
@@ -795,6 +797,12 @@ export async function updateArchiveSettings(s: ArchiveSettings) { return setSett
 export async function getPharmacySettings() { return getSettingsDoc<PharmacySettings>('pharmacySettings', { password: '' }); }
 export async function updatePharmacySettings(s: PharmacySettings) { return setSettingsDoc('pharmacySettings', s); }
 
+export async function getBISettings() { return getSettingsDoc<BISettings>('biSettings', { password: '' }); }
+export async function updateBISettings(s: BISettings) { return setSettingsDoc('biSettings', s); }
+
+export async function getAdminSettings() { return getSettingsDoc<AdminSettings>('adminSettings', { password: 'Hu1m4ngu1ll0' }); }
+export async function updateAdminSettings(s: AdminSettings) { return setSettingsDoc('adminSettings', s); }
+
 export async function verifyArchivePassword(p: string) { const s = await getArchiveSettings(); return { success: s.password === p }; }
 export async function verifyPharmacyPassword(p: string) { const s = await getPharmacySettings(); return { success: s.password === p }; }
 export async function verifyClinicPassword(id: string, p: string) { const c = await getClinicById(id); return { success: c?.password === p }; }
@@ -802,6 +810,8 @@ export async function verifyLabPassword(p: string) { const s = await getLabSetti
 export async function verifyXRayPassword(p: string) { const s = await getXRaySettings(); return { success: s.password === p }; }
 export async function verifyUltrasoundPassword(p: string) { const s = await getUltrasoundSettings(); return { success: s.password === p }; }
 export async function verifyVaccinePassword(p: string) { const s = await getVaccineSettings(); return { success: s.password === p }; }
+export async function verifyBIPassword(p: string) { const s = await getBISettings(); return { success: s.password === p }; }
+export async function verifyAdminPassword(p: string) { const s = await getAdminSettings(); return { success: s.password === p }; }
 
 export async function getLogs(): Promise<ActivityLog[]> {
   const db = getDb();

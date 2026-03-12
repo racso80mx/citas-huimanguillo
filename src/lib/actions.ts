@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -353,6 +352,19 @@ export async function updateArchiveSettings(settings: any) {
   return res;
 }
 
+export async function getBISettings() { return data.getBISettings(); }
+export async function updateBISettings(settings: any) {
+  const res = await data.updateBISettings(settings);
+  revalidatePath('/bi');
+  return res;
+}
+
+export async function getAdminSettings() { return data.getAdminSettings(); }
+export async function updateAdminSettings(settings: any) {
+  const res = await data.updateAdminSettings(settings);
+  return res;
+}
+
 export async function getHolidays() { return data.getHolidays(); }
 export async function updateHolidays(holidays: Holiday[]) {
   const res = await data.updateHolidays(holidays);
@@ -374,6 +386,8 @@ export async function verifyLabPassword(password: string) { return data.verifyLa
 export async function verifyXRayPassword(password: string) { return data.verifyXRayPassword(password); }
 export async function verifyUltrasoundPassword(password: string) { return data.verifyUltrasoundPassword(password); }
 export async function verifyVaccinePassword(password: string) { return data.verifyVaccinePassword(password); }
+export async function verifyBIPassword(password: string) { return data.verifyBIPassword(password); }
+export async function verifyAdminPassword(password: string) { return data.verifyAdminPassword(password); }
 
 export async function getLogs() { return data.getLogs(); }
 

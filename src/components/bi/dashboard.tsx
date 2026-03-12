@@ -1,23 +1,30 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import type { BIData } from '@/app/bi/page';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import type { ClinicType } from '@/lib/definitions';
+import type { ClinicType, Appointment, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Clinic, Colonia } from '@/lib/definitions';
 
-type FilterType = 'today' | 'week' | 'month' | 'range';
+export type BIData = {
+  appointments: Appointment[];
+  labAppointments: LabAppointment[];
+  xRayAppointments: XRayAppointment[];
+  ultrasoundAppointments: UltrasoundAppointment[];
+  vaccineAppointments: VaccineAppointment[];
+  clinics: Clinic[];
+  colonias: Colonia[];
+};
 
-export function BIDashboard({ initialData }: { initialData: BIData }) {
-    const [activeFilter, setActiveFilter] = useState<FilterType>('month');
+export function BIDashboard({ initialData, onLogout }: { initialData: BIData, onLogout?: () => void }) {
+    const [activeFilter, setActiveFilter] = useState<'today' | 'week' | 'month' | 'range'>('month');
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     const filteredData = useMemo(() => {
@@ -41,7 +48,7 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
                     const rangeEnd = endOfDay(dateRange.to || dateRange.from);
                     filterFn = (app) => isWithinInterval(parseISO(app.date), { start: rangeStart, end: rangeEnd });
                 } else {
-                    return null; // Don't filter if range is incomplete
+                    return null;
                 }
                 break;
             case 'today':
@@ -124,9 +131,16 @@ export function BIDashboard({ initialData }: { initialData: BIData }) {
     return (
         <div className="container mx-auto py-8 space-y-8">
             <Card>
-                <CardHeader>
-                    <CardTitle className="text-3xl font-bold font-headline">Panel de Business Intelligence</CardTitle>
-                    <CardDescription>Análisis de datos del sistema de citas.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-3xl font-bold font-headline">Panel de Business Intelligence</CardTitle>
+                        <CardDescription>Análisis de datos del sistema de citas.</CardDescription>
+                    </div>
+                    {onLogout && (
+                        <Button variant="outline" onClick={onLogout}>
+                            <LogOut className="mr-2 h-4 w-4" /> Salir del Panel
+                        </Button>
+                    )}
                 </CardHeader>
             </Card>
 

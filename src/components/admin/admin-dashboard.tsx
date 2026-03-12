@@ -26,6 +26,7 @@ import {
   Check,
   PlusCircle,
   DatabaseZap,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -72,6 +73,8 @@ import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
 import { ArchiveSettingsManager } from './archive-settings-manager';
 import { PharmacySettingsManager } from './pharmacy-settings-manager';
+import { BISettingsManager } from './bi-settings-manager';
+import { AdminPasswordManager } from './admin-password-manager';
 import { HolidaysManager } from './holidays-manager';
 
 type AdminDashboardProps = {
@@ -422,8 +425,22 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ModuleManager />
                 <ClinicsManager />
                 <HolidaysManager />
-                <ArchiveSettingsManager />
-                <PharmacySettingsManager />
+                
+                <Card className="border-primary/20 bg-primary/5 shadow-inner">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-primary">
+                            <ShieldCheck className="h-6 w-6" /> Seguridad de Módulos
+                        </CardTitle>
+                        <CardDescription>Establece las contraseñas de acceso para cada área del sistema.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid md:grid-cols-2 gap-6">
+                        <ArchiveSettingsManager />
+                        <PharmacySettingsManager />
+                        <BISettingsManager />
+                        <AdminPasswordManager />
+                    </CardContent>
+                </Card>
+
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
                  <Card>
@@ -446,6 +463,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </TabsContent>
         
         <TabsContent value="citas" className="mt-6">
+           {/* Contenido de Citas */}
            <div className="space-y-8">
             <Card className="w-full shadow-lg">
                 <CardHeader>

@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
+import { verifyAdminPassword } from '@/lib/actions';
 
 const formSchema = z.object({
   email: z.string().min(1, { message: 'El usuario es requerido.' }),
@@ -51,18 +52,19 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsPending(true);
 
-    // Hardcoded check for the SuperAdmin user
-    if (data.email === 'SuperAdmin' && data.password === 'Hu1m4ngu1ll0') {
-        onSuperAdminLogin();
-        toast({
-            title: 'Inicio de Sesión Exitoso',
-            description: 'Bienvenido, Super Administrador.',
-        });
-        setIsPending(false);
-        return;
+    if (data.email === 'SuperAdmin') {
+        const res = await verifyAdminPassword(data.password);
+        if (res.success) {
+            onSuperAdminLogin();
+            toast({
+                title: 'Inicio de Sesión Exitoso',
+                description: 'Bienvenido, Super Administrador.',
+            });
+            setIsPending(false);
+            return;
+        }
     }
     
-    // For any other case, it's incorrect.
     toast({
         title: 'Credenciales Incorrectas',
         description: 'Usuario o contraseña no válidos.',
