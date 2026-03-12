@@ -22,9 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
-import Image from 'next/image';
-import { logoBase64 } from '@/lib/logo-data';
+import { Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { verifyAdminPassword } from '@/lib/actions';
 
 const formSchema = z.object({
@@ -44,7 +42,7 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      email: 'SuperAdmin',
       password: '',
     },
   });
@@ -74,39 +72,31 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="w-full max-w-sm shadow-2xl">
-        <CardHeader className="text-center items-center">
-          <div className="text-primary mb-4">
-            <Image
-                src={logoBase64}
-                alt="Logo CitaMedicaFacil"
-                width={80}
-                height={80}
-                className="rounded-md"
-            />
-          </div>
-          <CardTitle className="text-2xl font-bold font-headline">
-            Acceso de Administrador
+    <div className="flex items-center justify-center min-h-[60vh] bg-background/50">
+      <Card className="w-full max-w-[450px] shadow-2xl border-none p-4 md:p-8">
+        <CardHeader className="text-center space-y-4 mb-4">
+          <CardTitle className="text-3xl font-bold font-headline tracking-tight">
+            Módulo de Administración
           </CardTitle>
-          <CardDescription>
-            Ingresa tus credenciales para continuar
+          <CardDescription className="text-base text-muted-foreground">
+            Este módulo es de acceso restringido. Ingresa tus credenciales.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Usuario</FormLabel>
+                    <FormLabel className="sr-only">Usuario</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="SuperAdmin"
                         {...field}
                         autoComplete="username"
+                        className="h-12 text-lg rounded-xl border-border/60 bg-muted/20"
                       />
                     </FormControl>
                     <FormMessage />
@@ -118,31 +108,29 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
+                    <FormLabel className="sr-only">Contraseña</FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Input
                           type={showPassword ? 'text' : 'password'}
-                          placeholder="Tu contraseña"
+                          placeholder="Contraseña"
                           {...field}
                           autoComplete="current-password"
+                          className="h-12 text-lg pr-12 rounded-xl border-border/60 bg-muted/20"
                         />
                       </FormControl>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute inset-y-0 right-0 h-full px-3"
+                        className="absolute inset-y-0 right-0 h-full px-3 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
+                          <EyeOff className="h-5 w-5 text-muted-foreground" />
                         ) : (
-                          <Eye className="h-4 w-4" />
+                          <Eye className="h-5 w-5 text-muted-foreground" />
                         )}
-                        <span className="sr-only">
-                          {showPassword ? 'Ocultar' : 'Mostrar'} contraseña
-                        </span>
                       </Button>
                     </div>
                     <FormMessage />
@@ -150,14 +138,18 @@ export function LoginForm({ onSuperAdminLogin }: LoginFormProps) {
                 )}
               />
             </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isPending} className="w-full">
+            <CardFooter className="pt-2">
+              <Button 
+                type="submit" 
+                disabled={isPending || !form.watch('password')} 
+                className="w-full h-14 text-xl font-bold rounded-xl transition-all hover:scale-[1.01] active:scale-95 bg-primary hover:bg-primary/90"
+              >
                 {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                 ) : (
-                  <LogIn className="mr-2 h-4 w-4" />
+                  <KeyRound className="mr-2 h-6 w-6" />
                 )}
-                {isPending ? 'Verificando...' : 'Ingresar'}
+                {isPending ? 'Verificando...' : 'Acceder'}
               </Button>
             </CardFooter>
           </form>
