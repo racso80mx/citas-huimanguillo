@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import { LabBookingForm } from '@/components/laboratorio/lab-booking-form';
@@ -14,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, LabStudy, LabSettings, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getLabAppointments, getHolidays } from '@/lib/actions';
+import { getLabAppointments, getHolidays, verifyLabPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell } from 'lucide-react';
 import {
@@ -33,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ModuleLoginForm } from '@/components/shared/module-login-form';
 
 type LabPageContentProps = {
   initialStudies: LabStudy[];
@@ -47,6 +47,8 @@ export default function LabPageContent({
   initialAnnouncements,
   initialHolidays,
 }: LabPageContentProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedStudies, setSelectedStudies] = React.useState<LabStudy[]>([]);
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
@@ -103,24 +105,30 @@ export default function LabPageContent({
   );
 
   React.useEffect(() => {
-    async function fetchInitialData() {
-      startTransition(async () => {
-        const today = new Date();
-        try {
-          await fetchAvailability(today.getFullYear(), today.getMonth());
-        } catch (error) {
-          console.error('Failed to fetch initial lab data:', error);
-          toast({
-            title: 'Error de Carga',
-            description:
-              'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
-            variant: 'destructive',
-          });
+    if (isAuthenticated) {
+        async function fetchInitialData() {
+            startTransition(async () => {
+                const today = new Date();
+                try {
+                await fetchAvailability(today.getFullYear(), today.getMonth());
+                } catch (error) {
+                console.error('Failed to fetch initial lab data:', error);
+                toast({
+                    title: 'Error de Carga',
+                    description:
+                    'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
+                    variant: 'destructive',
+                });
+                }
+            });
         }
-      });
+        fetchInitialData();
     }
-    fetchInitialData();
-  }, [fetchAvailability, toast]);
+  }, [fetchAvailability, toast, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <ModuleLoginForm title="Laboratorio" onVerify={verifyLabPassword} onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);

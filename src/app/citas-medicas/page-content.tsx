@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import { BookingForm } from '@/components/booking-form';
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, Colonia, Clinic, Holiday } from '@/lib/definitions';
 import { PatientType, BookingMode, ClinicType } from '@/lib/definitions';
-import { getAppointments, getClinics, getHolidays } from '@/lib/actions';
+import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital } from 'lucide-react';
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
+import { ModuleLoginForm } from '@/components/shared/module-login-form';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -37,6 +38,8 @@ type PageContentProps = {
 };
 
 export default function PageContent({ initialAnnouncements, initialColonias, initialClinics, initialHolidays }: PageContentProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
@@ -140,23 +143,35 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   }, []);
 
   React.useEffect(() => {
-    async function fetchInitialData() {
-        startTransition(async () => {
-            const today = new Date();
-            try {
-                await fetchAvailability(today.getFullYear(), today.getMonth());
-            } catch (error) {
-                console.error("Failed to fetch initial data:", error);
-                toast({
-                    title: "Error de Carga",
-                    description: "No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.",
-                    variant: "destructive",
-                });
-            }
-        });
+    if (isAuthenticated) {
+        async function fetchInitialData() {
+            startTransition(async () => {
+                const today = new Date();
+                try {
+                    await fetchAvailability(today.getFullYear(), today.getMonth());
+                } catch (error) {
+                    console.error("Failed to fetch initial data:", error);
+                    toast({
+                        title: "Error de Carga",
+                        description: "No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.",
+                        variant: "destructive",
+                    });
+                }
+            });
+        }
+        fetchInitialData();
     }
-    fetchInitialData();
-  }, [fetchAvailability, toast]);
+  }, [fetchAvailability, toast, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return (
+        <ModuleLoginForm 
+            title="Citas Médicas" 
+            onVerify={verifyCitasMedicasPassword} 
+            onSuccess={() => setIsAuthenticated(true)} 
+        />
+    );
+  }
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);

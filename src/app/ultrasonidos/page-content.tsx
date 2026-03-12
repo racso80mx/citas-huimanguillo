@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import { UltrasoundBookingForm } from '@/components/ultrasonidos/ultrasound-booking-form';
@@ -14,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, UltrasoundStudy, UltrasoundSettings, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getUltrasoundAppointments, getHolidays } from '@/lib/actions';
+import { getUltrasoundAppointments, getHolidays, verifyUltrasoundPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, Waves, UserCheck, Bell } from 'lucide-react';
 import {
@@ -35,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { timeSlots30Min } from '@/lib/time-slots';
+import { ModuleLoginForm } from '@/components/shared/module-login-form';
 
 type UltrasoundPageContentProps = {
   initialStudies: UltrasoundStudy[];
@@ -49,6 +49,8 @@ export default function UltrasoundPageContent({
   initialAnnouncements,
   initialHolidays,
 }: UltrasoundPageContentProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedStudy, setSelectedStudy] = React.useState<UltrasoundStudy | undefined>();
@@ -120,24 +122,30 @@ export default function UltrasoundPageContent({
   );
 
   React.useEffect(() => {
-    async function fetchInitialData() {
-      startTransition(async () => {
-        const today = new Date();
-        try {
-          await fetchAvailability(today.getFullYear(), today.getMonth());
-        } catch (error) {
-          console.error('Failed to fetch Ultrasound data:', error);
-          toast({
-            title: 'Error de Carga',
-            description:
-              'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
-            variant: 'destructive',
-          });
+    if (isAuthenticated) {
+        async function fetchInitialData() {
+            startTransition(async () => {
+                const today = new Date();
+                try {
+                await fetchAvailability(today.getFullYear(), today.getMonth());
+                } catch (error) {
+                console.error('Failed to fetch Ultrasound data:', error);
+                toast({
+                    title: 'Error de Carga',
+                    description:
+                    'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
+                    variant: 'destructive',
+                });
+                }
+            });
         }
-      });
+        fetchInitialData();
     }
-    fetchInitialData();
-  }, [fetchAvailability, toast]);
+  }, [fetchAvailability, toast, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <ModuleLoginForm title="Ultrasonidos" onVerify={verifyUltrasoundPassword} onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);

@@ -275,6 +275,7 @@ export async function updateModuleSettings(settings: any) {
   const res = await data.updateModuleSettings(settings);
   revalidatePath('/');
   revalidatePath('/admin');
+  revalidatePath('/citas-medicas');
   return res;
 }
 
@@ -388,6 +389,10 @@ export async function verifyUltrasoundPassword(password: string) { return data.v
 export async function verifyVaccinePassword(password: string) { return data.verifyVaccinePassword(password); }
 export async function verifyBIPassword(password: string) { return data.verifyBIPassword(password); }
 export async function verifyAdminPassword(password: string) { return data.verifyAdminPassword(password); }
+export async function verifyCitasMedicasPassword(password: string) { 
+    const settings = await data.getModuleSettings();
+    return { success: settings.citasMedicasPassword === password };
+}
 
 export async function getLogs() { return data.getLogs(); }
 

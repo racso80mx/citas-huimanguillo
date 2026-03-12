@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import { XRayBookingForm } from '@/components/rayos-x/x-ray-booking-form';
@@ -14,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, XRayStudy, XRaySettings, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getXRayAppointments, getHolidays } from '@/lib/actions';
+import { getXRayAppointments, getHolidays, verifyXRayPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, Stethoscope, UserCheck, Bell } from 'lucide-react';
 import {
@@ -35,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { timeSlots30Min } from '@/lib/time-slots';
+import { ModuleLoginForm } from '@/components/shared/module-login-form';
 
 type XRayPageContentProps = {
   initialStudies: XRayStudy[];
@@ -49,6 +49,8 @@ export default function XRayPageContent({
   initialAnnouncements,
   initialHolidays,
 }: XRayPageContentProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedStudy, setSelectedStudy] = React.useState<XRayStudy | undefined>();
@@ -120,24 +122,30 @@ export default function XRayPageContent({
   );
 
   React.useEffect(() => {
-    async function fetchInitialData() {
-      startTransition(async () => {
-        const today = new Date();
-        try {
-          await fetchAvailability(today.getFullYear(), today.getMonth());
-        } catch (error) {
-          console.error('Failed to fetch X-Ray data:', error);
-          toast({
-            title: 'Error de Carga',
-            description:
-              'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
-            variant: 'destructive',
-          });
+    if (isAuthenticated) {
+        async function fetchInitialData() {
+            startTransition(async () => {
+                const today = new Date();
+                try {
+                await fetchAvailability(today.getFullYear(), today.getMonth());
+                } catch (error) {
+                console.error('Failed to fetch X-Ray data:', error);
+                toast({
+                    title: 'Error de Carga',
+                    description:
+                    'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
+                    variant: 'destructive',
+                });
+                }
+            });
         }
-      });
+        fetchInitialData();
     }
-    fetchInitialData();
-  }, [fetchAvailability, toast]);
+  }, [fetchAvailability, toast, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <ModuleLoginForm title="Rayos X" onVerify={verifyXRayPassword} onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);

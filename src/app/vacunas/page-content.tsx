@@ -1,6 +1,5 @@
-
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import { AvailabilityCalendar } from '@/components/availability-calendar';
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import type { DailyAvailability, Vaccine, VaccineSettings, Colonia, Clinic, Holiday } from '@/lib/definitions';
 import { PatientType } from '@/lib/definitions';
-import { getVaccineAppointments, getHolidays } from '@/lib/actions';
+import { getVaccineAppointments, getHolidays, verifyVaccinePassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CalendarDays, ShieldPlus, UserCheck, MapPin, Bell } from 'lucide-react';
 import {
@@ -37,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { timeSlots10Min } from '@/lib/time-slots';
+import { ModuleLoginForm } from '@/components/shared/module-login-form';
 
 type VaccinePageContentProps = {
   initialVaccines: Vaccine[];
@@ -55,6 +55,8 @@ export default function VaccinePageContent({
   initialAnnouncements,
   initialHolidays,
 }: VaccinePageContentProps) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedVaccines, setSelectedVaccines] = React.useState<Vaccine[]>([]);
@@ -131,23 +133,29 @@ export default function VaccinePageContent({
   );
 
   React.useEffect(() => {
-    async function fetchInitialData() {
-      startTransition(async () => {
-        const today = new Date();
-        try {
-          await fetchAvailability(today.getFullYear(), today.getMonth());
-        } catch (error) {
-          console.error('Failed to fetch Vaccine data:', error);
-          toast({
-            title: 'Error de Carga',
-            description: 'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
-            variant: 'destructive',
-          });
+    if (isAuthenticated) {
+        async function fetchInitialData() {
+            startTransition(async () => {
+                const today = new Date();
+                try {
+                await fetchAvailability(today.getFullYear(), today.getMonth());
+                } catch (error) {
+                console.error('Failed to fetch Vaccine data:', error);
+                toast({
+                    title: 'Error de Carga',
+                    description: 'No se pudieron cargar los datos de disponibilidad. Por favor, recarga la página.',
+                    variant: 'destructive',
+                });
+                }
+            });
         }
-      });
+        fetchInitialData();
     }
-    fetchInitialData();
-  }, [fetchAvailability, toast]);
+  }, [fetchAvailability, toast, isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <ModuleLoginForm title="Vacunación" onVerify={verifyVaccinePassword} onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);

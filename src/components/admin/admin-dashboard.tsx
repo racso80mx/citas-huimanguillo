@@ -71,11 +71,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
 import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
-import { ArchiveSettingsManager } from './archive-settings-manager';
-import { PharmacySettingsManager } from './pharmacy-settings-manager';
-import { BISettingsManager } from './bi-settings-manager';
 import { AdminPasswordManager } from './admin-password-manager';
 import { HolidaysManager } from './holidays-manager';
+import { ModuleSecurityManager } from './module-security-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -426,20 +424,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <ClinicsManager />
                 <HolidaysManager />
                 
-                <Card className="border-primary/20 bg-primary/5 shadow-inner">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-primary">
-                            <ShieldCheck className="h-6 w-6" /> Seguridad de Módulos
-                        </CardTitle>
-                        <CardDescription>Establece las contraseñas de acceso para cada área del sistema.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid md:grid-cols-2 gap-6">
-                        <ArchiveSettingsManager />
-                        <PharmacySettingsManager />
-                        <BISettingsManager />
-                        <AdminPasswordManager />
-                    </CardContent>
-                </Card>
+                <ModuleSecurityManager />
+                <AdminPasswordManager />
 
                 <AnnouncementsManager />
                 <BackupManager onRestoreSuccess={fetchData} />
