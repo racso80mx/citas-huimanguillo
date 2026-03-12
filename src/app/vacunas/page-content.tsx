@@ -72,10 +72,9 @@ export default function VaccinePageContent({
 
   const isNewborn = patientType === PatientType.RecienNacido;
   
-  // Use props directly to ensure reactivity with revalidation
   const availableVaccines = React.useMemo(() => initialVaccines.filter(v => v.available), [initialVaccines]);
 
-  const generateTimeSlots = (): string[] => {
+  const generateTimeSlots = React.useCallback((): string[] => {
     if (!settings || !settings.startTime || !settings.endTime) return [];
     
     const startIndex = timeSlots10Min.findIndex(slot => slot.value === settings.startTime);
@@ -86,9 +85,9 @@ export default function VaccinePageContent({
     const slotsInRange = timeSlots10Min.slice(startIndex, endIndex).map(slot => slot.value);
     
     return slotsInRange.slice(0, settings.dailySlots);
-  };
+  }, [settings]);
   
-  const allTimeSlots = React.useMemo(generateTimeSlots, [settings]);
+  const allTimeSlots = React.useMemo(generateTimeSlots, [generateTimeSlots]);
 
   const fetchAvailability = React.useCallback(
     async (year: number, month: number) => {
@@ -153,6 +152,41 @@ export default function VaccinePageContent({
     }
   }, [fetchAvailability, toast, isAuthenticated]);
 
+  const selectedDayAvailability = React.useMemo(() => {
+    if (!selectedDate) return null;
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+    return availability.find((d) => d.date === dateString) || null;
+  }, [selectedDate, availability]);
+
+  const availableTimeSlots = React.useMemo(() => {
+    if (!selectedDayAvailability || selectedDayAvailability.availableSlots <= 0) return [];
+    const takenTimes = selectedDayAvailability.takenTimesByClinic['vaccine'] || [];
+    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
+  }, [selectedDayAvailability, allTimeSlots]);
+  
+  const coloniaOptions = React.useMemo(() => {
+    const options = initialColonias.map(colonia => {
+        const clinic = initialClinics.find(c => c.id === colonia.clinicId);
+        return {
+            value: colonia.id,
+            label: `${colonia.name} (${clinic?.name || 'N/A'})`,
+            keywords: `${colonia.name} ${clinic?.name || ''}`,
+            clinicName: clinic?.name || 'Z',
+            coloniaName: colonia.name
+        };
+    });
+
+    options.sort((a, b) => {
+        const clinicCompare = a.clinicName.localeCompare(b.clinicName);
+        if (clinicCompare !== 0) {
+            return clinicCompare;
+        }
+        return a.coloniaName.localeCompare(b.coloniaName);
+    });
+
+    return options;
+  }, [initialColonias, initialClinics]);
+
   if (!isAuthenticated) {
     return <ModuleLoginForm title="Vacunación" onVerify={verifyVaccinePassword} onSuccess={() => setIsAuthenticated(true)} />;
   }
@@ -215,41 +249,6 @@ export default function VaccinePageContent({
   const handleColoniaSelect = (coloniaId: string) => {
       setSelectedColoniaId(coloniaId);
   }
-
-   const selectedDayAvailability = React.useMemo(() => {
-    if (!selectedDate) return null;
-    const dateString = format(selectedDate, 'yyyy-MM-dd');
-    return availability.find((d) => d.date === dateString) || null;
-  }, [selectedDate, availability]);
-
-  const availableTimeSlots = React.useMemo(() => {
-    if (!selectedDayAvailability || selectedDayAvailability.availableSlots <= 0) return [];
-    const takenTimes = selectedDayAvailability.takenTimesByClinic['vaccine'] || [];
-    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
-}, [selectedDayAvailability, allTimeSlots]);
-  
-  const coloniaOptions = React.useMemo(() => {
-    const options = initialColonias.map(colonia => {
-        const clinic = initialClinics.find(c => c.id === colonia.clinicId);
-        return {
-            value: colonia.id,
-            label: `${colonia.name} (${clinic?.name || 'N/A'})`,
-            keywords: `${colonia.name} ${clinic?.name || ''}`,
-            clinicName: clinic?.name || 'Z',
-            coloniaName: colonia.name
-        };
-    });
-
-    options.sort((a, b) => {
-        const clinicCompare = a.clinicName.localeCompare(b.clinicName);
-        if (clinicCompare !== 0) {
-            return clinicCompare;
-        }
-        return a.coloniaName.localeCompare(b.coloniaName);
-    });
-
-    return options;
-  }, [initialColonias, initialClinics]);
 
   const selectedColonia = initialColonias.find(c => c.id === selectedColoniaId);
   const selectedClinic = initialClinics.find(c => c.id === selectedColonia?.clinicId);

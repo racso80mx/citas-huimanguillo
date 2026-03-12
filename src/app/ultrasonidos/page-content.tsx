@@ -64,7 +64,7 @@ export default function UltrasoundPageContent({
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
 
-  const generateTimeSlots = (): string[] => {
+  const generateTimeSlots = React.useCallback((): string[] => {
     if (!settings || !settings.startTime || !settings.endTime) return [];
     
     const startIndex = timeSlots30Min.findIndex(slot => slot.value === settings.startTime);
@@ -75,9 +75,9 @@ export default function UltrasoundPageContent({
     const slotsInRange = timeSlots30Min.slice(startIndex, endIndex).map(slot => slot.value);
     
     return slotsInRange.slice(0, settings.dailySlots);
-  };
+  }, [settings]);
 
-  const allTimeSlots = React.useMemo(generateTimeSlots, [settings]);
+  const allTimeSlots = React.useMemo(generateTimeSlots, [generateTimeSlots]);
 
   const fetchAvailability = React.useCallback(
     async (year: number, month: number) => {
@@ -143,6 +143,19 @@ export default function UltrasoundPageContent({
     }
   }, [fetchAvailability, toast, isAuthenticated]);
 
+  const selectedDayAvailability = React.useMemo(() => {
+    if (!selectedDate) return null;
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+    return availability.find((d) => d.date === dateString) || null;
+  }, [selectedDate, availability]);
+
+  const availableTimeSlots = React.useMemo(() => {
+    if (!selectedDayAvailability) return [];
+    if (selectedDayAvailability.availableSlots <= 0) return [];
+    const takenTimes = selectedDayAvailability.takenTimesByClinic['ultrasound'] || [];
+    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
+  }, [selectedDayAvailability, allTimeSlots]);
+
   if (!isAuthenticated) {
     return <ModuleLoginForm title="Ultrasonidos" onVerify={verifyUltrasoundPassword} onSuccess={() => setIsAuthenticated(true)} />;
   }
@@ -201,19 +214,6 @@ export default function UltrasoundPageContent({
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
   };
-
-   const selectedDayAvailability = React.useMemo(() => {
-    if (!selectedDate) return null;
-    const dateString = format(selectedDate, 'yyyy-MM-dd');
-    return availability.find((d) => d.date === dateString) || null;
-  }, [selectedDate, availability]);
-
-  const availableTimeSlots = React.useMemo(() => {
-    if (!selectedDayAvailability) return [];
-    if (selectedDayAvailability.availableSlots <= 0) return [];
-    const takenTimes = selectedDayAvailability.takenTimesByClinic['ultrasound'] || [];
-    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
-  }, [selectedDayAvailability, allTimeSlots]);
 
   const availableStudies = initialStudies.filter(s => s.available);
 

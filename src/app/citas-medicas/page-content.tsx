@@ -57,7 +57,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
 
-  const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
+  const generateDynamicTimeSlots = React.useCallback((startTimeStr: string, endTimeStr: string, duration: number): string[] => {
     if (!startTimeStr || !endTimeStr || !duration) return [];
     const slots: string[] = [];
     const start = new Date(`1970-01-01T${startTimeStr}:00`);
@@ -69,7 +69,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         current = new Date(current.getTime() + duration * 60000);
     }
     return slots;
-  };
+  }, []);
 
   const fetchAvailability = React.useCallback(async (year: number, month: number) => {
       const startDate = startOfMonth(new Date(year, month));
@@ -140,7 +140,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         });
       }
       setAvailability(availabilityResult);
-  }, []);
+  }, [generateDynamicTimeSlots]);
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -162,16 +162,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         fetchInitialData();
     }
   }, [fetchAvailability, toast, isAuthenticated]);
-
-  if (!isAuthenticated) {
-    return (
-        <ModuleLoginForm 
-            title="Citas Médicas" 
-            onVerify={verifyCitasMedicasPassword} 
-            onSuccess={() => setIsAuthenticated(true)} 
-        />
-    );
-  }
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
@@ -299,25 +289,17 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const allTimeSlots = React.useMemo(() => {
     if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
     return generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
-  }, [selectedClinic]);
+  }, [selectedClinic, generateDynamicTimeSlots]);
 
 
   const availableTimeSlots = React.useMemo(() => {
     if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Time) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
-    const timesToExclude = selectedClinic.breakTime ? [...takenTimes, selectedClinic.breakTime] : takenTimes;
     return allTimeSlots.filter(slot => !takenTimes.includes(slot) && slot !== selectedClinic.breakTime);
   }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
 
-  const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
-  const isTimeBooking = selectedClinic?.bookingMode === BookingMode.Time;
-  
-  const showColoniaStep = selectedClinicId && clinicHasColonias;
-  const showTimeAndFormStep = (selectedClinic && !clinicHasColonias) || selectedColoniaId;
-
-
   const availableTokens = React.useMemo(() => {
-    if (!selectedDayAvailability || !selectedClinic || !isTokenBooking) return [];
+    if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Token) return [];
     
     const totalSlots = selectedClinic.dailySlots;
     const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => i + 1);
@@ -330,8 +312,23 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     }).filter(Boolean) as number[];
 
     return allPossibleTokens.filter(token => !takenTokens.includes(token));
-  }, [selectedDayAvailability, selectedClinic, isTokenBooking]);
+  }, [selectedDayAvailability, selectedClinic]);
 
+  if (!isAuthenticated) {
+    return (
+        <ModuleLoginForm 
+            title="Citas Médicas" 
+            onVerify={verifyCitasMedicasPassword} 
+            onSuccess={() => setIsAuthenticated(true)} 
+        />
+    );
+  }
+
+  const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
+  const isTimeBooking = selectedClinic?.bookingMode === BookingMode.Time;
+  
+  const showColoniaStep = selectedClinicId && clinicHasColonias;
+  const showTimeAndFormStep = (selectedClinic && !clinicHasColonias) || selectedColoniaId;
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
