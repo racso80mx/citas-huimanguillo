@@ -1,3 +1,4 @@
+
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -175,10 +176,12 @@ export function UltrasoundBookingForm({
           description: `Tu cita de Ultrasonido con folio ${result.data.appointment.appointmentNumber} ha sido agendada con éxito.`
         });
 
-        // Abrir WhatsApp automáticamente
+        // Abrir WhatsApp automáticamente con observaciones
         const cleanPhone = data.phoneNumber.replace(/\D/g, '');
         const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
-        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de Ultrasonido con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} hrs. Estudio: ${selectedStudy.name}.`);
+        const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+        
+        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de Ultrasonido con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} hrs. Estudio: ${selectedStudy.name}.${obs}`);
         window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
         
         const { jsPDF } = await import('jspdf');

@@ -16,7 +16,7 @@ import type { DailyAvailability, UltrasoundStudy, UltrasoundSettings, Holiday } 
 import { PatientType } from '@/lib/definitions';
 import { getUltrasoundAppointments, getHolidays } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, CalendarDays, Waves, UserCheck } from 'lucide-react';
+import { Clock, CalendarDays, Waves, UserCheck, Bell } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -56,6 +56,7 @@ export default function UltrasoundPageContent({
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [settings] = React.useState<UltrasoundSettings>(initialSettings);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
 
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -363,9 +364,27 @@ export default function UltrasoundPageContent({
                   selectedStudy={selectedStudy}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
-                  announcements={initialAnnouncements}
+                  announcements={announcements}
                 />
               </div>
+
+              {announcements && announcements.length > 0 && (
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl font-headline">
+                      <Bell className="h-5 w-5 text-primary" />
+                      Avisos Importantes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-muted-foreground list-disc pl-5">
+                      {announcements.map((announcement, index) => (
+                        <li key={index}>{announcement}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </CardContent>

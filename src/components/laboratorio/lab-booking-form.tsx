@@ -1,3 +1,4 @@
+
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -175,10 +176,13 @@ export function LabBookingForm({
               duration: 10000,
           });
 
-          // Abrir WhatsApp automáticamente
+          // Abrir WhatsApp automáticamente con observaciones
           const cleanPhone = data.phoneNumber.replace(/\D/g, '');
           const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
-          const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText}. Recuerde seguir las indicaciones de ayuno.`);
+          const studiesList = selectedStudies.map(s => s.name).join(', ');
+          const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+          
+          const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText}. Estudios: ${studiesList}. Recuerde seguir las indicaciones de ayuno.${obs}`);
           window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
 
           const { jsPDF } = await import('jspdf');

@@ -15,7 +15,7 @@ import type { DailyAvailability, Vaccine, VaccineSettings, Colonia, Clinic, Holi
 import { PatientType } from '@/lib/definitions';
 import { getVaccineAppointments, getHolidays } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, CalendarDays, ShieldPlus, UserCheck, MapPin } from 'lucide-react';
+import { Clock, CalendarDays, ShieldPlus, UserCheck, MapPin, Bell } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -63,6 +63,7 @@ export default function VaccinePageContent({
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
   const [settings] = React.useState<VaccineSettings>(initialSettings);
+  const [announcements] = React.useState<string[]>(initialAnnouncements);
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
   const { toast } = useToast();
@@ -414,9 +415,27 @@ export default function VaccinePageContent({
                   clinicId={selectedClinic?.id}
                   coloniaName={selectedColonia?.name}
                   onBookingSuccess={refreshData}
-                  announcements={initialAnnouncements}
+                  announcements={announcements}
                 />
               </div>
+
+              {announcements && announcements.length > 0 && (
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl font-headline">
+                      <Bell className="h-5 w-5 text-primary" />
+                      Avisos Importantes
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 text-muted-foreground list-disc pl-5">
+                      {announcements.map((announcement, index) => (
+                        <li key={index}>{announcement}</li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </CardContent>
