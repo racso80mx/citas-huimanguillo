@@ -324,7 +324,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     const props = {
       isAdmin: true,
       onEditSuccess: fetchData,
-      onDelete: handleDelete,
+      // Deshabilitamos onDelete específicamente para los reportes de Núcleos Básicos
+      onDelete: reportType === 'clinic' ? undefined : handleDelete,
     };
     switch(reportType) {
         case 'clinic':
