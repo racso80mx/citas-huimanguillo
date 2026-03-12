@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
@@ -95,6 +96,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
+  const [selectedClinicType, setSelectedClinicType] = useState<string>('all');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
 
@@ -173,14 +175,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       case 'range':
         if (dateRange?.from) {
           const rangeStart = startOfDay(dateRange.from);
-          // Si no hay fecha final (to), usamos la fecha de inicio (from) para filtrar un solo día
           const rangeEnd = endOfDay(dateRange.to || dateRange.from);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
             return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
           };
         } else {
-          return []; // No range selected, show nothing
+          return [];
         }
         break;
       case 'today':
@@ -198,11 +199,18 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   
   const appointmentsToDisplay = useMemo(() => {
     const dateFilteredAppointments = getFilteredData(allAppointments);
-    if (selectedClinics.length > 0) {
-        return dateFilteredAppointments.filter(app => selectedClinics.includes(app.clinicId));
+    let filtered = dateFilteredAppointments;
+    
+    if (selectedClinicType !== 'all') {
+        const clinicsOfType = clinics.filter(c => c.clinicType === selectedClinicType).map(c => c.id);
+        filtered = filtered.filter(app => clinicsOfType.includes(app.clinicId));
     }
-    return dateFilteredAppointments;
-  }, [isClient, activeFilter, dateRange, allAppointments, selectedClinics]);
+
+    if (selectedClinics.length > 0) {
+        filtered = filtered.filter(app => selectedClinics.includes(app.clinicId));
+    }
+    return filtered;
+  }, [isClient, activeFilter, dateRange, allAppointments, selectedClinics, selectedClinicType, clinics]);
 
   const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [isClient, activeFilter, dateRange, allLabAppointments]);
   const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [isClient, activeFilter, dateRange, allXRayAppointments]);
@@ -236,7 +244,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
 
   const handleSetDateRange = (range: DateRange | undefined) => {
-    // Si ya hay una fecha de inicio y vuelves a clicar la misma sin fecha final, limpiamos
     if (dateRange?.from && range?.from && !range.to && dateRange.from.getTime() === range.from.getTime() && !dateRange.to) {
         setDateRange(undefined);
         return;
@@ -384,7 +391,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
           <div>
             <CardTitle className="text-3xl font-bold font-headline">
               Panel de Administración
@@ -409,7 +416,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
           <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
@@ -449,7 +456,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </TabsContent>
         
         <TabsContent value="citas" className="mt-6">
-           {/* Contenido de Citas */}
            <div className="space-y-8">
             <Card className="w-full shadow-lg">
                 <CardHeader>
@@ -458,10 +464,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
-                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
-                      Recargar
-                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -471,6 +473,44 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                             <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
+                        </PopoverContent>
+                    </Popover>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-10 border-dashed">
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Tipo de Consulta
+                                {selectedClinicType !== 'all' && (
+                                    <>
+                                        <Separator orientation="vertical" className="mx-2 h-4" />
+                                        <Badge variant="secondary" className="rounded-sm px-1 font-normal">
+                                            {selectedClinicType}
+                                        </Badge>
+                                    </>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[200px] p-0" align="start">
+                            <Command>
+                                <CommandList>
+                                    <CommandGroup>
+                                        <CommandItem onSelect={() => setSelectedClinicType('all')}>
+                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === 'all' ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                <Check className="h-4 w-4" />
+                                            </div>
+                                            <span>Todos</span>
+                                        </CommandItem>
+                                        {Object.values(ClinicType).map(type => (
+                                            <CommandItem key={type} onSelect={() => setSelectedClinicType(type)}>
+                                                <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === type ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                    <Check className="h-4 w-4" />
+                                                </div>
+                                                <span>{type}</span>
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
                         </PopoverContent>
                     </Popover>
                     <Popover>
@@ -563,10 +603,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
-                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
-                      Recargar
-                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-lab" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -604,10 +640,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
-                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
-                      Recargar
-                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-xray" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -645,10 +677,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
-                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
-                      Recargar
-                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-ultrasound" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
@@ -686,10 +714,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
                     <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
                     <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Button variant="outline" onClick={fetchData} disabled={isPending}>
-                      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
-                      Recargar
-                    </Button>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button id="date-vaccine" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>

@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
@@ -14,7 +14,23 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateClinics, getClinics, updateColonias, getColonias } from '@/lib/actions';
-import { Loader2, Trash2, PlusCircle, Hospital, Save, Eye, EyeOff, Calendar as CalendarIcon, X, Pencil, MapPin } from 'lucide-react';
+import { 
+    Loader2, 
+    Trash2, 
+    PlusCircle, 
+    Hospital, 
+    Save, 
+    Eye, 
+    EyeOff, 
+    Calendar as CalendarIcon, 
+    X, 
+    Pencil, 
+    MapPin, 
+    Search, 
+    ArrowUpDown, 
+    ArrowUp, 
+    ArrowDown 
+} from 'lucide-react';
 import type { Clinic, Colonia } from '@/lib/definitions';
 import { ClinicType, BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
@@ -45,6 +61,7 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { Separator } from '../ui/separator';
+import { cn } from '@/lib/utils';
 
 const daysOfWeek = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -336,6 +353,11 @@ export function ClinicsManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
+  // States for filtering and sorting
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -360,6 +382,50 @@ export function ClinicsManager() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
+  const filteredAndSortedClinics = useMemo(() => {
+    let result = clinics.filter(clinic => {
+      const matchesSearch = clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          clinic.doctorName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === 'all' || clinic.clinicType === typeFilter;
+      return matchesSearch && matchesType;
+    });
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let valA: any;
+        let valB: any;
+
+        if (sortConfig.key === 'coloniaCount') {
+          valA = colonias.filter(c => c.clinicId === a.id).length;
+          valB = colonias.filter(c => c.clinicId === b.id).length;
+        } else {
+          valA = (a as any)[sortConfig.key] || '';
+          valB = (b as any)[sortConfig.key] || '';
+        }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return result;
+  }, [clinics, searchTerm, typeFilter, sortConfig, colonias]);
 
   const handleEditClick = (clinic: Clinic) => {
     setSelectedClinic(clinic);
@@ -395,7 +461,6 @@ export function ClinicsManager() {
         setClinics(prev => [...prev, updatedClinic].sort((a, b) => a.name.localeCompare(b.name)));
     }
     
-    // Update the main colonias list by replacing all colonias for the edited clinic
     const otherColonias = colonias.filter(c => c.clinicId !== updatedClinic.id);
     setColonias([...otherColonias, ...updatedClinicColonias]);
 
@@ -476,26 +541,69 @@ export function ClinicsManager() {
   return (
     <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleDialogCancel() }}>
         <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
                 <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
                 <CardDescription>Configura los detalles de cada núcleo básico y sus colonias asignadas.</CardDescription>
             </div>
-            <Button onClick={handleAddNewClick}><PlusCircle className="mr-2 h-4 w-4" /> Agregar Núcleo</Button>
+            <Button onClick={handleAddNewClick} className="bg-primary hover:bg-primary/90">
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Núcleo
+            </Button>
         </CardHeader>
         <CardContent>
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+                <div className="relative w-full sm:w-72">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar por nombre o doctor..." 
+                        className="pl-9 h-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="w-full sm:w-64">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Filtrar por Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos los Tipos</SelectItem>
+                            {Object.values(ClinicType).map(type => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Nombre del Núcleo</TableHead>
-                        <TableHead>Doctor</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Colonias</TableHead>
+                        <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                            <div className="flex items-center">
+                                Nombre del Núcleo {getSortIcon('name')}
+                            </div>
+                        </TableHead>
+                        <TableHead onClick={() => handleSort('doctorName')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                            <div className="flex items-center">
+                                Doctor {getSortIcon('doctorName')}
+                            </div>
+                        </TableHead>
+                        <TableHead onClick={() => handleSort('clinicType')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                            <div className="flex items-center">
+                                Tipo {getSortIcon('clinicType')}
+                            </div>
+                        </TableHead>
+                        <TableHead onClick={() => handleSort('coloniaCount')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                            <div className="flex items-center">
+                                Colonias {getSortIcon('coloniaCount')}
+                            </div>
+                        </TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {clinics.map(clinic => (
+                    {filteredAndSortedClinics.map(clinic => (
                         <TableRow key={clinic.id}>
                             <TableCell className="font-medium">{clinic.name}</TableCell>
                             <TableCell>{clinic.doctorName}</TableCell>
@@ -513,9 +621,9 @@ export function ClinicsManager() {
                     ))}
                 </TableBody>
             </Table>
-             {clinics.length === 0 && (
+             {filteredAndSortedClinics.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground">
-                    No hay núcleos básicos definidos. Agrega uno para comenzar.
+                    No se encontraron núcleos básicos con los criterios seleccionados.
                 </div>
             )}
         </CardContent>
