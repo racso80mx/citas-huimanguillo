@@ -74,10 +74,10 @@ export async function deletePatients(ids: string[]) {
 }
 
 export async function updatePatientStatus(id: string, status: PatientStatus) {
-  const db = data.updatePatientStatus(id, status);
+  const res = await data.updatePatientStatus(id, status);
   revalidatePath('/archivo');
   revalidatePath('/admin');
-  return db;
+  return res;
 }
 
 // =====================================================================
@@ -390,6 +390,10 @@ export async function verifyBIPassword(password: string) { return data.verifyBIP
 export async function verifyAdminPassword(password: string) { return data.verifyAdminPassword(password); }
 
 export async function getLogs() { return data.getLogs(); }
+
+export async function logActivity(action: string, details: string) {
+  return data.logActivity(action, details);
+}
 
 // =====================================================================
 // DATA MANAGEMENT ACTIONS

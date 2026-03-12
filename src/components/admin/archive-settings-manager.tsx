@@ -11,7 +11,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateArchiveSettings, getArchiveSettings } from '@/lib/actions';
+import { updateArchiveSettings, getArchiveSettings, logActivity } from '@/lib/actions';
 import { Loader2, Save, KeyRound, Eye, EyeOff } from 'lucide-react';
 import type { ArchiveSettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
@@ -69,8 +69,8 @@ export function ArchiveSettingsManager() {
           title: 'Configuración Guardada',
           description: 'La contraseña del módulo de archivo ha sido actualizada.',
           className: 'bg-accent text-accent-foreground',
-          duration: 8000,
         });
+        await logActivity("Cambio de Contraseña", "Se actualizó la contraseña del módulo de Archivo.");
         await fetchData();
       } else {
         toast({

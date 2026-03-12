@@ -11,7 +11,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updatePharmacySettings, getPharmacySettings } from '@/lib/actions';
+import { updatePharmacySettings, getPharmacySettings, logActivity } from '@/lib/actions';
 import { Loader2, Save, KeyRound, Eye, EyeOff, Pill } from 'lucide-react';
 import type { PharmacySettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
@@ -69,6 +69,7 @@ export function PharmacySettingsManager() {
           description: 'La contraseña del módulo de farmacia ha sido actualizada.',
           className: 'bg-accent text-accent-foreground',
         });
+        await logActivity("Cambio de Contraseña", "Se actualizó la contraseña del módulo de Farmacia.");
         await fetchData();
       } else {
         toast({
