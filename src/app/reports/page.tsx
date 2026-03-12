@@ -1,6 +1,7 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Clinic } from '@/lib/definitions';
+import { ClinicType } from '@/lib/definitions';
 import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, verifyVaccinePassword, getClinics } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -19,6 +20,7 @@ export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('clinic');
+  const [selectedClinicType, setSelectedClinicType] = useState<ClinicType | 'all'>('all');
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +51,11 @@ export default function ReportsPage() {
     }
     fetchData();
   }, [toast]);
+
+  const filteredClinics = useMemo(() => {
+    if (selectedClinicType === 'all') return clinics;
+    return clinics.filter(c => c.clinicType === selectedClinicType);
+  }, [clinics, selectedClinicType]);
 
   const handleLogin = async () => {
     setIsVerifying(true);
@@ -91,11 +98,19 @@ export default function ReportsPage() {
       setIsAuthenticated(false);
       setAuthenticatedEntity(null);
       setSelectedClinic(null);
+      setSelectedClinicType('all');
       setPassword('');
   }
 
   const handleReportTypeChange = (type: ReportType) => {
     setSelectedReportType(type);
+    setSelectedClinic(null);
+    setSelectedClinicType('all');
+    setPassword('');
+  };
+
+  const handleClinicTypeChange = (type: ClinicType | 'all') => {
+    setSelectedClinicType(type);
     setSelectedClinic(null);
     setPassword('');
   };
@@ -103,7 +118,7 @@ export default function ReportsPage() {
   const handleClinicSelect = (clinicId: string) => {
     const clinic = clinics.find(c => c.id === clinicId);
     setSelectedClinic(clinic || null);
-    setPassword(''); // Reset password on clinic change
+    setPassword('');
   };
 
   if (isLoading) {
@@ -143,7 +158,7 @@ export default function ReportsPage() {
             <div className="space-y-2">
                 <Label htmlFor="report-type">Tipo de Reporte</Label>
                  <Select onValueChange={(value: ReportType) => handleReportTypeChange(value)} value={selectedReportType}>
-                    <SelectTrigger id="report-type" className="w-full">
+                    <SelectTrigger id="report-type" className="w-full h-11">
                         <SelectValue placeholder="Selecciona un tipo de reporte..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -155,18 +170,40 @@ export default function ReportsPage() {
                     </SelectContent>
                 </Select>
             </div>
+
             {selectedReportType === 'clinic' && (
-                <div className="space-y-2">
-                    <Label htmlFor="clinic">Núcleo Básico</Label>
-                    <Select onValueChange={handleClinicSelect} value={selectedClinic?.id}>
-                        <SelectTrigger id="clinic" className="w-full">
-                            <SelectValue placeholder="Selecciona un núcleo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {clinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="clinic-type">Tipo de Núcleo</Label>
+                        <Select onValueChange={(value: ClinicType | 'all') => handleClinicTypeChange(value)} value={selectedClinicType}>
+                            <SelectTrigger id="clinic-type" className="w-full h-11">
+                                <SelectValue placeholder="Filtrar por especialidad..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los Tipos</SelectItem>
+                                {Object.values(ClinicType).map(type => (
+                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="clinic">Núcleo Básico</Label>
+                        <Select onValueChange={handleClinicSelect} value={selectedClinic?.id}>
+                            <SelectTrigger id="clinic" className="w-full h-11 border-primary/40">
+                                <SelectValue placeholder="Selecciona un núcleo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {filteredClinics.length > 0 ? (
+                                    filteredClinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)
+                                ) : (
+                                    <div className="p-4 text-center text-sm text-muted-foreground">No hay núcleos de este tipo.</div>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </>
             )}
            
             <div className="space-y-2">
@@ -180,6 +217,7 @@ export default function ReportsPage() {
                         placeholder={`Contraseña para reportes`}
                         onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         disabled={selectedReportType === 'clinic' && !selectedClinic}
+                        className="h-11 bg-muted/20"
                     />
                     <Button
                         type="button"
@@ -194,11 +232,11 @@ export default function ReportsPage() {
              </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleLogin} disabled={isVerifying || !password || (selectedReportType === 'clinic' && !selectedClinic)} className="w-full">
+            <Button onClick={handleLogin} disabled={isVerifying || !password || (selectedReportType === 'clinic' && !selectedClinic)} className="w-full h-12 text-lg font-bold bg-primary hover:bg-primary/90">
                {isVerifying ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (
-                  <LogIn className="mr-2 h-4 w-4" />
+                  <LogIn className="mr-2 h-5 w-5" />
                 )}
                 {isVerifying ? 'Verificando...' : 'Ingresar'}
             </Button>
