@@ -20,7 +20,6 @@ import {
 import { 
   Search, 
   Loader2, 
-  ArrowUpDown, 
   ArrowUp, 
   ArrowDown, 
   Pill 
@@ -29,17 +28,21 @@ import { getMedications } from '@/lib/actions';
 import type { Medication } from '@/lib/definitions';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { differenceInMonths, parse, isValid } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 type MedicationInventoryDialogProps = {
   isOpen: boolean;
   onClose: () => void;
 };
 
+type ExpirationStatus = 'red' | 'yellow' | 'green' | 'unknown';
+
 export function MedicationInventoryDialog({ isOpen, onClose }: MedicationInventoryDialogProps) {
   const [medications, setMedications] = useState<Medication[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState<{ key: 'descripcion' | 'existencia' | 'fechaCaducidad'; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Medication; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +61,26 @@ export function MedicationInventoryDialog({ isOpen, onClose }: MedicationInvento
     }
   }, [isOpen]);
 
-  const handleSort = (key: 'descripcion' | 'existencia' | 'fechaCaducidad') => {
+  const getExpirationStatus = (dateStr: string): ExpirationStatus => {
+    if (!dateStr) return 'unknown';
+    
+    let expiryDate: Date;
+    if (dateStr.includes('/')) {
+        expiryDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+    } else {
+        expiryDate = new Date(dateStr);
+    }
+
+    if (!isValid(expiryDate)) return 'unknown';
+
+    const monthsUntilExpiry = differenceInMonths(expiryDate, new Date());
+
+    if (monthsUntilExpiry < 6) return 'red';
+    if (monthsUntilExpiry >= 6 && monthsUntilExpiry < 12) return 'yellow';
+    return 'green';
+  };
+
+  const handleSort = (key: keyof Medication) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
@@ -79,6 +101,8 @@ export function MedicationInventoryDialog({ isOpen, onClose }: MedicationInvento
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
         if (valA === valB) return 0;
+        if (valA === undefined) return 1;
+        if (valB === undefined) return -1;
         return sortConfig.direction === 'asc' 
           ? (valA < valB ? -1 : 1) 
           : (valA > valB ? -1 : 1);
@@ -96,7 +120,7 @@ export function MedicationInventoryDialog({ isOpen, onClose }: MedicationInvento
             <Pill className="h-6 w-6 text-primary" /> Inventario de Medicamentos
           </DialogTitle>
           <DialogDescription>
-            Consulta existencias y caducidades de los insumos en farmacia.
+            Consulta existencias y semáforo de caducidades en tiempo real.
           </DialogDescription>
           <div className="relative mt-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -113,7 +137,7 @@ export function MedicationInventoryDialog({ isOpen, onClose }: MedicationInvento
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full gap-2">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-muted-foreground font-medium">Consultando inventario...</p>
+              <p className="text-muted-foreground font-medium">Consultando farmacia...</p>
             </div>
           ) : (
             <div className="border rounded-lg h-full flex flex-col">
@@ -134,23 +158,37 @@ export function MedicationInventoryDialog({ isOpen, onClose }: MedicationInvento
                   </TableHeader>
                   <TableBody>
                     {filteredAndSorted.length > 0 ? (
-                      filteredAndSorted.map((med) => (
-                        <TableRow key={med.id}>
-                          <TableCell className="font-medium text-sm">{med.descripcion}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={med.existencia > 0 ? 'secondary' : 'destructive'} className={med.existencia > 5 ? 'bg-green-100 text-green-800' : ''}>
-                              {med.existencia}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                            {med.fechaCaducidad || 'N/A'}
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      filteredAndSorted.map((med) => {
+                        const expiryStatus = getExpirationStatus(med.fechaCaducidad);
+                        return (
+                          <TableRow key={med.id}>
+                            <TableCell className="font-medium text-xs py-2">{med.descripcion}</TableCell>
+                            <TableCell className="text-center py-2">
+                              <Badge variant={med.existencia > 0 ? 'secondary' : 'destructive'} className={cn(med.existencia > 5 ? 'bg-green-100 text-green-800' : '', "font-bold")}>
+                                {med.existencia}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-2">
+                               <Badge 
+                                    variant="outline"
+                                    className={cn(
+                                        "font-bold text-[10px] px-2 py-0",
+                                        expiryStatus === 'red' && "bg-red-100 text-red-700 border-red-200",
+                                        expiryStatus === 'yellow' && "bg-yellow-100 text-yellow-700 border-yellow-200",
+                                        expiryStatus === 'green' && "bg-green-100 text-green-700 border-green-200",
+                                        expiryStatus === 'unknown' && "bg-gray-100 text-gray-600"
+                                    )}
+                                >
+                                {med.fechaCaducidad || 'N/A'}
+                                </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     ) : (
                       <TableRow>
                         <TableCell colSpan={3} className="text-center py-20 text-muted-foreground">
-                          {searchTerm ? 'No se encontraron medicamentos con ese nombre.' : 'El inventario está vacío.'}
+                          {searchTerm ? 'No se encontraron medicamentos.' : 'Sin registros.'}
                         </TableCell>
                       </TableRow>
                     )}

@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { differenceInMonths, parse, isValid } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 type ExpirationStatus = 'red' | 'yellow' | 'green' | 'unknown';
 
