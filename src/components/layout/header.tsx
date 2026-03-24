@@ -1,16 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { SidebarTrigger } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
+import { Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings }) {
   const pathname = usePathname();
+  const { toggleSidebar } = useSidebar();
 
   const getPageTitle = () => {
     if (pathname === '/') return 'Inicio';
@@ -30,11 +33,23 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
-      <SidebarTrigger className="-ml-1" />
+      {/* El botón que antes abría el menú ahora va a Home */}
+      <Button variant="ghost" size="icon" asChild className="-ml-1 h-9 w-9">
+        <Link href="/">
+          <Home className="h-5 w-5" />
+          <span className="sr-only">Ir al Inicio</span>
+        </Link>
+      </Button>
+      
       <Separator orientation="vertical" className="mr-2 h-4" />
-      <div className="flex items-center gap-2">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="text-primary hidden sm:block">
+      
+      <div className="flex items-center gap-4 flex-1">
+        {/* El logo y el nombre ahora ocultan/muestran el menú */}
+        <button 
+          onClick={toggleSidebar}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none text-left"
+        >
+          <div className="text-primary">
             <Image
               src={logoBase64}
               alt="Logo"
@@ -43,15 +58,22 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               className="rounded-md"
             />
           </div>
-          <span className="font-bold font-headline text-lg hidden md:block">
-            CitaMedicaFacil
-          </span>
-        </Link>
-        <span className="text-muted-foreground text-sm font-medium ml-2 md:ml-4 border-l pl-4 hidden sm:block">
+          <div className="flex flex-col leading-none">
+            <span className="font-bold font-headline text-lg text-foreground">
+              CitaMedicaFacil
+            </span>
+            <span className="text-[11px] text-muted-foreground font-medium">
+              Huimanguillo, Tabasco
+            </span>
+          </div>
+        </button>
+
+        <span className="text-muted-foreground text-sm font-medium ml-2 border-l pl-4 hidden md:block">
           {getPageTitle()}
         </span>
       </div>
-      <div className="flex flex-1 items-center justify-end">
+      
+      <div className="flex items-center justify-end">
         {/* Espacio para elementos adicionales a la derecha si es necesario */}
       </div>
     </header>
