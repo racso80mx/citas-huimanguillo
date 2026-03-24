@@ -27,7 +27,7 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
 
             if (isLab) {
                 const labItem = item as LabAppointment;
-                baseData['Estudios'] = labItem.studies.map(s => s.name).join(', ');
+                baseData['Estudios'] = labItem.studies.map(s => `${s.code ? `${s.code} - ` : ''}${s.name}`).join(', ');
             } else if (isXRay) {
                  const xrayItem = item as XRayAppointment;
                  baseData['Estudio'] = xrayItem.studyName;

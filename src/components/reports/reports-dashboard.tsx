@@ -262,7 +262,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
             if (reportType === 'laboratorio') {
                 const labItem = item as LabAppointment;
-                baseData['Estudios'] = labItem.studies.map(s => s.name).join(', ');
+                baseData['Estudios'] = labItem.studies.map(s => `${s.code ? `${s.code} - ` : ''}${s.name}`).join(', ');
             } else if (reportType === 'x-ray') {
                  const xrayItem = item as XRayAppointment;
                  baseData['Estudio'] = xrayItem.studyName;
