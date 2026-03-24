@@ -33,16 +33,6 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
 
   return (
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
-      {/* Botón de Inicio (Home) */}
-      <Button variant="ghost" size="icon" asChild className="-ml-1 h-9 w-9">
-        <Link href="/">
-          <Home className="h-5 w-5" />
-          <span className="sr-only">Ir al Inicio</span>
-        </Link>
-      </Button>
-      
-      <Separator orientation="vertical" className="mr-2 h-4" />
-      
       <div className="flex items-center gap-4 flex-1">
         {/* Logo y nombre que también alternan el menú */}
         <button 
