@@ -18,7 +18,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
-import { Search, X, FlaskConical } from 'lucide-react';
+import { Search, X, FlaskConical, Keyboard } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type LabStudiesSelectorProps = {
   allStudies: LabStudy[];
@@ -32,6 +33,8 @@ export function LabStudiesSelector({
   onSelectionChange,
 }: LabStudiesSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [codeInputValue, setCodeInputValue] = useState('');
+  const { toast } = useToast();
 
   // Filter studies based on search term
   const filteredStudies = useMemo(() => {
@@ -40,7 +43,8 @@ export function LabStudiesSelector({
     return allStudies.filter(
       (s) =>
         s.name.toLowerCase().includes(term) ||
-        s.section.toLowerCase().includes(term)
+        s.section.toLowerCase().includes(term) ||
+        (s.code && s.code.toLowerCase().includes(term))
     );
   }, [allStudies, searchTerm]);
 
@@ -63,6 +67,34 @@ export function LabStudiesSelector({
     }
   };
 
+  const handleQuickAddByCode = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const code = codeInputValue.trim().toUpperCase();
+      if (!code) return;
+
+      const study = allStudies.find(s => s.code?.toUpperCase() === code);
+      
+      if (study) {
+        if (!study.available) {
+            toast({ title: 'Estudio no disponible', description: `El estudio "${study.name}" no está activo actualmente.`, variant: 'destructive' });
+            return;
+        }
+
+        const isAlreadySelected = selectedStudies.some(s => s.id === study.id);
+        if (isAlreadySelected) {
+          toast({ title: 'Estudio ya seleccionado', description: `"${study.name}" ya se encuentra en tu lista.` });
+        } else {
+          onSelectionChange([...selectedStudies, study]);
+          toast({ title: 'Estudio agregado', description: `${study.name} (${study.code})` });
+        }
+        setCodeInputValue('');
+      } else {
+        toast({ title: 'Código no encontrado', description: `No existe un estudio con el código "${code}".`, variant: 'destructive' });
+      }
+    }
+  };
+
   const removeStudy = (id: string) => {
     onSelectionChange(selectedStudies.filter((s) => s.id !== id));
   };
@@ -74,17 +106,29 @@ export function LabStudiesSelector({
       <CardHeader className="pb-3">
         <CardTitle className="text-xl font-bold font-headline">Catálogo de Estudios</CardTitle>
         <CardDescription>
-          Busca y selecciona los estudios que necesitas. Has seleccionado{' '}
+          Agregue estudios por código o selecciónelos del catálogo. Has seleccionado{' '}
           <span className="font-bold text-primary">{selectedCount}</span>{' '}
           estudio(s).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Quick Add by Code */}
+        <div className="relative">
+          <Keyboard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/60" />
+          <Input
+            placeholder="Agregar por código (Enter) ej: EG01"
+            className="pl-9 h-11 border-primary/40 focus-visible:ring-primary"
+            value={codeInputValue}
+            onChange={(e) => setCodeInputValue(e.target.value)}
+            onKeyDown={handleQuickAddByCode}
+          />
+        </div>
+
         {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar estudio (ej. Glucosa, Sangre...)"
+            placeholder="Buscar por nombre o sección..."
             className="pl-9 h-11"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,7 +146,7 @@ export function LabStudiesSelector({
                   variant="secondary" 
                   className="pl-2 pr-1 py-1 flex items-center gap-1 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                 >
-                  <span className="text-xs">{study.name}</span>
+                  <span className="text-xs">{study.code ? `${study.code} - ` : ''}{study.name}</span>
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -154,6 +198,7 @@ export function LabStudiesSelector({
                               htmlFor={`check-${study.id}`}
                               className="text-sm font-medium leading-none cursor-pointer group-hover:text-primary transition-colors"
                             >
+                              {study.code && <span className="font-mono text-xs text-primary mr-2">[{study.code}]</span>}
                               {study.name}
                             </label>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">

@@ -55,30 +55,36 @@ function LabStudyEditDialog({ study, onSave, onCancel }: { study: LabStudy, onSa
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-                 <div className='grid grid-cols-2 gap-4'>
-                     <div className='space-y-2'>
+                 <div className='grid grid-cols-3 gap-4'>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`lab-code-${editedStudy.id}`}>Código</Label>
+                        <Input id={`lab-code-${editedStudy.id}`} value={editedStudy.code || ''} onChange={(e) => handleFieldChange('code', e.target.value.toUpperCase())} placeholder="Ej. EG01"/>
+                    </div>
+                     <div className='space-y-2 col-span-2'>
                         <Label htmlFor={`lab-name-${editedStudy.id}`}>Nombre</Label>
                         <Input id={`lab-name-${editedStudy.id}`} value={editedStudy.name} onChange={(e) => handleFieldChange('name', e.target.value)} placeholder="Ej. Biometría Hemática"/>
                     </div>
+                 </div>
+                 <div className='grid grid-cols-2 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor={`lab-section-${editedStudy.id}`}>Sección</Label>
                         <Input id={`lab-section-${editedStudy.id}`} value={editedStudy.section} onChange={(e) => handleFieldChange('section', e.target.value)} placeholder="Ej. Hematología"/>
                     </div>
-                 </div>
-                 <div className='grid grid-cols-2 gap-4'>
                      <div className='space-y-2'>
                         <Label htmlFor={`lab-sample-${editedStudy.id}`}>Tipo de Muestra</Label>
                         <Input id={`lab-sample-${editedStudy.id}`} value={editedStudy.sampleType} onChange={(e) => handleFieldChange('sampleType', e.target.value)} placeholder="Ej. Sangre venosa"/>
                     </div>
+                 </div>
+                 <div className='grid grid-cols-2 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor={`lab-fasting-${editedStudy.id}`}>Ayuno</Label>
                         <Input id={`lab-fasting-${editedStudy.id}`} value={editedStudy.fastingHours} onChange={(e) => handleFieldChange('fastingHours', e.target.value)} placeholder="Ej. 8 horas"/>
                     </div>
+                    <div className="flex items-center space-x-2 pt-8">
+                        <Switch id={`lab-available-${editedStudy.id}`} checked={editedStudy.available} onCheckedChange={(checked) => handleFieldChange('available', checked)} />
+                        <Label htmlFor={`lab-available-${editedStudy.id}`}>Disponible</Label>
+                    </div>
                  </div>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Switch id={`lab-available-${editedStudy.id}`} checked={editedStudy.available} onCheckedChange={(checked) => handleFieldChange('available', checked)} />
-                    <Label htmlFor={`lab-available-${editedStudy.id}`}>Disponible</Label>
-                  </div>
             </div>
             <DialogFooter>
                 <DialogClose asChild>
@@ -139,7 +145,7 @@ export function LabSettingsManager() {
   }
 
   const handleAddNewClick = () => {
-    const newStudy: LabStudy = { id: uuidv4(), name: '', section: 'Nueva Sección', sampleType: '', fastingHours: '', available: true };
+    const newStudy: LabStudy = { id: uuidv4(), code: '', name: '', section: 'Nueva Sección', sampleType: '', fastingHours: '', available: true };
     setSelectedStudy(newStudy);
     setIsDialogOpen(true);
   }
@@ -288,6 +294,7 @@ export function LabSettingsManager() {
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead>Código</TableHead>
                             <TableHead>Nombre del Estudio</TableHead>
                             <TableHead>Sección</TableHead>
                             <TableHead>Disponible</TableHead>
@@ -297,6 +304,7 @@ export function LabSettingsManager() {
                     <TableBody>
                         {studies.map(study => (
                             <TableRow key={study.id}>
+                                <TableCell className="font-mono text-xs">{study.code || '---'}</TableCell>
                                 <TableCell className="font-medium">{study.name}</TableCell>
                                 <TableCell>{study.section}</TableCell>
                                 <TableCell>{study.available ? 'Sí' : 'No'}</TableCell>

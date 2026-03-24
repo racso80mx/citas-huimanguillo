@@ -137,6 +137,7 @@ export type Report = {
 
 export const LabStudySchema = z.object({
     id: z.string(),
+    code: z.string().optional(),
     section: z.string().min(1, 'La sección es requerida.'),
     name: z.string().min(1, 'El nombre es requerido.'),
     sampleType: z.string().min(1, 'El tipo de muestra es requerido.'),
