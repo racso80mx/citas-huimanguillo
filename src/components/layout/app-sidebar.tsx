@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -14,7 +15,6 @@ import {
   Pill,
   BarChart3,
   LayoutGrid,
-  ChevronRight,
 } from 'lucide-react';
 
 import {
@@ -24,14 +24,11 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import Image from 'next/image';
-import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
 
 export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<typeof Sidebar> & { moduleSettings: ModuleSettings }) {
@@ -104,29 +101,6 @@ export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<ty
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Image
-                    src={logoBase64}
-                    alt="Logo"
-                    width={24}
-                    height={24}
-                    className="rounded-sm"
-                  />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold font-headline">CitaMedicaFacil</span>
-                  <span className="truncate text-xs text-muted-foreground">Huimanguillo, Tabasco</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Módulos de Atención</SidebarGroupLabel>
