@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, CalendarPlus, UserCheck, Clock, UserX } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, CalendarPlus, UserCheck, Clock, UserX, Search } from 'lucide-react';
 import type { Patient, PatientStatus } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { cn } from '@/lib/utils';
@@ -40,11 +40,12 @@ type PatientListProps = {
   onStatusChange: (patientId: string, newStatus: PatientStatus) => void;
   onSchedule: (patient: Patient) => void;
   isSubmitting: boolean;
+  isReadOnly?: boolean;
 };
 
 type SortableKeys = 'name' | 'expediente' | 'curp' | 'coloniaName' | 'status';
 
-export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSchedule, isSubmitting }: PatientListProps) {
+export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSchedule, isSubmitting, isReadOnly = false }: PatientListProps) {
     
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
 
@@ -162,43 +163,53 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSche
                       <CalendarPlus className="mr-2 h-4 w-4" />
                       Agendar Cita
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(patient)} disabled={isSubmitting}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Editar
-                    </DropdownMenuItem>
                     
-                    <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Vigente)} disabled={isSubmitting || !patient.status || patient.status === PatientStatusEnum.Vigente}>
-                        <UserCheck className="mr-2 h-4 w-4 text-green-500" /> Activar (Vigente)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Baja)} disabled={isSubmitting || patient.status === PatientStatusEnum.Baja}>
-                        <Clock className="mr-2 h-4 w-4 text-yellow-500" /> Baja Temporal
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.BajaDefinitiva)} disabled={isSubmitting || patient.status === PatientStatusEnum.BajaDefinitiva}>
-                        <UserX className="mr-2 h-4 w-4 text-red-500" /> Baja Definitiva
-                    </DropdownMenuItem>
-                     
-                    <AlertDialog>
-                       <AlertDialogTrigger asChild>
-                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-600" disabled={isSubmitting}>
-                             <Trash2 className="mr-2 h-4 w-4" />
-                             Eliminar Permanentemente
-                          </DropdownMenuItem>
-                       </AlertDialogTrigger>
-                       <AlertDialogContent>
-                          <AlertDialogHeader>
-                             <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                             <AlertDialogDescription>
-                                Esta acción no se puede deshacer. Se eliminará permanentemente el registro del paciente y no se podrá recuperar.
-                             </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                             <AlertDialogAction onClick={() => onDelete(patient.id)} className="bg-destructive hover:bg-destructive/90">
-                                Sí, eliminar
-                             </AlertDialogAction>
-                          </AlertDialogFooter>
-                       </AlertDialogContent>
-                    </AlertDialog>
+                    {!isReadOnly ? (
+                        <>
+                            <DropdownMenuItem onClick={() => onEdit(patient)} disabled={isSubmitting}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Vigente)} disabled={isSubmitting || !patient.status || patient.status === PatientStatusEnum.Vigente}>
+                                <UserCheck className="mr-2 h-4 w-4 text-green-500" /> Activar (Vigente)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.Baja)} disabled={isSubmitting || patient.status === PatientStatusEnum.Baja}>
+                                <Clock className="mr-2 h-4 w-4 text-yellow-500" /> Baja Temporal
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onStatusChange(patient.id, PatientStatusEnum.BajaDefinitiva)} disabled={isSubmitting || patient.status === PatientStatusEnum.BajaDefinitiva}>
+                                <UserX className="mr-2 h-4 w-4 text-red-500" /> Baja Definitiva
+                            </DropdownMenuItem>
+                            
+                            <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600 focus:text-red-600" disabled={isSubmitting}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar Permanentemente
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción no se puede deshacer. Se eliminará permanentemente el registro del paciente y no se podrá recuperar.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(patient.id)} className="bg-destructive hover:bg-destructive/90">
+                                        Sí, eliminar
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                            </AlertDialog>
+                        </>
+                    ) : (
+                        <DropdownMenuItem disabled>
+                            <Search className="mr-2 h-4 w-4" />
+                            Modo Solo Lectura
+                        </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill } from 'lucide-react';
+import { Home, LayoutGrid, BarChart3, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill, Search } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -141,6 +141,24 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               <Link href="/archivo">
                 <Archive className="h-4 w-4 mr-2" />
                 Archivo
+              </Link>
+            </Button>
+          )}
+          {moduleSettings.archivoConsultaEnabled && (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                'transition-colors shrink-0',
+                pathname === '/archivo-consulta'
+                  ? 'text-primary font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Link href="/archivo-consulta">
+                <Search className="h-4 w-4 mr-2" />
+                Consulta Padrón
               </Link>
             </Button>
           )}

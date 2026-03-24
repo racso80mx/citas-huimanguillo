@@ -585,8 +585,7 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
       fatherAge: Number(patientInput.fatherAge) || null, 
       motherAge: Number(patientInput.motherAge) || null, 
       registrationDate: patientInput.registrationDate || null, 
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, 
-      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null,  Gleason: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
@@ -703,7 +702,7 @@ export async function updateColonias(colonias: Colonia[]) {
 export async function getAnnouncements() { return (await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] })).messages; }
 export async function updateAnnouncements(m: string[]) { return setSettingsDoc('announcements', { messages: m.slice(0, 4) }); }
 
-export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true }); }
+export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true, archivoConsultaEnabled: true }); }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
 
 export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false, password: '' }); }

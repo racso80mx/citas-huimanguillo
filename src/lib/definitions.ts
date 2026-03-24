@@ -269,7 +269,9 @@ export type ModuleSettings = {
   vacunasEnabled: boolean;
   archivoEnabled: boolean;
   farmaciaEnabled: boolean;
+  archivoConsultaEnabled: boolean;
   citasMedicasPassword?: string;
+  archivoConsultaPassword?: string;
 };
 
 export type ArchiveSettings = {

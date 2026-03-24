@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill } from 'lucide-react';
+import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill, Search } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
@@ -44,11 +44,18 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
       enabled: moduleSettings.vacunasEnabled,
     },
     {
-      title: 'Archivo',
-      description: 'Gestión y consulta del padrón de pacientes.',
+      title: 'Archivo (Gestión)',
+      description: 'Gestión y edición del padrón de pacientes.',
       href: '/archivo',
       icon: <Archive className="h-10 w-10 text-primary" />,
       enabled: moduleSettings.archivoEnabled,
+    },
+    {
+      title: 'Consulta de Padrón',
+      description: 'Revisión de registros en modo solo lectura.',
+      href: '/archivo-consulta',
+      icon: <Search className="h-10 w-10 text-primary" />,
+      enabled: moduleSettings.archivoConsultaEnabled,
     },
     {
       title: 'Farmacia',

@@ -51,6 +51,7 @@ export function ModuleSecurityManager() {
       setPasswords({
         medical: modules.citasMedicasPassword || '',
         archive: archive.password || '',
+        archiveInquiry: modules.archivoConsultaPassword || '',
         pharmacy: pharmacy.password || '',
         bi: bi.password || '',
         lab: lab.password || '',
@@ -77,6 +78,10 @@ export function ModuleSecurityManager() {
             case 'medical': 
                 const modSettings = await getModuleSettings();
                 result = await updateModuleSettings({ ...modSettings, citasMedicasPassword: password });
+                break;
+            case 'archiveInquiry':
+                const modSetInq = await getModuleSettings();
+                result = await updateModuleSettings({ ...modSetInq, archivoConsultaPassword: password });
                 break;
             case 'archive': result = await updateArchiveSettings({ password }); break;
             case 'pharmacy': result = await updatePharmacySettings({ password }); break;
@@ -116,7 +121,8 @@ export function ModuleSecurityManager() {
     { id: 'xray', title: 'Rayos X', description: 'Acceso al portal de citas de rayos x.', password: passwords.xray || '', onSave: (p) => handleSave('xray', p, 'Rayos X') },
     { id: 'us', title: 'Ultrasonidos', description: 'Acceso al portal de citas de ultrasonido.', password: passwords.us || '', onSave: (p) => handleSave('us', p, 'Ultrasonidos') },
     { id: 'vaccine', title: 'Vacunación', description: 'Acceso al portal de citas de vacunas.', password: passwords.vaccine || '', onSave: (p) => handleSave('vaccine', p, 'Vacunación') },
-    { id: 'archive', title: 'Gestión del Archivo', description: 'Acceso al padrón de pacientes y expedientes.', password: passwords.archive || '', onSave: (p) => handleSave('archive', p, 'Archivo') },
+    { id: 'archive', title: 'Gestión del Archivo', description: 'Acceso total al padrón (Edición/Borrado).', password: passwords.archive || '', onSave: (p) => handleSave('archive', p, 'Archivo Gestión') },
+    { id: 'archiveInquiry', title: 'Consulta de Padrón', description: 'Acceso de solo lectura al archivo.', password: passwords.archiveInquiry || '', onSave: (p) => handleSave('archiveInquiry', p, 'Consulta Padrón') },
     { id: 'pharmacy', title: 'Configuración de Farmacia', description: 'Acceso al inventario y carga masiva.', password: passwords.pharmacy || '', onSave: (p) => handleSave('pharmacy', p, 'Farmacia') },
     { id: 'bi', title: 'Módulo BI', description: 'Acceso a Business Intelligence y estadísticas.', password: passwords.bi || '', onSave: (p) => handleSave('bi', p, 'BI') },
   ];

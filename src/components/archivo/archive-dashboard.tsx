@@ -24,7 +24,8 @@ import {
   X,
   Upload,
   Download,
-  XCircle
+  XCircle,
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -74,9 +75,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
+  isReadOnly?: boolean;
 };
 
-export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
+export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashboardProps) {
   const [activeTab, setActiveTab] = useState('patients');
 
   // Patient states
@@ -169,6 +171,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   const handleSchedule = (patient: Patient) => { setSchedulingPatient(patient); };
   
   const handleDelete = (patientId: string) => {
+    if (isReadOnly) return;
     startSubmitTransition(async () => {
       const result = await deletePatient(patientId);
       if(result.success) {
@@ -179,6 +182,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }
 
   const handleAppointmentDelete = (appointmentId: string) => {
+    if (isReadOnly) return;
     startSubmitTransition(async () => {
         const result = await deleteAppointment(appointmentId);
         if (result.success) {
@@ -189,6 +193,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   };
   
   const handleStatusChange = (patientId: string, newStatus: PatientStatusEnum) => {
+    if (isReadOnly) return;
     startSubmitTransition(async () => {
       const result = await updatePatientStatus(patientId, newStatus);
        if(result.success) {
@@ -199,6 +204,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
   }
   
   const handleSavePatient = (patientData: Omit<Patient, 'id'>, id?: string) => {
+    if (isReadOnly) return;
     startSubmitTransition(async () => {
       const result = id 
         ? await updatePatient(id, patientData)
@@ -258,9 +264,16 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
     <div className="container mx-auto px-4 py-6">
       <Card className="border-none shadow-none bg-transparent mb-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold font-headline">Control de Archivo</h1>
-            <p className="text-muted-foreground">Gestión integral del padrón de pacientes y citas.</p>
+          <div className="flex items-center gap-3">
+            {isReadOnly ? <Eye className="h-8 w-8 text-blue-600" /> : <Users className="h-8 w-8 text-primary" />}
+            <div>
+                <h1 className="text-3xl font-bold font-headline">
+                    {isReadOnly ? 'Consulta de Padrón' : 'Control de Archivo'}
+                </h1>
+                <p className="text-muted-foreground">
+                    {isReadOnly ? 'Revisión de registros de pacientes (Solo Lectura).' : 'Gestión integral del padrón de pacientes y citas.'}
+                </p>
+            </div>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button variant="outline" onClick={loadData} disabled={isDataLoading}>
@@ -369,12 +382,16 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t mt-2">
-                  <Button onClick={handleAddNew} size="sm" className="bg-primary hover:bg-primary/90">
-                    <PlusCircle className="h-4 w-4 mr-2" /> Nuevo Paciente
-                  </Button>
-                  <Button onClick={() => setIsUploadOpen(true)} variant="secondary" size="sm">
-                    <Upload className="h-4 w-4 mr-2" /> Cargar Excel
-                  </Button>
+                  {!isReadOnly && (
+                    <>
+                        <Button onClick={handleAddNew} size="sm" className="bg-primary hover:bg-primary/90">
+                            <PlusCircle className="h-4 w-4 mr-2" /> Nuevo Paciente
+                        </Button>
+                        <Button onClick={() => setIsUploadOpen(true)} variant="secondary" size="sm">
+                            <Upload className="h-4 w-4 mr-2" /> Cargar Excel
+                        </Button>
+                    </>
+                  )}
                   <Button onClick={handleDownloadExcel} variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" /> Exportar Padrón
                   </Button>
@@ -414,6 +431,7 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                     onStatusChange={handleStatusChange} 
                     onSchedule={handleSchedule} 
                     isSubmitting={isSubmitting}
+                    isReadOnly={isReadOnly}
                   />
                   
                   <div className="flex flex-col sm:flex-row items-center justify-between border-t pt-4 gap-4">
@@ -531,9 +549,9 @@ export function ArchiveDashboard({ onLogout }: ArchiveDashboardProps) {
                   <AppointmentList 
                     appointments={appointmentsToDisplay} 
                     clinics={clinics} 
-                    isAdmin 
-                    onDelete={handleAppointmentDelete} 
-                    onEditSuccess={loadData} 
+                    isAdmin={!isReadOnly} 
+                    onDelete={isReadOnly ? undefined : handleAppointmentDelete} 
+                    onEditSuccess={isReadOnly ? undefined : loadData} 
                   />
                 </>
               )}

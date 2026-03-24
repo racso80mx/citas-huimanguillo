@@ -155,12 +155,22 @@ export function ModuleManager() {
         </div>
         <div className="flex items-center justify-between p-2 rounded-md bg-background border">
           <Label htmlFor="archivo-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Archivo de Pacientes
+            <ToggleRight className="h-5 w-5"/> Archivo (Gestión)
           </Label>
           <Switch
             id="archivo-enabled"
             checked={settings.archivoEnabled}
             onCheckedChange={(checked) => handleSettingsChange('archivoEnabled', checked)}
+          />
+        </div>
+        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
+          <Label htmlFor="archivo-consulta-enabled" className="flex items-center gap-2 text-base">
+            <ToggleRight className="h-5 w-5"/> Consulta de Padrón
+          </Label>
+          <Switch
+            id="archivo-consulta-enabled"
+            checked={settings.archivoConsultaEnabled}
+            onCheckedChange={(checked) => handleSettingsChange('archivoConsultaEnabled', checked)}
           />
         </div>
         <div className="flex items-center justify-between p-2 rounded-md bg-background border">
