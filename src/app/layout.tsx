@@ -6,6 +6,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { PT_Sans } from 'next/font/google';
 import { getModuleSettings } from '@/lib/data';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/layout/app-sidebar';
 
 const ptSans = PT_Sans({
   subsets: ['latin'],
@@ -28,12 +30,19 @@ export default async function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body
-        className={`${ptSans.variable} font-body antialiased min-h-screen bg-background flex flex-col`}
+        className={`${ptSans.variable} font-body antialiased min-h-screen bg-background`}
       >
         <FirebaseClientProvider>
-          <SiteHeader moduleSettings={moduleSettings} />
-          <main className="flex-1">{children}</main>
-          <SiteFooter />
+          <SidebarProvider>
+            <AppSidebar moduleSettings={moduleSettings} />
+            <SidebarInset className="flex flex-col">
+              <SiteHeader moduleSettings={moduleSettings} />
+              <main className="flex-1 overflow-y-auto">
+                {children}
+              </main>
+              <SiteFooter />
+            </SidebarInset>
+          </SidebarProvider>
           <Toaster />
         </FirebaseClientProvider>
       </body>
