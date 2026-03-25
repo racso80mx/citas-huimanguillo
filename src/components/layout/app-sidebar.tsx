@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -28,6 +27,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarHeader,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import type { ModuleSettings } from '@/lib/definitions';
 
@@ -101,6 +102,9 @@ export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<ty
 
   return (
     <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader className="h-14 flex items-center justify-center">
+        <SidebarTrigger />
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Módulos de Atención</SidebarGroupLabel>
