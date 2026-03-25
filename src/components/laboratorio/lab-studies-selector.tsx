@@ -138,7 +138,9 @@ export function LabStudiesSelector({
         {/* Selected Studies Area */}
         {selectedStudies.length > 0 && (
           <div className="bg-muted/30 p-3 rounded-lg border border-dashed">
-            <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Estudios Seleccionados:</p>
+            <p className="text-xs font-bold uppercase text-muted-foreground mb-2">
+              Estudios Seleccionados ({selectedCount}):
+            </p>
             <div className="flex flex-wrap gap-2">
               {selectedStudies.map((study) => (
                 <Badge 
