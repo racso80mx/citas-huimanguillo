@@ -1,4 +1,3 @@
-
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -267,7 +266,7 @@ export function LabBookingForm({
 
     doc.setFontSize(10);
     doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
+    doc.text('Importante: Favor de presentarse a las 06:30 h para su toma de muestras puntual a las 07:00 h.', 20, finalY);
     doc.text('Siga las indicaciones de ayuno y preparación para cada estudio.', 20, finalY + 5);
     doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
