@@ -8,7 +8,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { 
   getLabAppointments, getLabSettings, 
@@ -20,9 +26,10 @@ import {
 } from '@/lib/actions';
 import type { DailyAvailability, Holiday } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday } from 'date-fns';
-import { CalendarDays, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { CalendarDays, Info, CheckCircle2, AlertCircle, FlaskConical } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Label } from '../ui/label';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -33,14 +40,15 @@ type AvailabilityViewerDialogProps = {
   entity: any;
 };
 
-export function AvailabilityViewerDialog({ isOpen, onClose, reportType, entity }: AvailabilityViewerDialogProps) {
+export function AvailabilityViewerDialog({ isOpen, onClose, reportType: initialReportType, entity }: AvailabilityViewerDialogProps) {
+  const [selectedService, setSelectedService] = useState<ReportType>(initialReportType);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [availability, setAvailability] = useState<DailyAvailability[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isPending, startTransition] = useTransition();
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
 
-  const fetchAvailability = React.useCallback(async (date: Date) => {
+  const fetchAvailability = React.useCallback(async (date: Date, service: ReportType) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const startDate = startOfMonth(new Date(year, month));
@@ -52,16 +60,24 @@ export function AvailabilityViewerDialog({ isOpen, onClose, reportType, entity }
       let settings: any = null;
       const holidays = await getHolidays();
 
-      // Fetch data based on report type
-      if (reportType === 'laboratorio') {
-        [appointments, settings] = await Promise.all([getLabAppointments(), getLabSettings()]);
-      } else if (reportType === 'x-ray') {
-        [appointments, settings] = await Promise.all([getXRayAppointments(), getXRaySettings()]);
-      } else if (reportType === 'ultrasound') {
-        [appointments, settings] = await Promise.all([getUltrasoundAppointments(), getUltrasoundSettings()]);
-      } else if (reportType === 'vacunas') {
-        [appointments, settings] = await Promise.all([getVaccineAppointments(), getVaccineSettings()]);
-      } else if (reportType === 'clinic') {
+      // Fetch data based on selected service
+      if (service === 'laboratorio') {
+        const [appData, settsData] = await Promise.all([getLabAppointments(), getLabSettings()]);
+        appointments = appData;
+        settings = settsData;
+      } else if (service === 'x-ray') {
+        const [appData, settsData] = await Promise.all([getXRayAppointments(), getXRaySettings()]);
+        appointments = appData;
+        settings = settsData;
+      } else if (service === 'ultrasound') {
+        const [appData, settsData] = await Promise.all([getUltrasoundAppointments(), getUltrasoundSettings()]);
+        appointments = appData;
+        settings = settsData;
+      } else if (service === 'vacunas') {
+        const [appData, settsData] = await Promise.all([getVaccineAppointments(), getVaccineSettings()]);
+        appointments = appData;
+        settings = settsData;
+      } else if (service === 'clinic') {
         appointments = await getAppointmentsForClinic(entity.id);
         settings = entity;
       }
@@ -79,7 +95,7 @@ export function AvailabilityViewerDialog({ isOpen, onClose, reportType, entity }
 
         let maxSlots = 0;
         
-        if (reportType === 'clinic') {
+        if (service === 'clinic') {
             const dayOfWeekName = dayNames[day.getUTCDay()];
             const isDayOfAction = entity.daysOfAction?.includes(dayOfWeekName);
             const isUnavailableDate = entity.unavailableDates?.includes(dateString);
@@ -106,17 +122,17 @@ export function AvailabilityViewerDialog({ isOpen, onClose, reportType, entity }
     } catch (error) {
       console.error("Error fetching availability:", error);
     }
-  }, [reportType, entity]);
+  }, [entity]);
 
   useEffect(() => {
     if (isOpen) {
       setIsLoadingInitial(true);
       startTransition(async () => {
-        await fetchAvailability(currentMonth);
+        await fetchAvailability(currentMonth, selectedService);
         setIsLoadingInitial(false);
       });
     }
-  }, [isOpen, currentMonth, fetchAvailability]);
+  }, [isOpen, currentMonth, selectedService, fetchAvailability]);
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
@@ -130,45 +146,68 @@ export function AvailabilityViewerDialog({ isOpen, onClose, reportType, entity }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-primary" />
             Consulta de Disponibilidad
           </DialogTitle>
           <DialogDescription>
-            Validación de cupos libres para {entity.name}.
+            Verifica los espacios libres para agendar nuevas citas.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center gap-6 py-4">
-          <AvailabilityCalendar
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-            availability={availability}
-            onMonthChange={handleMonthChange}
-            isLoading={isPending || isLoadingInitial}
-          />
+        <div className="flex flex-col gap-6 py-4">
+          <div className="space-y-2">
+            <Label>Servicio a consultar:</Label>
+            <Select value={selectedService} onValueChange={(v: ReportType) => setSelectedService(v)}>
+              <SelectTrigger className="w-full h-11 border-primary/40">
+                <SelectValue placeholder="Selecciona un servicio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="laboratorio">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="h-4 w-4 text-primary" />
+                    <span>Laboratorio Clínico</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="x-ray">Rayos X</SelectItem>
+                <SelectItem value="ultrasound">Ultrasonidos</SelectItem>
+                <SelectItem value="vacunas">Vacunación</SelectItem>
+                <SelectItem value="clinic">Núcleo Básico (Actual)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-center">
+            <AvailabilityCalendar
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+              availability={availability}
+              onMonthChange={handleMonthChange}
+              isLoading={isPending || isLoadingInitial}
+            />
+          </div>
 
           {selectedDate && selectedDayAvailability && (
             <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-2">
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
                 <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Estado para el {format(selectedDate, 'dd/MM/yyyy')}:</span>
+                  <Info className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-semibold">Citas para el {format(selectedDate, 'dd/MM/yyyy')}:</span>
                 </div>
                 <Badge 
                   variant={selectedDayAvailability.availableSlots > 0 ? "secondary" : "destructive"}
                   className={cn(
-                    "font-bold",
+                    "text-lg px-3 py-1 font-bold",
                     selectedDayAvailability.availableSlots > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                   )}
                 >
                   {selectedDayAvailability.availableSlots === 0 ? (
-                    <span className="flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Sin Cupo</span>
+                    <span className="flex items-center gap-1"><AlertCircle className="h-4 w-4" /> Agotado</span>
                   ) : (
                     <span className="flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" />
+                      <CheckCircle2 className="h-4 w-4" />
                       {selectedDayAvailability.availableSlots} Libres
                     </span>
                   )}
@@ -178,8 +217,8 @@ export function AvailabilityViewerDialog({ isOpen, onClose, reportType, entity }
           )}
           
           {!selectedDate && !isLoadingInitial && (
-            <p className="text-xs text-muted-foreground italic text-center">
-              Selecciona un día en el calendario para ver el detalle de citas disponibles.
+            <p className="text-xs text-muted-foreground italic text-center border-t pt-4">
+              Selecciona un día en el calendario para ver el detalle de citas disponibles en {selectedService === 'laboratorio' ? 'Laboratorio' : 'este servicio'}.
             </p>
           )}
         </div>
