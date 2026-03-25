@@ -33,6 +33,7 @@ import {
   PlusCircle,
   RefreshCw,
   Pill,
+  CalendarDays,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -65,7 +66,7 @@ import { XRaySettingsManager } from '../admin/x-ray-settings-manager';
 import { UltrasoundSettingsManager } from '../admin/ultrasound-settings-manager';
 import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
 import { MedicationInventoryDialog } from './medication-inventory-dialog';
-import Link from 'next/link';
+import { AvailabilityViewerDialog } from './availability-viewer-dialog';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -85,6 +86,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isClient, setIsClient] = useState(false);
   const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
+  const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -177,23 +179,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [isClient, appointments, activeFilter, dateRange]);
 
-  const newAppointmentPath = useMemo(() => {
-    switch (reportType) {
-      case 'clinic':
-        return '/citas-medicas';
-      case 'laboratorio':
-        return '/laboratorio';
-      case 'x-ray':
-        return '/rayos-x';
-      case 'ultrasound':
-        return '/ultrasonidos';
-      case 'vacunas':
-        return '/vacunas';
-      default:
-        return '/';
-    }
-  }, [reportType]);
-
   const handleDelete = async (id: string) => {
     try {
       if (reportType === 'clinic') await deleteAppointment(id);
@@ -206,7 +191,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         title: 'Cita Eliminada',
         description: 'La cita ha sido eliminada correctamente.',
       });
-      fetchData(); // Refresh data after deletion
+      fetchData(); 
     } catch (error) {
       toast({
         title: 'Error',
@@ -324,7 +309,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     const props = {
       isAdmin: true,
       onEditSuccess: fetchData,
-      // Deshabilitamos onDelete específicamente para los reportes de Núcleos Básicos
       onDelete: reportType === 'clinic' ? undefined : handleDelete,
     };
     switch(reportType) {
@@ -372,7 +356,11 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               citas.
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="text-primary border-primary/40 hover:bg-primary/5" onClick={() => setIsAvailabilityDialogOpen(true)}>
+                <CalendarDays className="mr-2 h-4 w-4" />
+                Consultar Disponibilidad
+            </Button>
             <Button variant="default" className="bg-primary hover:bg-primary/90" onClick={() => setIsMedicationDialogOpen(true)}>
                 <Pill className="mr-2 h-4 w-4" />
                 Consultar Farmacia
@@ -533,6 +521,13 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       <MedicationInventoryDialog 
         isOpen={isMedicationDialogOpen} 
         onClose={() => setIsMedicationDialogOpen(false)} 
+      />
+
+      <AvailabilityViewerDialog
+        isOpen={isAvailabilityDialogOpen}
+        onClose={() => setIsAvailabilityDialogOpen(false)}
+        reportType={reportType}
+        entity={entity}
       />
     </div>
   );
