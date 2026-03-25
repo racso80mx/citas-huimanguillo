@@ -15,8 +15,9 @@ import type { DailyAvailability, LabStudy, LabSettings, Holiday } from '@/lib/de
 import { PatientType } from '@/lib/definitions';
 import { getLabAppointments, getHolidays, verifyLabPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell } from 'lucide-react';
+import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell, Info, CheckCircle2, AlertCircle } from 'lucide-react';
 import {
+  format,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -24,6 +25,7 @@ import {
   isSunday,
   startOfToday,
 } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { LabStudiesSelector } from '@/components/laboratorio/lab-studies-selector';
 import {
   Select,
@@ -33,6 +35,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type LabPageContentProps = {
   initialStudies: LabStudy[];
@@ -126,6 +130,12 @@ export default function LabPageContent({
     }
   }, [fetchAvailability, toast, isAuthenticated]);
 
+  const selectedDayAvailability = React.useMemo(() => {
+    if (!selectedDate) return null;
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+    return availability.find((d) => d.date === dateString) || null;
+  }, [selectedDate, availability]);
+
   if (!isAuthenticated) {
     return <ModuleLoginForm title="Laboratorio" onVerify={verifyLabPassword} onSuccess={() => setIsAuthenticated(true)} />;
   }
@@ -214,6 +224,35 @@ export default function LabPageContent({
                   onMonthChange={handleMonthChange}
                   isLoading={isPending}
                 />
+                
+                {selectedDate && selectedDayAvailability && (
+                  <Card className="mt-4 border-primary/20 bg-primary/5">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Info className="h-5 w-5 text-primary" />
+                          <span className="font-semibold text-sm">Disponibilidad para el {format(selectedDate, 'dd/MM/yyyy')}:</span>
+                        </div>
+                        <Badge 
+                          variant={selectedDayAvailability.availableSlots > 5 ? "secondary" : "destructive"}
+                          className={cn(
+                            "text-lg px-3 py-1 font-bold",
+                            selectedDayAvailability.availableSlots > 5 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                          )}
+                        >
+                          {selectedDayAvailability.availableSlots === 0 ? (
+                            <span className="flex items-center gap-1"><AlertCircle className="h-4 w-4" /> Agotado</span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <CheckCircle2 className="h-4 w-4" />
+                              {selectedDayAvailability.availableSlots} citas disponibles
+                            </span>
+                          )}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
                {selectedDate && (

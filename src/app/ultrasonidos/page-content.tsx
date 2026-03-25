@@ -15,7 +15,7 @@ import type { DailyAvailability, UltrasoundStudy, UltrasoundSettings, Holiday } 
 import { PatientType } from '@/lib/definitions';
 import { getUltrasoundAppointments, getHolidays, verifyUltrasoundPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, CalendarDays, Waves, UserCheck, Bell } from 'lucide-react';
+import { Clock, CalendarDays, Waves, UserCheck, Bell, Info, CheckCircle2, AlertCircle } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/select';
 import { timeSlots30Min } from '@/lib/time-slots';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type UltrasoundPageContentProps = {
   initialStudies: UltrasoundStudy[];
@@ -49,8 +51,6 @@ export default function UltrasoundPageContent({
   initialAnnouncements,
   initialHolidays,
 }: UltrasoundPageContentProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [selectedStudy, setSelectedStudy] = React.useState<UltrasoundStudy | undefined>();
@@ -120,6 +120,8 @@ export default function UltrasoundPageContent({
     },
     [settings, allTimeSlots]
   );
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -255,6 +257,35 @@ export default function UltrasoundPageContent({
                   onMonthChange={handleMonthChange}
                   isLoading={isPending}
                 />
+                
+                {selectedDate && selectedDayAvailability && (
+                  <Card className="mt-4 border-primary/20 bg-primary/5">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Info className="h-5 w-5 text-primary" />
+                          <span className="font-semibold text-sm">Disponibilidad para el {format(selectedDate, 'dd/MM/yyyy')}:</span>
+                        </div>
+                        <Badge 
+                          variant={selectedDayAvailability.availableSlots > 3 ? "secondary" : "destructive"}
+                          className={cn(
+                            "text-lg px-3 py-1 font-bold",
+                            selectedDayAvailability.availableSlots > 3 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                          )}
+                        >
+                          {selectedDayAvailability.availableSlots === 0 ? (
+                            <span className="flex items-center gap-1"><AlertCircle className="h-4 w-4" /> Agotado</span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <CheckCircle2 className="h-4 w-4" />
+                              {selectedDayAvailability.availableSlots} horarios disponibles
+                            </span>
+                          )}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {selectedDate && (
