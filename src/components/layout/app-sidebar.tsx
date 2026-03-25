@@ -14,6 +14,7 @@ import {
   Pill,
   BarChart3,
   LayoutGrid,
+  ClipboardList,
 } from 'lucide-react';
 
 import {
@@ -93,7 +94,7 @@ export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<ty
     {
       title: 'Reportes Médicos',
       url: '/reports',
-      icon: BarChart3,
+      icon: ClipboardList,
       enabled: true,
     },
   ];
