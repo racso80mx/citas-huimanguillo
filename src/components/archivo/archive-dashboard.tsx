@@ -27,7 +27,8 @@ import {
   XCircle,
   Eye,
   Calendar as CalendarIcon,
-  FileText
+  FileText,
+  Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -42,7 +43,7 @@ import {
   deleteAppointment 
 } from '@/lib/actions';
 import type { Patient, Appointment, Clinic, ArchiveCounts } from '@/lib/definitions';
-import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
+import { PatientStatus as PatientStatusEnum, ClinicType } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
@@ -90,6 +91,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
 import { downloadExcel, generateArchiveListPDF } from '@/lib/report-helpers';
+import { Label } from '../ui/label';
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
@@ -125,6 +127,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
+  const [selectedClinicType, setSelectedClinicType] = useState<ClinicType | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
@@ -274,9 +277,20 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
     );
   };
 
+  const filteredClinics = useMemo(() => {
+    if (selectedClinicType === 'all') return clinics;
+    return clinics.filter(c => c.clinicType === selectedClinicType);
+  }, [clinics, selectedClinicType]);
+
   const appointmentsToDisplay = useMemo(() => {
     let filtered = [...allAppointments];
     
+    // Filter by clinic type
+    if (selectedClinicType !== 'all') {
+        const clinicsOfType = clinics.filter(c => c.clinicType === selectedClinicType).map(c => c.id);
+        filtered = filtered.filter(app => clinicsOfType.includes(app.clinicId));
+    }
+
     // Filter by clinic
     if (selectedClinics.length > 0) {
         filtered = filtered.filter(app => selectedClinics.includes(app.clinicId));
@@ -336,7 +350,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
     filtered = filtered.filter(filterFn);
     return filtered.sort((a, b) => a.time.localeCompare(b.time));
-  }, [allAppointments, selectedClinics, dateFilter, dateRange]);
+  }, [allAppointments, selectedClinics, selectedClinicType, dateFilter, dateRange, clinics]);
 
   const handleDownloadAppointmentsExcel = async () => {
     if (appointmentsToDisplay.length === 0) {
@@ -599,7 +613,22 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground whitespace-nowrap">Tipo:</Label>
+                            <Select value={selectedClinicType} onValueChange={(v: ClinicType | 'all') => { setSelectedClinicType(v); setSelectedClinics([]); }}>
+                                <SelectTrigger className="h-9 w-[180px]">
+                                    <SelectValue placeholder="Tipo de Consulta" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los Tipos</SelectItem>
+                                    {Object.values(ClinicType).map(type => (
+                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className="h-9 border-dashed">
@@ -616,7 +645,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                                     <CommandList>
                                         <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                                         <CommandGroup>
-                                            {clinics.sort((a,b) => a.name.localeCompare(b.name)).map(clinic => {
+                                            {filteredClinics.sort((a,b) => a.name.localeCompare(b.name)).map(clinic => {
                                                 const isSelected = selectedClinics.includes(clinic.id);
                                                 return (
                                                     <CommandItem key={clinic.id} onSelect={() => handleClinicSelect(clinic.id)}>

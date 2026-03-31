@@ -86,26 +86,45 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
         app.patient.expediente || 'S/E',
         app.patient.curp,
         app.patientType,
-        app.clinicName || 'N/A'
+        app.clinicName || 'N/A',
+        '' // Column for "Observaciones" (Blank space for manual writing)
     ]);
 
     doc.autoTable({
         startY: 30,
-        head: [['Hora', 'Folio', 'Nombre del Paciente', 'Expediente', 'CURP', 'Tipo', 'Consultorio/Núcleo']],
+        head: [['Hora', 'Folio', 'Nombre del Paciente', 'Expediente', 'CURP', 'Tipo', 'Consultorio/Núcleo', 'Observaciones']],
         body: tableBody,
         theme: 'grid',
         headStyles: { fillColor: [0, 102, 51], fontSize: 10 },
         styles: { fontSize: 9 },
         columnStyles: {
-            0: { cellWidth: 25 },
+            0: { cellWidth: 20 },
             1: { cellWidth: 25 },
             2: { cellWidth: 'auto' },
-            3: { cellWidth: 30 },
-            4: { cellWidth: 45 },
+            3: { cellWidth: 25 },
+            4: { cellWidth: 40 },
             5: { cellWidth: 25 },
-            6: { cellWidth: 45 }
+            6: { cellWidth: 40 },
+            7: { cellWidth: 45 } // Space for manual notes
         }
     });
+
+    const finalY = doc.lastAutoTable.finalY + 25;
+    
+    // Signature lines at the end of the document
+    if (finalY < 180) { // Check if we have enough space on the same page
+        doc.line(100, finalY, 190, finalY);
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text('Nombre y Firma de Recibido', 145, finalY + 5, { align: 'center' });
+    } else {
+        doc.addPage();
+        const newY = 40;
+        doc.line(100, newY, 190, newY);
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.text('Nombre y Firma de Recibido', 145, newY + 5, { align: 'center' });
+    }
 
     const dateStr = format(new Date(), 'dd-MM-yyyy');
     doc.save(`listado_archivo_${dateStr}.pdf`);
