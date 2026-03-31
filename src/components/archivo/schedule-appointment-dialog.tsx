@@ -71,6 +71,12 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
         const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+        const timeToMinutes = (t: string) => {
+            if (!t || t.includes('Espera') || t.includes('Ficha')) return -1;
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        };
+
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
             const appointmentsOnDate = allAppointments.filter(
@@ -79,7 +85,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
             let totalAvailableSlots = 0;
             const availabilityByClinic: { [key: string]: number } = {};
-            const takenTimesByClinic: { [key: string]: string[] } = {};
+            const takenTimesByClinic: { [key: string]: any[] } = {};
 
             for (const clinic of clinics) {
                 const isWeekend = isSaturday(day) || isSunday(day);
@@ -90,29 +96,45 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
     
                 let availableSlotsForClinic = 0;
-                let takenTimes: string[] = [];
+                let takenInfo: any[] = [];
     
                 if (!isDayOfAction && !isUnavailableDate && !isWeekendAndNotEnabled) {
-                    let totalSlotsForClinic = 0;
-                    if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
-                        totalSlotsForClinic = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, clinic.consultationDuration).length;
-                    } else {
-                        totalSlotsForClinic = clinic.dailySlots;
-                    }
-                    
-                    totalSlotsForClinic += (clinic.waitlistSlots || 0);
-                    
                     const bookedAppointments = appointmentsOnDate.filter(
                         (app) => app.clinicId === clinic.id
                     );
+
+                    if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
+                        const duration = clinic.consultationDuration;
+                        const candidateSlots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, duration);
+                        
+                        const unblockedSlots = candidateSlots.filter(slot => {
+                            if (slot === clinic.breakTime) return false;
+                            const slotStart = timeToMinutes(slot);
+                            const slotEnd = slotStart + duration;
+
+                            return !bookedAppointments.some(app => {
+                                if (app.time.includes('Espera')) return false;
+                                const appStart = timeToMinutes(app.time);
+                                const appEnd = appStart + (app.duration || 30);
+                                return Math.max(slotStart, appStart) < Math.min(slotEnd, appEnd);
+                            });
+                        });
+
+                        availableSlotsForClinic = unblockedSlots.length;
+                        const takenWaitlist = bookedAppointments.filter(a => a.time.includes('Espera')).map(a => a.time);
+                        const availableWaitlist = (clinic.waitlistSlots || 0) - takenWaitlist.length;
+                        availableSlotsForClinic += Math.max(0, availableWaitlist);
+                    } else {
+                        const totalSlotsForClinic = clinic.dailySlots + (clinic.waitlistSlots || 0);
+                        availableSlotsForClinic = Math.max(0, totalSlotsForClinic - bookedAppointments.length);
+                    }
                     
-                    availableSlotsForClinic = Math.max(0, totalSlotsForClinic - bookedAppointments.length);
-                    takenTimes = bookedAppointments.map(app => app.time);
+                    takenInfo = bookedAppointments.map(app => ({ time: app.time, duration: app.duration }));
                 }
     
                 availabilityByClinic[clinic.id] = availableSlotsForClinic;
                 totalAvailableSlots += availableSlotsForClinic;
-                takenTimesByClinic[clinic.id] = takenTimes;
+                takenTimesByClinic[clinic.id] = takenInfo;
             }
 
             availabilityResult.push({
@@ -211,9 +233,34 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
     const availableTimeSlots = React.useMemo(() => {
         if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Time) return [];
-        const takenTimes = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
-        const timesToExclude = selectedClinic.breakTime ? [...takenTimes, selectedClinic.breakTime] : takenTimes;
-        return allTimeSlots.filter(slot => !timesToExclude.includes(slot));
+        
+        const takenInfo = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
+        const duration = selectedClinic.consultationDuration || 30;
+
+        const timeToMinutes = (t: string) => {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        };
+
+        return allTimeSlots.filter(candidate => {
+            if (candidate === selectedClinic.breakTime) return false;
+            
+            if (candidate.includes('Espera')) {
+                return !takenInfo.some(ti => ti.time === candidate);
+            }
+
+            const candStart = timeToMinutes(candidate);
+            const candEnd = candStart + duration;
+
+            const hasCollision = takenInfo.some(ti => {
+                if (ti.time.includes('Espera')) return false;
+                const appStart = timeToMinutes(ti.time);
+                const appEnd = appStart + (ti.duration || 30);
+                return Math.max(candStart, appStart) < Math.min(candEnd, appEnd);
+            });
+
+            return !hasCollision;
+        });
     }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
 
     const availableTokens = React.useMemo(() => {
@@ -222,7 +269,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
         const waitlistTokens = Array.from({ length: selectedClinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
         const allOptions = [...allPossibleTokens, ...waitlistTokens];
-        const takenTimes = selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || [];
+        const takenTimes = (selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || []).map(ti => ti.time);
         return allOptions.filter(token => !takenTimes.includes(token));
     }, [selectedDayAvailability, selectedClinic]);
     

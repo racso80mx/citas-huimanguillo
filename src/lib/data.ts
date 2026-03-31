@@ -402,6 +402,9 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
       if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita médica para este día.` };
     }
 
+    const clinicData = await getClinicById(appointment.clinicId);
+    if (!clinicData) return { success: false, error: "La clínica seleccionada no existe." };
+
     const batch = writeBatch(db);
     let patientId = existingPatient ? existingPatient.id : uuidv4();
     
@@ -438,6 +441,7 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
       clinicId: appointment.clinicId,
       date: Timestamp.fromDate(new Date(appointment.date)),
       time: String(appointment.time),
+      duration: clinicData.consultationDuration || 30, // Persist current clinic duration
       patientType: appointment.patientType,
       status: 'Agendada',
       coloniaName: coloniaName || null,
@@ -447,7 +451,6 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
     batch.set(appRef, cleanApp);
     await batch.commit();
     await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
-    const clinicData = await getClinicById(appointment.clinicId);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -1026,17 +1029,44 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   const dateOnly = dateIso.split('T')[0];
   const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
-  const taken = snap.docs.map(d => d.data()).filter(a => serializeData(a.date).split('T')[0] === dateOnly).map(a => a.time);
+  const taken = snap.docs.map(d => serializeData(d.data())).filter(a => a.date.split('T')[0] === dateOnly);
   
   if (clinic.bookingMode === BookingMode.Time) {
     const slots = []; let curr = new Date(`1970-01-01T${clinic.startTime}:00`); const end = new Date(`1970-01-01T${clinic.endTime}:00`); const duration = clinic.consultationDuration || 30;
-    while (curr < end) { const t = curr.toTimeString().substring(0, 5); if (!taken.includes(t) && t !== clinic.breakTime) slots.push(t); curr = new Date(curr.getTime() + duration * 60000); }
-    // Add Waitlist slots
-    const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.includes(t));
+    
+    const timeToMinutes = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    while (curr < end) { 
+        const t = curr.toTimeString().substring(0, 5); 
+        const tMins = timeToMinutes(t);
+        
+        // Break time exact match
+        if (t === clinic.breakTime) {
+            curr = new Date(curr.getTime() + duration * 60000);
+            continue;
+        }
+
+        // Check range collision with any existing appointment
+        const hasCollision = taken.some(app => {
+            if (app.time.includes('Espera') || app.time.includes('Ficha')) return false;
+            const appStart = timeToMinutes(app.time);
+            const appEnd = appStart + (app.duration || 30);
+            const slotEnd = tMins + duration;
+            // Overlap condition: max(start1, start2) < min(end1, end2)
+            return Math.max(tMins, appStart) < Math.min(slotEnd, appEnd);
+        });
+
+        if (!hasCollision) slots.push(t); 
+        curr = new Date(curr.getTime() + duration * 60000); 
+    }
+    const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.some(a => a.time === t));
     return { timeSlots: [...slots, ...waitlist] };
   } else {
-    const tokens = Array.from({ length: clinic.dailySlots }, (_, i) => `Ficha ${i + 1}`).filter(t => !taken.includes(t));
-    const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.includes(t));
+    const tokens = Array.from({ length: clinic.dailySlots }, (_, i) => `Ficha ${i + 1}`).filter(t => !taken.some(a => a.time === t));
+    const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.some(a => a.time === t));
     return { tokens: [...tokens, ...waitlist] };
   }
 }

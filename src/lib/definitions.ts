@@ -64,6 +64,7 @@ export type Appointment = {
   coloniaName?: string;
   date: string; // ISO string for serializability
   time: string; // HH:mm format or "Por Ficha" or "Espera X"
+  duration?: number; // Duration in minutes at the time of booking
   patientType: PatientType;
   status: AppointmentStatus;
   patient: Patient;
@@ -123,7 +124,7 @@ export type DailyAvailability = {
   date: string; // YYYY-MM-DD
   availableSlots: number;
   availabilityByClinic: { [key: string]: number };
-  takenTimesByClinic: { [key: string]: string[] };
+  takenTimesByClinic: { [key: string]: any[] }; // Changed to support time range objects
 };
 
 export type Report = {
