@@ -25,7 +25,9 @@ import {
   Upload,
   Download,
   XCircle,
-  Eye
+  Eye,
+  Calendar as CalendarIcon,
+  FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -72,11 +74,29 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  startOfDay, 
+  endOfDay, 
+  startOfWeek, 
+  endOfWeek, 
+  startOfMonth, 
+  endOfMonth, 
+  parseISO, 
+  isWithinInterval, 
+  addDays,
+  format
+} from 'date-fns';
+import { es } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
+import { Calendar } from '../ui/calendar';
+import { downloadExcel, generateArchiveListPDF } from '@/lib/report-helpers';
 
 type ArchiveDashboardProps = {
   onLogout: () => void;
   isReadOnly?: boolean;
 };
+
+type DateFilterType = 'today' | 'tomorrow' | 'week' | 'month' | 'range';
 
 export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashboardProps) {
   const [activeTab, setActiveTab] = useState('patients');
@@ -105,6 +125,8 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   // Common states
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -254,11 +276,96 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
   const appointmentsToDisplay = useMemo(() => {
     let filtered = [...allAppointments];
+    
+    // Filter by clinic
     if (selectedClinics.length > 0) {
         filtered = filtered.filter(app => selectedClinics.includes(app.clinicId));
     }
-    return filtered;
-  }, [allAppointments, selectedClinics]);
+
+    // Filter by date
+    const now = new Date();
+    let filterFn: (app: any) => boolean;
+
+    switch (dateFilter) {
+      case 'tomorrow':
+        const tomorrowStart = startOfDay(addDays(now, 1));
+        const tomorrowEnd = endOfDay(addDays(now, 1));
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return isWithinInterval(appDate, { start: tomorrowStart, end: tomorrowEnd });
+        };
+        break;
+      case 'week':
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return isWithinInterval(appDate, { start: weekStart, end: weekEnd });
+        };
+        break;
+      case 'month':
+        const monthStart = startOfMonth(now);
+        const monthEnd = endOfMonth(now);
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return isWithinInterval(appDate, { start: monthStart, end: monthEnd });
+        };
+        break;
+      case 'range':
+        if (dateRange?.from) {
+          const rangeStart = startOfDay(dateRange.from);
+          const rangeEnd = endOfDay(dateRange.to || dateRange.from);
+          filterFn = (app) => {
+            const appDate = parseISO(app.date);
+            return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
+          };
+        } else {
+          return filtered;
+        }
+        break;
+      case 'today':
+      default:
+        const todayStart = startOfDay(now);
+        const todayEnd = endOfDay(now);
+        filterFn = (app) => {
+          const appDate = parseISO(app.date);
+          return isWithinInterval(appDate, { start: todayStart, end: todayEnd });
+        };
+        break;
+    }
+
+    filtered = filtered.filter(filterFn);
+    return filtered.sort((a, b) => a.time.localeCompare(b.time));
+  }, [allAppointments, selectedClinics, dateFilter, dateRange]);
+
+  const handleDownloadAppointmentsExcel = async () => {
+    if (appointmentsToDisplay.length === 0) {
+        toast({ title: 'No hay citas para exportar', variant: 'destructive' });
+        return;
+    }
+    const data = appointmentsToDisplay.map(app => ({
+        ...app,
+        clinicName: clinics.find(c => c.id === app.clinicId)?.name || 'N/A'
+    }));
+    await downloadExcel(data, `citas_archivo_${dateFilter}`);
+  };
+
+  const handleDownloadAppointmentsPDF = async () => {
+    if (appointmentsToDisplay.length === 0) {
+        toast({ title: 'No hay citas para exportar', variant: 'destructive' });
+        return;
+    }
+    const data = appointmentsToDisplay.map(app => ({
+        ...app,
+        clinicName: clinics.find(c => c.id === app.clinicId)?.name || 'N/A'
+    }));
+    
+    let subtitle = "Reporte de Citas";
+    if (dateFilter === 'today') subtitle = `Citas para hoy: ${format(new Date(), 'dd/MM/yyyy')}`;
+    if (dateFilter === 'tomorrow') subtitle = `Citas para mañana: ${format(addDays(new Date(), 1), 'dd/MM/yyyy')}`;
+    
+    await generateArchiveListPDF(data, "Listado de Citas - Archivo", subtitle);
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -387,6 +494,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                         <Button onClick={handleAddNew} size="sm" className="bg-primary hover:bg-primary/90">
                             <PlusCircle className="h-4 w-4 mr-2" /> Nuevo Paciente
                         </Button>
+                        <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadData} />
                         <Button onClick={() => setIsUploadOpen(true)} variant="secondary" size="sm">
                             <Upload className="h-4 w-4 mr-2" /> Cargar Excel
                         </Button>
@@ -459,82 +567,92 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
           </Card>
         </TabsContent>
 
-        <TabsContent value="appointments" className="pt-4">
+        <TabsContent value="appointments" className="pt-4 space-y-4">
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <CardTitle>Historial Reciente de Citas</CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="h-10 border-dashed">
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Filtrar por Núcleo
-                            {selectedClinics.length > 0 && (
-                                <>
-                                    <Separator orientation="vertical" className="mx-2 h-4" />
-                                    <Badge
-                                        variant="secondary"
-                                        className="rounded-sm px-1 font-normal"
-                                    >
-                                        {selectedClinics.length}
-                                    </Badge>
-                                </>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[250px] p-0" align="end">
-                        <Command>
-                            <CommandInput placeholder="Buscar núcleo..." />
-                            <CommandList>
-                                <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-                                <CommandGroup>
-                                    {clinics.sort((a,b) => a.name.localeCompare(b.name)).map(clinic => {
-                                        const isSelected = selectedClinics.includes(clinic.id);
-                                        return (
-                                            <CommandItem
-                                                key={clinic.id}
-                                                onSelect={() => handleClinicSelect(clinic.id)}
-                                            >
-                                                <div
-                                                    className={cn(
-                                                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                        isSelected
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "opacity-50 [&_svg]:invisible"
-                                                    )}
-                                                >
-                                                    <Check className={cn("h-4 w-4")} />
-                                                </div>
-                                                <span>{clinic.name}</span>
-                                            </CommandItem>
-                                        );
-                                    })}
-                                </CommandGroup>
-                                {selectedClinics.length > 0 && (
-                                    <>
-                                        <CommandSeparator />
+            <CardHeader className="pb-4 border-b bg-muted/10">
+              <div className="flex flex-col space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <CardTitle className="flex items-center gap-2">
+                        <CalendarIcon className="h-5 w-5 text-primary" /> Reporte de Citas
+                    </CardTitle>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button variant={dateFilter === 'today' ? 'default' : 'outline'} onClick={() => setDateFilter('today')} size="sm">Hoy</Button>
+                        <Button variant={dateFilter === 'tomorrow' ? 'default' : 'outline'} onClick={() => setDateFilter('tomorrow')} size="sm">Mañana</Button>
+                        <Button variant={dateFilter === 'week' ? 'default' : 'outline'} onClick={() => setDateFilter('week')} size="sm">Esta Semana</Button>
+                        <Button variant={dateFilter === 'month' ? 'default' : 'outline'} onClick={() => setDateFilter('month')} size="sm">Este Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date" variant={dateFilter === 'range' ? 'default' : 'outline'} size="sm" className="h-9">
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                        dateRange.to ? (
+                                            <>{format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM')}</>
+                                        ) : format(dateRange.from, 'dd/MM')
+                                    ) : "Rango"}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar initialFocus mode="range" selected={dateRange} onSelect={(r) => { setDateRange(r); setDateFilter('range'); }} numberOfMonths={2} locale={es} />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="h-9 border-dashed">
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Filtrar por Núcleo
+                                    {selectedClinics.length > 0 && (
+                                        <Badge variant="secondary" className="ml-2 rounded-sm px-1 font-normal">{selectedClinics.length}</Badge>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[250px] p-0" align="start">
+                                <Command>
+                                    <CommandInput placeholder="Buscar núcleo..." />
+                                    <CommandList>
+                                        <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                                         <CommandGroup>
-                                            <CommandItem
-                                                onSelect={() => setSelectedClinics([])}
-                                                className="justify-center text-center"
-                                            >
-                                                Limpiar filtro
-                                            </CommandItem>
+                                            {clinics.sort((a,b) => a.name.localeCompare(b.name)).map(clinic => {
+                                                const isSelected = selectedClinics.includes(clinic.id);
+                                                return (
+                                                    <CommandItem key={clinic.id} onSelect={() => handleClinicSelect(clinic.id)}>
+                                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}><Check className="h-4 w-4" /></div>
+                                                        <span>{clinic.name}</span>
+                                                    </CommandItem>
+                                                );
+                                            })}
                                         </CommandGroup>
-                                    </>
-                                )}
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <Button variant="outline" onClick={loadData} disabled={isDataLoading}>
-                    <RefreshCw className={cn("h-4 w-4", isDataLoading && "animate-spin")} />
-                  </Button>
+                                        {selectedClinics.length > 0 && (
+                                            <>
+                                                <CommandSeparator />
+                                                <CommandGroup><CommandItem onSelect={() => setSelectedClinics([])} className="justify-center text-center">Limpiar filtro</CommandItem></CommandGroup>
+                                            </>
+                                        )}
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <Button variant="outline" size="sm" onClick={loadData} disabled={isDataLoading} className="h-9">
+                            <RefreshCw className={cn("h-4 w-4", isDataLoading && "animate-spin")} />
+                        </Button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button onClick={handleDownloadAppointmentsExcel} variant="outline" size="sm" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100 h-9">
+                            <Download className="mr-2 h-4 w-4" /> Excel
+                        </Button>
+                        <Button onClick={handleDownloadAppointmentsPDF} variant="outline" size="sm" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100 h-9">
+                            <FileText className="mr-2 h-4 w-4" /> Descargar Listado (PDF)
+                        </Button>
+                    </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="relative min-h-[300px]">
+            <CardContent className="relative min-h-[300px] pt-6">
               {isDataLoading && allAppointments.length === 0 ? (
                 <div className="flex justify-center items-center py-20">
                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -560,7 +678,6 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
         </TabsContent>
       </Tabs>
 
-      <MassUploadDialog isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadSuccess={loadData} />
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
       {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadData(); }} clinics={clinics} colonias={[]} />}
     </div>

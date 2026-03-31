@@ -67,6 +67,50 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
   xlsx.writeFile(workbook, `${filename}.xlsx`);
 }
 
+export async function generateArchiveListPDF(appointments: any[], title: string, subtitle: string) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF('landscape') as any;
+
+    doc.setFont('Helvetica');
+    doc.setFontSize(18);
+    doc.text(title, 14, 15);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(subtitle, 14, 22);
+
+    const tableBody = appointments.map(app => [
+        app.time,
+        app.appointmentNumber,
+        `${app.patient.paternalLastName} ${app.patient.maternalLastName} ${app.patient.name}`,
+        app.patient.expediente || 'S/E',
+        app.patient.curp,
+        app.patientType,
+        app.clinicName || 'N/A'
+    ]);
+
+    doc.autoTable({
+        startY: 30,
+        head: [['Hora', 'Folio', 'Nombre del Paciente', 'Expediente', 'CURP', 'Tipo', 'Consultorio/Núcleo']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 102, 51], fontSize: 10 },
+        styles: { fontSize: 9 },
+        columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 25 },
+            2: { cellWidth: 'auto' },
+            3: { cellWidth: 30 },
+            4: { cellWidth: 45 },
+            5: { cellWidth: 25 },
+            6: { cellWidth: 45 }
+        }
+    });
+
+    const dateStr = format(new Date(), 'dd-MM-yyyy');
+    doc.save(`listado_archivo_${dateStr}.pdf`);
+}
+
 
 export async function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
     const { jsPDF } = await import('jspdf');
