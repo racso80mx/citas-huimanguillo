@@ -705,7 +705,7 @@ export async function updateAnnouncements(m: string[]) { return setSettingsDoc('
 export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true, archivoConsultaEnabled: true }); }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
 
-export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, weekendBookingEnabled: false, password: '' }); }
+export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false, password: '' }); }
 export async function updateLabSettings(s: LabSettings) { return setSettingsDoc('labSettings', s); }
 
 export async function getLabStudies() {
@@ -723,7 +723,7 @@ export async function updateLabStudies(studies: LabStudy[]) {
   return { success: true };
 }
 
-export async function getXRaySettings() { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function getXRaySettings() { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateXRaySettings(s: XRaySettings) { return setSettingsDoc('xraySettings', s); }
 
 export async function getXRayStudies() {
@@ -741,7 +741,7 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
   return { success: true };
 }
 
-export async function getUltrasoundSettings() { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function getUltrasoundSettings() { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateUltrasoundSettings(s: UltrasoundSettings) { return setSettingsDoc('ultrasoundSettings', s); }
 
 export async function getUltrasoundStudies() {
@@ -759,7 +759,7 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return { success: true };
 }
 
-export async function getVaccineSettings() { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function getVaccineSettings() { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
 export async function updateVaccineSettings(s: VaccineSettings) { return setSettingsDoc('vaccineSettings', s); }
 
 export async function getVaccines() {
@@ -1027,13 +1027,17 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
   const taken = snap.docs.map(d => d.data()).filter(a => serializeData(a.date).split('T')[0] === dateOnly).map(a => a.time);
+  
   if (clinic.bookingMode === BookingMode.Time) {
     const slots = []; let curr = new Date(`1970-01-01T${clinic.startTime}:00`); const end = new Date(`1970-01-01T${clinic.endTime}:00`); const duration = clinic.consultationDuration || 30;
     while (curr < end) { const t = curr.toTimeString().substring(0, 5); if (!taken.includes(t) && t !== clinic.breakTime) slots.push(t); curr = new Date(curr.getTime() + duration * 60000); }
-    return { timeSlots: slots };
+    // Add Waitlist slots
+    const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.includes(t));
+    return { timeSlots: [...slots, ...waitlist] };
   } else {
-    const tokens = Array.from({ length: clinic.dailySlots }, (_, i) => i + 1).filter(t => !taken.map(tk => parseInt(tk.replace('Ficha ', ''))).includes(t));
-    return { tokens };
+    const tokens = Array.from({ length: clinic.dailySlots }, (_, i) => `Ficha ${i + 1}`).filter(t => !taken.includes(t));
+    const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.includes(t));
+    return { tokens: [...tokens, ...waitlist] };
   }
 }
 

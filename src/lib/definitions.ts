@@ -63,7 +63,7 @@ export type Appointment = {
   clinicId: string;
   coloniaName?: string;
   date: string; // ISO string for serializability
-  time: string; // HH:mm format or "Por Ficha"
+  time: string; // HH:mm format or "Por Ficha" or "Espera X"
   patientType: PatientType;
   status: AppointmentStatus;
   patient: Patient;
@@ -90,6 +90,7 @@ export const ClinicSchema = z.object({
   doctorName: z.string().min(1, "El nombre del doctor es requerido."),
   password: z.string().min(1, "La contraseña es requerida."),
   dailySlots: z.number().min(1, "Debe haber al menos 1 cita."),
+  waitlistSlots: z.number().default(0),
   startTime: z.string(),
   endTime: z.string(),
   breakTime: z.string().optional(),
@@ -152,7 +153,7 @@ export type LabAppointment = {
     appointmentNumber: string;
     patientId: string;
     date: string; // ISO string
-    time: string; // HH:mm
+    time: string; // HH:mm or "Espera X"
     studies: LabStudy[];
     status: AppointmentStatus;
     patient: Patient;
@@ -162,6 +163,7 @@ export type LabAppointment = {
 
 export type LabSettings = {
     dailySlots: number;
+    waitlistSlots: number;
     weekendBookingEnabled: boolean;
     password?: string;
 }
@@ -180,7 +182,7 @@ export type XRayAppointment = {
     appointmentNumber: string;
     patientId: string;
     date: string; // ISO string
-    time: string; // HH:mm
+    time: string; // HH:mm or "Espera X"
     studyId: string;
     studyName: string;
     status: AppointmentStatus;
@@ -191,6 +193,7 @@ export type XRayAppointment = {
 
 export type XRaySettings = {
     dailySlots: number;
+    waitlistSlots: number;
     startTime: string;
     endTime: string;
     weekendBookingEnabled: boolean;
@@ -210,7 +213,7 @@ export type UltrasoundAppointment = {
     appointmentNumber: string;
     patientId: string;
     date: string; // ISO string
-    time: string; // HH:mm
+    time: string; // HH:mm or "Espera X"
     studyId: string;
     studyName: string;
     status: AppointmentStatus;
@@ -221,6 +224,7 @@ export type UltrasoundAppointment = {
 
 export type UltrasoundSettings = {
     dailySlots: number;
+    waitlistSlots: number;
     startTime: string;
     endTime: string;
     weekendBookingEnabled: boolean;
@@ -255,6 +259,7 @@ export type VaccineAppointment = {
 
 export type VaccineSettings = {
   dailySlots: number;
+  waitlistSlots: number;
   startTime: string;
   endTime: string;
   weekendBookingEnabled: boolean;

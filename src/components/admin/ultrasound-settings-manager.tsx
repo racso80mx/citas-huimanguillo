@@ -213,7 +213,7 @@ export function UltrasoundSettingsManager() {
         <CardContent className="space-y-8">
             <div className="space-y-6">
                 <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Horarios y Citas</h3>
-                <div className='grid sm:grid-cols-3 gap-4'>
+                <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor="ultrasound-slots">Citas por día</Label>
                         <Input
@@ -221,6 +221,16 @@ export function UltrasoundSettingsManager() {
                         type="number"
                         value={settings.dailySlots}
                         onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
+                        />
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor="ultrasound-waitlist">Citas Lista de Espera</Label>
+                        <Input
+                        id="ultrasound-waitlist"
+                        type="number"
+                        value={settings.waitlistSlots || 0}
+                        onChange={(e) => handleSettingsChange('waitlistSlots', parseInt(e.target.value,10) || 0)}
+                        placeholder="Ej. 5"
                         />
                     </div>
                     <div className='space-y-2'>

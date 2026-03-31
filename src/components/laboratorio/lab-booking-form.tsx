@@ -62,6 +62,7 @@ type BookingFormValues = z.infer<typeof formSchemaWithCurp>;
 type LabBookingFormProps = {
   selectedDate: Date | undefined;
   selectedStudies: LabStudy[];
+  selectedTime: string | undefined;
   patientType: PatientType;
   onBookingSuccess: () => void;
   dailySlots: number;
@@ -72,6 +73,7 @@ type LabBookingFormProps = {
 export function LabBookingForm({
   selectedDate,
   selectedStudies,
+  selectedTime,
   patientType,
   onBookingSuccess,
   announcements,
@@ -134,10 +136,10 @@ export function LabBookingForm({
   }, [curp, form, isNewborn]);
 
   const onSubmit = (data: BookingFormValues) => {
-    if (!selectedDate || selectedStudies.length === 0) {
+    if (!selectedDate || selectedStudies.length === 0 || !selectedTime) {
       toast({
         title: 'Error de validación',
-        description: 'Por favor, selecciona fecha y estudios.',
+        description: 'Por favor, selecciona fecha, estudios y un turno disponible.',
         variant: 'destructive',
       });
       return;
@@ -160,7 +162,7 @@ export function LabBookingForm({
         const newAppointment: Omit<LabAppointment, 'id' | 'patientId' | 'patient'> = {
           appointmentNumber,
           date: selectedDate.toISOString(),
-          time: "Recepción de Muestras",
+          time: selectedTime,
           studies: selectedStudies,
           status: 'Agendada',
           patientType: patientType,
@@ -181,7 +183,7 @@ export function LabBookingForm({
           const studiesList = selectedStudies.map(s => s.name).join(', ');
           const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
           
-          const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText}. Estudios: ${studiesList}. Recuerde seguir las indicaciones de ayuno.${obs}`);
+          const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText} (${selectedTime}). Estudios: ${studiesList}. Recuerde seguir las indicaciones de ayuno.${obs}`);
           window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
 
           const { jsPDF } = await import('jspdf');
@@ -232,7 +234,7 @@ export function LabBookingForm({
     doc.setFont('Helvetica', 'normal');
     const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
     doc.text(`Fecha: ${formattedDate}`, 20, 125);
-    doc.text(`Hora: ${time}`, 20, 135);
+    doc.text(`Turno: ${time}`, 20, 135);
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
@@ -273,7 +275,7 @@ export function LabBookingForm({
     doc.save(`recibo_lab_${patient.curp}.pdf`);
   }
 
-  if (!selectedDate || selectedStudies.length === 0) {
+  if (!selectedDate || selectedStudies.length === 0 || !selectedTime) {
     return (
         <Card className='border-dashed'>
             <CardContent className='p-6 text-center'>

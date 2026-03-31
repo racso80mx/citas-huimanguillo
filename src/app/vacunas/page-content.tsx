@@ -37,6 +37,7 @@ import {
 import { Combobox } from '@/components/ui/combobox';
 import { timeSlots10Min } from '@/lib/time-slots';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
+import { cn } from '@/lib/utils';
 
 type VaccinePageContentProps = {
   initialVaccines: Vaccine[];
@@ -83,8 +84,10 @@ export default function VaccinePageContent({
     if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return [];
 
     const slotsInRange = timeSlots10Min.slice(startIndex, endIndex).map(slot => slot.value);
+    const regularSlots = slotsInRange.slice(0, settings.dailySlots);
+    const waitlistSlots = Array.from({ length: settings.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
     
-    return slotsInRange.slice(0, settings.dailySlots);
+    return [...regularSlots, ...waitlistSlots];
   }, [settings]);
   
   const allTimeSlots = React.useMemo(generateTimeSlots, [generateTimeSlots]);
@@ -370,7 +373,7 @@ export default function VaccinePageContent({
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                     <Clock className="h-6 w-6" />
-                    {isNewborn ? '4.' : '5.'} Selecciona una hora
+                    {isNewborn ? '4.' : '5.'} Selecciona una hora o lista de espera
                   </h3>
                   <Card className="bg-card">
                     <CardHeader>
@@ -389,19 +392,20 @@ export default function VaccinePageContent({
                           <button
                             key={time}
                             onClick={() => handleTimeSelect(time)}
-                            className={`w-full p-2 border rounded-md text-center transition-colors ${
-                              selectedTime === time
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-background hover:bg-accent'
-                            }`}
+                            className={cn(
+                              "w-full p-2 border rounded-md text-center transition-colors font-medium text-xs",
+                              selectedTime === time 
+                                ? "bg-primary text-primary-foreground border-primary" 
+                                : "bg-background hover:bg-accent border-border",
+                              time.startsWith('Espera') && "border-yellow-500 text-yellow-700"
+                            )}
                           >
                             {time}
                           </button>
                         ))
                       ) : (
                         <p className="col-span-4 text-center text-muted-foreground">
-                          No hay horarios disponibles para la fecha
-                          seleccionada.
+                          No hay espacios disponibles.
                         </p>
                       )}
                     </CardContent>
@@ -412,7 +416,7 @@ export default function VaccinePageContent({
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                   <ShieldPlus className="h-6 w-6" />
-                  {isNewborn ? '5.' : '6.'} Completa los datos
+                  {selectedDate && (isNewborn || selectedColoniaId) && selectedVaccines.length > 0 ? (isNewborn ? '5.' : '6.') : (isNewborn ? '4.' : '5.')} Completa los datos
                 </h3>
                 <VaccineBookingForm
                   selectedDate={selectedDate}

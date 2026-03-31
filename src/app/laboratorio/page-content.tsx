@@ -55,6 +55,7 @@ export default function LabPageContent({
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedStudies, setSelectedStudies] = React.useState<LabStudy[]>([]);
+  const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
 
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
@@ -89,18 +90,19 @@ export default function LabPageContent({
 
         const maxSlots =
           isSpecialDay && settings.weekendBookingEnabled
-            ? settings.dailySlots
+            ? (settings.dailySlots + (settings.waitlistSlots || 0))
             : isSpecialDay
             ? 0
-            : settings.dailySlots;
+            : (settings.dailySlots + (settings.waitlistSlots || 0));
 
         const available = Math.max(0, maxSlots - appointmentsOnDate.length);
+        const takenTimes = appointmentsOnDate.map(app => app.time);
         
         availabilityResult.push({
           date: dateString,
           availableSlots: available,
-          availabilityByClinic: {}, // Not used in labs
-          takenTimesByClinic: {}, // Not used in labs
+          availabilityByClinic: {},
+          takenTimesByClinic: { 'lab': takenTimes },
         });
       }
       setAvailability(availabilityResult);
@@ -136,6 +138,16 @@ export default function LabPageContent({
     return availability.find((d) => d.date === dateString) || null;
   }, [selectedDate, availability]);
 
+  const availableTimeSlots = React.useMemo(() => {
+    if (!selectedDayAvailability) return [];
+    
+    const waitlistOptions = Array.from({ length: settings.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
+    const allOptions = ["Recepción General", ...waitlistOptions];
+    const takenTimes = selectedDayAvailability.takenTimesByClinic['lab'] || [];
+    
+    return allOptions.filter(opt => !takenTimes.includes(opt));
+  }, [selectedDayAvailability, settings]);
+
   if (!isAuthenticated) {
     return <ModuleLoginForm title="Laboratorio" onVerify={verifyLabPassword} onSuccess={() => setIsAuthenticated(true)} />;
   }
@@ -156,6 +168,7 @@ export default function LabPageContent({
         );
         setSelectedDate(undefined);
         setSelectedStudies([]);
+        setSelectedTime(undefined);
         setPatientType(PatientType.General);
       } catch (error) {
         console.error('Failed to refresh data:', error);
@@ -182,11 +195,16 @@ export default function LabPageContent({
     setSelectedDate(date);
     setPatientType(PatientType.General);
     setSelectedStudies([]);
+    setSelectedTime(undefined);
   };
   
   const handleStudiesChange = (studies: LabStudy[]) => {
       setSelectedStudies(studies);
   }
+
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -204,7 +222,7 @@ export default function LabPageContent({
           Agenda tus Estudios de Laboratorio
         </h1>
         <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">
-          Selecciona un día, los estudios que necesites y registra tus datos. La recepción de muestras es en un horario general.
+          Selecciona un día, los estudios que necesites y registra tus datos.
         </p>
       </div>
 
@@ -301,14 +319,51 @@ export default function LabPageContent({
             </div>
 
             <div className="flex flex-col gap-8">
+              {selectedDate && selectedStudies.length > 0 && (
+                <div>
+                  <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
+                    <Clock className="h-6 w-6" />
+                    4. Selecciona un turno o lista de espera
+                  </h3>
+                  <Card className="bg-card">
+                    <CardHeader>
+                      <CardTitle className="text-xl flex items-center gap-2">
+                        Turnos Disponibles
+                      </CardTitle>
+                      <CardDescription>
+                        Selecciona tu lugar para el {format(selectedDate, 'PPP', { locale: es })}.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-2">
+                      {availableTimeSlots.map((time) => (
+                        <button
+                          key={time}
+                          onClick={() => handleTimeSelect(time)}
+                          className={cn(
+                            "w-full p-3 border rounded-md text-center transition-colors font-bold",
+                            selectedTime === time 
+                              ? "bg-primary text-primary-foreground border-primary" 
+                              : "bg-background hover:bg-accent border-border",
+                            time.startsWith('Espera') && "border-yellow-500 text-yellow-700"
+                          )}
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                   <Microscope className="h-6 w-6" />
-                  4. Completa tus datos
+                  {selectedDate && selectedStudies.length > 0 ? '5.' : '4.'} Completa tus datos
                 </h3>
                 <LabBookingForm
                   selectedDate={selectedDate}
                   selectedStudies={selectedStudies}
+                  selectedTime={selectedTime}
                   patientType={patientType}
                   onBookingSuccess={refreshData}
                   dailySlots={settings.dailySlots}

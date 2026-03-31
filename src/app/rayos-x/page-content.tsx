@@ -73,8 +73,10 @@ export default function XRayPageContent({
     if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return [];
 
     const slotsInRange = timeSlots30Min.slice(startIndex, endIndex).map(slot => slot.value);
+    const regularSlots = slotsInRange.slice(0, settings.dailySlots);
+    const waitlistSlots = Array.from({ length: settings.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
     
-    return slotsInRange.slice(0, settings.dailySlots);
+    return [...regularSlots, ...waitlistSlots];
   }, [settings]);
   
   const allTimeSlots = React.useMemo(generateTimeSlots, [generateTimeSlots]);
@@ -352,7 +354,7 @@ export default function XRayPageContent({
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                     <Clock className="h-6 w-6" />
-                    4. Selecciona una hora
+                    4. Selecciona una hora o lista de espera
                   </h3>
                   <Card className="bg-card">
                     <CardHeader>
@@ -371,19 +373,20 @@ export default function XRayPageContent({
                           <button
                             key={time}
                             onClick={() => handleTimeSelect(time)}
-                            className={`w-full p-2 border rounded-md text-center transition-colors ${
-                              selectedTime === time
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-background hover:bg-accent'
-                            }`}
+                            className={cn(
+                              "w-full p-2 border rounded-md text-center transition-colors font-medium",
+                              selectedTime === time 
+                                ? "bg-primary text-primary-foreground border-primary" 
+                                : "bg-background hover:bg-accent border-border",
+                              time.startsWith('Espera') && "border-yellow-500 text-yellow-700"
+                            )}
                           >
                             {time}
                           </button>
                         ))
                       ) : (
                         <p className="col-span-3 text-center text-muted-foreground">
-                          No hay horarios disponibles para la fecha
-                          seleccionada.
+                          No hay espacios disponibles.
                         </p>
                       )}
                     </CardContent>
@@ -394,7 +397,7 @@ export default function XRayPageContent({
               <div>
                 <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
                   <Stethoscope className="h-6 w-6" />
-                  5. Completa tus datos
+                  {selectedDate && selectedStudy ? '5.' : '4.'} Completa tus datos
                 </h3>
                 <XRayBookingForm
                   selectedDate={selectedDate}

@@ -243,14 +243,26 @@ export function LabSettingsManager() {
         <CardContent className="space-y-8">
             <div className="space-y-6">
                 <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Citas y Horarios</h3>
-                <div className='space-y-2'>
-                    <Label htmlFor="lab-slots">Citas por día</Label>
-                    <Input
-                    id="lab-slots"
-                    type="number"
-                    value={settings.dailySlots}
-                    onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
-                    />
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className='space-y-2'>
+                        <Label htmlFor="lab-slots">Citas por día</Label>
+                        <Input
+                        id="lab-slots"
+                        type="number"
+                        value={settings.dailySlots}
+                        onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
+                        />
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor="lab-waitlist">Citas Lista de Espera</Label>
+                        <Input
+                        id="lab-waitlist"
+                        type="number"
+                        value={settings.waitlistSlots || 0}
+                        onChange={(e) => handleSettingsChange('waitlistSlots', parseInt(e.target.value,10) || 0)}
+                        placeholder="Ej. 5"
+                        />
+                    </div>
                 </div>
                 <div className="flex items-center space-x-2">
                     <Switch 

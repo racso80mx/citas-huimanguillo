@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -156,7 +155,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                         </Button>
                     </div>
                 </div>
-                <div className='grid sm:grid-cols-3 gap-4'>
+                <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
                     <Label htmlFor={`clinicType-${editedClinic.id}`}>Tipo de Núcleo</Label>
                     <Select value={editedClinic.clinicType} onValueChange={(value: ClinicType) => handleFieldChange('clinicType', value)}>
@@ -183,6 +182,16 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                         type="number"
                         value={editedClinic.dailySlots}
                         onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)}
+                        />
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`waitlist-${editedClinic.id}`}>Citas Lista de Espera</Label>
+                        <Input
+                        id={`waitlist-${editedClinic.id}`}
+                        type="number"
+                        value={editedClinic.waitlistSlots || 0}
+                        onChange={(e) => handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0)}
+                        placeholder="Ej. 5"
                         />
                     </div>
                 </div>
@@ -439,6 +448,7 @@ export function ClinicsManager() {
         doctorName: '', 
         password: '',
         dailySlots: 15,
+        waitlistSlots: 0,
         startTime: '08:00',
         endTime: '13:00',
         breakTime: undefined,

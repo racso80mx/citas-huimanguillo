@@ -144,7 +144,7 @@ export function VaccineSettingsManager() {
 
   const handleDialogCancel = () => {
       setIsDialogOpen(false);
-      setSelectedVaccine(null);
+      setSelectedStudy(null);
   }
 
   const removeVaccine = (id: string) => {
@@ -223,7 +223,7 @@ export function VaccineSettingsManager() {
         <CardContent className="space-y-8">
             <div className="space-y-6">
                 <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Citas y Horarios</h3>
-                <div className='grid sm:grid-cols-3 gap-4'>
+                <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor="vaccine-slots">Citas por día</Label>
                         <Input
@@ -231,6 +231,16 @@ export function VaccineSettingsManager() {
                         type="number"
                         value={settings.dailySlots}
                         onChange={(e) => handleSettingsChange('dailySlots', parseInt(e.target.value,10) || 0)}
+                        />
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor="vaccine-waitlist">Citas Lista de Espera</Label>
+                        <Input
+                        id="vaccine-waitlist"
+                        type="number"
+                        value={settings.waitlistSlots || 0}
+                        onChange={(e) => handleSettingsChange('waitlistSlots', parseInt(e.target.value,10) || 0)}
+                        placeholder="Ej. 5"
                         />
                     </div>
                     <div className='space-y-2'>

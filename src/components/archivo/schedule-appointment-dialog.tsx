@@ -100,6 +100,8 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                         totalSlotsForClinic = clinic.dailySlots;
                     }
                     
+                    totalSlotsForClinic += (clinic.waitlistSlots || 0);
+                    
                     const bookedAppointments = appointmentsOnDate.filter(
                         (app) => app.clinicId === clinic.id
                     );
@@ -202,7 +204,9 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const clinicHasColonias = React.useMemo(() => coloniaOptions.length > 0, [coloniaOptions]);
     const allTimeSlots = React.useMemo(() => {
         if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
-        return generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
+        const regularSlots = generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
+        const waitlistSlots = Array.from({ length: selectedClinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
+        return [...regularSlots, ...waitlistSlots];
     }, [selectedClinic]);
 
     const availableTimeSlots = React.useMemo(() => {
@@ -215,13 +219,11 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const availableTokens = React.useMemo(() => {
         if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Token) return [];
         const totalSlots = selectedClinic.dailySlots;
-        const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => i + 1);
+        const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
+        const waitlistTokens = Array.from({ length: selectedClinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
+        const allOptions = [...allPossibleTokens, ...waitlistTokens];
         const takenTimes = selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || [];
-        const takenTokens = takenTimes.map(time => {
-            const match = time.match(/Ficha (\d+)/);
-            return match ? parseInt(match[1], 10) : null;
-        }).filter(Boolean) as number[];
-        return allPossibleTokens.filter(token => !takenTokens.includes(token));
+        return allOptions.filter(token => !takenTimes.includes(token));
     }, [selectedDayAvailability, selectedClinic]);
     
     const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
@@ -261,8 +263,8 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             <div className="flex flex-col gap-8">
                                 {showTimeAndFormStep && (
                                     <>
-                                        {isTimeBooking && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><Clock className="h-5 w-5 text-primary" />Horarios para {selectedClinic?.name}</CardTitle><CardDescription>Selecciona un horario disponible.</CardDescription></CardHeader><CardContent className="grid grid-cols-3 gap-2">{availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (<button key={time} onClick={() => handleTimeSelect(time)} className={`w-full p-2 border rounded-md text-center transition-colors ${selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent'}`}>{time}</button>)) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles.</p>}</CardContent></Card>}
-                                        {isTokenBooking && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><Ticket className="h-5 w-5 text-primary" />Fichas Disponibles</CardTitle><CardDescription>Este núcleo asigna fichas. Hay {availableTokens.length} fichas disponibles.</CardDescription></CardHeader><CardContent><Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}><SelectTrigger><SelectValue placeholder="Selecciona una ficha..." /></SelectTrigger><SelectContent>{availableTokens.length > 0 ? (availableTokens.map(token => (<SelectItem key={token} value={String(token)}>Ficha {token}</SelectItem>))) : (<p className="p-4 text-sm text-muted-foreground">No hay fichas disponibles.</p>)}</SelectContent></Select></CardContent></Card>}
+                                        {isTimeBooking && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><Clock className="h-5 w-5 text-primary" />Horarios para {selectedClinic?.name}</CardTitle><CardDescription>Selecciona un horario disponible o lista de espera.</CardDescription></CardHeader><CardContent className="grid grid-cols-3 gap-2">{availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (<button key={time} onClick={() => handleTimeSelect(time)} className={cn("w-full p-2 border rounded-md text-center transition-colors font-medium", selectedTime === time ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-accent', time.startsWith('Espera') && 'border-yellow-500 text-yellow-700')}>{time}</button>)) : <p className="col-span-3 text-center text-muted-foreground">No hay espacios disponibles.</p>}</CardContent></Card>}
+                                        {isTokenBooking && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><Ticket className="h-5 w-5 text-primary" />Fichas Disponibles</CardTitle><CardDescription>Este núcleo asigna fichas. Hay {availableTokens.length} espacios disponibles.</CardDescription></CardHeader><CardContent><Select onValueChange={(value) => setSelectedTime(value)} value={selectedTime}><SelectTrigger><SelectValue placeholder="Selecciona una ficha..." /></SelectTrigger><SelectContent>{availableTokens.length > 0 ? (availableTokens.map(token => (<SelectItem key={token} value={String(token)} className={token.startsWith('Espera') ? 'text-yellow-700' : ''}>{token}</SelectItem>))) : (<p className="p-4 text-sm text-muted-foreground">No hay espacios disponibles.</p>)}</SelectContent></Select></CardContent></Card>}
                                     </>
                                 )}
                                 <BookingForm
