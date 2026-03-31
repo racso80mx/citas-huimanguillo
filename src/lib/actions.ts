@@ -21,6 +21,15 @@ export async function applyStatusUpdateChunk(expedientes: string[], status: Pati
   return res;
 }
 
+export async function normalizeExpedientesAction() {
+  const res = await data.normalizePatientExpedientes();
+  if (res.success) {
+    revalidatePath('/admin/duplicates');
+    revalidatePath('/archivo');
+  }
+  return res;
+}
+
 // =====================================================================
 // PATIENT ACTIONS
 // =====================================================================

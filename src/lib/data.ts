@@ -947,6 +947,43 @@ export async function bulkUpdateStatusChunk(expedientes: string[], status: Patie
   return { success: true, count: matches.length };
 }
 
+export async function normalizePatientExpedientes() {
+  const db = getDb();
+  // Fetch a chunk of patients
+  const snap = await getDocs(query(collection(db, 'patients'), limit(10000)));
+  
+  let count = 0;
+  const updates: {id: string, data: any}[] = [];
+
+  snap.docs.forEach(docSnap => {
+    const data = docSnap.data();
+    let exp = data.expediente;
+    if (exp !== null && exp !== undefined) {
+      const expStr = String(exp).trim();
+      // If it has a value and doesn't start with 0
+      if (expStr.length > 0 && !expStr.startsWith('0')) {
+        updates.push({
+          id: docSnap.id,
+          data: { expediente: '0' + expStr, updatedAt: Timestamp.now() }
+        });
+        count++;
+      }
+    }
+  });
+
+  if (updates.length > 0) {
+    const chunks = chunkArray(updates, 500);
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach(u => batch.update(doc(db, 'patients', u.id), u.data));
+      await batch.commit();
+    }
+    await logActivity("Normalización Expedientes", `Se agregaron ceros iniciales a ${count} registros.`);
+  }
+
+  return { success: true, count };
+}
+
 // =====================================================================
 // DATA MANAGEMENT
 // =====================================================================
