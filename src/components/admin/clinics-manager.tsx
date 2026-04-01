@@ -284,7 +284,11 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                                 <Calendar
                                     mode="multiple"
                                     selected={(editedClinic.unavailableDates || []).map(d => new Date(d))}
-                                    onSelect={(dates) => handleFieldChange('unavailableDates', dates?.map(d => d.toISOString().split('T')[0]) || [])}
+                                    onSelect={(dates) => {
+                                        // Ensure unique dates to prevent duplicate key errors
+                                        const uniqueDates = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
+                                        handleFieldChange('unavailableDates', uniqueDates);
+                                    }}
                                     initialFocus
                                     locale={es}
                                     disabled={{ before: new Date() }}
@@ -294,7 +298,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                         {editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 && (
                             <div className="mt-2 space-y-2">
                                 <div className="flex flex-wrap gap-2">
-                                    {(editedClinic.unavailableDates || []).sort().map(dateStr => (
+                                    {Array.from(new Set(editedClinic.unavailableDates || [])).sort().map(dateStr => (
                                         <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pl-2 pr-1 py-0.5">
                                             <span>
                                                 {format(new Date(dateStr + 'T12:00:00'), "PPP", { locale: es })}
@@ -539,7 +543,7 @@ export function ClinicsManager() {
       if (clinicsResult.success && coloniasResult.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración de núcleos y colonias ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se reflejen.',
+          description: 'La configuración de núcleos y colonias ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se verán reflejados.',
           className: 'bg-accent text-accent-foreground',
           duration: 8000,
         });
