@@ -130,36 +130,55 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
                     <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">1</span>
                     Datos Personales
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Paterno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="maternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Materno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <FormField control={form.control} name="curp" render={({ field }) => (<FormItem><FormLabel>CURP</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} maxLength={18} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                    <FormField control={form.control} name="sex" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sexo</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="Hombre">Hombre</SelectItem>
-                            <SelectItem value="Mujer">Mujer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado de Nacimiento</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Municipio</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre(s)</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="paternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Paterno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="maternalLastName" render={({ field }) => (<FormItem><FormLabel>Apellido Materno</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="curp" render={({ field }) => (<FormItem><FormLabel>CURP</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} maxLength={18} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="sex" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sexo</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Hombre">Hombre</SelectItem>
+                              <SelectItem value="Mujer">Mujer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado de Nacimiento</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+
+                    <div className="md:col-span-3">
+                      <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Domicilio</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-3">
+                      <FormField control={form.control} name="coloniaName" render={({ field }) => (<FormItem><FormLabel>Municipio</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
                   </div>
                 </div>
 
@@ -189,53 +208,62 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
                     <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]">3</span>
                     Datos Administrativos
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="expediente" render={({ field }) => (<FormItem><FormLabel>No. de Expediente</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Apertura</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="status" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estatus</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || PatientStatus.Vigente}>
-                          <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar Estatus" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value={PatientStatus.Vigente}>Vigente</SelectItem>
-                            <SelectItem value={PatientStatus.Baja}>Baja Temporal</SelectItem>
-                            <SelectItem value={PatientStatus.BajaDefinitiva}>Baja Definitiva</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <FormField
-                      control={form.control}
-                      name="derechoAbiencia"
-                      render={({ field }) => (
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="expediente" render={({ field }) => (<FormItem><FormLabel>No. de Expediente</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="registrationDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Apertura</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField control={form.control} name="status" render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Derechoabiencia</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar Institución" />
-                              </SelectTrigger>
-                            </FormControl>
+                          <FormLabel>Estatus</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || PatientStatus.Vigente}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar Estatus" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              <SelectItem value="IMSS">IMSS</SelectItem>
-                              <SelectItem value="ISSSTE">ISSSTE</SelectItem>
-                              <SelectItem value="IMSS-BIENESTAR">IMSS-Bienestar</SelectItem>
-                              <SelectItem value="PEMEX">PEMEX</SelectItem>
-                              <SelectItem value="SEDENA">SEDENA</SelectItem>
-                              <SelectItem value="SEMAR">SEMAR</SelectItem>
-                              <SelectItem value="ISSSET">ISSSET</SelectItem>
-                              <SelectItem value="OTRO">OTRO</SelectItem>
+                              <SelectItem value={PatientStatus.Vigente}>Vigente</SelectItem>
+                              <SelectItem value={PatientStatus.Baja}>Baja Temporal</SelectItem>
+                              <SelectItem value={PatientStatus.BajaDefinitiva}>Baja Definitiva</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
-                      )}
-                    />
-                    <FormField control={form.control} name="lastAppointmentDate" render={({ field }) => (<FormItem><FormLabel>Última Cita (Sólo Lectura)</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} readOnly className="bg-muted" /></FormControl><FormMessage /></FormItem>)} />
+                      )} />
+                    </div>
+                    
+                    <div className="md:col-span-3">
+                      <FormField
+                        control={form.control}
+                        name="derechoAbiencia"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Derechoabiencia</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar Institución" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="IMSS">IMSS</SelectItem>
+                                <SelectItem value="ISSSTE">ISSSTE</SelectItem>
+                                <SelectItem value="IMSS-BIENESTAR">IMSS-Bienestar</SelectItem>
+                                <SelectItem value="PEMEX">PEMEX</SelectItem>
+                                <SelectItem value="SEDENA">SEDENA</SelectItem>
+                                <SelectItem value="SEMAR">SEMAR</SelectItem>
+                                <SelectItem value="ISSSET">ISSSET</SelectItem>
+                                <SelectItem value="OTRO">OTRO</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <FormField control={form.control} name="lastAppointmentDate" render={({ field }) => (<FormItem><FormLabel>Última Cita (Sólo Lectura)</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} readOnly className="bg-muted" /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
                   </div>
                 </div>
 
