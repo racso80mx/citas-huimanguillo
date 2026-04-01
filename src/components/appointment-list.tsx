@@ -398,7 +398,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             <TableHead><Button variant="ghost" onClick={() => requestSort('curp')}>CURP {getSortIcon('curp')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('phoneNumber')}>Teléfono {getSortIcon('phoneNumber')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('clinicName')}>Núcleo Básico {getSortIcon('clinicName')}</Button></TableHead>
-            <TableHead><Button variant="ghost" onClick={() => requestSort('coloniaName')}>Colonia {getSortIcon('coloniaName')}</Button></TableHead>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('coloniaName')}>Municipio {getSortIcon('coloniaName')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('patientType')}>Tipo {getSortIcon('patientType')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button></TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}

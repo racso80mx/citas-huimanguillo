@@ -122,7 +122,7 @@ export function PatientList({ patients, onEdit, onDelete, onStatusChange, onSche
             </TableHead>
             <TableHead>Teléfono</TableHead>
             <TableHead>
-              <Button variant="ghost" onClick={() => requestSort('coloniaName')}>Colonia {getSortIcon('coloniaName')}</Button>
+              <Button variant="ghost" onClick={() => requestSort('coloniaName')}>Municipio {getSortIcon('coloniaName')}</Button>
             </TableHead>
             <TableHead>
               <Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button>

@@ -36,7 +36,7 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
                  baseData['Estudio'] = ultrasoundItem.studyName;
             } else if (isVaccine) {
                 const vaccineItem = item as VaccineAppointment;
-                baseData['Colonia'] = vaccineItem.coloniaName || 'N/A';
+                baseData['Municipio'] = vaccineItem.coloniaName || 'N/A';
                 baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
                 baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
             } else { // It's a medical appointment
@@ -45,7 +45,7 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
                     baseData['Ficha'] = regularItem.time.split(' ')[1];
                 }
                 baseData['Núcleo'] = (item as any).clinicName;
-                baseData['Colonia'] = regularItem.coloniaName || 'N/A';
+                baseData['Municipio'] = regularItem.coloniaName || 'N/A';
                 baseData['Tipo Paciente'] = regularItem.patientType;
             }
             return baseData;
@@ -474,7 +474,7 @@ export async function generateVaccineAppointmentPDF(appointmentData: VaccineAppo
         doc.text(`CURP: ${patient.curp}`, 20, detailsY);
         detailsY += 10;
         if (coloniaName) {
-            doc.text(`Colonia: ${coloniaName}`, 20, detailsY);
+            doc.text(`Municipio: ${coloniaName}`, 20, detailsY);
             detailsY += 10;
         }
     }
