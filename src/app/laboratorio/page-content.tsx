@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState } from 'react';
 import Image from 'next/image';
@@ -145,7 +146,15 @@ export default function LabPageContent({
     const allOptions = ["Recepción General", ...waitlistOptions];
     const takenTimes = selectedDayAvailability.takenTimesByClinic['lab'] || [];
     
-    return allOptions.filter(opt => !takenTimes.includes(opt));
+    return allOptions.filter(opt => {
+        if (opt === "Recepción General") {
+            // "Recepción General" is available if it hasn't reached the dailySlots limit
+            const bookedCount = takenTimes.filter(t => t === "Recepción General").length;
+            return bookedCount < settings.dailySlots;
+        }
+        // Waitlist slots are unique IDs, so we check if they are already in takenTimes
+        return !takenTimes.includes(opt);
+    });
   }, [selectedDayAvailability, settings]);
 
   if (!isAuthenticated) {
