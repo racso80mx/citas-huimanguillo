@@ -48,7 +48,7 @@ type VaccinePageContentProps = {
   initialHolidays: Holiday[];
 };
 
-export function VaccinePageContent({
+export default function VaccinePageContent({
   initialVaccines,
   initialSettings,
   initialColonias,
