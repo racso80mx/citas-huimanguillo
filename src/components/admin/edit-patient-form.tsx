@@ -170,7 +170,7 @@ export function EditPatientForm({ patient, onFinished }: EditPatientFormProps) {
                       <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado de Nacimiento</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     <div className="md:col-span-2">
-                      <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} maxLength={10} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
 
                     <div className="md:col-span-3">

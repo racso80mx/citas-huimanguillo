@@ -205,7 +205,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                       <FormField control={form.control} name="birthState" render={({ field }) => (<FormItem><FormLabel>Estado de Nacimiento</FormLabel><FormControl><Input {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     <div className="md:col-span-2">
-                      <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} value={field.value ?? ''} maxLength={10} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
 
                     <div className="md:col-span-3">
@@ -277,9 +277,9 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                           <Select onValueChange={field.onChange} value={field.value || PatientStatus.Vigente}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar Estatus" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              <SelectItem value={PatientStatus.Vigente}>Vigente</SelectItem>
-                              <SelectItem value={PatientStatus.Baja}>Baja Temporal</SelectItem>
-                              <SelectItem value={PatientStatus.BajaDefinitiva}>Baja Definitiva</SelectItem>
+                              <SelectItem value="Vigente">Vigente</SelectItem>
+                              <SelectItem value="Baja">Baja Temporal</SelectItem>
+                              <SelectItem value="Baja Definitiva">Baja Definitiva</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
