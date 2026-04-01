@@ -15,7 +15,7 @@ import type { DailyAvailability, LabStudy, LabSettings, Holiday } from '@/lib/de
 import { PatientType } from '@/lib/definitions';
 import { getLabAppointments, getHolidays, verifyLabPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell, Info, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import {
   format,
   startOfMonth,
