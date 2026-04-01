@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
@@ -113,6 +113,24 @@ export function VaccineSettingsManager() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const dynamicBreakSlots = useMemo(() => {
+    if (!settings?.startTime || !settings?.endTime) return [];
+    const slots: string[] = [];
+    try {
+        const startParts = settings.startTime.split(':').map(Number);
+        const endParts = settings.endTime.split(':').map(Number);
+        if (startParts.length !== 2 || endParts.length !== 2) return [];
+        let current = new Date(1970, 0, 1, startParts[0], startParts[1]);
+        const end = new Date(1970, 0, 1, endParts[0], endParts[1]);
+        if (current >= end || isNaN(current.getTime())) return [];
+        while (current < end) {
+            slots.push(current.toTimeString().substring(0, 5));
+            current = new Date(current.getTime() + 10 * 60000); // Vaccines uses 10 min distribution
+        }
+    } catch (e) { return []; }
+    return slots;
+  }, [settings?.startTime, settings?.endTime]);
 
   const handleSettingsChange = (field: keyof VaccineSettings, value: string | number | boolean) => {
     if (settings) {
@@ -258,13 +276,27 @@ export function VaccineSettingsManager() {
                         </Select>
                     </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Switch 
-                    id="vaccine-weekend"
-                    checked={settings.weekendBookingEnabled}
-                    onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
-                    />
-                    <Label htmlFor="vaccine-weekend">Permitir citas en fin de semana</Label>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className='space-y-2'>
+                        <Label htmlFor="vaccine-break">Tiempo de Descanso</Label>
+                        <Select value={settings.breakTime || ''} onValueChange={(value) => handleSettingsChange('breakTime', value === 'none' ? '' : value)}>
+                            <SelectTrigger id="vaccine-break"><SelectValue placeholder="Seleccionar descanso..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Sin Descanso</SelectItem>
+                                {dynamicBreakSlots.map(slot => (
+                                    <SelectItem key={`break-${slot}`} value={slot}>{slot}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-8">
+                        <Switch 
+                        id="vaccine-weekend"
+                        checked={settings.weekendBookingEnabled}
+                        onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
+                        />
+                        <Label htmlFor="vaccine-weekend">Permitir citas en fin de semana</Label>
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="vaccine-password">Contraseña para Reportes</Label>

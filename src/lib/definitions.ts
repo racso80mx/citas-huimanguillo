@@ -167,6 +167,9 @@ export type LabSettings = {
     waitlistSlots: number;
     weekendBookingEnabled: boolean;
     password?: string;
+    startTime?: string;
+    endTime?: string;
+    breakTime?: string;
 }
 
 export const XRayStudySchema = z.object({
@@ -199,6 +202,7 @@ export type XRaySettings = {
     endTime: string;
     weekendBookingEnabled: boolean;
     password?: string;
+    breakTime?: string;
 }
 
 export const UltrasoundStudySchema = z.object({
@@ -230,6 +234,7 @@ export type UltrasoundSettings = {
     endTime: string;
     weekendBookingEnabled: boolean;
     password?: string;
+    breakTime?: string;
 }
 
 export const VaccineSchema = z.object({
@@ -265,6 +270,7 @@ export type VaccineSettings = {
   endTime: string;
   weekendBookingEnabled: boolean;
   password?: string;
+  breakTime?: string;
 };
 
 

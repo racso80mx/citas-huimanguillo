@@ -70,6 +70,26 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
     const [clinicColonias, setClinicColonias] = useState<Colonia[]>(() => allColonias.filter(c => c.clinicId === clinic.id));
     const [newColoniaName, setNewColoniaName] = useState('');
 
+    const dynamicBreakSlots = useMemo(() => {
+        if (!editedClinic.startTime || !editedClinic.endTime) return [];
+        const duration = editedClinic.consultationDuration || 30;
+        const slots: string[] = [];
+        try {
+            const startParts = editedClinic.startTime.split(':').map(Number);
+            const endParts = editedClinic.endTime.split(':').map(Number);
+            if (startParts.length !== 2 || endParts.length !== 2) return [];
+            let current = new Date(1970, 0, 1, startParts[0], startParts[1]);
+            const end = new Date(1970, 0, 1, endParts[0], endParts[1]);
+            if (current >= end || isNaN(current.getTime())) return [];
+            while (current < end) {
+                const timeStr = current.toTimeString().substring(0, 5);
+                slots.push(timeStr);
+                current = new Date(current.getTime() + duration * 60000);
+            }
+        } catch (e) { return []; }
+        return slots;
+    }, [editedClinic.startTime, editedClinic.endTime, editedClinic.consultationDuration]);
+
     useEffect(() => {
         setEditedClinic(clinic);
         setClinicColonias(allColonias.filter(c => c.clinicId === clinic.id));
@@ -216,8 +236,8 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                             <SelectTrigger id={`break-${editedClinic.id}`}><SelectValue placeholder="Seleccionar descanso..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">Sin Descanso</SelectItem>
-                                {timeSlots30Min.filter(slot => slot.value >= editedClinic.startTime && slot.value < editedClinic.endTime).map(slot => (
-                                    <SelectItem key={`break-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>
+                                {dynamicBreakSlots.map(slot => (
+                                    <SelectItem key={`break-${slot}`} value={slot}>{slot}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>

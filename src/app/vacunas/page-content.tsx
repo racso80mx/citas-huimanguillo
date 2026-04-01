@@ -48,7 +48,7 @@ type VaccinePageContentProps = {
   initialHolidays: Holiday[];
 };
 
-export default function VaccinePageContent({
+export function VaccinePageContent({
   initialVaccines,
   initialSettings,
   initialColonias,
@@ -84,7 +84,11 @@ export default function VaccinePageContent({
     if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return [];
 
     const slotsInRange = timeSlots10Min.slice(startIndex, endIndex).map(slot => slot.value);
-    const regularSlots = slotsInRange.slice(0, settings.dailySlots);
+    
+    // Filter out break time
+    const filteredSlots = slotsInRange.filter(slot => slot !== settings.breakTime);
+    
+    const regularSlots = filteredSlots.slice(0, settings.dailySlots);
     const waitlistSlots = Array.from({ length: settings.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
     
     return [...regularSlots, ...waitlistSlots];

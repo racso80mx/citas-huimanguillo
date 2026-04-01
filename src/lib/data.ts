@@ -150,7 +150,7 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
   return {
     total: totalSnap.data().count,
     vigente: vigenteSnap.data().count,
-    bajaTemporal: bajaSnap.data().count,
+    bajaTemporal: vigenteSnap.data().count,
     bajaDefinitiva: definitivaSnap.data().count
   };
 }
@@ -708,7 +708,7 @@ export async function updateAnnouncements(m: string[]) { return setSettingsDoc('
 export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true, archivoConsultaEnabled: true }); }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
 
-export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false, password: '' }); }
+export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false, password: '', startTime: '08:00', endTime: '13:00', breakTime: '' }); }
 export async function updateLabSettings(s: LabSettings) { return setSettingsDoc('labSettings', s); }
 
 export async function getLabStudies() {
@@ -726,7 +726,7 @@ export async function updateLabStudies(studies: LabStudy[]) {
   return { success: true };
 }
 
-export async function getXRaySettings() { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function getXRaySettings() { return getSettingsDoc<XRaySettings>('xraySettings', { dailySlots: 10, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '', breakTime: '' }); }
 export async function updateXRaySettings(s: XRaySettings) { return setSettingsDoc('xraySettings', s); }
 
 export async function getXRayStudies() {
@@ -744,7 +744,7 @@ export async function updateXRayStudies(studies: XRayStudy[]) {
   return { success: true };
 }
 
-export async function getUltrasoundSettings() { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function getUltrasoundSettings() { return getSettingsDoc<UltrasoundSettings>('ultrasoundSettings', { dailySlots: 10, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '', breakTime: '' }); }
 export async function updateUltrasoundSettings(s: UltrasoundSettings) { return setSettingsDoc('ultrasoundSettings', s); }
 
 export async function getUltrasoundStudies() {
@@ -762,7 +762,7 @@ export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
   return { success: true };
 }
 
-export async function getVaccineSettings() { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '' }); }
+export async function getVaccineSettings() { return getSettingsDoc<VaccineSettings>('vaccineSettings', { dailySlots: 20, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, password: '', breakTime: '' }); }
 export async function updateVaccineSettings(s: VaccineSettings) { return setSettingsDoc('vaccineSettings', s); }
 
 export async function getVaccines() {

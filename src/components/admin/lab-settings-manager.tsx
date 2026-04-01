@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
@@ -34,6 +34,8 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { timeSlots30Min } from '@/lib/time-slots';
 
 function LabStudyEditDialog({ study, onSave, onCancel }: { study: LabStudy, onSave: (study: LabStudy) => void, onCancel: () => void }) {
     const [editedStudy, setEditedStudy] = useState<LabStudy>(study);
@@ -132,6 +134,24 @@ export function LabSettingsManager() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const dynamicBreakSlots = useMemo(() => {
+    if (!settings?.startTime || !settings?.endTime) return [];
+    const slots: string[] = [];
+    try {
+        const startParts = settings.startTime.split(':').map(Number);
+        const endParts = settings.endTime.split(':').map(Number);
+        if (startParts.length !== 2 || endParts.length !== 2) return [];
+        let current = new Date(1970, 0, 1, startParts[0], startParts[1]);
+        const end = new Date(1970, 0, 1, endParts[0], endParts[1]);
+        if (current >= end || isNaN(current.getTime())) return [];
+        while (current < end) {
+            slots.push(current.toTimeString().substring(0, 5));
+            current = new Date(current.getTime() + 30 * 60000); // Lab assumes 30 min distribution for break selection
+        }
+    } catch (e) { return []; }
+    return slots;
+  }, [settings?.startTime, settings?.endTime]);
 
   const handleSettingsChange = (field: keyof LabSettings, value: string | number | boolean) => {
     if (settings) {
@@ -243,7 +263,7 @@ export function LabSettingsManager() {
         <CardContent className="space-y-8">
             <div className="space-y-6">
                 <h3 className="font-semibold text-lg flex items-center gap-2"><CalendarClock/> Citas y Horarios</h3>
-                <div className="grid sm:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className='space-y-2'>
                         <Label htmlFor="lab-slots">Citas por día</Label>
                         <Input
@@ -263,14 +283,42 @@ export function LabSettingsManager() {
                         placeholder="Ej. 5"
                         />
                     </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor="lab-start">Hora Inicio</Label>
+                        <Select value={settings.startTime} onValueChange={(value) => handleSettingsChange('startTime', value)}>
+                            <SelectTrigger id="lab-start"><SelectValue /></SelectTrigger>
+                            <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <div className='space-y-2'>
+                        <Label htmlFor="lab-end">Hora Fin</Label>
+                        <Select value={settings.endTime} onValueChange={(value) => handleSettingsChange('endTime', value)}>
+                            <SelectTrigger id="lab-end"><SelectValue /></SelectTrigger>
+                            <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Switch 
-                    id="lab-weekend"
-                    checked={settings.weekendBookingEnabled}
-                    onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
-                    />
-                    <Label htmlFor="lab-weekend">Permitir citas en fin de semana</Label>
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className='space-y-2'>
+                        <Label htmlFor="lab-break">Tiempo de Descanso</Label>
+                        <Select value={settings.breakTime || ''} onValueChange={(value) => handleSettingsChange('breakTime', value === 'none' ? '' : value)}>
+                            <SelectTrigger id="lab-break"><SelectValue placeholder="Seleccionar descanso..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Sin Descanso</SelectItem>
+                                {dynamicBreakSlots.map(slot => (
+                                    <SelectItem key={`break-${slot}`} value={slot}>{slot}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-8">
+                        <Switch 
+                        id="lab-weekend"
+                        checked={settings.weekendBookingEnabled}
+                        onCheckedChange={(checked) => handleSettingsChange('weekendBookingEnabled', checked)}
+                        />
+                        <Label htmlFor="lab-weekend">Permitir citas en fin de semana</Label>
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="lab-password">Contraseña para Reportes</Label>
