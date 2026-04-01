@@ -263,7 +263,33 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                     )} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (<FormItem><FormLabel>Derechoabiencia</FormLabel><FormControl><Input placeholder="IMSS, ISSSTE, etc." {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField
+                      control={form.control}
+                      name="derechoAbiencia"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Derechoabiencia</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar Institución" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="IMSS">IMSS</SelectItem>
+                              <SelectItem value="ISSSTE">ISSSTE</SelectItem>
+                              <SelectItem value="IMSS-BIENESTAR">IMSS-Bienestar</SelectItem>
+                              <SelectItem value="PEMEX">PEMEX</SelectItem>
+                              <SelectItem value="SEDENA">SEDENA</SelectItem>
+                              <SelectItem value="SEMAR">SEMAR</SelectItem>
+                              <SelectItem value="ISSSET">ISSSET</SelectItem>
+                              <SelectItem value="OTRO">OTRO</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField control={form.control} name="lastAppointmentDate" render={({ field }) => (<FormItem><FormLabel>Última Cita (Sólo Lectura)</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} readOnly className="bg-muted" /></FormControl><FormMessage /></FormItem>)} />
                   </div>
                 </div>

@@ -473,13 +473,34 @@ export function BookingForm({
                     </FormItem>
                   )} />
                 </div>
-                <FormField control={form.control} name="derechoAbiencia" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Derechoabiencia</FormLabel>
-                    <FormControl><Input placeholder="Ej. IMSS, ISSSTE, etc." {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
-                    <FormDescription>Si cuenta con algún seguro médico adicional.</FormDescription>
-                  </FormItem>
-                )} />
+                <FormField
+                  control={form.control}
+                  name="derechoAbiencia"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Derechoabiencia</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar Institución" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="IMSS">IMSS</SelectItem>
+                          <SelectItem value="ISSSTE">ISSSTE</SelectItem>
+                          <SelectItem value="IMSS-BIENESTAR">IMSS-Bienestar</SelectItem>
+                          <SelectItem value="PEMEX">PEMEX</SelectItem>
+                          <SelectItem value="SEDENA">SEDENA</SelectItem>
+                          <SelectItem value="SEMAR">SEMAR</SelectItem>
+                          <SelectItem value="ISSSET">ISSSET</SelectItem>
+                          <SelectItem value="OTRO">OTRO</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Si cuenta con algún seguro médico adicional.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CollapsibleContent>
             </Collapsible>
 
