@@ -247,7 +247,7 @@ export function VaccineBookingForm({
         doc.text(`CURP: ${patient.curp}`, 20, detailsY);
         detailsY += 10;
         if (coloniaName) {
-            doc.text(`Colonia: ${coloniaName}`, 20, detailsY);
+            doc.text(`Municipio: ${coloniaName}`, 20, detailsY);
             detailsY += 10;
         }
     }
@@ -431,7 +431,7 @@ export function VaccineBookingForm({
                     <FormItem>
                       <FormLabel>Edad (años)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder={!isNewborn && !!curp ? "Derivado de CURP" : "Años cumplidos"} {...field} disabled={!isNewborn && !!curp} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                        <Input type="number" min={0} placeholder={!isNewborn && !!curp ? "Derivado de CURP" : "Años cumplidos"} {...field} disabled={!isNewborn && !!curp} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

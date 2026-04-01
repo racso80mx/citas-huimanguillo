@@ -55,8 +55,8 @@ const baseSchema = z.object({
   birthDate: z.string().min(1, 'La fecha de nacimiento es requerida.'),
   fatherName: z.string().optional(),
   motherName: z.string().optional(),
-  fatherAge: z.coerce.number().optional(),
-  motherAge: z.coerce.number().optional(),
+  fatherAge: z.coerce.number().min(0, 'La edad no puede ser negativa').optional(),
+  motherAge: z.coerce.number().min(0, 'La edad no puede ser negativa').optional(),
   derechoAbiencia: z.string().optional(),
 });
 
@@ -407,7 +407,7 @@ export function BookingForm({
                     <FormItem>
                       <FormLabel>Edad (años)</FormLabel>
                         <FormControl>
-                        <Input type="number" placeholder="Años cumplidos" {...field} disabled={!!curp && !isNewborn} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
+                        <Input type="number" min={0} placeholder="Años cumplidos" {...field} disabled={!!curp && !isNewborn} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -455,7 +455,7 @@ export function BookingForm({
                   <FormField control={form.control} name="fatherAge" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Edad del Padre</FormLabel>
-                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormControl><Input type="number" min={0} {...field} value={field.value ?? ''} /></FormControl>
                     </FormItem>
                   )} />
                 </div>
@@ -469,7 +469,7 @@ export function BookingForm({
                   <FormField control={form.control} name="motherAge" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Edad de la Madre</FormLabel>
-                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormControl><Input type="number" min={0} {...field} value={field.value ?? ''} /></FormControl>
                     </FormItem>
                   )} />
                 </div>

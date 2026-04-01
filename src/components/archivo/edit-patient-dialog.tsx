@@ -44,18 +44,18 @@ const formSchema = z.object({
   paternalLastName: z.string().min(1, 'Apellido paterno es requerido'),
   maternalLastName: z.string().min(1, 'Apellido materno es requerido'),
   curp: z.string().min(1, 'CURP es requerida'),
-  phoneNumber: z.string().nullable().optional(),
+  phoneNumber: z.string().max(10, 'Máximo 10 dígitos').nullable().optional(),
   expediente: z.string().nullable().optional(),
   birthDate: z.string().nullable().optional(),
   sex: z.enum(['Hombre', 'Mujer']),
-  age: z.coerce.number().nullable().optional(),
+  age: z.coerce.number().min(0, 'La edad no puede ser negativa').nullable().optional(),
   birthState: z.string().nullable().optional(),
   address: z.string().nullable().optional(),
   coloniaName: z.string().nullable().optional(),
   fatherName: z.string().nullable().optional(),
   motherName: z.string().nullable().optional(),
-  fatherAge: z.coerce.number().nullable().optional(),
-  motherAge: z.coerce.number().nullable().optional(),
+  fatherAge: z.coerce.number().min(0, 'La edad no puede ser negativa').nullable().optional(),
+  motherAge: z.coerce.number().min(0, 'La edad no puede ser negativa').nullable().optional(),
   registrationDate: z.string().nullable().optional(),
   derechoAbiencia: z.string().nullable().optional(),
   status: z.nativeEnum(PatientStatus).optional(),
@@ -183,7 +183,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                       <FormField control={form.control} name="birthDate" render={({ field }) => (<FormItem><FormLabel>Fecha de Nacimiento</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                     <div className="md:col-span-2">
-                      <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="age" render={({ field }) => (<FormItem><FormLabel>Edad</FormLabel><FormControl><Input type="number" min={0} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
 
                     <div className="md:col-span-2">
@@ -235,7 +235,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                       <FormField control={form.control} name="fatherAge" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Edad del Padre</FormLabel>
-                          <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                          <FormControl><Input type="number" min={0} {...field} value={field.value ?? ''} /></FormControl>
                         </FormItem>
                       )} />
                     </div>
@@ -249,7 +249,7 @@ export function EditPatientDialog({ isOpen, onClose, patient, onSave, isSaving }
                       <FormField control={form.control} name="motherAge" render={({ field }) => (
                         <FormItem>
                           <FormLabel>Edad de la Madre</FormLabel>
-                          <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                          <FormControl><Input type="number" min={0} {...field} value={field.value ?? ''} /></FormControl>
                         </FormItem>
                       )} />
                     </div>
