@@ -1,4 +1,3 @@
-
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { saveNewVaccineAppointment, getPatientByCURP } from '@/lib/actions';
+import { saveNewVaccineAppointment, getPatientByCURP, getModuleSettings } from '@/lib/actions';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -154,6 +153,7 @@ export function VaccineBookingForm({
     }
 
     startTransition(async () => {
+      const settings = await getModuleSettings();
       const patientData: Omit<Patient, 'id'> = {
           curp: (data.curp || `RN-${uuidv4()}`).toUpperCase(),
           name: data.name.toUpperCase(),
@@ -189,14 +189,16 @@ export function VaccineBookingForm({
             duration: 10000,
         });
 
-        // Abrir WhatsApp automáticamente con observaciones
-        const cleanPhone = data.phoneNumber.replace(/\D/g, '');
-        const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
-        const vaccinesList = selectedVaccines.map(v => v.name).join(', ');
-        const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
-        
-        const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de vacunación con folio ${result.data.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} hrs. Vacunas: ${vaccinesList}. No olvide traer su Cartilla Nacional de Salud.${obs}`);
-        window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
+        // Abrir WhatsApp automáticamente si está habilitado
+        if (settings.vacunasWhatsAppEnabled) {
+            const cleanPhone = data.phoneNumber.replace(/\D/g, '');
+            const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
+            const vaccinesList = selectedVaccines.map(v => v.name).join(', ');
+            const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+            
+            const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de vacunación con folio ${result.data.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} hrs. Vacunas: ${vaccinesList}. No olvide traer su Cartilla Nacional de Salud.${obs}`);
+            window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
+        }
 
         const { jsPDF } = await import('jspdf');
         await import('jspdf-autotable');

@@ -9,7 +9,7 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { LabAppointment, Patient, AppointmentStatus } from '@/lib/definitions';
+import type { LabAppointment, Patient, AppointmentStatus, ModuleSettings } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
@@ -47,7 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements } from '@/lib/actions';
+import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getModuleSettings } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
 
@@ -75,14 +75,19 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
   const [isCloning, startCloneTransition] = useTransition();
   
   const [announcements, setAnnouncements] = useState<string[]>([]);
+  const [settings, setSettings] = useState<ModuleSettings | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
-    async function fetchAnnouncements() {
-      const data = await getAnnouncements();
-      setAnnouncements(data);
+    async function fetchData() {
+      const [annData, settData] = await Promise.all([
+        getAnnouncements(),
+        getModuleSettings()
+      ]);
+      setAnnouncements(annData);
+      setSettings(settData);
     }
-    fetchAnnouncements();
+    fetchData();
   }, []);
 
   const handleCopyCurp = (curp: string) => {
@@ -417,9 +422,11 @@ export function LabAppointmentList({ appointments, isAdmin = false, onDelete, on
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                    <div className='flex justify-end items-center'>
-                    <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
-                        <MessageCircle className="h-4 w-4 text-green-600" />
-                    </Button>
+                    {(settings?.laboratorioWhatsAppEnabled ?? true) && (
+                        <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
+                            <MessageCircle className="h-4 w-4 text-green-600" />
+                        </Button>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
                         <FileDown className="h-4 w-4 text-gray-500" />
                     </Button>

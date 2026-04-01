@@ -11,7 +11,7 @@ import {
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { updateModuleSettings, getModuleSettings } from '@/lib/actions';
-import { Loader2, Save, Settings, ToggleRight } from 'lucide-react';
+import { Loader2, Save, Settings, ToggleRight, MessageCircle } from 'lucide-react';
 import type { ModuleSettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -99,63 +99,134 @@ export function ModuleManager() {
           <Settings /> Activar/Desactivar Módulos
         </CardTitle>
         <CardDescription>
-          Controla qué módulos de citas están disponibles para los usuarios.
+          Controla qué módulos de citas están disponibles y si el envío por WhatsApp está habilitado.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-4">
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="citas-medicas-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Citas Médicas
-          </Label>
+      <CardContent className="grid md:grid-cols-2 gap-4">
+        {/* Citas Médicas */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="citas-medicas-enabled" className="flex items-center gap-2 text-base font-bold">
+              <ToggleRight className="h-5 w-5 text-primary"/> Citas Médicas
+            </Label>
+            <div className="flex items-center gap-3 pl-7">
+                <Switch 
+                    id="citas-medicas-whatsapp"
+                    checked={settings.citasMedicasWhatsAppEnabled}
+                    onCheckedChange={(v) => handleSettingsChange('citasMedicasWhatsAppEnabled', v)}
+                />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                    <MessageCircle className="h-3 w-3 text-green-600" /> WhatsApp
+                </span>
+            </div>
+          </div>
           <Switch
             id="citas-medicas-enabled"
             checked={settings.citasMedicasEnabled}
             onCheckedChange={(checked) => handleSettingsChange('citasMedicasEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="laboratorio-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Laboratorio
-          </Label>
+
+        {/* Laboratorio */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="laboratorio-enabled" className="flex items-center gap-2 text-base font-bold">
+              <ToggleRight className="h-5 w-5 text-primary"/> Laboratorio
+            </Label>
+            <div className="flex items-center gap-3 pl-7">
+                <Switch 
+                    id="laboratorio-whatsapp"
+                    checked={settings.laboratorioWhatsAppEnabled}
+                    onCheckedChange={(v) => handleSettingsChange('laboratorioWhatsAppEnabled', v)}
+                />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                    <MessageCircle className="h-3 w-3 text-green-600" /> WhatsApp
+                </span>
+            </div>
+          </div>
           <Switch
             id="laboratorio-enabled"
             checked={settings.laboratorioEnabled}
             onCheckedChange={(checked) => handleSettingsChange('laboratorioEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="rayos-x-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Rayos X
-          </Label>
+
+        {/* Rayos X */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rayos-x-enabled" className="flex items-center gap-2 text-base font-bold">
+              <ToggleRight className="h-5 w-5 text-primary"/> Rayos X
+            </Label>
+            <div className="flex items-center gap-3 pl-7">
+                <Switch 
+                    id="rayos-x-whatsapp"
+                    checked={settings.rayosXWhatsAppEnabled}
+                    onCheckedChange={(v) => handleSettingsChange('rayosXWhatsAppEnabled', v)}
+                />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                    <MessageCircle className="h-3 w-3 text-green-600" /> WhatsApp
+                </span>
+            </div>
+          </div>
           <Switch
             id="rayos-x-enabled"
             checked={settings.rayosXEnabled}
             onCheckedChange={(checked) => handleSettingsChange('rayosXEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="ultrasonido-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Ultrasonidos
-          </Label>
+
+        {/* Ultrasonidos */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ultrasonido-enabled" className="flex items-center gap-2 text-base font-bold">
+              <ToggleRight className="h-5 w-5 text-primary"/> Ultrasonidos
+            </Label>
+            <div className="flex items-center gap-3 pl-7">
+                <Switch 
+                    id="ultrasound-whatsapp"
+                    checked={settings.ultrasoundWhatsAppEnabled}
+                    onCheckedChange={(v) => handleSettingsChange('ultrasoundWhatsAppEnabled', v)}
+                />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                    <MessageCircle className="h-3 w-3 text-green-600" /> WhatsApp
+                </span>
+            </div>
+          </div>
           <Switch
             id="ultrasonido-enabled"
             checked={settings.ultrasoundEnabled}
             onCheckedChange={(checked) => handleSettingsChange('ultrasoundEnabled', checked)}
           />
         </div>
-         <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="vacunas-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Vacunas
-          </Label>
+
+        {/* Vacunas */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="vacunas-enabled" className="flex items-center gap-2 text-base font-bold">
+              <ToggleRight className="h-5 w-5 text-primary"/> Vacunas
+            </Label>
+            <div className="flex items-center gap-3 pl-7">
+                <Switch 
+                    id="vacunas-whatsapp"
+                    checked={settings.vacunasWhatsAppEnabled}
+                    onCheckedChange={(v) => handleSettingsChange('vacunasWhatsAppEnabled', v)}
+                />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                    <MessageCircle className="h-3 w-3 text-green-600" /> WhatsApp
+                </span>
+            </div>
+          </div>
           <Switch
             id="vacunas-enabled"
             checked={settings.vacunasEnabled}
             onCheckedChange={(checked) => handleSettingsChange('vacunasEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="archivo-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Archivo (Gestión)
+
+        {/* Módulos de Gestión (Sin WhatsApp individual de paciente) */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
+          <Label htmlFor="archivo-enabled" className="flex items-center gap-2 text-base font-bold">
+            <ToggleRight className="h-5 w-5 text-primary"/> Archivo (Gestión)
           </Label>
           <Switch
             id="archivo-enabled"
@@ -163,9 +234,9 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('archivoEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="archivo-consulta-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Consulta de Padrón
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
+          <Label htmlFor="archivo-consulta-enabled" className="flex items-center gap-2 text-base font-bold">
+            <ToggleRight className="h-5 w-5 text-primary"/> Consulta de Padrón
           </Label>
           <Switch
             id="archivo-consulta-enabled"
@@ -173,9 +244,9 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('archivoConsultaEnabled', checked)}
           />
         </div>
-        <div className="flex items-center justify-between p-2 rounded-md bg-background border">
-          <Label htmlFor="farmacia-enabled" className="flex items-center gap-2 text-base">
-            <ToggleRight className="h-5 w-5"/> Módulo de Farmacia
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
+          <Label htmlFor="farmacia-enabled" className="flex items-center gap-2 text-base font-bold">
+            <ToggleRight className="h-5 w-5 text-primary"/> Módulo de Farmacia
           </Label>
           <Switch
             id="farmacia-enabled"
@@ -185,11 +256,11 @@ export function ModuleManager() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving} className="w-full h-12 text-lg">
           {isSaving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           ) : (
-            <Save className="mr-2 h-4 w-4" />
+            <Save className="mr-2 h-5 w-5" />
           )}
           {isSaving ? 'Guardando...' : 'Guardar Configuración de Módulos'}
         </Button>

@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { saveNewLabAppointment, getPatientByCURP } from '@/lib/actions';
+import { saveNewLabAppointment, getPatientByCURP, getModuleSettings } from '@/lib/actions';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
@@ -146,6 +146,7 @@ export function LabBookingForm({
     }
     
     startTransition(async () => {
+       const settings = await getModuleSettings();
        const patientData: Omit<Patient, 'id'> = {
             curp: (data.curp || `RN-${uuidv4()}`).toUpperCase(),
             name: data.name.toUpperCase(),
@@ -177,14 +178,16 @@ export function LabBookingForm({
               duration: 10000,
           });
 
-          // Abrir WhatsApp automáticamente con observaciones
-          const cleanPhone = data.phoneNumber.replace(/\D/g, '');
-          const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
-          const studiesList = selectedStudies.map(s => s.name).join(', ');
-          const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
-          
-          const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText} (${selectedTime}). Estudios: ${studiesList}. Recuerde seguir las indicaciones de ayuno.${obs}`);
-          window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
+          // Abrir WhatsApp automáticamente si está habilitado
+          if (settings.laboratorioWhatsAppEnabled) {
+              const cleanPhone = data.phoneNumber.replace(/\D/g, '');
+              const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
+              const studiesList = selectedStudies.map(s => s.name).join(', ');
+              const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+              
+              const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita de laboratorio con folio ${result.data.appointmentNumber} para el día ${formattedDateText} (${selectedTime}). Estudios: ${studiesList}. Recuerde seguir las indicaciones de ayuno.${obs}`);
+              window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
+          }
 
           const { jsPDF } = await import('jspdf');
           await import('jspdf-autotable');

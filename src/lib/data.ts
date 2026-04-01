@@ -705,7 +705,23 @@ export async function updateColonias(colonias: Colonia[]) {
 export async function getAnnouncements() { return (await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] })).messages; }
 export async function updateAnnouncements(m: string[]) { return setSettingsDoc('announcements', { messages: m.slice(0, 4) }); }
 
-export async function getModuleSettings() { return getSettingsDoc<ModuleSettings>('moduleSettings', { citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true, archivoConsultaEnabled: true }); }
+export async function getModuleSettings() { 
+  return getSettingsDoc<ModuleSettings>('moduleSettings', { 
+    citasMedicasEnabled: true, 
+    laboratorioEnabled: true, 
+    rayosXEnabled: true, 
+    ultrasoundEnabled: true, 
+    vacunasEnabled: true, 
+    archivoEnabled: true, 
+    farmaciaEnabled: true, 
+    archivoConsultaEnabled: true,
+    citasMedicasWhatsAppEnabled: true,
+    laboratorioWhatsAppEnabled: true,
+    rayosXWhatsAppEnabled: true,
+    ultrasoundWhatsAppEnabled: true,
+    vacunasWhatsAppEnabled: true
+  }); 
+}
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
 
 export async function getLabSettings() { return getSettingsDoc<LabSettings>('labSettings', { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false, password: '', startTime: '08:00', endTime: '13:00', breakTime: '' }); }
@@ -772,8 +788,8 @@ export async function getVaccines() {
 }
 export async function updateVaccines(vaccines: Vaccine[]) {
   const db = getDb();
-  const snap = await getDocs(collection(db, 'vaccines'));
   const batch = writeBatch(db);
+  const snap = await getDocs(collection(db, 'vaccines'));
   snap.docs.forEach(d => batch.delete(d.ref));
   vaccines.forEach(v => batch.set(doc(db, 'vaccines', v.id || uuidv4()), v));
   await batch.commit();

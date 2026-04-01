@@ -9,7 +9,7 @@ import {
   TableRow,
   TableCaption,
 } from '@/components/ui/table';
-import type { XRayAppointment, Patient, AppointmentStatus, XRayStudy } from '@/lib/definitions';
+import type { XRayAppointment, Patient, AppointmentStatus, XRayStudy, ModuleSettings } from '@/lib/definitions';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
@@ -41,7 +41,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getXRayStudies } from '@/lib/actions';
+import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getXRayStudies, getModuleSettings } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
 
@@ -70,16 +70,19 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
   
   const [announcements, setAnnouncements] = useState<string[]>([]);
   const [allStudies, setAllStudies] = useState<XRayStudy[]>([]);
+  const [settings, setSettings] = useState<ModuleSettings | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     async function fetchData() {
-      const [announcementsData, studiesData] = await Promise.all([
+      const [announcementsData, studiesData, settData] = await Promise.all([
         getAnnouncements(),
         getXRayStudies(),
+        getModuleSettings()
       ]);
       setAnnouncements(announcementsData);
       setAllStudies(studiesData);
+      setSettings(settData);
     }
     fetchData();
   }, []);
@@ -408,9 +411,11 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>
-                    <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
-                        <MessageCircle className="h-4 w-4 text-green-600" />
-                    </Button>
+                    {(settings?.rayosXWhatsAppEnabled ?? true) && (
+                        <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
+                            <MessageCircle className="h-4 w-4 text-green-600" />
+                        </Button>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
                         <FileDown className="h-4 w-4 text-gray-500" />
                     </Button>

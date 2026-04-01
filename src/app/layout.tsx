@@ -33,7 +33,7 @@ export default async function RootLayout({
         className={`${ptSans.variable} font-body antialiased min-h-screen bg-background`}
       >
         <FirebaseClientProvider>
-          <SidebarProvider>
+          <SidebarProvider defaultOpen={false}>
             <AppSidebar moduleSettings={moduleSettings} />
             <SidebarInset className="flex flex-col">
               <SiteHeader moduleSettings={moduleSettings} />

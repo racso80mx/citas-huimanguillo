@@ -283,6 +283,11 @@ export type ModuleSettings = {
   archivoEnabled: boolean;
   farmaciaEnabled: boolean;
   archivoConsultaEnabled: boolean;
+  citasMedicasWhatsAppEnabled: boolean;
+  laboratorioWhatsAppEnabled: boolean;
+  rayosXWhatsAppEnabled: boolean;
+  ultrasoundWhatsAppEnabled: boolean;
+  vacunasWhatsAppEnabled: boolean;
   citasMedicasPassword?: string;
   archivoConsultaPassword?: string;
 };
