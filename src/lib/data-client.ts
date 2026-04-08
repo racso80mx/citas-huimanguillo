@@ -12,6 +12,7 @@ import {
   deleteVaccineAppointment,
   getAppointmentsForClinic,
   getClinics,
+  getColonias,
 } from './actions';
 
 // This file is intended for client-side components to import server actions,
@@ -31,4 +32,5 @@ export {
   deleteVaccineAppointment,
   getAppointmentsForClinic,
   getClinics,
+  getColonias,
 };

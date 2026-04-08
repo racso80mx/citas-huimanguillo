@@ -55,7 +55,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, downloadExcel } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { AppointmentList } from '../appointment-list';
@@ -550,7 +550,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
           <ScheduleAppointmentDialog 
             isOpen={isNewAppointmentOpen} 
             onClose={() => setIsNewAppointmentOpen(false)} 
-            patient={{} as any} // Dialog allows empty patient for new ones or we can adapt it
+            patient={{} as any}
             clinics={clinics}
             colonias={colonias}
             onBookingSuccess={() => {
