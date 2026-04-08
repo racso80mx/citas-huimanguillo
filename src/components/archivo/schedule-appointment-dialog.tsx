@@ -138,13 +138,13 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             });
                         });
 
-                        availableSlotsForClinic = unblockedSlots.length;
+                        availableSlotsForClinic = isDoctorBypass ? candidateSlots.length : unblockedSlots.length;
                         const takenWaitlist = bookedAppointments.filter(a => a.time.includes('Espera')).map(a => a.time);
                         const availableWaitlist = (clinic.waitlistSlots || 0) - takenWaitlist.length;
                         availableSlotsForClinic += Math.max(0, availableWaitlist);
                     } else {
                         const totalSlotsForClinic = clinic.dailySlots + (clinic.waitlistSlots || 0);
-                        availableSlotsForClinic = Math.max(0, totalSlotsForClinic - bookedAppointments.length);
+                        availableSlotsForClinic = isDoctorBypass ? totalSlotsForClinic : Math.max(0, totalSlotsForClinic - bookedAppointments.length);
                     }
                     
                     takenInfo = bookedAppointments.map(app => ({ time: app.time, duration: app.duration }));
@@ -200,12 +200,11 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     }
 
     const handleDateSelect = (date: Date | undefined) => {
-        if (date && date < startOfToday()) {
+        if (date && !isDoctorBypass && date < startOfToday()) {
             toast({ title: 'Fecha no válida', description: 'No puedes seleccionar una fecha en el pasado.', variant: 'destructive' });
             return;
         }
         setSelectedDate(date);
-        // Do not reset selectedClinicId if it was auto-selected (clinics.length === 1)
         if (clinics.length !== 1) {
             setSelectedClinicId(undefined);
         }
@@ -231,9 +230,9 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         return filteredClinics.map(clinic => ({
             value: clinic.id,
             label: `${clinic.name} (${selectedDayAvailability.availabilityByClinic[clinic.id] ?? 0} citas disponibles)`,
-            disabled: (selectedDayAvailability.availabilityByClinic[clinic.id] ?? 0) === 0,
+            disabled: !isDoctorBypass && (selectedDayAvailability.availabilityByClinic[clinic.id] ?? 0) === 0,
         })).sort((a,b) => a.label.localeCompare(b.label));
-    }, [clinics, selectedDayAvailability, selectedClinicType]);
+    }, [clinics, selectedDayAvailability, selectedClinicType, isDoctorBypass]);
 
     const coloniaOptions = React.useMemo(() => {
         if (!selectedClinicId) return [];
@@ -270,6 +269,8 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         return allTimeSlots.filter(candidate => {
             if (candidate === selectedClinic.breakTime) return false;
             
+            if (isDoctorBypass) return true; // Doctors see all slots
+
             if (candidate.includes('Espera')) {
                 return !takenInfo.some(ti => ti.time === candidate);
             }
@@ -277,19 +278,18 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const candStart = timeToMinutes(candidate);
             const candEnd = candStart + duration;
 
-            // Filter out past time slots for today
             if (isToday && candStart < currentMinutes) return false;
 
             const hasCollision = takenInfo.some(ti => {
                 if (ti.time.includes('Espera')) return false;
                 const appStart = timeToMinutes(ti.time);
-                const appEnd = appStart + (app.duration || 30);
+                const appEnd = appStart + (ti.duration || 30);
                 return Math.max(candStart, appStart) < Math.min(candEnd, appEnd);
             });
 
             return !hasCollision;
         });
-    }, [selectedDayAvailability, selectedClinic, allTimeSlots, selectedDate]);
+    }, [selectedDayAvailability, selectedClinic, allTimeSlots, selectedDate, isDoctorBypass]);
 
     const availableTokens = React.useMemo(() => {
         if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Token) return [];
@@ -297,9 +297,12 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const allPossibleTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
         const waitlistTokens = Array.from({ length: selectedClinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
         const allOptions = [...allPossibleTokens, ...waitlistTokens];
+        
+        if (isDoctorBypass) return allOptions;
+
         const takenTimes = (selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || []).map(ti => ti.time);
         return allOptions.filter(token => !takenTimes.includes(token));
-    }, [selectedDayAvailability, selectedClinic]);
+    }, [selectedDayAvailability, selectedClinic, isDoctorBypass]);
     
     const isTokenBooking = selectedClinic?.bookingMode === BookingMode.Token;
     const isTimeBooking = selectedClinic?.bookingMode === BookingMode.Time;
@@ -311,7 +314,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             <DialogContent className="sm:max-w-6xl">
                 <DialogHeader>
                     <DialogTitle>Agendar Cita {patient.name ? `para: ${patient.name} ${patient.paternalLastName}` : '(Paciente Nuevo)'}</DialogTitle>
-                    <DialogDescription>Sigue los pasos para registrar una nueva cita médica. {isDoctorBypass && <span className="text-green-600 font-bold">(Modo Médico Activado)</span>}</DialogDescription>
+                    <DialogDescription>Sigue los pasos para registrar una nueva cita médica. {isDoctorBypass && <span className="text-green-600 font-bold">(Modo Médico Activado - Urgencia)</span>}</DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[80vh]">
                     <div className="p-4">
@@ -376,6 +379,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     onBookingSuccess={onBookingSuccess}
                                     announcements={announcements}
                                     requireColonia={clinicHasColonias}
+                                    isDoctorBypass={isDoctorBypass}
                                 />
                                 {announcements && announcements.length > 0 && <Card className="shadow-lg"><CardHeader><CardTitle className="flex items-center gap-2 text-xl font-headline"><Bell className="h-5 w-5 text-primary" />Avisos Importantes</CardTitle></CardHeader><CardContent><ul className="space-y-2 text-muted-foreground list-disc pl-5">{announcements.map((announcement, index) => (<li key={index}>{announcement}</li>))}</ul></CardContent></Card>}
                             </div>

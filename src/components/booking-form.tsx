@@ -83,6 +83,7 @@ type BookingFormProps = {
   announcements: string[];
   requireColonia: boolean;
   initialPatientData?: Patient | null;
+  isDoctorBypass?: boolean;
 };
 
 export function BookingForm({
@@ -95,6 +96,7 @@ export function BookingForm({
   announcements,
   requireColonia,
   initialPatientData,
+  isDoctorBypass = false,
 }: BookingFormProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -237,7 +239,7 @@ export function BookingForm({
         date: selectedDate.toISOString(),
         time: selectedTime,
         patientType: patientType,
-        status: 'Agendada',
+        status: isDoctorBypass ? 'Atendido' : 'Agendada',
       };
 
       const result = await saveNewAppointment(newAppointmentData, patientToSave, selectedColoniaName);

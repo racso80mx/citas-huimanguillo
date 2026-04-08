@@ -443,14 +443,14 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
       time: String(appointment.time),
       duration: clinicData.consultationDuration || 30, // Persist current clinic duration
       patientType: appointment.patientType,
-      status: 'Agendada',
+      status: appointment.status || 'Agendada',
       coloniaName: coloniaName || null,
       createdAt: Timestamp.now()
     };
 
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
+    await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name} (Estado: ${cleanApp.status})`);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
   } catch (e: any) {
     return { success: false, error: e.message };
