@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
   getLabAppointments,
@@ -13,6 +13,7 @@ import {
   deleteUltrasoundAppointment,
   deleteVaccineAppointment,
   getClinics,
+  getColonias,
 } from '@/lib/data-client';
 import {
   Card,
@@ -34,6 +35,7 @@ import {
   RefreshCw,
   Pill,
   CalendarDays,
+  CalendarPlus,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -67,6 +69,7 @@ import { UltrasoundSettingsManager } from '../admin/ultrasound-settings-manager'
 import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
 import { MedicationInventoryDialog } from './medication-inventory-dialog';
 import { AvailabilityViewerDialog } from './availability-viewer-dialog';
+import { ScheduleAppointmentDialog } from '../archivo/schedule-appointment-dialog';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -81,12 +84,15 @@ type FilterType = 'today' | 'week' | 'month' | 'range';
 export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashboardProps) {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [colonias, setColonias] = useState<Colonia[]>([]);
   const [isDataLoading, startDataTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isClient, setIsClient] = useState(false);
   const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
   const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
+  const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -97,8 +103,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     startDataTransition(async () => {
       try {
         let appointmentsData;
-        const clinicsData = await getClinics();
+        const [clinicsData, coloniasData] = await Promise.all([
+            getClinics(),
+            getColonias()
+        ]);
         setClinics(clinicsData);
+        setColonias(coloniasData);
 
         if (reportType === 'clinic') {
             appointmentsData = await getAppointmentsForClinic(entity.id);
@@ -256,7 +266,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                  baseData['Estudio'] = ultrasoundItem.studyName;
             } else if (reportType === 'vacunas') {
                 const vaccineItem = item as VaccineAppointment;
-                baseData['Colonia'] = vaccineItem.coloniaName || 'N/A';
+                baseData['Municipio'] = vaccineItem.coloniaName || 'N/A';
                 baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
                 baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
             } else { // clinic
@@ -265,7 +275,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                     baseData['Ficha'] = regularItem.time.split(' ')[1];
                 }
                 baseData['Núcleo'] = (item as any).clinicName;
-                baseData['Colonia'] = regularItem.coloniaName || 'N/A';
+                baseData['Municipio'] = regularItem.coloniaName || 'N/A';
                 baseData['Tipo Paciente'] = regularItem.patientType;
             }
             return baseData;
@@ -357,6 +367,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
+            {reportType === 'clinic' && (
+                <Button variant="outline" className="text-green-700 border-green-200 hover:bg-green-50" onClick={() => setIsNewAppointmentOpen(true)}>
+                    <CalendarPlus className="mr-2 h-4 w-4" />
+                    Nueva Cita (Médico)
+                </Button>
+            )}
             <Button variant="outline" className="text-primary border-primary/40 hover:bg-primary/5" onClick={() => setIsAvailabilityDialogOpen(true)}>
                 <CalendarDays className="mr-2 h-4 w-4" />
                 Consultar Disponibilidad
@@ -529,6 +545,21 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         reportType={reportType}
         entity={entity}
       />
+
+      {isNewAppointmentOpen && (
+          <ScheduleAppointmentDialog 
+            isOpen={isNewAppointmentOpen} 
+            onClose={() => setIsNewAppointmentOpen(false)} 
+            patient={{} as any} // Dialog allows empty patient for new ones or we can adapt it
+            clinics={clinics}
+            colonias={colonias}
+            onBookingSuccess={() => {
+                setIsNewAppointmentOpen(false);
+                fetchData();
+            }}
+            isDoctorBypass={true}
+          />
+      )}
     </div>
   );
 }

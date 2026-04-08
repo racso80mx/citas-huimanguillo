@@ -7,9 +7,9 @@ import { Combobox } from '@/components/ui/combobox';
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
-import { getAppointments, getAnnouncements } from '@/lib/actions';
+import { getAppointments, getAnnouncements, getHolidays } from '@/lib/actions';
 import { Stethoscope, Hospital, MapPin, Clock, Ticket, UserCheck, Bell } from 'lucide-react';
-import type { DailyAvailability, Colonia, Clinic, Patient } from '@/lib/definitions';
+import type { DailyAvailability, Colonia, Clinic, Patient, Holiday } from '@/lib/definitions';
 import { PatientType, ClinicType, BookingMode } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -23,9 +23,10 @@ type ScheduleAppointmentDialogProps = {
     onBookingSuccess: () => void;
     clinics: Clinic[];
     colonias: Colonia[];
+    isDoctorBypass?: boolean;
 };
 
-export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingSuccess, clinics, colonias }: ScheduleAppointmentDialogProps) {
+export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingSuccess, clinics, colonias, isDoctorBypass = false }: ScheduleAppointmentDialogProps) {
     const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
     const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
     const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
@@ -65,7 +66,10 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        const allAppointments = await getAppointments();
+        const [allAppointments, holidays] = await Promise.all([
+            getAppointments(),
+            getHolidays()
+        ]);
         
         const availabilityResult: DailyAvailability[] = [];
         const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -87,18 +91,24 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const availabilityByClinic: { [key: string]: number } = {};
             const takenTimesByClinic: { [key: string]: any[] } = {};
 
+            const isHoliday = holidays.some(h => h.date === dateString);
+            const isWeekend = isSaturday(day) || isSunday(day);
+            const isSpecialDay = isWeekend || isHoliday;
+
             for (const clinic of clinics) {
-                const isWeekend = isSaturday(day) || isSunday(day);
                 const dayOfWeekName = dayNames[day.getUTCDay()];
                 
                 const isDayOfAction = clinic.daysOfAction?.includes(dayOfWeekName);
                 const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
-                const isWeekendAndNotEnabled = isWeekend && !clinic.weekendBookingEnabled;
+                const isWeekendAndNotEnabled = isSpecialDay && !clinic.weekendBookingEnabled;
     
                 let availableSlotsForClinic = 0;
                 let takenInfo: any[] = [];
     
-                if (!isDayOfAction && !isUnavailableDate && !isWeekendAndNotEnabled) {
+                // Doctors bypass Day of Action and Weekend restrictions
+                const isBlocked = !isDoctorBypass && (isDayOfAction || isWeekendAndNotEnabled);
+
+                if (!isBlocked && !isUnavailableDate) {
                     const bookedAppointments = appointmentsOnDate.filter(
                         (app) => app.clinicId === clinic.id
                     );
@@ -145,7 +155,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             });
         }
         setAvailability(availabilityResult);
-    }, [clinics]);
+    }, [clinics, isDoctorBypass]);
 
     React.useEffect(() => {
         async function fetchInitialData() {
@@ -242,6 +252,10 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             return h * 60 + m;
         };
 
+        const now = new Date();
+        const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
         return allTimeSlots.filter(candidate => {
             if (candidate === selectedClinic.breakTime) return false;
             
@@ -252,6 +266,9 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const candStart = timeToMinutes(candidate);
             const candEnd = candStart + duration;
 
+            // Filter out past time slots for today
+            if (isToday && candStart < currentMinutes) return false;
+
             const hasCollision = takenInfo.some(ti => {
                 if (ti.time.includes('Espera')) return false;
                 const appStart = timeToMinutes(ti.time);
@@ -261,7 +278,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
             return !hasCollision;
         });
-    }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
+    }, [selectedDayAvailability, selectedClinic, allTimeSlots, selectedDate]);
 
     const availableTokens = React.useMemo(() => {
         if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Token) return [];
@@ -282,8 +299,8 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-6xl">
                 <DialogHeader>
-                    <DialogTitle>Agendar Cita para: {patient.name} {patient.paternalLastName}</DialogTitle>
-                    <DialogDescription>Sigue los pasos para registrar una nueva cita médica para este paciente.</DialogDescription>
+                    <DialogTitle>Agendar Cita {patient.name ? `para: ${patient.name} ${patient.paternalLastName}` : '(Paciente Nuevo)'}</DialogTitle>
+                    <DialogDescription>Sigue los pasos para registrar una nueva cita médica. {isDoctorBypass && <span className="text-green-600 font-bold">(Modo Médico Activado)</span>}</DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[80vh]">
                     <div className="p-4">
@@ -315,7 +332,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     </>
                                 )}
                                 <BookingForm
-                                    initialPatientData={patient}
+                                    initialPatientData={patient.id ? patient : null}
                                     selectedDate={selectedDate}
                                     selectedClinic={selectedClinic}
                                     selectedColoniaName={selectedColonia?.name}

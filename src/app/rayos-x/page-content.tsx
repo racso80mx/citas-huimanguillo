@@ -160,8 +160,18 @@ export default function XRayPageContent({
   const availableTimeSlots = React.useMemo(() => {
     if (!selectedDayAvailability || selectedDayAvailability.availableSlots <= 0) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic['x-ray'] || [];
-    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
-  }, [selectedDayAvailability, allTimeSlots]);
+    
+    const now = new Date();
+    const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    const currentTimeStr = format(now, 'HH:mm');
+
+    return allTimeSlots.filter(slot => {
+        if (takenTimes.includes(slot)) return false;
+        // Filter out past time slots for today
+        if (isToday && !slot.includes('Espera') && slot < currentTimeStr) return false;
+        return true;
+    });
+  }, [selectedDayAvailability, allTimeSlots, selectedDate]);
 
   if (!isAuthenticated) {
     return <ModuleLoginForm title="Rayos X" onVerify={verifyXRayPassword} onSuccess={() => setIsAuthenticated(true)} />;

@@ -168,8 +168,18 @@ export default function VaccinePageContent({
   const availableTimeSlots = React.useMemo(() => {
     if (!selectedDayAvailability || selectedDayAvailability.availableSlots <= 0) return [];
     const takenTimes = selectedDayAvailability.takenTimesByClinic['vaccine'] || [];
-    return allTimeSlots.filter(slot => !takenTimes.includes(slot));
-  }, [selectedDayAvailability, allTimeSlots]);
+    
+    const now = new Date();
+    const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    const currentTimeStr = format(now, 'HH:mm');
+
+    return allTimeSlots.filter(slot => {
+        if (takenTimes.includes(slot)) return false;
+        // Filter out past time slots for today
+        if (isToday && !slot.includes('Espera') && slot < currentTimeStr) return false;
+        return true;
+    });
+  }, [selectedDayAvailability, allTimeSlots, selectedDate]);
   
   const coloniaOptions = React.useMemo(() => {
     const options = initialColonias.map(colonia => {
@@ -331,24 +341,24 @@ export default function VaccinePageContent({
                     {!isNewborn && (
                         <div>
                             <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                                3. Selecciona tu colonia
+                                3. Selecciona tu municipio
                             </h3>
                             <Card className="bg-card">
                                 <CardHeader>
                                     <CardTitle className="text-xl flex items-center gap-2">
                                         <MapPin className="h-5 w-5 text-primary" />
-                                        Colonia de Residencia
+                                        Municipio de Residencia
                                     </CardTitle>
-                                    <CardDescription>Selecciona tu colonia para verificar que perteneces al área de atención.</CardDescription>
+                                    <CardDescription>Selecciona tu municipio para verificar que perteneces al área de atención.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     <Combobox
                                         options={coloniaOptions}
                                         value={selectedColoniaId || ''}
                                         onChange={handleColoniaSelect}
-                                        placeholder="Busca y selecciona tu colonia..."
-                                        searchPlaceholder="Escribe el nombre de tu colonia..."
-                                        noResultsText="No se encontró la colonia."
+                                        placeholder="Busca y selecciona tu municipio..."
+                                        searchPlaceholder="Escribe el nombre de tu municipio..."
+                                        noResultsText="No se encontró el municipio."
                                     />
                                 </CardContent>
                             </Card>

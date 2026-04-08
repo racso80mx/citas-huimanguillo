@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
 
@@ -336,6 +335,10 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         return h * 60 + m;
     };
 
+    const now = new Date();
+    const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
     return allTimeSlots.filter(candidate => {
         if (candidate === selectedClinic.breakTime) return false;
         
@@ -345,6 +348,9 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
         const candStart = timeToMinutes(candidate);
         const candEnd = candStart + duration;
+
+        // Filter out past time slots for today
+        if (isToday && candStart < currentMinutes) return false;
 
         // Block if overlaps with ANY existing appointment
         const hasCollision = takenInfo.some(ti => {
@@ -356,7 +362,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
         return !hasCollision;
     });
-  }, [selectedDayAvailability, selectedClinic, allTimeSlots]);
+  }, [selectedDayAvailability, selectedClinic, allTimeSlots, selectedDate]);
 
   const availableTokens = React.useMemo(() => {
     if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Token) return [];
@@ -529,24 +535,24 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               {showColoniaStep && (
                 <div>
                   <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
-                      Selecciona tu colonia
+                      Selecciona tu municipio
                   </h3>
                   <Card className="bg-card">
                       <CardHeader>
                           <CardTitle className="text-xl flex items-center gap-2">
                               <MapPin className="h-5 w-5 text-primary" />
-                              Colonia de residencia
+                              Municipio de residencia
                           </CardTitle>
-                          <CardDescription>Busca y selecciona tu colonia.</CardDescription>
+                          <CardDescription>Busca y selecciona tu municipio.</CardDescription>
                       </CardHeader>
                       <CardContent>
                           <Combobox
                               options={coloniaOptions}
                               value={selectedColoniaId || ''}
                               onChange={handleColoniaSelect}
-                              placeholder="Busca y selecciona tu colonia..."
+                              placeholder="Busca y selecciona tu municipio..."
                               searchPlaceholder="Escribe para buscar..."
-                              noResultsText="No se encontraron colonias para este núcleo."
+                              noResultsText="No se encontraron municipios para este núcleo."
                           />
                       </CardContent>
                   </Card>
