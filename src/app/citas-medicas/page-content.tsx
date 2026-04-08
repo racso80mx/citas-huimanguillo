@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
+import { Combobox } from '@/components/ui/combobox';
 
 type PageContentProps = {
     initialAnnouncements: string[];
