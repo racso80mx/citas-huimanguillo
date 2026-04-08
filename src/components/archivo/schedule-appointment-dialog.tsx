@@ -42,6 +42,14 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const { toast } = useToast();
 
     React.useEffect(() => {
+        if (isOpen && clinics.length === 1) {
+            const singleClinic = clinics[0];
+            setSelectedClinicType(singleClinic.clinicType);
+            setSelectedClinicId(singleClinic.id);
+        }
+    }, [isOpen, clinics]);
+
+    React.useEffect(() => {
         async function fetchInitialAnnouncements() {
             setAnnouncements(await getAnnouncements());
         }
@@ -197,7 +205,10 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             return;
         }
         setSelectedDate(date);
-        setSelectedClinicId(undefined);
+        // Do not reset selectedClinicId if it was auto-selected (clinics.length === 1)
+        if (clinics.length !== 1) {
+            setSelectedClinicId(undefined);
+        }
         setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
     };
@@ -272,7 +283,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const hasCollision = takenInfo.some(ti => {
                 if (ti.time.includes('Espera')) return false;
                 const appStart = timeToMinutes(ti.time);
-                const appEnd = appStart + (ti.duration || 30);
+                const appEnd = appStart + (app.duration || 30);
                 return Math.max(candStart, appStart) < Math.min(candEnd, appEnd);
             });
 
@@ -308,7 +319,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             <div className="flex flex-col gap-8">
                                 <Card><CardHeader><CardTitle className="text-xl flex items-center gap-2"><Stethoscope className="h-5 w-5 text-primary" />Tipo de Consulta</CardTitle><CardDescription>Elige el tipo de consulta que necesitas.</CardDescription></CardHeader>
                                     <CardContent>
-                                        <Select onValueChange={handleClinicTypeSelect} value={selectedClinicType}><SelectTrigger><SelectValue placeholder="Selecciona un tipo de consulta" /></SelectTrigger>
+                                        <Select onValueChange={handleClinicTypeSelect} value={selectedClinicType} disabled={clinics.length === 1}><SelectTrigger><SelectValue placeholder="Selecciona un tipo de consulta" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value={ClinicType.ConsultaExterna}>Consulta Externa</SelectItem>
                                                 <SelectItem value={ClinicType.Especializada}>Consulta Externa Especializada</SelectItem>
@@ -321,8 +332,32 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                 </Card>
                                 {selectedClinicType && <AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={handleMonthChange} isLoading={isPending} />}
                                 {selectedDate && <Card><CardHeader><CardTitle className="text-xl flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" />Tipo de Paciente</CardTitle><CardDescription>Esto nos ayuda a dirigir tu cita correctamente.</CardDescription></CardHeader><CardContent><Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}><SelectTrigger><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger><SelectContent><SelectItem value={PatientType.General}>General</SelectItem><SelectItem value={PatientType.Cronico}>Paciente Crónico</SelectItem><SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem><SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem><SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem></SelectContent></Select></CardContent></Card>}
-                                {selectedDate && selectedDayAvailability && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><Hospital className="h-5 w-5 text-primary" />Núcleos con citas para el {format(selectedDate, 'PPP', { locale: es })}</CardTitle><CardDescription>Elige el núcleo básico al que perteneces.</CardDescription></CardHeader><CardContent><Select onValueChange={handleClinicSelect} value={selectedClinicId}><SelectTrigger><SelectValue placeholder="Selecciona un núcleo..." /></SelectTrigger><SelectContent>{clinicOptions.map(opt => (<SelectItem key={opt.value} value={opt.value} disabled={opt.disabled} className={cn(!opt.disabled ? "font-bold text-green-700" : "text-red-600")}>{opt.label}</SelectItem>))}</SelectContent></Select></CardContent></Card>}
-                                {showColoniaStep && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" />Colonia de residencia</CardTitle><CardDescription>Busca y selecciona tu colonia.</CardDescription></CardHeader><CardContent><Combobox options={coloniaOptions} value={selectedColoniaId || ''} onChange={handleColoniaSelect} placeholder="Busca y selecciona tu colonia..." searchPlaceholder="Escribe para buscar..." noResultsText="No se encontraron colonias para este núcleo." /></CardContent></Card>}
+                                {selectedDate && selectedDayAvailability && (
+                                    <Card className="bg-card">
+                                        <CardHeader>
+                                            <CardTitle className="text-xl flex items-center gap-2">
+                                                <Hospital className="h-5 w-5 text-primary" />
+                                                Núcleos con citas para el {format(selectedDate, 'PPP', { locale: es })}
+                                            </CardTitle>
+                                            <CardDescription>Elige el núcleo básico al que perteneces.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <Select onValueChange={handleClinicSelect} value={selectedClinicId} disabled={clinics.length === 1}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona un núcleo..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {clinicOptions.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled} className={cn(!opt.disabled ? "font-bold text-green-700" : "text-red-600")}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                {showColoniaStep && <Card className="bg-card"><CardHeader><CardTitle className="text-xl flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" />Municipio de residencia</CardTitle><CardDescription>Busca y selecciona tu municipio.</CardDescription></CardHeader><CardContent><Combobox options={coloniaOptions} value={selectedColoniaId || ''} onChange={handleColoniaSelect} placeholder="Busca y selecciona tu municipio..." searchPlaceholder="Escribe para buscar..." noResultsText="No se encontraron municipios para este núcleo." /></CardContent></Card>}
                             </div>
                             <div className="flex flex-col gap-8">
                                 {showTimeAndFormStep && (

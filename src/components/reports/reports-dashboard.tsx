@@ -113,7 +113,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         if (reportType === 'clinic') {
             appointmentsData = await getAppointmentsForClinic(entity.id);
         } else if (reportType === 'x-ray') {
-            appointmentsData = await getXRayAppointments();
+            appointmentsData = await getLabAppointments();
         } else if (reportType === 'ultrasound') {
             appointmentsData = await getUltrasoundAppointments();
         } else if (reportType === 'laboratorio') {
@@ -551,7 +551,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             isOpen={isNewAppointmentOpen} 
             onClose={() => setIsNewAppointmentOpen(false)} 
             patient={{} as any}
-            clinics={clinics}
+            clinics={reportType === 'clinic' ? [entity] : clinics}
             colonias={colonias}
             onBookingSuccess={() => {
                 setIsNewAppointmentOpen(false);
