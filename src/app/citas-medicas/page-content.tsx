@@ -127,7 +127,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                     const duration = clinic.consultationDuration;
                     const candidateSlots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, duration);
                     
-                    // Collision detection by range
                     const unblockedSlots = candidateSlots.filter(slot => {
                         if (slot === clinic.breakTime) return false;
                         const slotStart = timeToMinutes(slot);
@@ -142,8 +141,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                     });
 
                     availableSlotsForClinic = unblockedSlots.length;
-                    
-                    // Add Waitlist slots
                     const takenWaitlist = bookedAppointments.filter(a => a.time.includes('Espera')).map(a => a.time);
                     const availableWaitlist = (clinic.waitlistSlots || 0) - takenWaitlist.length;
                     availableSlotsForClinic += Math.max(0, availableWaitlist);
@@ -202,16 +199,20 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     });
   };
 
-  const refreshData = () => {
+  const refreshData = (reset = true) => {
     startTransition(async () => {
       try {
         await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
-        setSelectedClinicType(undefined);
-        setSelectedDate(undefined);
-        setSelectedClinicId(undefined);
-        setSelectedColoniaId(undefined);
-        setSelectedTime(undefined);
-        setPatientType(PatientType.General);
+        if (reset) {
+            setSelectedClinicType(undefined);
+            setSelectedDate(undefined);
+            setSelectedClinicId(undefined);
+            setSelectedColoniaId(undefined);
+            setSelectedTime(undefined);
+            setPatientType(PatientType.General);
+        } else {
+            setSelectedTime(undefined);
+        }
       } catch (error) {
           console.error("Failed to refresh data:", error);
            toast({
@@ -350,14 +351,12 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         const candStart = timeToMinutes(candidate);
         const candEnd = candStart + duration;
 
-        // Filter out past time slots for today
         if (isToday && candStart < currentMinutes) return false;
 
-        // Block if overlaps with ANY existing appointment
         const hasCollision = takenInfo.some(ti => {
             if (ti.time.includes('Espera')) return false;
             const appStart = timeToMinutes(ti.time);
-            const appEnd = appStart + (ti.duration || 30);
+            const appEnd = appStart + (appStart === -1 ? 0 : (ti.duration || 30));
             return Math.max(candStart, appStart) < Math.min(candEnd, appEnd);
         });
 

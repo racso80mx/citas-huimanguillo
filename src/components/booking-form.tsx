@@ -79,7 +79,7 @@ type BookingFormProps = {
   selectedColoniaName: string | undefined;
   selectedTime: string | undefined;
   patientType: PatientType;
-  onBookingSuccess: () => void;
+  onBookingSuccess: (reset?: boolean) => void;
   announcements: string[];
   requireColonia: boolean;
   initialPatientData?: Patient | null;
@@ -251,7 +251,6 @@ export function BookingForm({
             duration: 10000,
         });
 
-        // Abrir WhatsApp automáticamente si está habilitado
         if (settings.citasMedicasWhatsAppEnabled) {
             const cleanPhone = data.phoneNumber.replace(/\D/g, '');
             const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
@@ -266,13 +265,15 @@ export function BookingForm({
         await generateAppointmentPDF(result.data.appointment, result.data.clinic, allAnnouncements);
         
         form.reset();
-        onBookingSuccess();
+        onBookingSuccess(true);
       } else {
          toast({
-          title: 'Error al Agendar',
-          description: result.error || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          title: 'Turno no disponible',
+          description: result.error || 'No se pudo agendar la cita. Es posible que el horario ya haya sido ocupado.',
           variant: 'destructive',
         });
+        // Refresh availability without clearing form data
+        onBookingSuccess(false);
       }
     });
   };

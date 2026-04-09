@@ -65,7 +65,7 @@ type VaccineBookingFormProps = {
   patientType: PatientType;
   clinicId?: string;
   coloniaName?: string;
-  onBookingSuccess: () => void;
+  onBookingSuccess: (reset?: boolean) => void;
   announcements: string[];
 };
 
@@ -189,7 +189,6 @@ export function VaccineBookingForm({
             duration: 10000,
         });
 
-        // Abrir WhatsApp automáticamente si está habilitado
         if (settings.vacunasWhatsAppEnabled) {
             const cleanPhone = data.phoneNumber.replace(/\D/g, '');
             const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
@@ -206,13 +205,14 @@ export function VaccineBookingForm({
         await generateVaccineAppointmentPDF(doc, result.data, announcements);
 
         form.reset();
-        onBookingSuccess();
+        onBookingSuccess(true);
       } else {
          toast({
-          title: 'Error al Agendar',
-          description: result.error || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          title: 'Turno no disponible',
+          description: result.error || 'No se pudo agendar la cita. El horario puede haber sido ocupado.',
           variant: 'destructive',
         });
+        onBookingSuccess(false);
       }
     });
   };

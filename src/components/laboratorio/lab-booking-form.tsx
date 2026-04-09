@@ -64,7 +64,7 @@ type LabBookingFormProps = {
   selectedStudies: LabStudy[];
   selectedTime: string | undefined;
   patientType: PatientType;
-  onBookingSuccess: () => void;
+  onBookingSuccess: (reset?: boolean) => void;
   dailySlots: number;
   weekendBookingEnabled: boolean;
   announcements: string[];
@@ -178,7 +178,6 @@ export function LabBookingForm({
               duration: 10000,
           });
 
-          // Abrir WhatsApp automáticamente si está habilitado
           if (settings.laboratorioWhatsAppEnabled) {
               const cleanPhone = data.phoneNumber.replace(/\D/g, '');
               const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
@@ -195,13 +194,14 @@ export function LabBookingForm({
           await generateLabAppointmentPDF(doc, result.data, announcements);
 
           form.reset();
-          onBookingSuccess();
+          onBookingSuccess(true);
       } else {
            toast({
-            title: 'Error al Agendar',
-            description: result.error || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+            title: 'Turno no disponible',
+            description: result.error || 'No se pudo agendar la cita. Es posible que el turno ya haya sido ocupado.',
             variant: 'destructive',
           });
+          onBookingSuccess(false);
       }
     });
   };

@@ -150,7 +150,7 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
   return {
     total: totalSnap.data().count,
     vigente: vigenteSnap.data().count,
-    bajaTemporal: vigenteSnap.data().count,
+    bajaTemporal: bajaSnap.data().count,
     bajaDefinitiva: definitivaSnap.data().count
   };
 }
@@ -389,9 +389,27 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
     
+    // Check for time slot duplicate (concurrency protection)
+    const qTime = query(
+      collection(db, 'appointments'),
+      where('clinicId', '==', appointment.clinicId),
+      where('time', '==', String(appointment.time))
+    );
+    const snapTime = await getDocs(qTime);
+    const isTimeTaken = snapTime.docs.some(doc => {
+      const d = doc.data();
+      const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+      return appDate === selectedDate;
+    });
+
+    // If time is taken and it's NOT a doctor bypass (bypass is marked by 'Atendido' status from the dialog)
+    if (isTimeTaken && appointment.status !== 'Atendido') {
+       return { success: false, error: "El horario o ficha seleccionada ya ha sido ocupado por otro usuario. Por favor, selecciona uno diferente." };
+    }
+
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'appointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -441,7 +459,7 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
       clinicId: appointment.clinicId,
       date: Timestamp.fromDate(new Date(appointment.date)),
       time: String(appointment.time),
-      duration: clinicData.consultationDuration || 30, // Persist current clinic duration
+      duration: clinicData.consultationDuration || 30,
       patientType: appointment.patientType,
       status: appointment.status || 'Agendada',
       coloniaName: coloniaName || null,
@@ -462,9 +480,30 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
+
+    // Concurrency Check for Lab
+    const qTime = query(
+      collection(db, 'labAppointments'),
+      where('time', '==', String(appointment.time))
+    );
+    const snapTime = await getDocs(qTime);
+    const takenOnDate = snapTime.docs.filter(doc => {
+      const d = doc.data();
+      const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
+      return appDate === selectedDate;
+    });
+
+    if (appointment.time === "Recepción General") {
+       const settings = await getLabSettings();
+       if (takenOnDate.length >= settings.dailySlots) {
+          return { success: false, error: "Lo sentimos, el cupo de Recepción General se ha llenado. Por favor selecciona otro día." };
+       }
+    } else if (takenOnDate.length > 0) {
+       return { success: false, error: "Este turno de lista de espera ya ha sido ocupado por otro usuario." };
+    }
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'labAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -511,9 +550,24 @@ export async function saveNewXRayAppointment(appointment: any, patientInput: any
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
+
+    // Concurrency Check for XRay
+    const qTime = query(
+      collection(db, 'xrayAppointments'),
+      where('time', '==', String(appointment.time))
+    );
+    const snapTime = await getDocs(qTime);
+    const isTaken = snapTime.docs.some(doc => {
+      const d = doc.data();
+      return (d.date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate;
+    });
+
+    if (isTaken) {
+       return { success: false, error: "El horario seleccionado acaba de ser ocupado. Por favor elige otro." };
+    }
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'xrayAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -559,9 +613,24 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
+
+    // Concurrency Check
+    const qTime = query(
+      collection(db, 'ultrasoundAppointments'),
+      where('time', '==', String(appointment.time))
+    );
+    const snapTime = await getDocs(qTime);
+    const isTaken = snapTime.docs.some(doc => {
+      const d = doc.data();
+      return (d.date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate;
+    });
+
+    if (isTaken) {
+       return { success: false, error: "El horario seleccionado acaba de ser ocupado. Por favor elige otro." };
+    }
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'ultrasoundAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -588,7 +657,8 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
       fatherAge: Number(patientInput.fatherAge) || null, 
       motherAge: Number(patientInput.motherAge) || null, 
       registrationDate: patientInput.registrationDate || null, 
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null,  Gleason: patientInput.expediente ? String(patientInput.expediente).trim() : null,
+      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, 
+      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
       updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
@@ -606,9 +676,24 @@ export async function saveNewVaccineAppointment(appointment: any, patientInput: 
   try {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
+    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
+
+    // Concurrency Check
+    const qTime = query(
+      collection(db, 'vaccineAppointments'),
+      where('time', '==', String(appointment.time))
+    );
+    const snapTime = await getDocs(qTime);
+    const isTaken = snapTime.docs.some(doc => {
+      const d = doc.data();
+      return (d.date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate;
+    });
+
+    if (isTaken) {
+       return { success: false, error: "El horario seleccionado acaba de ser ocupado. Por favor elige otro." };
+    }
     
     if (existingPatient && !curp.startsWith('RN-')) {
-      const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
       const q = query(collection(db, 'vaccineAppointments'), where('patientId', '==', existingPatient.id));
       const snap = await getDocs(q);
       const isDuplicate = snap.docs.some(doc => {
@@ -886,7 +971,6 @@ export async function bulkInsertMedications(chunk: any[]) {
         updatedAt: new Date().toISOString()
       };
 
-      // Carga directa de registros tal cual vienen en Excel
       const docId = uuidv4();
       batch.set(doc(db, 'medications', docId), { ...medData, id: docId });
       processed++;
@@ -965,7 +1049,6 @@ export async function bulkUpdateStatusChunk(expedientes: string[], status: Patie
 
 export async function normalizePatientExpedientes() {
   const db = getDb();
-  // Fetch a chunk of patients
   const snap = await getDocs(query(collection(db, 'patients'), limit(10000)));
   
   let count = 0;
@@ -976,7 +1059,6 @@ export async function normalizePatientExpedientes() {
     let exp = data.expediente;
     if (exp !== null && exp !== undefined) {
       const expStr = String(exp).trim();
-      // If it has a value and doesn't start with 0
       if (expStr.length > 0 && !expStr.startsWith('0')) {
         updates.push({
           id: docSnap.id,
@@ -1096,19 +1178,16 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
         const t = curr.toTimeString().substring(0, 5); 
         const tMins = timeToMinutes(t);
         
-        // Break time exact match
         if (t === clinic.breakTime) {
             curr = new Date(curr.getTime() + duration * 60000);
             continue;
         }
 
-        // Check range collision with any existing appointment
         const hasCollision = taken.some(app => {
             if (app.time.includes('Espera') || app.time.includes('Ficha')) return false;
             const appStart = timeToMinutes(app.time);
             const appEnd = appStart + (app.duration || 30);
             const slotEnd = tMins + duration;
-            // Overlap condition: max(start1, start2) < min(end1, end2)
             return Math.max(tMins, appStart) < Math.min(slotEnd, appEnd);
         });
 

@@ -113,7 +113,6 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 let availableSlotsForClinic = 0;
                 let takenInfo: any[] = [];
     
-                // Doctors bypass Day of Action and Weekend restrictions
                 const isBlocked = !isDoctorBypass && (isDayOfAction || isWeekendAndNotEnabled);
 
                 if (!isBlocked && !isUnavailableDate) {
@@ -190,6 +189,17 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             await fetchAvailability(month.getFullYear(), month.getMonth());
         });
     };
+
+    const handleRefresh = (reset = true) => {
+        startTransition(async () => {
+            await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+            if (reset) {
+                onBookingSuccess();
+            } else {
+                setSelectedTime(undefined);
+            }
+        });
+    }
 
     const handleClinicTypeSelect = (value: ClinicType) => {
         setSelectedClinicType(value);
@@ -269,7 +279,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         return allTimeSlots.filter(candidate => {
             if (candidate === selectedClinic.breakTime) return false;
             
-            if (isDoctorBypass) return true; // Doctors see all slots
+            if (isDoctorBypass) return true; 
 
             if (candidate.includes('Espera')) {
                 return !takenInfo.some(ti => ti.time === candidate);
@@ -283,7 +293,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const hasCollision = takenInfo.some(ti => {
                 if (ti.time.includes('Espera')) return false;
                 const appStart = timeToMinutes(ti.time);
-                const appEnd = appStart + (ti.duration || 30);
+                const appEnd = appStart + (appStart === -1 ? 0 : (ti.duration || 30));
                 return Math.max(candStart, appStart) < Math.min(candEnd, appEnd);
             });
 
@@ -376,7 +386,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     selectedColoniaName={selectedColonia?.name}
                                     selectedTime={selectedTime}
                                     patientType={patientType}
-                                    onBookingSuccess={onBookingSuccess}
+                                    onBookingSuccess={handleRefresh}
                                     announcements={announcements}
                                     requireColonia={clinicHasColonias}
                                     isDoctorBypass={isDoctorBypass}

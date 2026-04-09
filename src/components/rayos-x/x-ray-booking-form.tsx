@@ -63,7 +63,7 @@ type XRayBookingFormProps = {
   selectedTime: string | undefined;
   selectedStudy: XRayStudy | undefined;
   patientType: PatientType;
-  onBookingSuccess: () => void;
+  onBookingSuccess: (reset?: boolean) => void;
   announcements: string[];
 };
 
@@ -174,7 +174,6 @@ export function XRayBookingForm({
           description: `Tu cita de Rayos X con folio ${result.data.appointment.appointmentNumber} ha sido agendada con éxito.`
         });
 
-        // Abrir WhatsApp automáticamente si está habilitado
         if (settings.rayosXWhatsAppEnabled) {
             const cleanPhone = data.phoneNumber.replace(/\D/g, '');
             const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
@@ -190,13 +189,14 @@ export function XRayBookingForm({
         await generateXRayAppointmentPDF(doc, result.data.appointment, result.data.study, announcements);
 
         form.reset();
-        onBookingSuccess();
+        onBookingSuccess(true);
       } else {
         toast({
-          title: 'Error al Agendar',
-          description: result.error || 'No se pudo agendar la cita. Inténtalo de nuevo.',
+          title: 'Turno no disponible',
+          description: result.error || 'No se pudo agendar la cita. El horario puede haber sido ocupado.',
           variant: 'destructive',
         });
+        onBookingSuccess(false);
       }
     });
   };
