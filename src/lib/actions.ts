@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as data from './data';
-import type { PatientStatus, AppointmentStatus, Holiday } from './definitions';
+import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay } from './definitions';
 
 // =====================================================================
 // MAINTENANCE ACTIONS
@@ -385,6 +385,14 @@ export async function updateHolidays(holidays: Holiday[]) {
   revalidatePath('/ultrasonidos');
   revalidatePath('/vacunas');
   return res;
+}
+
+export async function getSpecialActionDays() { return data.getSpecialActionDays(); }
+export async function updateSpecialActionDays(items: SpecialActionDay[]) {
+    const res = await data.updateSpecialActionDays(items);
+    revalidatePath('/citas-medicas');
+    revalidatePath('/admin');
+    return res;
 }
 
 // =====================================================================

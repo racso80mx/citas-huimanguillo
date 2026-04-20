@@ -339,3 +339,9 @@ export type Holiday = {
   date: string; // YYYY-MM-DD
   name: string;
 };
+
+export type SpecialActionDay = {
+  date: string; // YYYY-MM-DD
+  clinicType: ClinicType;
+  name: string;
+};

@@ -52,6 +52,7 @@ import type {
   ArchiveCounts,
   Medication,
   Holiday,
+  SpecialActionDay,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -955,6 +956,14 @@ export async function getHolidays(): Promise<Holiday[]> {
 
 export async function updateHolidays(holidays: Holiday[]) {
   return setSettingsDoc('holidays', { items: holidays });
+}
+
+export async function getSpecialActionDays(): Promise<SpecialActionDay[]> {
+    return (await getSettingsDoc<{ items: SpecialActionDay[] }>('specialActionDays', { items: [] })).items;
+}
+
+export async function updateSpecialActionDays(items: SpecialActionDay[]) {
+    return setSettingsDoc('specialActionDays', { items });
 }
 
 // =====================================================================

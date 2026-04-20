@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
@@ -74,6 +73,7 @@ import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
 import { AdminPasswordManager } from './admin-password-manager';
 import { HolidaysManager } from './holidays-manager';
+import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
 
 type AdminDashboardProps = {
@@ -429,7 +429,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <div className="space-y-8">
                 <ModuleManager />
                 <ClinicsManager />
-                <HolidaysManager />
+                <div className="grid md:grid-cols-2 gap-8">
+                  <HolidaysManager />
+                  <SpecialActionDaysManager />
+                </div>
                 
                 <ModuleSecurityManager />
                 <AdminPasswordManager />

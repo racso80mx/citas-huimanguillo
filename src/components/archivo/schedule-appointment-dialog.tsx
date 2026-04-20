@@ -7,9 +7,9 @@ import { Combobox } from '@/components/ui/combobox';
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
-import { getAppointmentsForCalendar, getAnnouncements, getHolidays } from '@/lib/actions';
+import { getAppointmentsForCalendar, getAnnouncements, getHolidays, getSpecialActionDays } from '@/lib/actions';
 import { Stethoscope, Hospital, MapPin, Clock, Ticket, UserCheck, Bell } from 'lucide-react';
-import type { DailyAvailability, Colonia, Clinic, Patient, Holiday } from '@/lib/definitions';
+import type { DailyAvailability, Colonia, Clinic, Patient, Holiday, SpecialActionDay } from '@/lib/definitions';
 import { PatientType, ClinicType, BookingMode } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -74,13 +74,12 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        // OPTIMIZATION: Get lightweight appointment data for the specific month only
-        const [monthAppointments, holidays] = await Promise.all([
+        const [monthAppointments, holidays, specialActionDays] = await Promise.all([
             getAppointmentsForCalendar(month, year),
-            getHolidays()
+            getHolidays(),
+            getSpecialActionDays()
         ]);
         
-        // OPTIMIZATION: Index appointments by date for O(1) lookup
         const appsByDateMap = new Map<string, any[]>();
         monthAppointments.forEach(app => {
             const dateKey = app.date.split('T')[0];
@@ -100,7 +99,6 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
-            // Faster retrieval from Map instead of filtering the whole array
             const appointmentsOnDate = appsByDateMap.get(dateString) || [];
 
             let totalAvailableSlots = 0;
@@ -114,6 +112,11 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             for (const clinic of clinics) {
                 const dayOfWeekName = dayNames[day.getUTCDay()];
                 
+                // Check for Special Action Days (Regionalized blocking)
+                const isBlockedBySpecialAction = !isDoctorBypass && specialActionDays.some(
+                    s => s.date === dateString && s.clinicType === clinic.clinicType
+                );
+
                 const isDayOfAction = clinic.daysOfAction?.includes(dayOfWeekName);
                 const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
                 const isWeekendAndNotEnabled = isSpecialDay && !clinic.weekendBookingEnabled;
@@ -121,7 +124,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 let availableSlotsForClinic = 0;
                 let takenInfo: any[] = [];
     
-                const isBlocked = !isDoctorBypass && (isDayOfAction || isWeekendAndNotEnabled);
+                const isBlocked = !isDoctorBypass && (isDayOfAction || isWeekendAndNotEnabled || isBlockedBySpecialAction);
 
                 if (!isBlocked && !isUnavailableDate) {
                     const bookedAppointments = appointmentsOnDate.filter(

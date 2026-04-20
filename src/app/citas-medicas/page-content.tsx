@@ -12,9 +12,9 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, Colonia, Clinic, Holiday } from '@/lib/definitions';
+import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay } from '@/lib/definitions';
 import { PatientType, BookingMode, ClinicType } from '@/lib/definitions';
-import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword } from '@/lib/actions';
+import { getAppointments, getClinics, getHolidays, getSpecialActionDays, verifyCitasMedicasPassword } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital } from 'lucide-react';
@@ -36,9 +36,10 @@ type PageContentProps = {
     initialColonias: Colonia[];
     initialClinics: Clinic[];
     initialHolidays: Holiday[];
+    initialSpecialActionDays: SpecialActionDay[];
 };
 
-export default function PageContent({ initialAnnouncements, initialColonias, initialClinics, initialHolidays }: PageContentProps) {
+export default function PageContent({ initialAnnouncements, initialColonias, initialClinics, initialHolidays, initialSpecialActionDays }: PageContentProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
@@ -53,6 +54,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [colonias] = React.useState<Colonia[]>(initialColonias);
   const [clinics, setClinics] = React.useState<Clinic[]>(initialClinics);
   const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
+  const [specialActionDays, setSpecialActionDays] = React.useState<SpecialActionDay[]>(initialSpecialActionDays);
   
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -76,13 +78,15 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
 
-      const [allAppointments, freshClinics, freshHolidays] = await Promise.all([
+      const [allAppointments, freshClinics, freshHolidays, freshSpecialActionDays] = await Promise.all([
         getAppointments(),
         getClinics(),
-        getHolidays()
+        getHolidays(),
+        getSpecialActionDays()
       ]);
       setClinics(freshClinics);
       setHolidays(freshHolidays);
+      setSpecialActionDays(freshSpecialActionDays);
       
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
@@ -111,6 +115,11 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         for (const clinic of freshClinics) {
             const dayOfWeekName = dayNames[day.getUTCDay()];
             
+            // Check for Special Action Days (Regionalized blocking by service type)
+            const isBlockedBySpecialAction = freshSpecialActionDays.some(
+                s => s.date === dateString && s.clinicType === clinic.clinicType
+            );
+
             const isDayOfAction = clinic.daysOfAction?.includes(dayOfWeekName);
             const isUnavailableDate = clinic.unavailableDates?.includes(dateString);
             const isSpecialDayAndNotEnabled = isSpecialDay && !clinic.weekendBookingEnabled;
@@ -118,7 +127,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             let availableSlotsForClinic = 0;
             let takenInfo: any[] = [];
 
-            if (!isDayOfAction && !isUnavailableDate && !isSpecialDayAndNotEnabled) {
+            if (!isDayOfAction && !isUnavailableDate && !isSpecialDayAndNotEnabled && !isBlockedBySpecialAction) {
                 const bookedAppointments = appointmentsOnDate.filter(
                     (app) => app.clinicId === clinic.id
                 );
