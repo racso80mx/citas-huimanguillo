@@ -157,8 +157,8 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
 
 export async function getPatients(options?: { 
   status?: string | 'Total', 
-  searchName?: string,
-  searchCurp?: string,
+  searchName?: string, 
+  searchCurp?: string, 
   searchExpediente?: string,
   limitNum?: number 
 }): Promise<Patient[]> {
@@ -345,6 +345,33 @@ export async function getAppointments(): Promise<Appointment[]> {
   const snap = await getDocs(query(collection(db, 'appointments'), orderBy('date', 'desc'), limit(2000)));
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return await enrichWithPatientData(data) as Appointment[];
+}
+
+/**
+ * Optimized fetch for calendars. Skips patient enrichment and filters by month.
+ */
+export async function getAppointmentsForCalendar(month: number, year: number): Promise<any[]> {
+  const db = getDb();
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+  
+  const q = query(
+    collection(db, 'appointments'),
+    where('date', '>=', Timestamp.fromDate(startDate)),
+    where('date', '<=', Timestamp.fromDate(endDate))
+  );
+  
+  const snap = await getDocs(q);
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id: d.id,
+      date: (data.date as Timestamp).toDate().toISOString(),
+      time: String(data.time),
+      clinicId: data.clinicId,
+      duration: data.duration || 30
+    };
+  });
 }
 
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {

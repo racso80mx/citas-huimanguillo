@@ -95,6 +95,7 @@ export async function updatePatientStatus(id: string, status: PatientStatus) {
 
 export async function getAppointments() { return data.getAppointments(); }
 export async function getAppointmentsForClinic(clinicId: string) { return data.getAppointmentsForClinic(clinicId); }
+export async function getAppointmentsForCalendar(month: number, year: number) { return data.getAppointmentsForCalendar(month, year); }
 export async function getLabAppointments() { return data.getLabAppointments(); }
 export async function getXRayAppointments() { return data.getXRayAppointments(); }
 export async function getUltrasoundAppointments() { return data.getUltrasoundAppointments(); }
