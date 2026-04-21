@@ -223,17 +223,30 @@ export function ModuleManager() {
           />
         </div>
 
-        {/* Módulos de Gestión (Sin WhatsApp individual de paciente) */}
-        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
-          <Label htmlFor="archivo-enabled" className="flex items-center gap-2 text-base font-bold">
-            <ToggleRight className="h-5 w-5 text-primary"/> Archivo (Gestión)
-          </Label>
+        {/* Módulos de Gestión */}
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="archivo-enabled" className="flex items-center gap-2 text-base font-bold">
+              <ToggleRight className="h-5 w-5 text-primary"/> Archivo (Gestión)
+            </Label>
+            <div className="flex items-center gap-3 pl-7">
+                <Switch 
+                    id="archivo-whatsapp"
+                    checked={settings.archivoWhatsAppEnabled}
+                    onCheckedChange={(v) => handleSettingsChange('archivoWhatsAppEnabled', v)}
+                />
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                    <MessageCircle className="h-3 w-3 text-green-600" /> WhatsApp
+                </span>
+            </div>
+          </div>
           <Switch
             id="archivo-enabled"
             checked={settings.archivoEnabled}
             onCheckedChange={(checked) => handleSettingsChange('archivoEnabled', checked)}
           />
         </div>
+
         <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
           <Label htmlFor="archivo-consulta-enabled" className="flex items-center gap-2 text-base font-bold">
             <ToggleRight className="h-5 w-5 text-primary"/> Consulta de Padrón

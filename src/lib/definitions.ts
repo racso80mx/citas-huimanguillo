@@ -288,6 +288,7 @@ export type ModuleSettings = {
   rayosXWhatsAppEnabled: boolean;
   ultrasoundWhatsAppEnabled: boolean;
   vacunasWhatsAppEnabled: boolean;
+  archivoWhatsAppEnabled: boolean;
   citasMedicasPassword?: string;
   archivoConsultaPassword?: string;
 };

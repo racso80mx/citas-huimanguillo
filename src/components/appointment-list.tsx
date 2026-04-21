@@ -383,6 +383,8 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
     );
   }
 
+  const whatsappEnabled = isAdmin ? settings?.archivoWhatsAppEnabled : settings?.citasMedicasWhatsAppEnabled;
+
   return (
     <div className="border rounded-lg">
       <Table>
@@ -468,7 +470,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>
-                    {(settings?.citasMedicasWhatsAppEnabled ?? true) && (
+                    {(whatsappEnabled ?? true) && (
                         <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
                             <MessageCircle className="h-4 w-4 text-green-600" />
                         </Button>
@@ -616,7 +618,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         {cloningClinic.bookingMode === 'time' && (
                           <>
                             <Label>Selecciona una Hora</Label>
-                             <Select onValueChange={setNewCloneTime} value={newCloneTime}>
+                             <Select onValueChange={newCloneTime} value={newCloneTime}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Selecciona un horario disponible..." />
                               </SelectTrigger>

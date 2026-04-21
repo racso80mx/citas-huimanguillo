@@ -251,7 +251,9 @@ export function BookingForm({
             duration: 10000,
         });
 
-        if (settings.citasMedicasWhatsAppEnabled) {
+        const whatsappEnabled = isDoctorBypass ? settings.archivoWhatsAppEnabled : settings.citasMedicasWhatsAppEnabled;
+
+        if (whatsappEnabled) {
             const cleanPhone = data.phoneNumber.replace(/\D/g, '');
             const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
             const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';

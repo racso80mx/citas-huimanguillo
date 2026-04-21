@@ -17,7 +17,7 @@ import {
   Users, 
   UserCheck, 
   Clock, 
-  UserX,
+  UserX, 
   PlusCircle,
   Check,
   RefreshCw,
@@ -708,7 +708,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
       </Tabs>
 
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
-      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadData(); }} clinics={clinics} colonias={[]} />}
+      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadData(); }} clinics={clinics} colonias={[]} isDoctorBypass={true} />}
     </div>
   );
 }

@@ -832,7 +832,8 @@ export async function getModuleSettings() {
     laboratorioWhatsAppEnabled: true,
     rayosXWhatsAppEnabled: true,
     ultrasoundWhatsAppEnabled: true,
-    vacunasWhatsAppEnabled: true
+    vacunasWhatsAppEnabled: true,
+    archivoWhatsAppEnabled: true
   }); 
 }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
