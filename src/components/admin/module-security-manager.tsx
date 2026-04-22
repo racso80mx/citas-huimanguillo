@@ -122,8 +122,8 @@ export function ModuleSecurityManager() {
     { id: 'us', title: 'Ultrasonidos', description: 'Acceso al portal de citas de ultrasonido.', password: passwords.us || '', onSave: (p) => handleSave('us', p, 'Ultrasonidos') },
     { id: 'vaccine', title: 'Vacunación', description: 'Acceso al portal de citas de vacunas.', password: passwords.vaccine || '', onSave: (p) => handleSave('vaccine', p, 'Vacunación') },
     { id: 'archive', title: 'Gestión del Archivo', description: 'Acceso total al padrón (Edición/Borrado).', password: passwords.archive || '', onSave: (p) => handleSave('archive', p, 'Archivo Gestión') },
-    { id: 'archiveInquiry', title: 'Consulta de Padrón', description: 'Acceso de solo lectura al archivo.', password: passwords.archiveInquiry || '', onSave: (p) => handleSave('archiveInquiry', p, 'Consulta Padrón') },
-    { id: 'pharmacy', title: 'Configuración de Farmacia', description: 'Acceso al inventario y carga masiva.', password: passwords.pharmacy || '', onSave: (p) => handleSave('pharmacy', p, 'Farmacia') },
+    { id: 'archiveInquiry', title: 'Consulta de Recursos', description: 'Acceso de solo lectura al archivo e inventario.', password: passwords.archiveInquiry || '', onSave: (p) => handleSave('archiveInquiry', p, 'Consulta Recursos') },
+    { id: 'pharmacy', title: 'Gestión de Farmacia', description: 'Acceso al inventario y carga masiva.', password: passwords.pharmacy || '', onSave: (p) => handleSave('pharmacy', p, 'Farmacia') },
     { id: 'bi', title: 'Módulo BI', description: 'Acceso a Business Intelligence y estadísticas.', password: passwords.bi || '', onSave: (p) => handleSave('bi', p, 'BI') },
   ];
 

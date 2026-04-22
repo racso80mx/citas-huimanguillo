@@ -17,7 +17,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
     if (pathname === '/ultrasonidos') return 'Ultrasonidos';
     if (pathname === '/vacunas') return 'Vacunación';
     if (pathname === '/archivo') return 'Archivo';
-    if (pathname === '/archivo-consulta') return 'Consulta de Padrón';
+    if (pathname === '/archivo-consulta') return 'Consulta de Recursos';
     if (pathname === '/farmacia') return 'Farmacia';
     if (pathname === '/bi') return 'Inteligencia de Negocios';
     if (pathname === '/reports') return 'Reportes';

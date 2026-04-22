@@ -74,7 +74,7 @@ export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<ty
       enabled: moduleSettings.archivoEnabled,
     },
     {
-      title: 'Consulta Padrón',
+      title: 'Consulta Recursos',
       url: '/archivo-consulta',
       icon: Search,
       enabled: moduleSettings.archivoConsultaEnabled,

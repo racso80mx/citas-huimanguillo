@@ -51,8 +51,8 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
       enabled: moduleSettings.archivoEnabled,
     },
     {
-      title: 'Consulta de Padrón',
-      description: 'Revisión de registros en modo solo lectura.',
+      title: 'Consulta de Recursos',
+      description: 'Revisión de padrón e inventario (Solo Lectura).',
       href: '/archivo-consulta',
       icon: <Search className="h-10 w-10 text-primary" />,
       enabled: moduleSettings.archivoConsultaEnabled,
