@@ -75,6 +75,8 @@ import { AdminPasswordManager } from './admin-password-manager';
 import { HolidaysManager } from './holidays-manager';
 import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
+import { PharmacyManager } from './pharmacy-manager';
+import { WarehouseManager } from './warehouse-manager';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -416,8 +418,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 h-auto">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+          <TabsTrigger value="farmacia">Farmacia</TabsTrigger>
+          <TabsTrigger value="almacen">Almacén</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
           <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
           <TabsTrigger value="rayos-x">Rayos X</TabsTrigger>
@@ -456,6 +460,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </Card>
                 <ActivityLogViewer />
             </div>
+        </TabsContent>
+
+        <TabsContent value="farmacia" className="mt-6">
+            <PharmacyManager />
+        </TabsContent>
+
+        <TabsContent value="almacen" className="mt-6">
+            <WarehouseManager />
         </TabsContent>
         
         <TabsContent value="citas" className="mt-6">

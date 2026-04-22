@@ -282,6 +282,7 @@ export type ModuleSettings = {
   vacunasEnabled: boolean;
   archivoEnabled: boolean;
   farmaciaEnabled: boolean;
+  almacenEnabled: boolean;
   archivoConsultaEnabled: boolean;
   citasMedicasWhatsAppEnabled: boolean;
   laboratorioWhatsAppEnabled: boolean;
@@ -298,6 +299,10 @@ export type ArchiveSettings = {
 }
 
 export type PharmacySettings = {
+    password?: string;
+}
+
+export type WarehouseSettings = {
     password?: string;
 }
 
@@ -335,6 +340,8 @@ export type Medication = {
   numeroContrato: string;
   updatedAt?: string;
 };
+
+export type Supply = Medication; // Supply (Almacén) uses the same structure
 
 export type Holiday = {
   date: string; // YYYY-MM-DD

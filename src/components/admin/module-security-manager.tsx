@@ -15,6 +15,7 @@ import {
     updateModuleSettings, getModuleSettings, 
     updateArchiveSettings, getArchiveSettings,
     updatePharmacySettings, getPharmacySettings,
+    updateWarehouseSettings, getWarehouseSettings,
     updateBISettings, getBISettings,
     updateLabSettings, getLabSettings,
     updateXRaySettings, getXRaySettings,
@@ -43,8 +44,8 @@ export function ModuleSecurityManager() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [modules, archive, pharmacy, bi, lab, xray, us, vaccine] = await Promise.all([
-        getModuleSettings(), getArchiveSettings(), getPharmacySettings(), getBISettings(),
+      const [modules, archive, pharmacy, warehouse, bi, lab, xray, us, vaccine] = await Promise.all([
+        getModuleSettings(), getArchiveSettings(), getPharmacySettings(), getWarehouseSettings(), getBISettings(),
         getLabSettings(), getXRaySettings(), getUltrasoundSettings(), getVaccineSettings()
       ]);
       
@@ -53,6 +54,7 @@ export function ModuleSecurityManager() {
         archive: archive.password || '',
         archiveInquiry: modules.archivoConsultaPassword || '',
         pharmacy: pharmacy.password || '',
+        warehouse: warehouse.password || '',
         bi: bi.password || '',
         lab: lab.password || '',
         xray: xray.password || '',
@@ -85,6 +87,7 @@ export function ModuleSecurityManager() {
                 break;
             case 'archive': result = await updateArchiveSettings({ password }); break;
             case 'pharmacy': result = await updatePharmacySettings({ password }); break;
+            case 'warehouse': result = await updateWarehouseSettings({ password }); break;
             case 'bi': result = await updateBISettings({ password }); break;
             case 'lab': 
                 const labSet = await getLabSettings();
@@ -124,6 +127,7 @@ export function ModuleSecurityManager() {
     { id: 'archive', title: 'Gestión del Archivo', description: 'Acceso total al padrón (Edición/Borrado).', password: passwords.archive || '', onSave: (p) => handleSave('archive', p, 'Archivo Gestión') },
     { id: 'archiveInquiry', title: 'Consulta de Recursos', description: 'Acceso de solo lectura al archivo e inventario.', password: passwords.archiveInquiry || '', onSave: (p) => handleSave('archiveInquiry', p, 'Consulta Recursos') },
     { id: 'pharmacy', title: 'Gestión de Farmacia', description: 'Acceso al inventario y carga masiva.', password: passwords.pharmacy || '', onSave: (p) => handleSave('pharmacy', p, 'Farmacia') },
+    { id: 'warehouse', title: 'Gestión de Almacén', description: 'Acceso al inventario de insumos generales.', password: passwords.warehouse || '', onSave: (p) => handleSave('warehouse', p, 'Almacén') },
     { id: 'bi', title: 'Módulo BI', description: 'Acceso a Business Intelligence y estadísticas.', password: passwords.bi || '', onSave: (p) => handleSave('bi', p, 'BI') },
   ];
 

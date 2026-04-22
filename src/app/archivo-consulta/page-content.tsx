@@ -2,11 +2,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ArchiveDashboard } from '@/components/archivo/archive-dashboard';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
-import { getModuleSettings, getMedications } from '@/lib/actions';
+import { getModuleSettings, getMedications, getSupplies } from '@/lib/actions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Users, Search, Package, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import type { Medication } from '@/lib/definitions';
+import { Users, Search, Package, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Pill } from 'lucide-react';
+import type { Medication, Supply } from '@/lib/definitions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -38,7 +38,7 @@ export default function PageContent() {
       <div className="container mx-auto px-4 py-8 md:py-12">
         <ModuleLoginForm
           title="Consulta de Recursos"
-          description="Acceso de solo lectura al archivo de pacientes e inventario de farmacia. Ingresa la contraseña autorizada."
+          description="Acceso de solo lectura al archivo de pacientes e inventario hospitalario. Ingresa la contraseña autorizada."
           onVerify={handleVerify}
           onSuccess={handleLoginSuccess}
         />
@@ -54,19 +54,22 @@ export default function PageContent() {
              <Search className="h-8 w-8 text-primary" />
              <div>
                 <h1 className="text-3xl font-bold font-headline">Consulta de Recursos</h1>
-                <p className="text-muted-foreground">Padrón de pacientes e inventario de medicamentos (Solo Lectura).</p>
+                <p className="text-muted-foreground">Padrón de pacientes e inventarios (Solo Lectura).</p>
              </div>
           </div>
           <Button variant="outline" onClick={handleLogout}>Salir</Button>
         </div>
 
         <Tabs defaultValue="pacientes" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-xl">
             <TabsTrigger value="pacientes" className="flex items-center gap-2">
               <Users className="h-4 w-4" /> Pacientes
             </TabsTrigger>
             <TabsTrigger value="farmacia" className="flex items-center gap-2">
-              <Package className="h-4 w-4" /> Inventario Farmacia
+              <Pill className="h-4 w-4" /> Farmacia
+            </TabsTrigger>
+            <TabsTrigger value="almacen" className="flex items-center gap-2">
+              <Package className="h-4 w-4" /> Almacén
             </TabsTrigger>
           </TabsList>
           
@@ -78,11 +81,21 @@ export default function PageContent() {
             <div className="space-y-6">
                 <div className="p-4 bg-muted/30 rounded-lg border border-dashed text-center">
                     <p className="text-sm text-muted-foreground">
-                        Esta sección muestra el inventario actualizado cargado por el área de Farmacia. 
-                        Los datos son informativos para la planeación de recursos.
+                        Inventario actualizado de medicamentos.
                     </p>
                 </div>
-                <ReadOnlyInventory />
+                <ReadOnlyInventory type="pharmacy" />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="almacen" className="mt-6">
+            <div className="space-y-6">
+                <div className="p-4 bg-muted/30 rounded-lg border border-dashed text-center">
+                    <p className="text-sm text-muted-foreground">
+                        Inventario actualizado de insumos generales (Almacén).
+                    </p>
+                </div>
+                <ReadOnlyInventory type="warehouse" />
             </div>
           </TabsContent>
         </Tabs>
@@ -91,20 +104,21 @@ export default function PageContent() {
   );
 }
 
-function ReadOnlyInventory() {
-    const [medications, setMedications] = useState<Medication[]>([]);
+function ReadOnlyInventory({ type }: { type: 'pharmacy' | 'warehouse' }) {
+    const [items, setItems] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
-    const [sortConfig, setSortConfig] = useState<{ key: keyof Medication; direction: 'asc' | 'desc' } | null>(null);
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     useEffect(() => {
-        getMedications().then(data => {
-            setMedications(data);
+        const fetchFn = type === 'pharmacy' ? getMedications : getSupplies;
+        fetchFn().then(data => {
+            setItems(data);
             setLoading(false);
         });
-    }, []);
+    }, [type]);
 
-    const handleSort = (key: keyof Medication) => {
+    const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
@@ -112,7 +126,7 @@ function ReadOnlyInventory() {
         setSortConfig({ key, direction });
     };
 
-    const getSortIcon = (key: keyof Medication) => {
+    const getSortIcon = (key: string) => {
         if (!sortConfig || sortConfig.key !== key) {
             return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
         }
@@ -120,7 +134,7 @@ function ReadOnlyInventory() {
     };
 
     const filteredAndSorted = useMemo(() => {
-        let result = medications.filter(m => 
+        let result = items.filter(m => 
             m.descripcion.toUpperCase().includes(search.toUpperCase()) || 
             m.claveCuadroBasico.toUpperCase().includes(search.toUpperCase())
         );
@@ -143,7 +157,7 @@ function ReadOnlyInventory() {
         }
 
         return result;
-    }, [medications, search, sortConfig]);
+    }, [items, search, sortConfig]);
 
     const getStatus = (date: string) => {
         if (!date) return 'unknown';
@@ -162,7 +176,7 @@ function ReadOnlyInventory() {
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                    placeholder="Buscar medicamento por nombre o clave..." 
+                    placeholder="Buscar por nombre o clave..." 
                     className="pl-9 h-11"
                     value={search}
                     onChange={e => setSearch(e.target.value)}

@@ -216,34 +216,33 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
 }
 
 // =====================================================================
-// PHARMACY ACTIONS
+// INVENTORY ACTIONS (Pharmacy & Warehouse)
 // =====================================================================
 
-export async function getMedications() {
-  return data.getMedications();
-}
+export async function getMedications() { return data.getMedications(); }
+export async function bulkInsertMedications(chunk: any[]) { return data.bulkInsertMedications(chunk); }
+export async function deleteAllMedications() { return data.deleteAllMedications(); }
 
-export async function bulkInsertMedications(chunk: any[]) {
-  return data.bulkInsertMedications(chunk);
-}
+export async function getSupplies() { return data.getSupplies(); }
+export async function bulkInsertSupplies(chunk: any[]) { return data.bulkInsertSupplies(chunk); }
+export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
 
-export async function deleteAllMedications() {
-  return data.deleteAllMedications();
-}
-
-export async function getPharmacySettings() {
-  return data.getPharmacySettings();
-}
-
+export async function getPharmacySettings() { return data.getPharmacySettings(); }
 export async function updatePharmacySettings(settings: any) {
   const res = await data.updatePharmacySettings(settings);
   revalidatePath('/farmacia');
   return res;
 }
 
-export async function verifyPharmacyPassword(password: string) {
-  return data.verifyPharmacyPassword(password);
+export async function getWarehouseSettings() { return data.getWarehouseSettings(); }
+export async function updateWarehouseSettings(settings: any) {
+  const res = await data.updateWarehouseSettings(settings);
+  revalidatePath('/almacen');
+  return res;
 }
+
+export async function verifyPharmacyPassword(password: string) { return data.verifyPharmacyPassword(password); }
+export async function verifyWarehousePassword(password: string) { return data.verifyWarehousePassword(password); }
 
 // =====================================================================
 // SETTINGS ACTIONS

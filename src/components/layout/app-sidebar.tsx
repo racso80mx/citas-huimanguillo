@@ -12,6 +12,7 @@ import {
   Archive,
   Search,
   Pill,
+  Package,
   BarChart3,
   LayoutGrid,
   ClipboardList,
@@ -84,6 +85,12 @@ export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<ty
       url: '/farmacia',
       icon: Pill,
       enabled: moduleSettings.farmaciaEnabled,
+    },
+    {
+      title: 'Almacén',
+      url: '/almacen',
+      icon: Package,
+      enabled: moduleSettings.almacenEnabled,
     },
     {
       title: 'Business Intelligence',

@@ -11,7 +11,7 @@ import {
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { updateModuleSettings, getModuleSettings } from '@/lib/actions';
-import { Loader2, Save, Settings, ToggleRight, MessageCircle } from 'lucide-react';
+import { Loader2, Save, Settings, ToggleRight, MessageCircle } from 'lucide-center';
 import type { ModuleSettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -249,7 +249,7 @@ export function ModuleManager() {
 
         <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
           <Label htmlFor="archivo-consulta-enabled" className="flex items-center gap-2 text-base font-bold">
-            <ToggleRight className="h-5 w-5 text-primary"/> Consulta de Padrón
+            <ToggleRight className="h-5 w-5 text-primary"/> Consulta de Recursos
           </Label>
           <Switch
             id="archivo-consulta-enabled"
@@ -257,6 +257,7 @@ export function ModuleManager() {
             onCheckedChange={(checked) => handleSettingsChange('archivoConsultaEnabled', checked)}
           />
         </div>
+
         <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
           <Label htmlFor="farmacia-enabled" className="flex items-center gap-2 text-base font-bold">
             <ToggleRight className="h-5 w-5 text-primary"/> Módulo de Farmacia
@@ -265,6 +266,17 @@ export function ModuleManager() {
             id="farmacia-enabled"
             checked={settings.farmaciaEnabled}
             onCheckedChange={(checked) => handleSettingsChange('farmaciaEnabled', checked)}
+          />
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-lg bg-background border shadow-sm opacity-80">
+          <Label htmlFor="almacen-enabled" className="flex items-center gap-2 text-base font-bold">
+            <ToggleRight className="h-5 w-5 text-primary"/> Módulo de Almacén
+          </Label>
+          <Switch
+            id="almacen-enabled"
+            checked={settings.almacenEnabled}
+            onCheckedChange={(checked) => handleSettingsChange('almacenEnabled', checked)}
           />
         </div>
       </CardContent>

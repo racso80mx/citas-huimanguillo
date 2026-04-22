@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill, Search } from 'lucide-react';
+import { Home, FlaskConical, Stethoscope, Waves, ShieldPlus, Archive, Pill, Search, Package } from 'lucide-react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
@@ -64,6 +64,13 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
       icon: <Pill className="h-10 w-10 text-primary" />,
       enabled: moduleSettings.farmaciaEnabled,
     },
+    {
+      title: 'Almacén',
+      description: 'Gestión de inventario de insumos generales.',
+      href: '/almacen',
+      icon: <Package className="h-10 w-10 text-primary" />,
+      enabled: moduleSettings.almacenEnabled,
+    },
   ];
 
   const enabledModules = allModules.filter(mod => mod.enabled);
@@ -88,7 +95,7 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-6xl mx-auto">
         {enabledModules.map((mod) => (
           <Link href={mod.href} key={mod.href}>
             <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6">

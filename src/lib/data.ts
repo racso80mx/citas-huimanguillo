@@ -46,11 +46,13 @@ import type {
   ActivityLog,
   ArchiveSettings,
   PharmacySettings,
+  WarehouseSettings,
   BISettings,
   AdminSettings,
   PatientStatus,
   ArchiveCounts,
   Medication,
+  Supply,
   Holiday,
   SpecialActionDay,
 } from './definitions';
@@ -827,6 +829,7 @@ export async function getModuleSettings() {
     vacunasEnabled: true, 
     archivoEnabled: true, 
     farmaciaEnabled: true, 
+    almacenEnabled: true,
     archivoConsultaEnabled: true,
     citasMedicasWhatsAppEnabled: true,
     laboratorioWhatsAppEnabled: true,
@@ -929,6 +932,9 @@ export async function updateArchiveSettings(s: ArchiveSettings) { return setSett
 export async function getPharmacySettings() { return getSettingsDoc<PharmacySettings>('pharmacySettings', { password: '' }); }
 export async function updatePharmacySettings(s: PharmacySettings) { return setSettingsDoc('pharmacySettings', s); }
 
+export async function getWarehouseSettings() { return getSettingsDoc<WarehouseSettings>('warehouseSettings', { password: '' }); }
+export async function updateWarehouseSettings(s: WarehouseSettings) { return setSettingsDoc('warehouseSettings', s); }
+
 export async function getBISettings() { return getSettingsDoc<BISettings>('biSettings', { password: '' }); }
 export async function updateBISettings(s: BISettings) { return setSettingsDoc('biSettings', s); }
 
@@ -937,6 +943,7 @@ export async function updateAdminSettings(s: AdminSettings) { return setSettings
 
 export async function verifyArchivePassword(p: string) { const s = await getArchiveSettings(); return { success: s.password === p }; }
 export async function verifyPharmacyPassword(p: string) { const s = await getPharmacySettings(); return { success: s.password === p }; }
+export async function verifyWarehousePassword(p: string) { const s = await getWarehouseSettings(); return { success: s.password === p }; }
 export async function verifyClinicPassword(id: string, p: string) { const c = await getClinicById(id); return { success: c?.password === p }; }
 export async function verifyLabPassword(p: string) { const s = await getLabSettings(); return { success: s.password === p }; }
 export async function verifyXRayPassword(p: string) { const s = await getXRaySettings(); return { success: s.password === p }; }
@@ -968,16 +975,16 @@ export async function updateSpecialActionDays(items: SpecialActionDay[]) {
 }
 
 // =====================================================================
-// PHARMACY
+// PHARMACY & WAREHOUSE (Inventory)
 // =====================================================================
 
-export async function getMedications(): Promise<Medication[]> {
+async function getInventoryItems(col: string): Promise<Medication[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'medications'), limit(5000)));
+  const snap = await getDocs(query(collection(db, col), limit(5000)));
   return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Medication);
 }
 
-export async function bulkInsertMedications(chunk: any[]) {
+async function bulkInsertInventory(col: string, chunk: any[]) {
   const db = getDb();
   if (!chunk || chunk.length === 0) return { success: false };
   try {
@@ -989,7 +996,7 @@ export async function bulkInsertMedications(chunk: any[]) {
       
       if (!clave && !desc) continue;
 
-      const medData: Partial<Medication> = {
+      const itemData: Partial<Medication> = {
         claveCuadroBasico: clave,
         descripcion: desc,
         grupo: String(raw['GRUPO'] || '').trim(),
@@ -1009,20 +1016,20 @@ export async function bulkInsertMedications(chunk: any[]) {
       };
 
       const docId = uuidv4();
-      batch.set(doc(db, 'medications', docId), { ...medData, id: docId });
+      batch.set(doc(db, col, docId), { ...itemData, id: docId });
       processed++;
     }
     await batch.commit();
     return { success: true, processedCount: processed };
   } catch (e: any) {
-    console.error("Bulk medication error:", e);
+    console.error(`Bulk inventory error (${col}):`, e);
     return { success: false, message: e.message };
   }
 }
 
-export async function deleteAllMedications() {
+async function deleteInventoryItems(col: string) {
   const db = getDb();
-  const snap = await getDocs(collection(db, 'medications'));
+  const snap = await getDocs(collection(db, col));
   const chunks = chunkArray(snap.docs, 500);
   for (const chunk of chunks) {
     const batch = writeBatch(db);
@@ -1031,6 +1038,14 @@ export async function deleteAllMedications() {
   }
   return { success: true };
 }
+
+export async function getMedications() { return getInventoryItems('medications'); }
+export async function bulkInsertMedications(chunk: any[]) { return bulkInsertInventory('medications', chunk); }
+export async function deleteAllMedications() { return deleteInventoryItems('medications'); }
+
+export async function getSupplies() { return getInventoryItems('supplies'); }
+export async function bulkInsertSupplies(chunk: any[]) { return bulkInsertInventory('supplies', chunk); }
+export async function deleteAllSupplies() { return deleteInventoryItems('supplies'); }
 
 // =====================================================================
 // MAINTENANCE
