@@ -5,7 +5,7 @@ import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { getModuleSettings, getMedications } from '@/lib/actions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Users, Search, Package, Loader2 } from 'lucide-react';
+import { Users, Search, Package, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Medication } from '@/lib/definitions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -95,6 +95,7 @@ function ReadOnlyInventory() {
     const [medications, setMedications] = useState<Medication[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: keyof Medication; direction: 'asc' | 'desc' } | null>(null);
 
     useEffect(() => {
         getMedications().then(data => {
@@ -103,12 +104,46 @@ function ReadOnlyInventory() {
         });
     }, []);
 
-    const filtered = useMemo(() => {
-        return medications.filter(m => 
+    const handleSort = (key: keyof Medication) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key: keyof Medication) => {
+        if (!sortConfig || sortConfig.key !== key) {
+            return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+        }
+        return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+    };
+
+    const filteredAndSorted = useMemo(() => {
+        let result = medications.filter(m => 
             m.descripcion.toUpperCase().includes(search.toUpperCase()) || 
             m.claveCuadroBasico.toUpperCase().includes(search.toUpperCase())
         );
-    }, [medications, search]);
+
+        if (sortConfig) {
+            result.sort((a, b) => {
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+
+                if (valA === valB) return 0;
+                if (valA === undefined || valA === null) return 1;
+                if (valB === undefined || valB === null) return -1;
+
+                if (sortConfig.direction === 'asc') {
+                    return valA < valB ? -1 : 1;
+                } else {
+                    return valA > valB ? -1 : 1;
+                }
+            });
+        }
+
+        return result;
+    }, [medications, search, sortConfig]);
 
     const getStatus = (date: string) => {
         if (!date) return 'unknown';
@@ -137,14 +172,42 @@ function ReadOnlyInventory() {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead>Clave</TableHead>
-                            <TableHead>Descripción</TableHead>
-                            <TableHead className="text-right">Existencia</TableHead>
-                            <TableHead>Caducidad</TableHead>
+                            <TableHead 
+                                className="cursor-pointer hover:bg-muted transition-colors"
+                                onClick={() => handleSort('claveCuadroBasico')}
+                            >
+                                <div className="flex items-center">
+                                    Clave {getSortIcon('claveCuadroBasico')}
+                                </div>
+                            </TableHead>
+                            <TableHead 
+                                className="cursor-pointer hover:bg-muted transition-colors"
+                                onClick={() => handleSort('descripcion')}
+                            >
+                                <div className="flex items-center">
+                                    Descripción {getSortIcon('descripcion')}
+                                </div>
+                            </TableHead>
+                            <TableHead 
+                                className="text-right cursor-pointer hover:bg-muted transition-colors"
+                                onClick={() => handleSort('existencia')}
+                            >
+                                <div className="flex items-center justify-end">
+                                    Existencia {getSortIcon('existencia')}
+                                </div>
+                            </TableHead>
+                            <TableHead 
+                                className="cursor-pointer hover:bg-muted transition-colors"
+                                onClick={() => handleSort('fechaCaducidad')}
+                            >
+                                <div className="flex items-center">
+                                    Caducidad {getSortIcon('fechaCaducidad')}
+                                </div>
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filtered.length > 0 ? filtered.map(m => {
+                        {filteredAndSorted.length > 0 ? filteredAndSorted.map(m => {
                             const status = getStatus(m.fechaCaducidad);
                             return (
                                 <TableRow key={m.id}>
