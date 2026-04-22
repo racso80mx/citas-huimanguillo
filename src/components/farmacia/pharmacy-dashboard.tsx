@@ -32,7 +32,9 @@ import {
   RefreshCw,
   AlertTriangle,
   CheckCircle2,
-  CalendarClock
+  CalendarClock,
+  Filter,
+  X
 } from 'lucide-react';
 import { getMedications, bulkInsertMedications, deleteAllMedications } from '@/lib/actions';
 import type { Medication } from '@/lib/definitions';
@@ -50,6 +52,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { differenceInMonths, parse, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 type ExpirationStatus = 'red' | 'yellow' | 'green' | 'unknown';
 
@@ -61,6 +64,8 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
   const [progress, setProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState({ processed: 0, total: 0, message: '' });
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchFields, setSearchFields] = useState<string[]>(['descripcion', 'claveCuadroBasico']);
+  const [statusFilter, setStatusFilter] = useState<ExpirationStatus | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Medication; direction: 'asc' | 'desc' } | null>(null);
 
   const { toast } = useToast();
@@ -85,7 +90,6 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
     if (!dateStr) return 'unknown';
     
     let expiryDate: Date;
-    // Intentar varios formatos comunes
     if (dateStr.includes('/')) {
         expiryDate = parse(dateStr, 'dd/MM/yyyy', new Date());
     } else {
@@ -177,14 +181,31 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
     setSortConfig({ key, direction });
   };
 
+  const toggleSearchField = (field: string) => {
+    setSearchFields(prev => 
+        prev.includes(field) 
+            ? (prev.length > 1 ? prev.filter(f => f !== field) : prev) 
+            : [...prev, field]
+    );
+  };
+
   const filteredAndSortedMedications = useMemo(() => {
     let result = [...medications];
 
+    // Status filter
+    if (statusFilter) {
+      result = result.filter(m => getExpirationStatus(m.fechaCaducidad) === statusFilter);
+    }
+
+    // Text search
     if (searchTerm) {
       const term = searchTerm.toUpperCase();
-      result = result.filter(m => 
-        m.descripcion.includes(term) || m.claveCuadroBasico.includes(term)
-      );
+      result = result.filter(m => {
+        return searchFields.some(field => {
+            const val = String((m as any)[field] || '').toUpperCase();
+            return val.includes(term);
+        });
+      });
     }
 
     if (sortConfig) {
@@ -201,7 +222,7 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
     }
 
     return result;
-  }, [medications, searchTerm, sortConfig]);
+  }, [medications, searchTerm, searchFields, statusFilter, sortConfig]);
 
   const stats = useMemo(() => {
     const counts = { red: 0, yellow: 0, green: 0, unknown: 0 };
@@ -238,7 +259,7 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg"><Upload className="h-5 w-5" /> Cargar Inventario</CardTitle>
             <CardDescription>
-              Cada fila del Excel se cargará como un registro independiente.
+              Actualiza el stock mediante archivo Excel.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -263,14 +284,14 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
                <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm" className="w-full" disabled={isDeleting || medications.length === 0}>
-                    <Trash2 className="h-4 w-4 mr-2" /> Vaciar Inventario Actual
+                    <Trash2 className="h-4 w-4 mr-2" /> Vaciar Inventario
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>¿Vaciar todo el inventario?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta acción eliminará todos los registros actuales. Asegúrate de tener un respaldo si lo necesitas.
+                      Esta acción eliminará todos los registros actuales. No se puede deshacer.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -288,30 +309,54 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg"><CalendarClock className="h-5 w-5" /> Estado de Caducidades</CardTitle>
-            <CardDescription>Resumen de insumos clasificados por tiempo restante de vida útil.</CardDescription>
+            <CardDescription>Haz clic en una alerta para filtrar la lista automáticamente.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-center">
-                <div className="text-[10px] text-red-600 uppercase font-black mb-1">Cerca ( &lt; 6 meses )</div>
+              <button 
+                onClick={() => setStatusFilter(statusFilter === 'red' ? null : 'red')}
+                className={cn(
+                    "bg-red-50 border p-4 rounded-xl text-center transition-all",
+                    statusFilter === 'red' ? "border-red-500 ring-2 ring-red-200 shadow-md scale-105" : "border-red-100 opacity-70 hover:opacity-100"
+                )}
+              >
+                <div className="text-[10px] text-red-600 uppercase font-black mb-1">Cerca (&lt; 6 meses)</div>
                 <div className="text-3xl font-black text-red-700">{stats.red}</div>
                 <div className="text-[10px] text-red-500 mt-1 flex items-center justify-center gap-1"><AlertTriangle className="h-3 w-3"/> Crítico</div>
-              </div>
-              <div className="bg-yellow-50 border border-yellow-100 p-4 rounded-xl text-center">
-                <div className="text-[10px] text-yellow-600 uppercase font-black mb-1">Medio ( 6m - 1 año )</div>
+              </button>
+              <button 
+                onClick={() => setStatusFilter(statusFilter === 'yellow' ? null : 'yellow')}
+                className={cn(
+                    "bg-yellow-50 border p-4 rounded-xl text-center transition-all",
+                    statusFilter === 'yellow' ? "border-yellow-500 ring-2 ring-yellow-200 shadow-md scale-105" : "border-yellow-100 opacity-70 hover:opacity-100"
+                )}
+              >
+                <div className="text-[10px] text-yellow-600 uppercase font-black mb-1">Medio (6m - 1 año)</div>
                 <div className="text-3xl font-black text-yellow-700">{stats.yellow}</div>
                 <div className="text-[10px] text-yellow-500 mt-1 flex items-center justify-center gap-1"><CalendarClock className="h-3 w-3"/> Preventivo</div>
-              </div>
-              <div className="bg-green-50 border border-green-100 p-4 rounded-xl text-center">
-                <div className="text-[10px] text-green-600 uppercase font-black mb-1">Óptimo ( &gt; 1 año )</div>
+              </button>
+              <button 
+                onClick={() => setStatusFilter(statusFilter === 'green' ? null : 'green')}
+                className={cn(
+                    "bg-green-50 border p-4 rounded-xl text-center transition-all",
+                    statusFilter === 'green' ? "border-green-500 ring-2 ring-green-200 shadow-md scale-105" : "border-green-100 opacity-70 hover:opacity-100"
+                )}
+              >
+                <div className="text-[10px] text-green-600 uppercase font-black mb-1">Óptimo (&gt; 1 año)</div>
                 <div className="text-3xl font-black text-green-700">{stats.green}</div>
                 <div className="text-[10px] text-green-500 mt-1 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> Seguro</div>
-              </div>
-              <div className="bg-muted/50 p-4 rounded-xl text-center">
+              </button>
+              <button 
+                onClick={() => setStatusFilter(null)}
+                className={cn(
+                    "bg-muted/30 border p-4 rounded-xl text-center transition-all",
+                    !statusFilter ? "border-primary ring-2 ring-primary/10 shadow-md scale-105" : "border-transparent opacity-70 hover:opacity-100"
+                )}
+              >
                 <div className="text-[10px] text-muted-foreground uppercase font-black mb-1">Total Registros</div>
                 <div className="text-3xl font-black">{medications.length}</div>
                 <div className="text-[10px] text-muted-foreground mt-1">Insumos totales</div>
-              </div>
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -320,18 +365,44 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
       <Card>
         <CardHeader className="pb-3 border-b bg-muted/10">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-                <CardTitle>Inventario Detallado</CardTitle>
-                <CardDescription>Mostrando {filteredAndSortedMedications.length} registros individuales.</CardDescription>
-            </div>
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por Clave, Descripción o Lote..." 
-                className="pl-9 h-11"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <CardTitle>Inventario de Medicamentos</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-96">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Escribe para buscar..." 
+                        className="pl-9 h-11"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="h-11 gap-2">
+                            <Filter className="h-4 w-4" /> 
+                            Campos: {searchFields.length === 3 ? 'Todos' : searchFields.length}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuLabel>Buscar en:</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuCheckboxItem checked={searchFields.includes('claveCuadroBasico')} onCheckedChange={() => toggleSearchField('claveCuadroBasico')}>
+                            Clave de Cuadro Básico
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem checked={searchFields.includes('descripcion')} onCheckedChange={() => toggleSearchField('descripcion')}>
+                            Descripción
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem checked={searchFields.includes('lote')} onCheckedChange={() => toggleSearchField('lote')}>
+                            Lote
+                        </DropdownMenuCheckboxItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                {statusFilter && (
+                    <Badge variant="secondary" className="h-11 px-4 gap-2 text-sm font-bold animate-in zoom-in">
+                        Filtro Activo
+                        <X className="h-4 w-4 cursor-pointer hover:text-destructive" onClick={() => setStatusFilter(null)} />
+                    </Badge>
+                )}
             </div>
           </div>
         </CardHeader>
@@ -358,7 +429,6 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
                       Caducidad {sortConfig?.key === 'fechaCaducidad' && (sortConfig.direction === 'asc' ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />)}
                     </TableHead>
                     <TableHead>Lote</TableHead>
-                    <TableHead>Proveedor</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -387,14 +457,13 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-[10px] font-mono">{med.lote}</TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground truncate max-w-[150px]">{med.proveedor}</TableCell>
                         </TableRow>
                       );
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-20 text-muted-foreground">
-                        No se encontraron registros en el inventario.
+                      <TableCell colSpan={5} className="text-center py-20 text-muted-foreground">
+                        No se encontraron registros en el inventario que coincidan con los filtros.
                       </TableCell>
                     </TableRow>
                   )}
