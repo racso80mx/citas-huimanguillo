@@ -11,7 +11,7 @@ import {
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { updateModuleSettings, getModuleSettings } from '@/lib/actions';
-import { Loader2, Save, Settings, ToggleRight, MessageCircle } from 'lucide-center';
+import { Loader2, Save, Settings, ToggleRight, MessageCircle } from 'lucide-react';
 import type { ModuleSettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
