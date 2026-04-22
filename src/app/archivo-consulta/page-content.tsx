@@ -5,7 +5,7 @@ import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { getModuleSettings, getMedications, getSupplies } from '@/lib/actions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Users, Search, Package, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Pill, AlertTriangle, CheckCircle2, CalendarClock, Filter } from 'lucide-react';
+import { Users, Search, Package, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Pill, AlertTriangle, CheckCircle2, CalendarClock, Filter, X } from 'lucide-react';
 import type { Medication, Supply } from '@/lib/definitions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
