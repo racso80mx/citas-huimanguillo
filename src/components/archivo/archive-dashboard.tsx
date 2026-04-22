@@ -389,7 +389,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
             {isReadOnly ? <Eye className="h-8 w-8 text-blue-600" /> : <Users className="h-8 w-8 text-primary" />}
             <div>
                 <h1 className="text-3xl font-bold font-headline">
-                    {isReadOnly ? 'Consulta de Padrón' : 'Control de Archivo'}
+                    {isReadOnly ? 'Consulta de Recursos' : 'Control de Archivo'}
                 </h1>
                 <p className="text-muted-foreground">
                     {isReadOnly ? 'Revisión de registros de pacientes (Solo Lectura).' : 'Gestión integral del padrón de pacientes y citas.'}
@@ -512,11 +512,11 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                         <Button onClick={() => setIsUploadOpen(true)} variant="secondary" size="sm">
                             <Upload className="h-4 w-4 mr-2" /> Cargar Excel
                         </Button>
+                        <Button onClick={handleDownloadExcel} variant="outline" size="sm">
+                            <Download className="mr-2 h-4 w-4" /> Exportar Padrón
+                        </Button>
                     </>
                   )}
-                  <Button onClick={handleDownloadExcel} variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" /> Exportar Padrón
-                  </Button>
                 </div>
               </div>
             </CardHeader>
