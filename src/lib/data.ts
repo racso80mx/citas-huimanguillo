@@ -169,44 +169,45 @@ export async function getPatients(options?: {
   const patientsColl = collection(db, 'patients');
   
   try {
-    const isSearching = !!(options?.searchCurp || options?.searchExpediente || options?.searchName);
-
-    if (isSearching) {
-      let results: any[] = [];
-      
-      if (options?.searchCurp) {
+    // 1. Prioritize CURP (Highest precision and speed)
+    if (options?.searchCurp) {
         const term = options.searchCurp.toUpperCase().trim();
-        const q = query(patientsColl, where('curp', '==', term), limit(100));
+        const q = query(patientsColl, where('curp', '==', term), limit(1));
         const snap = await getDocs(q);
-        results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-      } 
-      else if (options?.searchExpediente) {
+        return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+    }
+
+    // 2. Prioritize Expediente (Second highest precision)
+    if (options?.searchExpediente) {
         const term = options.searchExpediente.toString().trim();
-        const qStr = query(patientsColl, where('expediente', '==', term), limit(100));
+        const qStr = query(patientsColl, where('expediente', '==', term), limit(5));
         const snapStr = await getDocs(qStr);
-        results = snapStr.docs.map(d => serializeData({ id: d.id, ...d.data() }));
+        let results = snapStr.docs.map(d => serializeData({ id: d.id, ...d.data() }));
         
         if (results.length === 0 && !isNaN(Number(term))) {
-          const qNum = query(patientsColl, where('expediente', '==', Number(term)), limit(100));
+          const qNum = query(patientsColl, where('expediente', '==', Number(term)), limit(5));
           const snapNum = await getDocs(qNum);
           results = snapNum.docs.map(d => serializeData({ id: d.id, ...d.data() }));
         }
-      } 
-      else if (options?.searchName) {
+        return results;
+    }
+
+    // 3. Name search (Requires optimized multi-query)
+    if (options?.searchName) {
         const fullTerm = normalizeStr(options.searchName);
-        const stopWords = ['DE', 'DEL', 'LA', 'LOS', 'Y', 'EL', 'LAS'];
-        const words = fullTerm.split(/\s+/).filter(w => w.length > 1 && !stopWords.includes(w));
+        const words = fullTerm.split(/\s+/).filter(w => w.length >= 2);
         
         if (words.length === 0) return [];
 
-        const searchWords = words.sort((a, b) => b.length - a.length).slice(0, 2);
-        const promises: Promise<any>[] = [];
+        // Take the longest word to minimize result set from Firestore
+        const searchWord = words.sort((a, b) => b.length - a.length)[0];
         
-        searchWords.forEach(word => {
-            promises.push(getDocs(query(patientsColl, where('name', '>=', word), where('name', '<=', word + '\uf8ff'), limit(300))));
-            promises.push(getDocs(query(patientsColl, where('paternalLastName', '>=', word), where('paternalLastName', '<=', word + '\uf8ff'), limit(300))));
-            promises.push(getDocs(query(patientsColl, where('maternalLastName', '>=', word), where('maternalLastName', '<=', word + '\uf8ff'), limit(300))));
-        });
+        // Query name, paternal, maternal for the longest word
+        const promises = [
+            getDocs(query(patientsColl, where('name', '>=', searchWord), where('name', '<=', searchWord + '\uf8ff'), limit(200))),
+            getDocs(query(patientsColl, where('paternalLastName', '>=', searchWord), where('paternalLastName', '<=', searchWord + '\uf8ff'), limit(200))),
+            getDocs(query(patientsColl, where('maternalLastName', '>=', searchWord), where('maternalLastName', '<=', searchWord + '\uf8ff'), limit(200)))
+        ];
 
         const snaps = await Promise.all(promises);
         const combinedMap = new Map();
@@ -217,25 +218,26 @@ export async function getPatients(options?: {
             });
         });
 
-        results = Array.from(combinedMap.values()).filter(p => {
+        // Filter results in memory to ensure ALL words from the original term are present
+        let results = Array.from(combinedMap.values()).filter(p => {
             const patientFullName = normalizeStr(`${p.name} ${p.paternalLastName} ${p.maternalLastName}`);
             return words.every(word => patientFullName.includes(word));
         });
-      }
 
-      if (options?.status && options.status !== 'Total') {
-        results = results.filter(p => p.status === options.status);
-      }
-      
-      return results;
+        if (options?.status && options.status !== 'Total') {
+            results = results.filter(p => p.status === options.status);
+        }
+        
+        return results.slice(0, 100);
     }
 
+    // Default: List by status or all
     let q = query(patientsColl);
     if (options?.status && options.status !== 'Total') {
       q = query(q, where('status', '==', options.status));
     }
 
-    const snap = await getDocs(query(q, limit(options?.limitNum || 5000)));
+    const snap = await getDocs(query(q, limit(options?.limitNum || 1000)));
     return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Patient);
 
   } catch (error: any) {
@@ -345,7 +347,7 @@ async function enrichWithPatientData(apps: any[]): Promise<any[]> {
 
 export async function getAppointments(): Promise<Appointment[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'appointments'), orderBy('date', 'desc'), limit(2000)));
+  const snap = await getDocs(query(collection(db, 'appointments'), orderBy('date', 'desc'), limit(1000)));
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return await enrichWithPatientData(data) as Appointment[];
 }
@@ -379,7 +381,7 @@ export async function getAppointmentsForCalendar(month: number, year: number): P
 
 export async function getAppointmentsForClinic(clinicId: string): Promise<Appointment[]> {
   const db = getDb();
-  const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId), limit(2000));
+  const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId), limit(1000));
   const snap = await getDocs(q);
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   data.sort((a: any, b: any) => (b.date as Timestamp).toMillis() - (a.date as Timestamp).toMillis());
@@ -388,28 +390,28 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
 
 export async function getLabAppointments(): Promise<LabAppointment[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'labAppointments'), orderBy('date', 'desc'), limit(2000)));
+  const snap = await getDocs(query(collection(db, 'labAppointments'), orderBy('date', 'desc'), limit(1000)));
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return await enrichWithPatientData(data) as LabAppointment[];
 }
 
 export async function getXRayAppointments(): Promise<XRayAppointment[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'xrayAppointments'), orderBy('date', 'desc'), limit(2000)));
+  const snap = await getDocs(query(collection(db, 'xrayAppointments'), orderBy('date', 'desc'), limit(1000)));
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return await enrichWithPatientData(data) as XRayAppointment[];
 }
 
 export async function getUltrasoundAppointments(): Promise<UltrasoundAppointment[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'ultrasoundAppointments'), orderBy('date', 'desc'), limit(2000)));
+  const snap = await getDocs(query(collection(db, 'ultrasoundAppointments'), orderBy('date', 'desc'), limit(1000)));
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return await enrichWithPatientData(data) as UltrasoundAppointment[];
 }
 
 export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   const db = getDb();
-  const snap = await getDocs(query(collection(db, 'vaccineAppointments'), orderBy('date', 'desc'), limit(2000)));
+  const snap = await getDocs(query(collection(db, 'vaccineAppointments'), orderBy('date', 'desc'), limit(1000)));
   const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return await enrichWithPatientData(data) as VaccineAppointment[];
 }
@@ -434,7 +436,7 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
       return appDate === selectedDate;
     });
 
-    // If time is taken and it's NOT a doctor bypass (bypass is marked by 'Atendido' status from the dialog)
+    // If time is taken and it's NOT a doctor bypass
     if (isTimeTaken && appointment.status !== 'Atendido') {
        return { success: false, error: "El horario o ficha seleccionada ya ha sido ocupado por otro usuario. Por favor, selecciona uno diferente." };
     }
@@ -1255,16 +1257,16 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   }
 }
 
-export async function rescheduleAppointment(id: string, newDate: string, type: string) {
+export async function rescheduleAppointment(id: string, date: string, type: string) {
   const db = getDb();
   try {
     const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
-    await updateDoc(doc(db, collMap[type] || 'appointments', id), { date: Timestamp.fromDate(new Date(newDate)) });
+    await updateDoc(doc(db, collMap[type] || 'appointments', id), { date: Timestamp.fromDate(new Date(date)) });
     return { success: true, message: 'Fecha actualizada correctamente' };
   } catch (e: any) { return { success: false, message: e.message }; }
 }
 
-export async function cloneAppointment(originalId: string, newDate: string, type: string, newTime?: string) {
+export async function cloneAppointment(originalId: string, date: string, type: string, time?: string) {
   const db = getDb();
   try {
     const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
@@ -1274,7 +1276,7 @@ export async function cloneAppointment(originalId: string, newDate: string, type
     const data = originalDoc.data();
     const newRef = doc(collection(db, collectionName));
     const newFolio = `${data.appointmentNumber.split('-')[0]}-${uuidv4().split('-')[0].toUpperCase()}`;
-    const newAppData = { ...data, date: Timestamp.fromDate(new Date(newDate)), appointmentNumber: newFolio, status: 'Agendada' };
+    const newAppData = { ...data, date: Timestamp.fromDate(new Date(date)), appointmentNumber: newFolio, status: 'Agendada' };
     if (newTime) newAppData.time = newTime;
     await setDoc(newRef, newAppData);
     return { success: true, message: `Nueva cita asignada con folio: ${newFolio}` };

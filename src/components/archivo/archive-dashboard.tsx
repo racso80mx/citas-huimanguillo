@@ -146,7 +146,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
           searchName: searchName.trim() || undefined,
           searchCurp: searchCurp.trim() || undefined,
           searchExpediente: searchExpediente.trim() || undefined,
-          limitNum: (searchName || searchCurp || searchExpediente) ? 100 : 5000 
+          limitNum: (searchName || searchCurp || searchExpediente) ? 100 : 2000 
       };
 
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
@@ -381,6 +381,21 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
     await generateArchiveListPDF(data, "Listado de Citas - Archivo", subtitle);
   };
 
+  const onSearchNameChange = (val: string) => {
+      setSearchName(val.toUpperCase());
+      if (val) { setSearchCurp(''); setSearchExpediente(''); }
+  };
+
+  const onSearchCurpChange = (val: string) => {
+      setSearchCurp(val.toUpperCase());
+      if (val) { setSearchName(''); setSearchExpediente(''); }
+  };
+
+  const onSearchExpedienteChange = (val: string) => {
+      setSearchExpediente(val);
+      if (val) { setSearchName(''); setSearchCurp(''); }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       <Card className="border-none shadow-none bg-transparent mb-6">
@@ -452,7 +467,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                         <Input 
                             placeholder="Nombres o Apellidos..." 
                             value={searchName} 
-                            onChange={e => setSearchName(e.target.value.toUpperCase())} 
+                            onChange={e => onSearchNameChange(e.target.value)} 
                             onKeyDown={e => e.key === 'Enter' && loadData()}
                             className="pl-9 pr-9 h-11"
                         />
@@ -466,7 +481,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                         <Input 
                             placeholder="CURP (Exacto)..." 
                             value={searchCurp} 
-                            onChange={e => setSearchCurp(e.target.value.toUpperCase())} 
+                            onChange={e => onSearchCurpChange(e.target.value)} 
                             onKeyDown={e => e.key === 'Enter' && loadData()}
                             className="h-11 pr-9"
                             maxLength={18}
@@ -481,7 +496,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                         <Input 
                             placeholder="No. Expediente..." 
                             value={searchExpediente} 
-                            onChange={e => setSearchExpediente(e.target.value)} 
+                            onChange={e => onSearchExpedienteChange(e.target.value)} 
                             onKeyDown={e => e.key === 'Enter' && loadData()}
                             className="h-11 pr-9"
                         />
@@ -528,7 +543,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                         <Loader2 className="h-16 w-12 animate-spin text-primary" />
                         <div className="text-center">
                             <p className="text-xl font-black text-primary animate-pulse tracking-widest uppercase">
-                                Consultando Pacientes
+                                CONSULTANDO PACIENTES
                             </p>
                             <p className="text-sm text-muted-foreground mt-1 font-medium">Buscando en los registros del hospital...</p>
                         </div>
