@@ -27,6 +27,7 @@ import {
   PlusCircle,
   DatabaseZap,
   ShieldCheck,
+  Search,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -77,6 +78,7 @@ import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
 import { PharmacyManager } from './pharmacy-manager';
 import { WarehouseManager } from './warehouse-manager';
+import { Input } from '../ui/input';
 
 type AdminDashboardProps = {
   onLogout: () => void;
@@ -99,6 +101,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
   const [selectedClinicType, setSelectedClinicType] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
 
@@ -198,6 +201,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
     return appointments.filter(filterFn);
   };
+
+  const applySearch = (appointments: any[]) => {
+      if (!searchTerm) return appointments;
+      const term = searchTerm.toUpperCase();
+      return appointments.filter(app => {
+          const patientName = `${app.patient?.name || ''} ${app.patient?.paternalLastName || ''} ${app.patient?.maternalLastName || ''}`.toUpperCase();
+          const curp = (app.patient?.curp || '').toUpperCase();
+          const folio = (app.appointmentNumber || '').toUpperCase();
+          return patientName.includes(term) || curp.includes(term) || folio.includes(term);
+      });
+  };
   
   const appointmentsToDisplay = useMemo(() => {
     const dateFilteredAppointments = getFilteredData(allAppointments);
@@ -211,13 +225,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     if (selectedClinics.length > 0) {
         filtered = filtered.filter(app => selectedClinics.includes(app.clinicId));
     }
-    return filtered;
-  }, [isClient, activeFilter, dateRange, allAppointments, selectedClinics, selectedClinicType, clinics]);
+    return applySearch(filtered);
+  }, [isClient, activeFilter, dateRange, allAppointments, selectedClinics, selectedClinicType, clinics, searchTerm]);
 
-  const labAppointmentsToDisplay = useMemo(() => getFilteredData(allLabAppointments), [isClient, activeFilter, dateRange, allLabAppointments]);
-  const xRayAppointmentsToDisplay = useMemo(() => getFilteredData(allXRayAppointments), [isClient, activeFilter, dateRange, allXRayAppointments]);
-  const ultrasoundAppointmentsToDisplay = useMemo(() => getFilteredData(allUltrasoundAppointments), [isClient, activeFilter, dateRange, allUltrasoundAppointments]);
-  const vaccineAppointmentsToDisplay = useMemo(() => getFilteredData(allVaccineAppointments), [isClient, activeFilter, dateRange, allVaccineAppointments]);
+  const labAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allLabAppointments)), [isClient, activeFilter, dateRange, allLabAppointments, searchTerm]);
+  const xRayAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allXRayAppointments)), [isClient, activeFilter, dateRange, allXRayAppointments, searchTerm]);
+  const ultrasoundAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allUltrasoundAppointments)), [isClient, activeFilter, dateRange, allUltrasoundAppointments, searchTerm]);
+  const vaccineAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allVaccineAppointments)), [isClient, activeFilter, dateRange, allVaccineAppointments, searchTerm]);
   
   const groupedClinics = useMemo(() => {
     if (!clinics) return {};
@@ -593,7 +607,17 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                           </Command>
                       </PopoverContent>
                   </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+
+                    <div className="relative w-full sm:w-64 ml-auto">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Nombre, CURP o Folio..." 
+                            className="pl-9 h-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -629,7 +653,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                    <div className="relative w-full sm:w-64 ml-auto">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Nombre, CURP o Folio..." 
+                            className="pl-9 h-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -666,7 +699,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                    <div className="relative w-full sm:w-64 ml-auto">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Nombre, CURP o Folio..." 
+                            className="pl-9 h-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -703,7 +745,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                    <div className="relative w-full sm:w-64 ml-auto">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Nombre, CURP o Folio..." 
+                            className="pl-9 h-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -740,7 +791,16 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleDownload} variant="secondary" className="ml-auto" disabled={isPending}><Download className="mr-2 h-4 w-4" />Descargar Excel</Button>
+                    <div className="relative w-full sm:w-64 ml-auto">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Nombre, CURP o Folio..." 
+                            className="pl-9 h-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
                   </div>
                 </CardHeader>
                 <CardContent>

@@ -36,6 +36,7 @@ import {
   Pill,
   CalendarDays,
   CalendarPlus,
+  Search,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -70,6 +71,7 @@ import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
 import { MedicationInventoryDialog } from './medication-inventory-dialog';
 import { AvailabilityViewerDialog } from './availability-viewer-dialog';
 import { ScheduleAppointmentDialog } from '../archivo/schedule-appointment-dialog';
+import { Input } from '../ui/input';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -88,6 +90,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [isDataLoading, startDataTransition] = useTransition();
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
   const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
@@ -184,10 +187,21 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         };
         break;
     }
-    return appointments
-      .filter(filterFn)
-      .sort((a, b) => a.time.localeCompare(b.time));
-  }, [isClient, appointments, activeFilter, dateRange]);
+    
+    let filtered = appointments.filter(filterFn);
+
+    if (searchTerm) {
+        const term = searchTerm.toUpperCase();
+        filtered = filtered.filter(app => {
+            const patientName = `${app.patient?.name || ''} ${app.patient?.paternalLastName || ''} ${app.patient?.maternalLastName || ''}`.toUpperCase();
+            const curp = (app.patient?.curp || '').toUpperCase();
+            const folio = (app.appointmentNumber || '').toUpperCase();
+            return patientName.includes(term) || curp.includes(term) || folio.includes(term);
+        });
+    }
+
+    return filtered.sort((a, b) => a.time.localeCompare(b.time));
+  }, [isClient, appointments, activeFilter, dateRange, searchTerm]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -498,6 +512,15 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                 />
               </PopoverContent>
             </Popover>
+            <div className="relative w-full sm:w-64 ml-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Nombre, CURP o Folio..." 
+                    className="pl-9 h-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
             <div className="ml-auto flex items-center gap-2">
                 <Button
                     onClick={handleDownload}
