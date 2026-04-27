@@ -390,6 +390,7 @@ export type Prescription = {
     items: PrescriptionItem[];
     otherMedications?: string;
     labStudies?: string[];
+    otherStudies?: string;
     status: PrescriptionStatus;
     type: 'interno' | 'externo';
 };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -26,7 +25,9 @@ import {
     RefreshCw,
     ShieldCheck,
     UserRound,
-    CheckCircle2
+    CheckCircle2,
+    FlaskConical,
+    Stethoscope
 } from 'lucide-react';
 import { 
     getPendingPrescriptions, 
@@ -264,10 +265,19 @@ function PrescriptionCard({ prescription, clinics, onSuccess }: { prescription: 
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent className="pt-4 space-y-6">
+                {prescription.diagnosis && (
+                    <div className="p-3 rounded-lg bg-accent/5 border border-accent/20">
+                        <p className="text-[10px] font-black uppercase text-accent-foreground opacity-60 flex items-center gap-2 mb-1">
+                            <Stethoscope className="h-3 w-3" /> Diagnóstico Médico:
+                        </p>
+                        <p className="text-xs font-bold uppercase">{prescription.diagnosis}</p>
+                    </div>
+                )}
+
                 <div className="space-y-4">
                     <div className="text-xs font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                        <ClipboardList className="h-3 w-3" /> Detalle de Medicamentos Prescritos:
+                        <ClipboardList className="h-3 w-3" /> Detalle de Insumos a Surtir:
                     </div>
                     <div className="border rounded-lg overflow-hidden bg-background">
                         <Table>
@@ -297,6 +307,9 @@ function PrescriptionCard({ prescription, clinics, onSuccess }: { prescription: 
                                                         <span>LOTE: {item.lote || 'N/A'}</span>
                                                         <span className="opacity-40 text-muted-foreground">| {item.clave}</span>
                                                     </div>
+                                                    {item.frequency && (
+                                                        <span className="text-[10px] text-muted-foreground mt-0.5 italic">{item.frequency}</span>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center">
@@ -321,10 +334,32 @@ function PrescriptionCard({ prescription, clinics, onSuccess }: { prescription: 
                         </Table>
                     </div>
                 </div>
+
+                {(prescription.labStudies?.length || 0) > 0 && (
+                    <div className="space-y-2">
+                         <div className="text-xs font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                            <FlaskConical className="h-3 w-3" /> Estudios de Laboratorio Solicitados:
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {prescription.labStudies?.map(study => (
+                                <Badge key={study} variant="secondary" className="text-[10px] uppercase font-bold">{study}</Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {prescription.otherStudies && (
+                    <div className="space-y-2">
+                         <div className="text-xs font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                            <Search className="h-3 w-3" /> Otros Estudios / Gabinete:
+                        </div>
+                        <p className="text-xs font-bold uppercase p-3 border rounded bg-muted/10">{prescription.otherStudies}</p>
+                    </div>
+                )}
             </CardContent>
             <CardFooter className="bg-primary/5 pt-4 flex items-center justify-between">
                 <div className="text-[10px] font-bold uppercase text-muted-foreground">
-                    Items seleccionados: <span className="text-primary font-black">{numSelected}</span>
+                    Artículos a descontar: <span className="text-primary font-black">{numSelected}</span>
                 </div>
                 <Button 
                     onClick={handleDispense} 
@@ -332,7 +367,7 @@ function PrescriptionCard({ prescription, clinics, onSuccess }: { prescription: 
                     disabled={isDispensing || numSelected === 0}
                 >
                     {isDispensing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <PackageCheck className="mr-2 h-4 w-4" />}
-                    SURTIR SELECCIONADOS
+                    PROCESAR ENTREGA
                 </Button>
             </CardFooter>
         </Card>

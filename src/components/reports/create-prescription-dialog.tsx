@@ -57,6 +57,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   
   const [allLabStudies, setAllLabStudies] = useState<LabStudy[]>([]);
   const [selectedLabStudies, setSelectedLabStudies] = useState<string[]>([]);
+  const [otherStudies, setOtherStudies] = useState('');
 
   // Medical Directory selection
   const [allDoctors, setAllDoctors] = useState<Clinic[]>([]);
@@ -170,6 +171,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
             items: prescriptionItems,
             otherMedications,
             labStudies: selectedLabStudies,
+            otherStudies,
             type: 'interno'
         });
 
@@ -179,6 +181,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
             setDiagnosis('');
             setOtherMedications('');
             setSelectedLabStudies([]);
+            setOtherStudies('');
             setSelectedPatient(null);
             onClose();
         } else {
@@ -500,6 +503,19 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                         </div>
                     )}
                 </div>
+
+                {/* 7. OTROS ESTUDIOS / GABINETE */}
+                <div className="space-y-4">
+                    <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                        <Plus className="h-4 w-4" /> 7. Otros Estudios / Gabinete
+                    </Label>
+                    <Textarea 
+                        placeholder="Escribe otros estudios adicionales (Rayos X, Ultrasonidos externos, Gabinete, etc.)"
+                        className="min-h-[80px] bg-muted/10 uppercase"
+                        value={otherStudies}
+                        onChange={e => setOtherStudies(e.target.value.toUpperCase())}
+                    />
+                </div>
             </div>
         </ScrollArea>
 
@@ -518,4 +534,3 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
     </Dialog>
   );
 }
-
