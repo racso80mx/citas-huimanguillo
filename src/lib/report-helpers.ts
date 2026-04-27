@@ -610,7 +610,12 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
             theme: 'grid',
             headStyles: { fillColor: [0, 102, 51], fontSize: 9 },
             styles: { fontSize: 8 },
-            columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 15, halign: 'center' } }
+            columnStyles: { 
+                0: { cellWidth: 90 }, // Wider Insumo column
+                1: { cellWidth: 12, halign: 'center' }, // Narrower quantity
+                2: { cellWidth: 30 }, // Smaller Frecuencia column
+                3: { cellWidth: 'auto' } 
+            }
         });
         currentY = doc.lastAutoTable.finalY + 10;
     }
@@ -646,14 +651,19 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         currentY += (studiesLines.length * 5) + 15;
     }
 
-    // Footer / Signature
+    // Footer / Signature - Add more space for stamp and sign
+    currentY += 25; 
+    
     if (currentY > 250) {
         doc.addPage();
         currentY = 40;
     }
     
+    doc.setDrawColor(0, 102, 51);
+    doc.setLineWidth(1);
     doc.line(70, currentY, 140, currentY);
     doc.setFontSize(10);
+    doc.setTextColor(0);
     doc.text('FIRMA Y SELLO DEL MÉDICO', 105, currentY + 5, { align: 'center' });
     
     doc.setFontSize(8);
