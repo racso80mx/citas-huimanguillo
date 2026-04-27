@@ -22,7 +22,8 @@ import {
   Pill,
   AlertCircle,
   User,
-  X
+  X,
+  Calendar
 } from 'lucide-react';
 import { getMedications, createPrescription, getPatients } from '@/lib/actions';
 import type { Medication, Patient, PrescriptionItem } from '@/lib/definitions';
@@ -82,7 +83,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
     }
     
     if (prescriptionItems.some(i => i.medicationId === med.id)) {
-        toast({ title: "Ya agregado", description: "Este medicamento ya está en la lista." });
+        toast({ title: "Ya agregado", description: "Este lote específico ya está en la lista." });
         return;
     }
 
@@ -92,7 +93,8 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
             medicationId: med.id,
             name: med.descripcion,
             clave: med.claveCuadroBasico,
-            quantity: 1
+            quantity: 1,
+            lote: med.lote // Added lote to prescription item
         }
     ]);
   };
@@ -147,9 +149,21 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
   const medOptions = useMemo(() => {
     return medications.map(m => ({
         value: m.id,
-        label: `${m.claveCuadroBasico} - ${m.descripcion} (${m.existencia} disp.)`,
-        keywords: `${m.claveCuadroBasico} ${m.descripcion}`,
-        disabled: m.existencia <= 0
+        label: `${m.descripcion} [Lote: ${m.lote}] - Disp: ${m.existencia}`,
+        keywords: `${m.claveCuadroBasico} ${m.descripcion} ${m.lote}`,
+        disabled: m.existencia <= 0,
+        content: (
+            <div className="flex flex-col gap-0.5 py-1">
+                <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm uppercase truncate max-w-[250px]">{m.descripcion}</span>
+                    <Badge variant={m.existencia > 0 ? "secondary" : "destructive"} className="text-[10px] h-4">Stock: {m.existencia}</Badge>
+                </div>
+                <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-mono uppercase">
+                    <span className="flex items-center gap-1"><Pill className="h-3 w-3" /> LOTE: {m.lote}</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
+                </div>
+            </div>
+        )
     }));
   }, [medications]);
 
@@ -161,12 +175,11 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
             <FileText className="h-6 w-6 text-primary" /> Generar Receta Médica
           </DialogTitle>
           <DialogDescription>
-            Selecciona el paciente y los medicamentos. La receta tendrá una vigencia de 24 horas para ser surtida.
+            Selecciona el paciente y los medicamentos por lote. La receta tendrá una vigencia de 24 horas.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-6 px-6 pb-6">
-          {/* Patient Selection */}
           <div className="space-y-4">
             <Label className="text-xs font-bold uppercase text-muted-foreground">1. Datos del Paciente</Label>
             {!selectedPatient ? (
@@ -215,9 +228,8 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
             )}
           </div>
 
-          {/* Medication Selection */}
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-            <Label className="text-xs font-bold uppercase text-muted-foreground">2. Prescripción</Label>
+            <Label className="text-xs font-bold uppercase text-muted-foreground">2. Prescripción por Lote</Label>
             <div className="flex gap-2 shrink-0">
                <Combobox 
                 options={medOptions}
@@ -226,9 +238,9 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
                     const med = medications.find(m => m.id === id);
                     if (med) handleAddMedication(med);
                 }}
-                placeholder="Escribe el nombre o clave del medicamento..."
-                searchPlaceholder="Filtrar inventario..."
-                noResultsText="Medicamento no encontrado o sin existencia."
+                placeholder="Busca por nombre, clave o lote del medicamento..."
+                searchPlaceholder="Filtrar catálogo..."
+                noResultsText="No se encontraron lotes con existencia."
                />
             </div>
 
@@ -237,9 +249,9 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
                   <Table>
                     <TableHeader className="bg-muted/50 sticky top-0 z-10">
                       <TableRow>
-                        <TableHead>Medicamento</TableHead>
+                        <TableHead>Medicamento / Lote</TableHead>
                         <TableHead className="w-[100px] text-center">Cant.</TableHead>
-                        <TableHead>Indicaciones / Posología</TableHead>
+                        <TableHead>Indicaciones</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -248,8 +260,11 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
                         <TableRow key={item.medicationId} className="hover:bg-muted/20">
                           <TableCell>
                             <div className="flex flex-col">
-                                <span className="font-bold text-xs">{item.name}</span>
-                                <span className="text-[10px] font-mono text-muted-foreground">{item.clave}</span>
+                                <span className="font-bold text-xs uppercase">{item.name}</span>
+                                <div className="flex items-center gap-2 text-[10px] font-mono text-primary font-bold">
+                                    <span>LOTE: {item.lote}</span>
+                                    <span className="opacity-40 text-muted-foreground">| {item.clave}</span>
+                                </div>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -263,7 +278,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
                           </TableCell>
                           <TableCell>
                             <Input 
-                                placeholder="Ej: 1 cada 8 hrs por 7 días..." 
+                                placeholder="Posología..." 
                                 className="h-8 text-xs"
                                 value={item.indications || ''}
                                 onChange={e => updateItemIndications(item.medicationId, e.target.value)}
@@ -279,7 +294,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
                         <TableRow>
                             <TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">
                                 <Pill className="h-12 w-12 mx-auto mb-2 opacity-10" />
-                                No has agregado medicamentos a la receta.
+                                No hay medicamentos en la receta.
                             </TableCell>
                         </TableRow>
                       )}
@@ -294,7 +309,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
           <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancelar</Button>
           <Button onClick={handleSave} disabled={isSaving || prescriptionItems.length === 0 || !selectedPatient}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-            Confirmar y Guardar Receta
+            Confirmar Receta
           </Button>
         </DialogFooter>
       </DialogContent>

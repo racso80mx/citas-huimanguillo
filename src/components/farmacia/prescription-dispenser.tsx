@@ -19,7 +19,9 @@ import {
     Filter,
     Plus,
     User,
-    Trash2
+    Trash2,
+    Pill,
+    Calendar
 } from 'lucide-react';
 import { getPendingPrescriptions, dispensePrescription, getClinics, getMedications, createPrescription, getPatients } from '@/lib/actions';
 import type { Prescription, Clinic, Medication, Patient } from '@/lib/definitions';
@@ -181,8 +183,11 @@ export function PrescriptionDispenser() {
                                                         <TableRow key={idx}>
                                                             <TableCell>
                                                                 <div className="flex flex-col">
-                                                                    <span className="font-bold text-xs">{item.name}</span>
-                                                                    <span className="text-[10px] font-mono opacity-60">{item.clave}</span>
+                                                                    <span className="font-bold text-xs uppercase">{item.name}</span>
+                                                                    <div className="flex items-center gap-2 text-[10px] font-mono text-primary font-bold">
+                                                                        <span>LOTE: {item.lote || 'N/A'}</span>
+                                                                        <span className="opacity-40 text-muted-foreground">| {item.clave}</span>
+                                                                    </div>
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="text-center font-black">{item.quantity}</TableCell>
@@ -253,7 +258,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
 
     const handleAddItem = (med: Medication) => {
         if (items.some(i => i.medicationId === med.id)) return;
-        setItems([...items, { medicationId: med.id, name: med.descripcion, clave: med.claveCuadroBasico, quantity: 1 }]);
+        setItems([...items, { medicationId: med.id, name: med.descripcion, clave: med.claveCuadroBasico, quantity: 1, lote: med.lote }]);
     };
 
     const handleSave = async () => {
@@ -275,7 +280,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
             });
 
             if (resCreate.success) {
-                // Step 2: Immediately dispense it (since it's a manual capture of what already was surtido)
+                // Step 2: Immediately dispense it
                 const pending = await getPendingPrescriptions({ folio: resCreate.folio });
                 if (pending.length > 0) {
                     await dispensePrescription(pending[0].id);
@@ -294,9 +299,21 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
     const medOptions = useMemo(() => {
         return medications.map(m => ({
             value: m.id,
-            label: `${m.claveCuadroBasico} - ${m.descripcion} (${m.existencia} disp.)`,
-            keywords: `${m.claveCuadroBasico} ${m.descripcion}`,
-            disabled: m.existencia <= 0
+            label: `${m.descripcion} [Lote: ${m.lote}] - Disp: ${m.existencia}`,
+            keywords: `${m.claveCuadroBasico} ${m.descripcion} ${m.lote}`,
+            disabled: m.existencia <= 0,
+            content: (
+                <div className="flex flex-col gap-0.5 py-1">
+                    <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm uppercase truncate max-w-[250px]">{m.descripcion}</span>
+                        <Badge variant={m.existencia > 0 ? "secondary" : "destructive"} className="text-[10px] h-4">Stock: {m.existencia}</Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-mono uppercase">
+                        <span className="flex items-center gap-1"><Pill className="h-3 w-3" /> LOTE: {m.lote}</span>
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
+                    </div>
+                </div>
+            )
         }));
     }, [medications]);
 
@@ -304,7 +321,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
         <Card className="shadow-lg border-primary/20 bg-primary/5">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-primary" /> Captura de Receta Externa</CardTitle>
-                <CardDescription>Utiliza este formulario para surtir medicamentos de recetas no generadas por el sistema.</CardDescription>
+                <CardDescription>Surtido directo de recetas de médicos externos por lote.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -336,7 +353,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                 <Separator />
 
                 <div className="space-y-4">
-                    <Label className="text-xs font-bold uppercase opacity-60">Medicamentos a descontar</Label>
+                    <Label className="text-xs font-bold uppercase opacity-60">Selección de Lote y Medicamento</Label>
                     <Combobox 
                         options={medOptions} 
                         value="" 
@@ -344,22 +361,34 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                             const m = medications.find(x => x.id === id);
                             if (m) handleAddItem(m);
                         }}
-                        placeholder="Buscar medicamento..."
+                        placeholder="Busca por nombre o lote del medicamento..."
                     />
                     
                     <div className="border rounded-lg bg-background">
                         <Table>
+                            <TableHeader className="bg-muted/30">
+                                <TableRow>
+                                    <TableHead>Medicamento / Lote</TableHead>
+                                    <TableHead className="w-[80px]">Cant.</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                </TableRow>
+                            </TableHeader>
                             <TableBody>
                                 {items.map((item, idx) => (
                                     <TableRow key={idx}>
-                                        <TableCell className="text-xs font-bold">{item.name}</TableCell>
-                                        <TableCell className="w-[80px]">
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold uppercase">{item.name}</span>
+                                                <span className="text-[10px] font-mono text-primary font-bold">LOTE: {item.lote}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
                                             <Input type="number" min={1} className="h-8" value={item.quantity} onChange={e => setItems(prev => prev.map((x, i) => i === idx ? {...x, quantity: parseInt(e.target.value) || 1} : x))} />
                                         </TableCell>
-                                        <TableCell className="w-[50px]"><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="h-4 w-4"/></Button></TableCell>
+                                        <TableCell><Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="h-4 w-4"/></Button></TableCell>
                                     </TableRow>
                                 ))}
-                                {items.length === 0 && <TableRow><TableCell className="text-center py-8 text-muted-foreground text-xs italic">Lista vacía</TableCell></TableRow>}
+                                {items.length === 0 && <TableRow><TableCell colSpan={3} className="text-center py-8 text-muted-foreground text-xs italic">Lista vacía</TableCell></TableRow>}
                             </TableBody>
                         </Table>
                     </div>
@@ -368,7 +397,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
             <CardFooter>
                 <Button className="w-full font-bold h-11" onClick={handleSave} disabled={isSaving || items.length === 0 || !selectedPatient}>
                     {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <PackageCheck className="mr-2 h-4 w-4" />}
-                    Surtir y Descontar Stock
+                    Surtir y Actualizar Inventario
                 </Button>
             </CardFooter>
         </Card>
