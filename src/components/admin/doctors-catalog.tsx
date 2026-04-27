@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function DoctorsCatalog() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
