@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
@@ -50,6 +49,7 @@ import {
   parseISO,
   isWithinInterval,
 } from 'date-fns';
+import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
@@ -504,6 +504,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                     <PopoverContent className="w-[200px] p-0" align="start">
                                         <Command>
                                             <CommandList>
+                                                <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                                                 <CommandGroup>
                                                     <CommandItem onSelect={() => setSelectedClinicType('all')}>
                                                         <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === 'all' ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
