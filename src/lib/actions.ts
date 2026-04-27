@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -272,9 +271,6 @@ export async function updateWarehouseSettings(settings: any) {
   return res;
 }
 
-export async function verifyPharmacyPassword(password: string) { return data.verifyPharmacyPassword(password); }
-export async function verifyWarehousePassword(password: string) { return data.verifyWarehousePassword(password); }
-
 // =====================================================================
 // SETTINGS ACTIONS
 // =====================================================================
@@ -441,10 +437,6 @@ export async function verifyUltrasoundPassword(password: string) { return data.v
 export async function verifyVaccinePassword(password: string) { return data.verifyVaccinePassword(password); }
 export async function verifyBIPassword(password: string) { return data.verifyBIPassword(password); }
 export async function verifyAdminPassword(password: string) { return data.verifyAdminPassword(password); }
-export async function verifyCitasMedicasPassword(password: string) { 
-    const settings = await data.getModuleSettings();
-    return { success: settings.citasMedicasPassword === password };
-}
 
 export async function getLogs() { return data.getLogs(); }
 

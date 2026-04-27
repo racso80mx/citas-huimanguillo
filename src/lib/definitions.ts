@@ -364,6 +364,7 @@ export type PrescriptionItem = {
     quantity: number;
     indications?: string;
     lote?: string;
+    frequency?: string;
 };
 
 export type Prescription = {
@@ -373,9 +374,14 @@ export type Prescription = {
     patientName: string;
     clinicId: string; // 'externo' for external doctors
     doctorName: string;
+    doctorLicense?: string;
+    unitName?: string;
     date: string; // ISO
     expiresAt: string; // ISO
+    diagnosis?: string;
     items: PrescriptionItem[];
+    otherMedications?: string;
+    labStudies?: string[];
     status: PrescriptionStatus;
     type: 'interno' | 'externo';
 };

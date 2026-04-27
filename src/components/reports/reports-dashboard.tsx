@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia, Patient } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
   getLabAppointments,
@@ -98,6 +98,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
+  const [selectedPatientForPrescription, setSelectedPatientForPrescription] = useState<Patient | null>(null);
   
   const { toast } = useToast();
 
@@ -332,11 +333,17 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   }, [isClient, appointments]);
 
+  const handleOpenPrescription = (patient: Patient) => {
+    setSelectedPatientForPrescription(patient);
+    setIsPrescriptionOpen(true);
+  }
+
   const renderAppointmentList = () => {
     const props = {
       isAdmin: true,
       onEditSuccess: fetchData,
       onDelete: reportType === 'clinic' ? undefined : handleDelete,
+      onPrescribe: reportType === 'clinic' ? handleOpenPrescription : undefined,
     };
     switch(reportType) {
         case 'clinic':
@@ -386,7 +393,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
           <div className="flex flex-wrap gap-2">
             {reportType === 'clinic' && (
                 <>
-                    <Button variant="outline" className="text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => setIsPrescriptionOpen(true)}>
+                    <Button variant="outline" className="text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => { setSelectedPatientForPrescription(null); setIsPrescriptionOpen(true); }}>
                         <FileText className="mr-2 h-4 w-4" />
                         Generar Receta
                     </Button>
@@ -596,9 +603,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       {isPrescriptionOpen && (
           <CreatePrescriptionDialog 
             isOpen={isPrescriptionOpen} 
-            onClose={() => setIsPrescriptionOpen(false)} 
-            clinicId={entity.id}
-            doctorName={entity.doctorName}
+            onClose={() => {
+              setIsPrescriptionOpen(false);
+              setSelectedPatientForPrescription(null);
+            }} 
+            clinic={entity}
+            initialPatient={selectedPatientForPrescription}
           />
       )}
     </div>

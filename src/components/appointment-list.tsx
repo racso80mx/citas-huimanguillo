@@ -13,7 +13,7 @@ import type { Appointment, Clinic, Patient, AppointmentStatus, ModuleSettings } 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from './ui/button';
-import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle } from 'lucide-react';
+import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle, FileText } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,12 +54,13 @@ type AppointmentListProps = {
   onDelete?: (id: string) => void;
   clinics: Clinic[];
   onEditSuccess?: () => void;
+  onPrescribe?: (patient: Patient) => void;
 };
 
 type SortableKeys = keyof Appointment | 'patientName' | 'clinicName' | 'curp' | 'phoneNumber' | 'coloniaName';
 
 
-export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics, onEditSuccess }: AppointmentListProps) {
+export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics, onEditSuccess, onPrescribe }: AppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
@@ -461,6 +462,15 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                           setNewDate(new Date(app.date));
                           setReschedulingAppointment(app);
                       }}>Cambiar Fecha</DropdownMenuItem>
+                      {onPrescribe && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => onPrescribe(app.patient)}>
+                            <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                            Generar Receta
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
@@ -475,15 +485,20 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                             <MessageCircle className="h-4 w-4 text-green-600" />
                         </Button>
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)} title="Descargar Comprobante">
                         <FileDown className="h-4 w-4 text-gray-500" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setEditingPatient(app.patient)}>
+                    {onPrescribe && (
+                      <Button variant="ghost" size="icon" onClick={() => onPrescribe(app.patient)} title="Prescribir Medicamentos">
+                          <FileText className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => setEditingPatient(app.patient)} title="Editar Datos Paciente">
                         <Pencil className="h-4 w-4 text-blue-600" />
                     </Button>
                    <AlertDialog>
                     <AlertDialogTrigger asChild>
-                       <Button variant="ghost" size="icon" disabled={!onDelete}>
+                       <Button variant="ghost" size="icon" disabled={!onDelete} title="Eliminar Cita">
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </AlertDialogTrigger>

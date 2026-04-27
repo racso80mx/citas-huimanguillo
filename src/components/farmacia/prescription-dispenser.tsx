@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useState, useMemo, useEffect, useTransition } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +21,9 @@ import {
     Calendar as CalendarIcon,
     Download,
     Filter,
-    ClipboardList
+    ClipboardList,
+    RefreshCw,
+    ShieldCheck
 } from 'lucide-react';
 import { 
     getPendingPrescriptions, 
@@ -184,6 +185,7 @@ export function PrescriptionDispenser() {
                                                         <Hospital className="h-3 w-3" /> {clinics.find(c => c.id === p.clinicId)?.name || 'Consultorio Externo'}
                                                         <span className="mx-1">•</span>
                                                         <User className="h-3 w-3" /> Dr. {p.doctorName}
+                                                        {p.doctorLicense && <span className="text-[10px] bg-muted px-1.5 rounded ml-2">CED: {p.doctorLicense}</span>}
                                                     </CardDescription>
                                                 </div>
                                             </div>
@@ -259,6 +261,8 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
     const [patients, setPatients] = useState<Patient[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [doctorName, setDoctorName] = useState('');
+    const [doctorLicense, setDoctorLicense] = useState('');
+    const [unitName, setUnitName] = useState('');
     
     const [medications, setMedications] = useState<Medication[]>([]);
     const [items, setItems] = useState<any[]>([]);
@@ -293,8 +297,8 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
     };
 
     const handleSave = async () => {
-        if (!selectedPatient || !doctorName.trim() || items.length === 0) {
-            toast({ title: "Faltan datos", variant: "destructive" });
+        if (!selectedPatient || !doctorName.trim() || !unitName.trim() || items.length === 0) {
+            toast({ title: "Faltan datos", description: "Completa los datos del médico, unidad y al menos un medicamento.", variant: "destructive" });
             return;
         }
         setIsSaving(true);
@@ -304,6 +308,8 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                 patientName: `${selectedPatient.name} ${selectedPatient.paternalLastName}`,
                 clinicId: 'externo',
                 doctorName,
+                doctorLicense,
+                unitName,
                 date: new Date().toISOString(),
                 items,
                 type: 'externo'
@@ -317,6 +323,8 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                     setSelectedPatient(null);
                     setItems([]);
                     setDoctorName('');
+                    setDoctorLicense('');
+                    setUnitName('');
                     onDispenseSuccess();
                 }
             }
@@ -351,32 +359,52 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
         <Card className="shadow-lg border-primary/20 bg-primary/5">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-primary" /> Captura de Receta Externa</CardTitle>
-                <CardDescription>Surtido directo de recetas de médicos externos por lote.</CardDescription>
+                <CardDescription>Surtido directo de recetas de médicos externos u otras áreas del hospital.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
-                        <Label className="text-xs font-bold uppercase opacity-60">Paciente</Label>
-                        {!selectedPatient ? (
-                            <div className="flex gap-2">
-                                <Input placeholder="Buscar por nombre..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchPatients()} />
-                                <Button size="sm" onClick={handleSearchPatients} disabled={isSearching}><Search className="h-4 w-4"/></Button>
-                            </div>
-                        ) : (
-                            <div className="p-3 bg-background border rounded-lg flex items-center justify-between">
-                                <span className="text-xs font-bold uppercase">{selectedPatient.name} {selectedPatient.paternalLastName}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedPatient(null)}><X className="h-3 w-3"/></Button>
-                            </div>
-                        )}
-                        {patients.length > 0 && !selectedPatient && (
-                            <div className="border rounded bg-background p-1 space-y-1">
-                                {patients.map(p => <button key={p.id} className="w-full text-left p-2 hover:bg-muted text-xs rounded" onClick={() => setSelectedPatient(p)}>{p.name} {p.paternalLastName}</button>)}
-                            </div>
-                        )}
-                    </div>
+                <div className="space-y-4">
+                    <Label className="text-xs font-bold uppercase opacity-60">Paciente</Label>
+                    {!selectedPatient ? (
+                        <div className="flex gap-2">
+                            <Input placeholder="Buscar por nombre..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchPatients()} />
+                            <Button size="sm" onClick={handleSearchPatients} disabled={isSearching}><Search className="h-4 w-4"/></Button>
+                        </div>
+                    ) : (
+                        <div className="p-3 bg-background border rounded-lg flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase">{selectedPatient.name} {selectedPatient.paternalLastName}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedPatient(null)}><X className="h-3 w-3"/></Button>
+                        </div>
+                    )}
+                    {patients.length > 0 && !selectedPatient && (
+                        <div className="border rounded bg-background p-1 space-y-1 max-h-32 overflow-y-auto">
+                            {patients.map(p => <button key={p.id} className="w-full text-left p-2 hover:bg-muted text-xs rounded" onClick={() => setSelectedPatient(p)}>{p.name} {p.paternalLastName}</button>)}
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase opacity-60">Médico que prescribe</Label>
-                        <Input placeholder="Ej. Dr. Externo Especialista" value={doctorName} onChange={e => setDoctorName(e.target.value)} />
+                        <Input placeholder="Ej. Dr. Juan Pérez" value={doctorName} onChange={e => setDoctorName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase opacity-60">Cédula Profesional</Label>
+                        <Input placeholder="Cédula del médico" value={doctorLicense} onChange={e => setDoctorLicense(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase opacity-60">Unidad de procedencia</Label>
+                        <Select value={unitName} onValueChange={setUnitName}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona unidad..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Urgencias">Urgencias</SelectItem>
+                                <SelectItem value="Hospitalización">Hospitalización</SelectItem>
+                                <SelectItem value="Consulta Externa">Consulta Externa</SelectItem>
+                                <SelectItem value="C.S. Rural">Centro de Salud Rural</SelectItem>
+                                <SelectItem value="Especialista Externo">Especialista Externo</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 
@@ -510,7 +538,8 @@ function PrescriptionHistory({ refreshTrigger, clinics }: { refreshTrigger: numb
                 'Fecha Surtido': format(parseISO(p.date), 'dd/MM/yyyy HH:mm'),
                 'Paciente': p.patientName,
                 'Médico': p.doctorName,
-                'Núcleo/Consultorio': clinics.find(c => c.id === p.clinicId)?.name || (p.type === 'externo' ? 'Externo' : 'N/A'),
+                'Cédula': p.doctorLicense || 'N/A',
+                'Unidad/Origen': p.unitName || clinics.find(c => c.id === p.clinicId)?.name || 'Externo',
                 'Clave': item.clave,
                 'Medicamento': item.name,
                 'Lote': item.lote,
@@ -544,13 +573,13 @@ function PrescriptionHistory({ refreshTrigger, clinics }: { refreshTrigger: numb
                 item.name,
                 item.lote,
                 item.quantity,
-                clinics.find(c => c.id === p.clinicId)?.name || (p.type === 'externo' ? 'EXTERNO' : 'N/A')
+                p.unitName || clinics.find(c => c.id === p.clinicId)?.name || 'EXTERNO'
             ])
         );
 
         doc.autoTable({
             startY: 30,
-            head: [['Folio', 'Fecha/Hora', 'Paciente', 'Insumo', 'Lote', 'Cant.', 'Origen']],
+            head: [['Folio', 'Fecha/Hora', 'Paciente', 'Insumo', 'Lote', 'Cant.', 'Unidad Origen']],
             body: tableBody,
             theme: 'grid',
             headStyles: { fillColor: [0, 102, 51], fontSize: 9 },
@@ -628,7 +657,7 @@ function PrescriptionHistory({ refreshTrigger, clinics }: { refreshTrigger: numb
                                     <TableHead className="w-[140px] font-bold">FECHA SURTIDO</TableHead>
                                     <TableHead className="font-bold">PACIENTE</TableHead>
                                     <TableHead className="font-bold">INSUMOS</TableHead>
-                                    <TableHead className="w-[180px] font-bold">ORIGEN</TableHead>
+                                    <TableHead className="w-[180px] font-bold">ORIGEN / MÉDICO</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -655,8 +684,9 @@ function PrescriptionHistory({ refreshTrigger, clinics }: { refreshTrigger: numb
                                         </TableCell>
                                         <TableCell className="text-[10px]">
                                             <div className="flex flex-col">
-                                                <span className="font-bold uppercase">{clinics.find(c => c.id === p.clinicId)?.name || (p.type === 'externo' ? 'EXTERNO' : 'N/A')}</span>
+                                                <span className="font-bold uppercase">{p.unitName || clinics.find(c => c.id === p.clinicId)?.name || 'EXTERNO'}</span>
                                                 <span className="text-muted-foreground italic">Dr. {p.doctorName}</span>
+                                                {p.doctorLicense && <span className="text-primary/70 font-bold">CED: {p.doctorLicense}</span>}
                                             </div>
                                         </TableCell>
                                     </TableRow>
