@@ -385,14 +385,14 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
     if (!clinicData) return { success: false, error: "La clínica no existe." };
     const batch = writeBatch(db);
     let patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthDate: patientInput.birthDate || '', birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: coloniaName || patientInput.coloniaName || null, status: patientInput.status || PatientStatusEnum.Vigente, fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() };
-    batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthDate: patientInput.birthDate || '', birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: coloniaName || patientInput.coloniaName || null, status: patientInput.status || PatientStatusEnum.Vigente, fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() };
+    batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
     const appRef = doc(collection(db, 'appointments'));
     const appointmentNumber = `FOLIO-${uuidv4().split('-')[0].toUpperCase()}`;
     const cleanApp = { appointmentNumber, patientId, clinicId: appointment.clinicId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), duration: clinicData.consultationDuration || 30, patientType: appointment.patientType, status: appointment.status || 'Agendada', coloniaName: coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: cleanPatient }, clinic: clinicData }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -409,13 +409,13 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
     else if (takenOnDate.length > 0) return { success: false, error: "Turno ya ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
-    batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
     const appRef = doc(collection(db, 'labAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studies: appointment.studies, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
+    return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: cleanPatient }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -431,13 +431,13 @@ export async function saveNewXRayAppointment(appointment: any, patientInput: any
     if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
-    batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
     const appRef = doc(collection(db, 'xrayAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studyId: appointment.studyId, studyName: appointment.studyName, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointment.studyName, indications: '' } }) };
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: cleanPatient }, study: { name: appointment.studyName, indications: '' } }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -453,13 +453,13 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
     if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
-    batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
+    batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
     const appRef = doc(collection(db, 'ultrasoundAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studyId: appointment.studyId, studyName: appointment.studyName, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, study: { name: appointment.studyName, indications: '' } }) };
+    return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: cleanPatient }, study: { name: appointment.studyName, indications: '' } }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -475,13 +475,13 @@ export async function saveNewVaccineAppointment(appointment: any, patientInput: 
     if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: appointment.coloniaName || null, updatedAt: Timestamp.now() };
-    batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
+    const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: appointment.coloniaName || null, updatedAt: Timestamp.now() };
+    batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
     const appRef = doc(collection(db, 'vaccineAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), vaccines: appointment.vaccines, status: 'Agendada', patientType: appointment.patientType, coloniaName: appointment.coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
+    return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: cleanPatient }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
@@ -811,17 +811,15 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
         const pRef = doc(db, 'prescriptions', prescriptionId);
         const pSnap = await getDoc(pRef);
         if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
-        const prescription = pSnap.data() as Prescription;
+        const prescription = serializeData(pSnap.data()) as Prescription;
         if (prescription.status !== 'pendiente') return { success: false, message: "Esta receta ya ha sido procesada." };
         
         const batch = writeBatch(db);
         
         // Determinar qué artículos se van a surtir realmente
-        // Si no se proporciona itemsToDispense (legacy o carga manual completa), se usan todos los de la receta
         const dispenseList = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
         
         // 1. Filtrar los items originales para quedarnos solo con los que se surtieron
-        // y actualizar sus cantidades a las entregadas en farmacia
         const finalItems = prescription.items
           .filter(pItem => dispenseList.some(d => d.medicationId === pItem.medicationId))
           .map(pItem => {
@@ -836,7 +834,7 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
             return { success: false, message: "No se seleccionó ningún artículo para surtir." };
         }
 
-        // 2. Descontar del inventario (solo los artículos marcados con cantidad > 0)
+        // 2. Descontar del inventario
         for (const item of dispenseList) {
             if (item.quantity <= 0) continue;
             const medRef = doc(db, 'medications', item.medicationId);
@@ -846,7 +844,7 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
             });
         }
         
-        // 3. Actualizar la receta con el estado final y la lista de artículos REALMENTE entregados
+        // 3. Actualizar la receta
         batch.update(pRef, { 
           status: 'surtida',
           items: finalItems,
@@ -867,14 +865,17 @@ export async function getPatientPrescriptionsCountToday(patientId: string): Prom
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
     
+    // Para evitar error de índice compuesto, consultamos por patientId y filtramos fechas en memoria
     const q = query(
         collection(db, 'prescriptions'),
-        where('patientId', '==', patientId),
-        where('date', '>=', start),
-        where('date', '<=', end)
+        where('patientId', '==', patientId)
     );
     const snap = await getDocs(q);
-    return snap.size;
+    const count = snap.docs.filter(d => {
+        const date = d.data().date;
+        return date >= start && date <= end;
+    }).length;
+    return count;
 }
 
 // =====================================================================
