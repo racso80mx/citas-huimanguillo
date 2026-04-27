@@ -394,6 +394,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
         </TableCaption>
         <TableHeader>
           <TableRow>
+            <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('appointmentNumber')}>Folio {getSortIcon('appointmentNumber')}</Button></TableHead>
             <TableHead className="w-[120px]"><Button variant="ghost" onClick={() => requestSort('date')}>Fecha / Hora {getSortIcon('date')}</Button></TableHead>
             {isAdmin && <TableHead><Button variant="ghost" onClick={() => requestSort('createdAt')}>Registro {getSortIcon('createdAt')}</Button></TableHead>}
@@ -403,13 +404,45 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
             <TableHead><Button variant="ghost" onClick={() => requestSort('clinicName')}>Núcleo Básico {getSortIcon('clinicName')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('coloniaName')}>Municipio {getSortIcon('coloniaName')}</Button></TableHead>
             <TableHead><Button variant="ghost" onClick={() => requestSort('patientType')}>Tipo {getSortIcon('patientType')}</Button></TableHead>
-            <TableHead><Button variant="ghost" onClick={() => requestSort('status')}>Estado {getSortIcon('status')}</Button></TableHead>
             {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {sortedAppointments.map((app) => (
             <TableRow key={app.id}>
+              <TableCell>
+                {onEditSuccess ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-28" disabled={isUpdating}>
+                        {app.status || 'Agendada'}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Atendido')}>Atendido</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => { setNewCloneDate(undefined); setCloningAppointment(app); }}>Asignar Nueva Cita</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => {
+                          setNewDate(new Date(app.date));
+                          setReschedulingAppointment(app);
+                      }}>Cambiar Fecha</DropdownMenuItem>
+                      {onPrescribe && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => onPrescribe(app.patient)}>
+                            <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                            Generar Receta
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  app.status || 'Agendada'
+                )}
+              </TableCell>
               <TableCell className="font-mono">
                 {app.appointmentNumber}
                 {app.time.includes('Ficha') && <span className="block text-xs font-semibold text-blue-600">({app.time})</span>}
@@ -444,39 +477,6 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
               <TableCell>{getClinicName(app.clinicId)}</TableCell>
               <TableCell>{app.coloniaName || 'N/A'}</TableCell>
               <TableCell>{app.patientType}</TableCell>
-              <TableCell>
-                {onEditSuccess ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-28" disabled={isUpdating}>
-                        {app.status || 'Agendada'}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Atendido')}>Atendido</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => { setNewCloneDate(undefined); setCloningAppointment(app); }}>Asignar Nueva Cita</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => {
-                          setNewDate(new Date(app.date));
-                          setReschedulingAppointment(app);
-                      }}>Cambiar Fecha</DropdownMenuItem>
-                      {onPrescribe && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={() => onPrescribe(app.patient)}>
-                            <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                            Generar Receta
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  app.status || 'Agendada'
-                )}
-              </TableCell>
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
                   <div className='flex justify-end items-center'>
