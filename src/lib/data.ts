@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -173,7 +172,6 @@ export async function getPatients(options?: {
   const patientsColl = collection(db, 'patients');
   
   try {
-    // 1. Prioritize CURP (Highest precision and speed)
     if (options?.searchCurp) {
         const term = options.searchCurp.toUpperCase().trim();
         const q = query(patientsColl, where('curp', '==', term), limit(1));
@@ -181,7 +179,6 @@ export async function getPatients(options?: {
         return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
     }
 
-    // 2. Prioritize Expediente (Second highest precision)
     if (options?.searchExpediente) {
         const term = options.searchExpediente.toString().trim();
         const qStr = query(patientsColl, where('expediente', '==', term), limit(5));
@@ -196,7 +193,6 @@ export async function getPatients(options?: {
         return results;
     }
 
-    // 3. Name search (Requires optimized multi-query)
     if (options?.searchName) {
         const fullTerm = normalizeStr(options.searchName);
         const words = fullTerm.split(/\s+/).filter(w => w.length >= 2);
@@ -258,37 +254,20 @@ export async function getPatientByCURP(curp: string): Promise<Patient | null> {
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
   const db = getDb();
   const docId = id || uuidv4();
-  
-  const dataToSave = { 
-    ...patient, 
-    name: normalizeStr(patient.name),
-    paternalLastName: normalizeStr(patient.paternalLastName),
-    maternalLastName: normalizeStr(patient.maternalLastName),
-    expediente: patient.expediente ? String(patient.expediente).trim() : null,
-    derechoAbiencia: patient.derechoAbiencia ? String(patient.derechoAbiencia).trim().toUpperCase() : null,
-    curp: String(patient.curp).toUpperCase().trim(),
-    status: patient.status || PatientStatusEnum.Vigente,
-    updatedAt: Timestamp.now()
-  };
-  
+  const dataToSave = { ...patient, name: normalizeStr(patient.name), paternalLastName: normalizeStr(patient.paternalLastName), maternalLastName: normalizeStr(patient.maternalLastName), expediente: patient.expediente ? String(patient.expediente).trim() : null, derechoAbiencia: patient.derechoAbiencia ? String(patient.derechoAbiencia).trim().toUpperCase() : null, curp: String(patient.curp).toUpperCase().trim(), status: patient.status || PatientStatusEnum.Vigente, updatedAt: Timestamp.now() };
   await setDoc(doc(db, 'patients', docId), dataToSave, { merge: true });
   return { success: true };
 }
 
 export async function updatePatient(id: string, data: Partial<Omit<Patient, 'id'>>) {
   const db = getDb();
-  const updateData: any = { 
-    ...data, 
-    updatedAt: Timestamp.now() 
-  };
-  
+  const updateData: any = { ...data, updatedAt: Timestamp.now() };
   if (data.name) updateData.name = normalizeStr(data.name);
   if (data.paternalLastName) updateData.paternalLastName = normalizeStr(data.paternalLastName);
   if (data.maternalLastName) updateData.maternalLastName = normalizeStr(data.maternalLastName);
   if (data.expediente !== undefined) updateData.expediente = data.expediente ? String(data.expediente).trim() : null;
   if (data.derechoAbiencia !== undefined) updateData.derechoAbiencia = data.derechoAbiencia ? String(data.derechoAbiencia).trim().toUpperCase() : null;
   if (data.curp !== undefined) updateData.curp = String(data.curp).toUpperCase().trim();
-
   await updateDoc(doc(db, 'patients', id), updateData);
   return { success: true };
 }
@@ -324,25 +303,16 @@ export async function updatePatientStatus(id: string, status: PatientStatus) {
 async function enrichWithPatientData(apps: any[]): Promise<any[]> {
   const db = getDb();
   if (!apps || apps.length === 0) return apps;
-  
   const patientIds = Array.from(new Set(apps.map(a => a.patientId).filter(id => id && typeof id === 'string')));
   if (patientIds.length === 0) return apps.map(a => serializeData(a));
-
   const patientsMap: Record<string, Patient> = {};
   const chunks = chunkArray(patientIds, 10); 
-
   for (const batch of chunks) {
     const q = query(collection(db, 'patients'), where(documentId(), 'in', batch));
     const snap = await getDocs(q);
-    snap.forEach(d => {
-      patientsMap[d.id] = serializeData({ id: d.id, ...d.data() }) as Patient;
-    });
+    snap.forEach(d => { patientsMap[d.id] = serializeData({ id: d.id, ...d.data() }) as Patient; });
   }
-
-  return apps.map(app => serializeData({
-    ...app,
-    patient: patientsMap[app.patientId] || null
-  }));
+  return apps.map(app => serializeData({ ...app, patient: patientsMap[app.patientId] || null }));
 }
 
 export async function getAppointments(): Promise<Appointment[]> {
@@ -356,23 +326,11 @@ export async function getAppointmentsForCalendar(month: number, year: number): P
   const db = getDb();
   const startDate = new Date(year, month, 1);
   const endDate = new Date(year, month + 1, 0, 23, 59, 59);
-  
-  const q = query(
-    collection(db, 'appointments'),
-    where('date', '>=', Timestamp.fromDate(startDate)),
-    where('date', '<=', Timestamp.fromDate(endDate))
-  );
-  
+  const q = query(collection(db, 'appointments'), where('date', '>=', Timestamp.fromDate(startDate)), where('date', '<=', Timestamp.fromDate(endDate)));
   const snap = await getDocs(q);
   return snap.docs.map(d => {
     const data = d.data();
-    return {
-      id: d.id,
-      date: (data.date as Timestamp).toDate().toISOString(),
-      time: String(data.time),
-      clinicId: data.clinicId,
-      duration: data.duration || 30
-    };
+    return { id: d.id, date: (data.date as Timestamp).toDate().toISOString(), time: String(data.time), clinicId: data.clinicId, duration: data.duration || 30 };
   });
 }
 
@@ -419,87 +377,23 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-    
-    const qTime = query(
-      collection(db, 'appointments'),
-      where('clinicId', '==', appointment.clinicId),
-      where('time', '==', String(appointment.time))
-    );
+    const qTime = query(collection(db, 'appointments'), where('clinicId', '==', appointment.clinicId), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
-    const isTimeTaken = snapTime.docs.some(doc => {
-      const d = doc.data();
-      const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-      return appDate === selectedDate;
-    });
-
-    if (isTimeTaken && appointment.status !== 'Atendido') {
-       return { success: false, error: "El horario o ficha seleccionada ya ha sido ocupado por otro usuario." };
-    }
-
-    if (existingPatient && !curp.startsWith('RN-')) {
-      const q = query(collection(db, 'appointments'), where('patientId', '==', existingPatient.id));
-      const snap = await getDocs(q);
-      const isDuplicate = snap.docs.some(doc => {
-        const d = doc.data();
-        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-        return appDate === selectedDate;
-      });
-      if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita médica para este día.` };
-    }
-
+    const isTimeTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
+    if (isTimeTaken && appointment.status !== 'Atendido') return { success: false, error: "Horario/Ficha ya ocupado." };
     const clinicData = await getClinicById(appointment.clinicId);
-    if (!clinicData) return { success: false, error: "La clínica seleccionada no existe." };
-
+    if (!clinicData) return { success: false, error: "La clínica no existe." };
     const batch = writeBatch(db);
     let patientId = existingPatient ? existingPatient.id : uuidv4();
-    
-    const cleanPatient = {
-      curp,
-      name: normalizeStr(patientInput.name),
-      paternalLastName: normalizeStr(patientInput.paternalLastName),
-      maternalLastName: normalizeStr(patientInput.maternalLastName),
-      sex: patientInput.sex,
-      age: Number(patientInput.age) || 0,
-      birthDate: patientInput.birthDate || '',
-      birthState: String(patientInput.birthState || '').toUpperCase().trim(),
-      phoneNumber: String(patientInput.phoneNumber || '').trim(),
-      coloniaName: coloniaName || patientInput.coloniaName || null,
-      status: patientInput.status || PatientStatusEnum.Vigente,
-      fatherName: normalizeStr(patientInput.fatherName) || null,
-      motherName: normalizeStr(patientInput.motherName) || null,
-      fatherAge: Number(patientInput.fatherAge) || null,
-      motherAge: Number(patientInput.motherAge) || null,
-      registrationDate: patientInput.registrationDate || null,
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null,
-      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
-      updatedAt: Timestamp.now()
-    };
-
+    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthDate: patientInput.birthDate || '', birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: coloniaName || patientInput.coloniaName || null, status: patientInput.status || PatientStatusEnum.Vigente, fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-
     const appRef = doc(collection(db, 'appointments'));
     const appointmentNumber = `FOLIO-${uuidv4().split('-')[0].toUpperCase()}`;
-    
-    const cleanApp = {
-      appointmentNumber,
-      patientId,
-      clinicId: appointment.clinicId,
-      date: Timestamp.fromDate(new Date(appointment.date)),
-      time: String(appointment.time),
-      duration: clinicData.consultationDuration || 30,
-      patientType: appointment.patientType,
-      status: appointment.status || 'Agendada',
-      coloniaName: coloniaName || null,
-      createdAt: Timestamp.now()
-    };
-
+    const cleanApp = { appointmentNumber, patientId, clinicId: appointment.clinicId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), duration: clinicData.consultationDuration || 30, patientType: appointment.patientType, status: appointment.status || 'Agendada', coloniaName: coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
-  } catch (e: any) {
-    return { success: false, error: e.message };
-  }
+  } catch (e: any) { return { success: false, error: e.message }; }
 }
 
 export async function saveLabAppointment(appointment: any, patientInput: any) {
@@ -508,48 +402,15 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-
-    const qTime = query(
-      collection(db, 'labAppointments'),
-      where('time', '==', String(appointment.time))
-    );
+    const qTime = query(collection(db, 'labAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
-    const takenOnDate = snapTime.docs.filter(doc => {
-      const d = doc.data();
-      const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-      return appDate === selectedDate;
-    });
-
-    if (appointment.time === "Recepción General") {
-       const settings = await getLabSettings();
-       if (takenOnDate.length >= settings.dailySlots) {
-          return { success: false, error: "El cupo de Recepción General se ha llenado." };
-       }
-    } else if (takenOnDate.length > 0) {
-       return { success: false, error: "Este turno de lista de espera ya ha sido ocupado." };
-    }
-    
-    if (existingPatient && !curp.startsWith('RN-')) {
-      const q = query(collection(db, 'labAppointments'), where('patientId', '==', existingPatient.id));
-      const snap = await getDocs(q);
-      const isDuplicate = snap.docs.some(doc => {
-        const d = doc.data();
-        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-        return appDate === selectedDate;
-      });
-      if (isDuplicate) return { success: false, error: `Ya tiene una cita de laboratorio para este día.` };
-    }
-
+    const takenOnDate = snapTime.docs.filter(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
+    if (appointment.time === "Recepción General") { const s = await getLabSettings(); if (takenOnDate.length >= s.dailySlots) return { success: false, error: "Cupo lleno." }; }
+    else if (takenOnDate.length > 0) return { success: false, error: "Turno ya ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { 
-      curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), 
-      sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, 
-      registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() 
-    };
+    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(db, 'labAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studies: appointment.studies, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -564,20 +425,14 @@ export async function saveNewXRayAppointment(appointment: any, patientInput: any
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-
     const qTime = query(collection(db, 'xrayAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
     const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTaken) return { success: false, error: "El horario seleccionado ya está ocupado." };
-    
+    if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { 
-      curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, 
-      age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() 
-    };
+    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(db, 'xrayAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studyId: appointment.studyId, studyName: appointment.studyName, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -595,13 +450,11 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
     const qTime = query(collection(db, 'ultrasoundAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
     const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTaken) return { success: false, error: "El horario seleccionado ya está ocupado." };
-
+    if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(db, 'ultrasoundAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studyId: appointment.studyId, studyName: appointment.studyName, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -619,13 +472,11 @@ export async function saveNewVaccineAppointment(appointment: any, patientInput: 
     const qTime = query(collection(db, 'vaccineAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
     const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTaken) return { success: false, error: "Horario ya ocupado." };
-
+    if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: appointment.coloniaName || null, updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
-    
     const appRef = doc(collection(db, 'vaccineAppointments'));
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), vaccines: appointment.vaccines, status: 'Agendada', patientType: appointment.patientType, coloniaName: appointment.coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
@@ -936,33 +787,21 @@ export async function getPendingPrescriptions(filter?: { folio?: string, clinicI
     return snap.docs.map(d => serializeData(d.data()) as Prescription).filter(p => new Date(p.expiresAt).getTime() > now).sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/**
- * optimized to avoid index requirement by using a single field range query on date
- * or a single field equality on status, then filtering the rest in memory.
- */
 export async function getPrescriptionHistory(filter: { startDate?: string, endDate?: string, clinicId?: string }) {
     const db = getDb();
     let q = query(collection(db, 'prescriptions'));
-
-    // If date range is provided, use it as the primary Firestore filter (single field range query)
-    // This avoids requiring a composite index on (status, date)
     if (filter.startDate || filter.endDate) {
         if (filter.startDate) q = query(q, where('date', '>=', filter.startDate));
         if (filter.endDate) q = query(q, where('date', '<=', filter.endDate));
     } else {
-        // If no date range, just fetch by status (single field equality query)
         q = query(q, where('status', '==', 'surtida'));
     }
-
     const snap = await getDocs(q);
     let results = snap.docs.map(d => serializeData(d.data()) as Prescription);
-    
-    // Filter by status and clinic in memory to keep the Firestore queries simple
     results = results.filter(p => p.status === 'surtida');
     if (filter.clinicId && filter.clinicId !== 'all') {
         results = results.filter(p => p.clinicId === filter.clinicId);
     }
-
     return results.sort((a, b) => b.date.localeCompare(a.date));
 }
 
@@ -972,39 +811,22 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
         const pRef = doc(db, 'prescriptions', prescriptionId);
         const pSnap = await getDoc(pRef);
         if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
-        
         const prescription = pSnap.data() as Prescription;
         if (prescription.status !== 'pendiente') return { success: false, message: "Ya procesada." };
-        
         const batch = writeBatch(db);
-        
-        // If itemsToDispense is provided, only surtir those items
-        // If not provided (old behavior), surtir all items from prescription
         const items = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
-
         for (const item of items) {
             if (item.quantity <= 0) continue;
-            
             const medRef = doc(db, 'medications', item.medicationId);
             const medSnap = await getDoc(medRef);
-            
             if (medSnap.exists()) {
-                // Decrement stock. Using firestore increment is safe even if result is negative
-                batch.update(medRef, { 
-                    existencia: increment(-item.quantity), 
-                    updatedAt: new Date().toISOString() 
-                });
+                batch.update(medRef, { existencia: increment(-item.quantity), updatedAt: new Date().toISOString() });
             }
         }
-        
-        // Mark as surtida (regardless if partial, for this MVP we close the folio)
         batch.update(pRef, { status: 'surtida' });
         await batch.commit();
-        
         return { success: true };
-    } catch (e: any) { 
-        return { success: false, message: e.message }; 
-    }
+    } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 // =====================================================================
