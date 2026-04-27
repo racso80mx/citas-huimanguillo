@@ -16,6 +16,7 @@ import {
   BarChart3,
   LayoutGrid,
   ClipboardList,
+  UserRound,
 } from 'lucide-react';
 
 import {
@@ -138,6 +139,14 @@ export function AppSidebar({ moduleSettings, ...props }: React.ComponentProps<ty
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+             <SidebarMenuButton asChild isActive={false} tooltip="Catálogo de Médicos">
+              <Link href="/admin">
+                <UserRound />
+                <span>Catálogo de Médicos</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname === '/admin'} tooltip="Administración">
               <Link href="/admin">

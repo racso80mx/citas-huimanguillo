@@ -28,6 +28,7 @@ import {
   DatabaseZap,
   ShieldCheck,
   Search,
+  UserRound,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -78,6 +79,7 @@ import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
 import { PharmacyManager } from './pharmacy-manager';
 import { WarehouseManager } from './warehouse-manager';
+import { DoctorsCatalog } from './doctors-catalog';
 import { Input } from '../ui/input';
 
 type AdminDashboardProps = {
@@ -432,8 +434,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-8 h-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-9 h-auto">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+          <TabsTrigger value="medicos" className="flex items-center gap-2"><UserRound className="h-3 w-3" /> Médicos</TabsTrigger>
           <TabsTrigger value="farmacia">Farmacia</TabsTrigger>
           <TabsTrigger value="almacen">Almacén</TabsTrigger>
           <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
@@ -474,6 +477,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </Card>
                 <ActivityLogViewer />
             </div>
+        </TabsContent>
+
+        <TabsContent value="medicos" className="mt-6">
+            <DoctorsCatalog />
         </TabsContent>
 
         <TabsContent value="farmacia" className="mt-6">
