@@ -57,6 +57,7 @@ import type {
   Holiday,
   SpecialActionDay,
   Prescription,
+  Specialty,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum, ClinicType } from './definitions';
 
@@ -985,6 +986,47 @@ export async function updateSpecialActionDays(items: SpecialActionDay[]) {
 }
 
 // =====================================================================
+// SPECIALTIES (CATALOGO DE ESPECIALIDADES O SERVICIOS)
+// =====================================================================
+
+export async function getSpecialties(): Promise<Specialty[]> {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'specialties'));
+  let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Specialty);
+  
+  if (results.length === 0) {
+      // Seed defaults if empty
+      const defaults = Object.values(ClinicType).map(name => ({
+          id: uuidv4(),
+          name,
+          available: true
+      }));
+      return defaults;
+  }
+
+  return results.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function updateSpecialties(specialties: Specialty[]) {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'specialties'));
+  const batch = writeBatch(db);
+  
+  // Clean old
+  snap.docs.forEach(d => batch.delete(d.ref));
+  
+  // Set new
+  specialties.forEach(s => {
+      const id = s.id || uuidv4();
+      batch.set(doc(db, 'specialties', id), { ...s, id });
+  });
+
+  await batch.commit();
+  await logActivity("Actualización Catálogo", "Se actualizó el catálogo de Especialidades/Servicios.");
+  return { success: true };
+}
+
+// =====================================================================
 // PHARMACY & WAREHOUSE (Inventory)
 // =====================================================================
 
@@ -1332,7 +1374,7 @@ export async function bulkInsertPatients(chunk: any[]) {
   }
 }
 
-export async function bulkInsertDoctors(chunk: any[]) {
+export async function bulkInsertDoctors(chunk: any[], specialties: string[]) {
     const db = getDb();
     if (!chunk || chunk.length === 0) return { success: false };
     try {
@@ -1342,9 +1384,14 @@ export async function bulkInsertDoctors(chunk: any[]) {
             const name = String(raw['Médico'] || raw['Nombre'] || '').trim().toUpperCase();
             const license = String(raw['Cédula'] || raw['Cedula'] || '').trim().toUpperCase();
             const unit = String(raw['Unidad'] || raw['Unidad Médica'] || '').trim().toUpperCase();
-            const service = String(raw['Servicio'] || '').trim() as ClinicType;
+            let service = String(raw['Servicio'] || '').trim();
 
             if (!name) continue;
+            
+            // Try to match or default to first available specialty
+            if (!specialties.includes(service)) {
+                service = specialties[0] || 'Consulta Externa';
+            }
 
             const id = uuidv4();
             const doctorData: Clinic = {
@@ -1357,7 +1404,7 @@ export async function bulkInsertDoctors(chunk: any[]) {
                 startTime: '08:00',
                 endTime: '13:00',
                 weekendBookingEnabled: false,
-                clinicType: service || ClinicType.Externo,
+                clinicType: service,
                 bookingMode: BookingMode.Time,
                 consultationDuration: 30
             };

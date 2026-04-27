@@ -12,7 +12,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateClinics, getClinics, updateColonias, getColonias } from '@/lib/actions';
+import { updateClinics, getClinics, updateColonias, getColonias, getSpecialties } from '@/lib/actions';
 import { 
     Loader2, 
     Trash2, 
@@ -30,8 +30,8 @@ import {
     ArrowUp, 
     ArrowDown 
 } from 'lucide-react';
-import type { Clinic, Colonia } from '@/lib/definitions';
-import { ClinicType, BookingMode } from '@/lib/definitions';
+import type { Clinic, Colonia, Specialty } from '@/lib/definitions';
+import { BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -64,7 +64,7 @@ import { cn } from '@/lib/utils';
 
 const daysOfWeek = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: Clinic, allColonias: Colonia[], onSave: (clinic: Clinic, colonias: Colonia[]) => void, onCancel: () => void }) {
+function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }: { clinic: Clinic, allColonias: Colonia[], specialties: Specialty[], onSave: (clinic: Clinic, colonias: Colonia[]) => void, onCancel: () => void }) {
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
     const [showPassword, setShowPassword] = useState(false);
     const [clinicColonias, setClinicColonias] = useState<Colonia[]>(() => allColonias.filter(c => c.clinicId === clinic.id));
@@ -130,7 +130,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
             <DialogHeader>
                 <DialogTitle>Editar Configuración: {clinic.name || "Nueva Unidad"}</DialogTitle>
                 <DialogDescription>
-                    Modifica los horarios y capacidad de atención. Para registrar médicos de adscripción, utiliza el Catálogo de Médicos.
+                    Modifica los horarios y capacidad de atención.
                 </DialogDescription>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-y-auto p-4 space-y-6">
@@ -188,11 +188,11 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                 </div>
                 <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
-                    <Label htmlFor={`clinicType-${editedClinic.id}`}>Tipo de Servicio</Label>
-                    <Select value={editedClinic.clinicType} onValueChange={(value: ClinicType) => handleFieldChange('clinicType', value)}>
+                    <Label htmlFor={`clinicType-${editedClinic.id}`}>Tipo de Servicio / Especialidad</Label>
+                    <Select value={editedClinic.clinicType} onValueChange={(value: string) => handleFieldChange('clinicType', value)}>
                         <SelectTrigger id={`clinicType-${editedClinic.id}`}><SelectValue/></SelectTrigger>
                         <SelectContent>
-                            {Object.values(ClinicType).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                            {specialties.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     </div>
@@ -367,6 +367,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSavingTransition] = useTransition();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -381,10 +382,15 @@ export function ClinicsManager() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [clinicsData, coloniasData] = await Promise.all([getClinics(), getColonias()]);
+      const [clinicsData, coloniasData, specialtiesData] = await Promise.all([
+          getClinics(), 
+          getColonias(), 
+          getSpecialties()
+      ]);
       const sortedData = clinicsData.sort((a, b) => a.name.localeCompare(b.name));
       setClinics(sortedData);
       setColonias(coloniasData);
+      setSpecialties(specialtiesData);
     } catch (error) {
       console.error("Failed to fetch clinics and colonias:", error);
       toast({
@@ -465,7 +471,7 @@ export function ClinicsManager() {
         weekendBookingEnabled: false,
         daysOfAction: [],
         unavailableDates: [],
-        clinicType: ClinicType.ConsultaExterna,
+        clinicType: specialties[0]?.name || 'Consulta Externa',
         bookingMode: BookingMode.Time,
         consultationDuration: 30,
     };
@@ -587,8 +593,8 @@ export function ClinicsManager() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Todos los Servicios</SelectItem>
-                            {Object.values(ClinicType).map(type => (
-                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                            {specialties.map(s => (
+                                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -610,7 +616,7 @@ export function ClinicsManager() {
                         </TableHead>
                         <TableHead onClick={() => handleSort('clinicType')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
                             <div className="flex items-center">
-                                Tipo {getSortIcon('clinicType')}
+                                Tipo / Servicio {getSortIcon('clinicType')}
                             </div>
                         </TableHead>
                         <TableHead onClick={() => handleSort('coloniaCount')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
@@ -626,7 +632,11 @@ export function ClinicsManager() {
                         <TableRow key={clinic.id}>
                             <TableCell className="font-bold text-xs">{clinic.name}</TableCell>
                             <TableCell className="text-xs uppercase">{clinic.doctorName}</TableCell>
-                            <TableCell className="text-[10px] uppercase font-medium">{clinic.clinicType}</TableCell>
+                            <TableCell>
+                                <Badge variant="outline" className="text-[10px] uppercase font-black tracking-tighter">
+                                    {clinic.clinicType}
+                                </Badge>
+                            </TableCell>
                             <TableCell>{colonias.filter(c => c.clinicId === clinic.id).length}</TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
@@ -658,6 +668,7 @@ export function ClinicsManager() {
             <ClinicEditDialog
                 clinic={selectedClinic}
                 allColonias={colonias}
+                specialties={specialties}
                 onSave={handleDialogSave}
                 onCancel={handleDialogCancel}
             />

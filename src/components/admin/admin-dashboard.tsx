@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Search,
   UserRound,
+  Tags,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -80,6 +81,7 @@ import { ModuleSecurityManager } from './module-security-manager';
 import { PharmacyManager } from './pharmacy-manager';
 import { WarehouseManager } from './warehouse-manager';
 import { DoctorsCatalog } from './doctors-catalog';
+import { SpecialtiesManager } from './specialties-manager';
 import { Input } from '../ui/input';
 
 type AdminDashboardProps = {
@@ -136,6 +138,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         setAllXRayAppointments(xRayAppointmentsData);
         setAllUltrasoundAppointments(ultrasoundAppointmentsData);
         setAllVaccineAppointments(vaccineAppointmentsData);
+        setClinics(clinicsData);
         setClinics(clinicsData);
         setColonias(coloniasData);
       } catch (error) {
@@ -249,15 +252,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return acc;
     }, {} as Record<string, Clinic[]>);
 
-    const groupOrder = Object.values(ClinicType);
-
-    return Object.keys(groups).sort((a, b) => groupOrder.indexOf(a as ClinicType) - groupOrder.indexOf(b as ClinicType)).reduce(
-        (obj, key) => { 
-            obj[key] = groups[key]; 
-            return obj;
-        }, 
-        {} as Record<string, Clinic[]>
-    );
+    return groups;
   }, [clinics]);
 
 
@@ -434,8 +429,9 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
       </Card>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-9 h-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-10 h-auto">
           <TabsTrigger value="configuracion">Configuración</TabsTrigger>
+          <TabsTrigger value="especialidades" className="flex items-center gap-2"><Tags className="h-3 w-3" /> Catálogos</TabsTrigger>
           <TabsTrigger value="medicos" className="flex items-center gap-2"><UserRound className="h-3 w-3" /> Médicos</TabsTrigger>
           <TabsTrigger value="farmacia">Farmacia</TabsTrigger>
           <TabsTrigger value="almacen">Almacén</TabsTrigger>
@@ -477,6 +473,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 </Card>
                 <ActivityLogViewer />
             </div>
+        </TabsContent>
+
+        <TabsContent value="especialidades" className="mt-6">
+            <SpecialtiesManager />
         </TabsContent>
 
         <TabsContent value="medicos" className="mt-6">

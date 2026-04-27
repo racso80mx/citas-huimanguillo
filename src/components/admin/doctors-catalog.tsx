@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useTransition } from 'react';
-import { getClinics, updateClinics, bulkInsertDoctors, deleteClinic } from '@/lib/actions';
-import type { Clinic } from '@/lib/definitions';
+import { getClinics, updateClinics, bulkInsertDoctors, deleteClinic, getSpecialties } from '@/lib/actions';
+import type { Clinic, Specialty } from '@/lib/definitions';
 import { ClinicType, BookingMode } from '@/lib/definitions';
 import {
   Card,
@@ -57,6 +57,7 @@ import { Progress } from '../ui/progress';
 
 export function DoctorsCatalog() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Clinic; direction: 'asc' | 'desc' } | null>({ key: 'doctorName', direction: 'asc' });
@@ -70,9 +71,12 @@ export function DoctorsCatalog() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await getClinics();
-      // Only show entries that have a doctor name
-      setClinics(data.filter(c => c.doctorName && c.doctorName.trim() !== ''));
+      const [doctorsData, specialtiesData] = await Promise.all([
+          getClinics(),
+          getSpecialties()
+      ]);
+      setClinics(doctorsData.filter(c => c.doctorName && c.doctorName.trim() !== ''));
+      setSpecialties(specialtiesData);
     } catch (e) {
       toast({ title: 'Error al cargar médicos', variant: 'destructive' });
     } finally {
@@ -148,7 +152,7 @@ export function DoctorsCatalog() {
         startTime: '08:00',
         endTime: '13:00',
         weekendBookingEnabled: false,
-        clinicType: ClinicType.Externo,
+        clinicType: specialties[0]?.name || 'Consulta Externa',
         bookingMode: BookingMode.Time,
         consultationDuration: 30
     });
@@ -296,6 +300,7 @@ export function DoctorsCatalog() {
                 isOpen={isEditOpen} 
                 onClose={() => { setIsEditOpen(false); setSelectedDoctor(null); }} 
                 doctor={selectedDoctor}
+                specialties={specialties}
                 onSave={async (data) => {
                     const existing = clinics.map(c => c.id === data.id ? data : c);
                     if (!clinics.some(c => c.id === data.id)) existing.push(data);
@@ -316,7 +321,7 @@ export function DoctorsCatalog() {
   );
 }
 
-function EditDoctorDialog({ isOpen, onClose, doctor, onSave }: { isOpen: boolean, onClose: () => void, doctor: Clinic, onSave: (d: Clinic) => Promise<void> }) {
+function EditDoctorDialog({ isOpen, onClose, doctor, specialties, onSave }: { isOpen: boolean, onClose: () => void, doctor: Clinic, specialties: Specialty[], onSave: (d: Clinic) => Promise<void> }) {
     const [formData, setFormData] = useState<Clinic>(doctor);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -349,12 +354,12 @@ function EditDoctorDialog({ isOpen, onClose, doctor, onSave }: { isOpen: boolean
                     </div>
                     <div className="space-y-2">
                         <Label>Especialidad / Servicio</Label>
-                        <Select value={formData.clinicType} onValueChange={(v: any) => setFormData({...formData, clinicType: v})}>
+                        <Select value={formData.clinicType} onValueChange={(v: string) => setFormData({...formData, clinicType: v})}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {Object.values(ClinicType).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                {specialties.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -461,4 +466,3 @@ function MassUploadDoctorsDialog({ isOpen, onClose, onSuccess }: { isOpen: boole
         </Dialog>
     );
 }
-

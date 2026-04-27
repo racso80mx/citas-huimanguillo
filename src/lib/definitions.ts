@@ -81,6 +81,13 @@ export enum ClinicType {
     Externo = 'Médico Externo / Otra Área'
 }
 
+export type Specialty = {
+    id: string;
+    name: string;
+    description?: string;
+    available: boolean;
+};
+
 export enum BookingMode {
     Time = 'time',
     Token = 'token'
@@ -100,7 +107,7 @@ export const ClinicSchema = z.object({
   weekendBookingEnabled: z.boolean(),
   daysOfAction: z.array(z.string()).optional(),
   unavailableDates: z.array(z.string()).optional(),
-  clinicType: z.nativeEnum(ClinicType),
+  clinicType: z.string(), // Changed from nativeEnum to string to support dynamic specialties
   bookingMode: z.nativeEnum(BookingMode),
   consultationDuration: z.number().min(1).optional(),
 }).refine(data => {
@@ -352,7 +359,7 @@ export type Holiday = {
 
 export type SpecialActionDay = {
   date: string; // YYYY-MM-DD
-  clinicType: ClinicType;
+  clinicType: string; // Changed from ClinicType to string for flexibility
   name: string;
 };
 

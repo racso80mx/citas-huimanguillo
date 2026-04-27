@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as data from './data';
-import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Prescription } from './definitions';
+import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Prescription, Specialty } from './definitions';
 
 // =====================================================================
 // MAINTENANCE ACTIONS
@@ -31,11 +31,28 @@ export async function normalizeExpedientesAction() {
 }
 
 // =====================================================================
+// SPECIALTY ACTIONS
+// =====================================================================
+
+export async function getSpecialties() {
+    return data.getSpecialties();
+}
+
+export async function updateSpecialties(specialties: Specialty[]) {
+    const res = await data.updateSpecialties(specialties);
+    if (res.success) {
+        revalidatePath('/admin');
+    }
+    return res;
+}
+
+// =====================================================================
 // DOCTOR CATALOG ACTIONS
 // =====================================================================
 
 export async function bulkInsertDoctors(chunk: any[]) {
-    const res = await data.bulkInsertDoctors(chunk);
+    const specialties = (await data.getSpecialties()).map(s => s.name);
+    const res = await data.bulkInsertDoctors(chunk, specialties);
     if (res.success) {
         revalidatePath('/admin');
     }
@@ -394,7 +411,6 @@ export async function updateVaccineSettings(settings: any) {
 }
 
 export async function getVaccines() {
-  const db = data.getVaccines(); // Note: getVaccines might need to be called correctly
   return data.getVaccines();
 }
 export async function updateVaccines(vaccines: any[]) {
