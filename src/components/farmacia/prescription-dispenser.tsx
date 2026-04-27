@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useTransition, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { 
     Search, 
     CheckCircle2, 
@@ -15,7 +16,10 @@ import {
     AlertTriangle,
     PackageCheck,
     X,
-    Filter
+    Filter,
+    Plus,
+    User,
+    Trash2
 } from 'lucide-react';
 import { getPendingPrescriptions, dispensePrescription, getClinics, getMedications, createPrescription, getPatients } from '@/lib/actions';
 import type { Prescription, Clinic, Medication, Patient } from '@/lib/definitions';
@@ -272,10 +276,6 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
 
             if (resCreate.success) {
                 // Step 2: Immediately dispense it (since it's a manual capture of what already was surtido)
-                // We need to fetch the id of the just created prescription, or tweak data.ts to return it
-                // For simplicity, let's assume we captured the id or the server action can handle auto-dispense
-                // Tweak: getPendingPrescriptions usually filters by status:pendiente.
-                // Let's call dispense for the folio we got
                 const pending = await getPendingPrescriptions({ folio: resCreate.folio });
                 if (pending.length > 0) {
                     await dispensePrescription(pending[0].id);
@@ -283,6 +283,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                     setSelectedPatient(null);
                     setItems([]);
                     setDoctorName('');
+                    onDispenseSuccess();
                 }
             }
         } finally {
@@ -373,5 +374,3 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
         </Card>
     );
 }
-
-import { Plus, User } from 'lucide-react';

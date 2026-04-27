@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { 
   Search, 
   Plus, 
@@ -20,7 +21,8 @@ import {
   FileText, 
   Pill,
   AlertCircle,
-  User
+  User,
+  X
 } from 'lucide-react';
 import { getMedications, createPrescription, getPatients } from '@/lib/actions';
 import type { Medication, Patient, PrescriptionItem } from '@/lib/definitions';
@@ -299,5 +301,3 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
     </Dialog>
   );
 }
-
-import { X } from 'lucide-react';
