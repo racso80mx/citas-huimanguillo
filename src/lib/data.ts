@@ -813,8 +813,21 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
         if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
         const prescription = pSnap.data() as Prescription;
         if (prescription.status !== 'pendiente') return { success: false, message: "Ya procesada." };
+        
         const batch = writeBatch(db);
         const items = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
+        
+        // Filter and update the prescription items to reflect what was actually dispensed
+        const actualDispensedItems = prescription.items
+          .filter(originalItem => items.some(dispensed => dispensed.medicationId === originalItem.medicationId))
+          .map(originalItem => {
+            const dispensedInfo = items.find(d => d.medicationId === originalItem.medicationId);
+            return {
+              ...originalItem,
+              quantity: dispensedInfo?.quantity || originalItem.quantity
+            };
+          });
+
         for (const item of items) {
             if (item.quantity <= 0) continue;
             const medRef = doc(db, 'medications', item.medicationId);
@@ -823,7 +836,14 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
                 batch.update(medRef, { existencia: increment(-item.quantity), updatedAt: new Date().toISOString() });
             }
         }
-        batch.update(pRef, { status: 'surtida' });
+        
+        // Update the prescription with ONLY the items that were dispensed and their actual quantities
+        batch.update(pRef, { 
+          status: 'surtida',
+          items: actualDispensedItems,
+          updatedAt: new Date().toISOString()
+        });
+        
         await batch.commit();
         return { success: true };
     } catch (e: any) { return { success: false, message: e.message }; }
