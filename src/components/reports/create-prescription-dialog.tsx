@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -25,9 +25,11 @@ import {
   X,
   Calendar,
   FlaskConical,
-  Stethoscope
+  Stethoscope,
+  UserRound,
+  Hospital
 } from 'lucide-react';
-import { getMedications, createPrescription, getPatients, getLabStudies } from '@/lib/actions';
+import { getMedications, createPrescription, getPatients, getLabStudies, getClinics } from '@/lib/actions';
 import type { Medication, Patient, PrescriptionItem, Clinic, LabStudy } from '@/lib/definitions';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +41,7 @@ import { Combobox } from '../ui/combobox';
 type CreatePrescriptionDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  clinic: Clinic;
+  clinic: Clinic; // This is the current logged-in context
   initialPatient?: Patient | null;
 };
 
@@ -55,6 +57,12 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   
   const [allLabStudies, setAllLabStudies] = useState<LabStudy[]>([]);
   const [selectedLabStudies, setSelectedLabStudies] = useState<string[]>([]);
+
+  // Medical Directory selection
+  const [allDoctors, setAllDoctors] = useState<Clinic[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>(clinic.id);
+  const [manualDoctor, setManualDoctor] = useState({ name: '', license: '', unit: '' });
+  const [isManualDoctor, setIsManualDoctor] = useState(false);
   
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState(false);
@@ -62,17 +70,23 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   
   const { toast } = useToast();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setIsLoadingInitialData(true);
-      Promise.all([getMedications(), getLabStudies()]).then(([meds, labs]) => {
+      Promise.all([getMedications(), getLabStudies(), getClinics()]).then(([meds, labs, docs]) => {
         setMedications(meds);
         setAllLabStudies(labs.filter(l => l.available));
+        setAllDoctors(docs);
         setIsLoadingInitialData(false);
       });
       if (initialPatient) setSelectedPatient(initialPatient);
+      setSelectedDoctorId(clinic.id);
     }
-  }, [isOpen, initialPatient]);
+  }, [isOpen, initialPatient, clinic.id]);
+
+  const selectedDoctor = useMemo(() => {
+    return allDoctors.find(d => d.id === selectedDoctorId) || null;
+  }, [allDoctors, selectedDoctorId]);
 
   const handleSearchPatients = async () => {
     if (!patientSearch.trim()) return;
@@ -87,7 +101,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
 
   const handleAddMedication = (med: Medication) => {
     if (med.existencia <= 0) {
-        toast({ title: "Sin stock", description: "Este lote no tiene existencia. Selecciona otro lote.", variant: "destructive" });
+        toast({ title: "Sin stock", description: "Este lote no tiene existencia.", variant: "destructive" });
         return;
     }
     
@@ -125,11 +139,20 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
 
   const handleSave = async () => {
     if (!selectedPatient) {
-        toast({ title: "Paciente requerido", description: "Selecciona un paciente para la receta.", variant: "destructive" });
+        toast({ title: "Paciente requerido", variant: "destructive" });
         return;
     }
     if (!diagnosis.trim()) {
-        toast({ title: "Diagnóstico requerido", description: "Escribe el diagnóstico del paciente.", variant: "destructive" });
+        toast({ title: "Diagnóstico requerido", variant: "destructive" });
+        return;
+    }
+
+    const docName = isManualDoctor ? manualDoctor.name : selectedDoctor?.doctorName;
+    const docLicense = isManualDoctor ? manualDoctor.license : selectedDoctor?.professionalLicense;
+    const unit = isManualDoctor ? manualDoctor.unit : selectedDoctor?.name;
+
+    if (!docName) {
+        toast({ title: "Médico requerido", variant: "destructive" });
         return;
     }
 
@@ -138,10 +161,10 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         const result = await createPrescription({
             patientId: selectedPatient.id,
             patientName: `${selectedPatient.name} ${selectedPatient.paternalLastName} ${selectedPatient.maternalLastName}`,
-            clinicId: clinic.id,
-            doctorName: clinic.doctorName,
-            doctorLicense: clinic.professionalLicense,
-            unitName: clinic.name,
+            clinicId: isManualDoctor ? 'externo' : (selectedDoctor?.id || clinic.id),
+            doctorName: docName,
+            doctorLicense: docLicense || '',
+            unitName: unit || '',
             date: new Date().toISOString(),
             diagnosis,
             items: prescriptionItems,
@@ -151,7 +174,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         });
 
         if (result.success) {
-            toast({ title: "Receta Generada", description: `Folio: ${result.folio}. Se ha enviado a Farmacia.` });
+            toast({ title: "Receta Generada", description: `Folio: ${result.folio}.` });
             setPrescriptionItems([]);
             setDiagnosis('');
             setOtherMedications('');
@@ -165,6 +188,23 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         setIsSaving(false);
     }
   };
+
+  const doctorOptions = useMemo(() => {
+    return allDoctors.map(d => ({
+        value: d.id,
+        label: `${d.doctorName} (${d.name})`,
+        keywords: `${d.doctorName} ${d.name} ${d.professionalLicense} ${d.clinicType}`,
+        content: (
+            <div className="flex flex-col gap-0.5 py-1">
+                <span className="font-bold text-sm uppercase">{d.doctorName}</span>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium uppercase">
+                    <Hospital className="h-3 w-3" /> {d.name}
+                    {d.professionalLicense && <span>• CED: {d.professionalLicense}</span>}
+                </div>
+            </div>
+        )
+    }));
+  }, [allDoctors]);
 
   const medOptions = useMemo(() => {
     return medications.map(m => ({
@@ -201,16 +241,15 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         <DialogHeader className="p-6 pb-2 border-b bg-muted/20">
           <div className="flex items-center justify-between">
             <div>
-                <DialogTitle className="flex items-center gap-2 text-2xl">
-                    <FileText className="h-7 w-7 text-primary" /> Prescripción Médica Digital
+                <DialogTitle className="flex items-center gap-2 text-2xl font-black">
+                    <FileText className="h-7 w-7 text-primary" /> PRESCRIPCIÓN MÉDICA
                 </DialogTitle>
                 <DialogDescription>
-                    Completa la receta para el paciente. Los insumos del hospital se descuentan en Farmacia.
+                    Completa la receta para el paciente. Los insumos se descuentan en Farmacia.
                 </DialogDescription>
             </div>
             <div className="text-right">
-                <Badge variant="outline" className="font-mono text-xs uppercase">{clinic.name}</Badge>
-                <p className="text-[10px] text-muted-foreground mt-1">Dr. {clinic.doctorName}</p>
+                <Badge variant="outline" className="font-mono text-xs uppercase bg-background">{clinic.name}</Badge>
             </div>
           </div>
         </DialogHeader>
@@ -239,7 +278,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                         </Button>
                     </div>
                     ) : (
-                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between animate-in fade-in zoom-in duration-200">
+                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between animate-in fade-in zoom-in duration-200 shadow-sm">
                         <div className="flex items-center gap-4">
                             <div className="bg-primary/10 p-3 rounded-full"><User className="h-6 w-6 text-primary" /></div>
                             <div>
@@ -258,7 +297,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                     )}
 
                     {patients.length > 0 && !selectedPatient && (
-                    <div className="border rounded-xl p-2 bg-muted/10 grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    <div className="border rounded-xl p-2 bg-muted/10 grid sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto shadow-inner">
                         {patients.map(p => (
                             <button 
                                 key={p.id}
@@ -273,26 +312,81 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                     )}
                 </div>
 
-                {/* 2. DIAGNÓSTICO */}
+                {/* 2. MÉDICO QUE PRESCRIBE */}
                 <div className="space-y-4">
                     <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                        <Stethoscope className="h-4 w-4" /> 2. Diagnóstico Clínico
+                        <UserRound className="h-4 w-4" /> 2. Médico que Prescribe
+                    </Label>
+                    
+                    {!isManualDoctor ? (
+                        <div className="space-y-4">
+                            <Combobox 
+                                options={doctorOptions}
+                                value={selectedDoctorId}
+                                onChange={setSelectedDoctorId}
+                                placeholder="Selecciona el médico del directorio..."
+                                searchPlaceholder="Buscar por nombre o unidad..."
+                                disabled={isLoadingInitialData}
+                            />
+                            {selectedDoctor && (
+                                <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-xl border bg-muted/30 animate-in fade-in">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Unidad / Área</p>
+                                        <p className="text-sm font-bold uppercase">{selectedDoctor.name}</p>
+                                    </div>
+                                    <div className="space-y-1 text-right">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase">Cédula Profesional</p>
+                                        <p className="text-sm font-bold font-mono">{selectedDoctor.professionalLicense || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            )}
+                            <Button variant="link" size="sm" className="px-0" onClick={() => setIsManualDoctor(true)}>
+                                ¿No está en el directorio? Capturar manualmente
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-4 p-4 border rounded-xl bg-accent/5">
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold uppercase opacity-60">Nombre del Médico</Label>
+                                    <Input placeholder="Ej. Dr. Juan Pérez" value={manualDoctor.name} onChange={e => setManualDoctor({...manualDoctor, name: e.target.value.toUpperCase()})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-bold uppercase opacity-60">Cédula</Label>
+                                    <Input placeholder="Número de cédula" value={manualDoctor.license} onChange={e => setManualDoctor({...manualDoctor, license: e.target.value.toUpperCase()})} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase opacity-60">Unidad Médica de Procedencia</Label>
+                                <Input placeholder="Ej. Urgencias, Hospitalización..." value={manualDoctor.unit} onChange={e => setManualDoctor({...manualDoctor, unit: e.target.value.toUpperCase()})} />
+                            </div>
+                            <Button variant="link" size="sm" className="px-0" onClick={() => setIsManualDoctor(false)}>
+                                Volver al Directorio Médico
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                {/* 3. DIAGNÓSTICO */}
+                <div className="space-y-4">
+                    <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4" /> 3. Diagnóstico Clínico
                     </Label>
                     <Textarea 
                         placeholder="Escribe el diagnóstico médico y observaciones generales..."
-                        className="min-h-[80px] bg-muted/10"
+                        className="min-h-[80px] bg-muted/10 font-medium"
                         value={diagnosis}
                         onChange={e => setDiagnosis(e.target.value.toUpperCase())}
                     />
                 </div>
 
-                {/* 3. MEDICAMENTOS DEL HOSPITAL */}
+                {/* 4. MEDICAMENTOS DEL HOSPITAL */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                            <Pill className="h-4 w-4" /> 3. Medicamentos de Farmacia (Surtido Interno)
+                            <Pill className="h-4 w-4" /> 4. Medicamentos de Farmacia (Surtido Interno)
                         </Label>
-                        <Badge variant="outline" className="text-[10px] font-bold">Válido 24 hrs</Badge>
+                        <Badge variant="outline" className="text-[10px] font-bold bg-background">Válido 24 hrs</Badge>
                     </div>
                     <Combobox 
                         options={medOptions}
@@ -311,7 +405,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                             <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead className="text-[10px] font-black uppercase">Insumo / Lote</TableHead>
-                                    <TableHead className="w-[100px] text-center text-[10px] font-black uppercase">Cant.</TableHead>
+                                    <TableHead className="w-[80px] text-center text-[10px] font-black uppercase">Cant.</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Frecuencia / Vía</TableHead>
                                     <TableHead className="text-[10px] font-black uppercase">Indicaciones</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
@@ -340,7 +434,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                                                 placeholder="Ej. Cada 8 hrs" 
                                                 className="h-9 text-xs font-medium"
                                                 value={item.frequency || ''}
-                                                onChange={e => updateItem(item.medicationId, 'frequency', e.target.value)}
+                                                onChange={e => updateItem(item.medicationId, 'frequency', e.target.value.toUpperCase())}
                                             />
                                         </TableCell>
                                         <TableCell>
@@ -348,7 +442,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                                                 placeholder="Observaciones..." 
                                                 className="h-9 text-xs"
                                                 value={item.indications || ''}
-                                                onChange={e => updateItem(item.medicationId, 'indications', e.target.value)}
+                                                onChange={e => updateItem(item.medicationId, 'indications', e.target.value.toUpperCase())}
                                             />
                                         </TableCell>
                                         <TableCell>
@@ -369,23 +463,23 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                     </div>
                 </div>
 
-                {/* 4. MEDICAMENTOS EXTERNOS */}
+                {/* 5. MEDICAMENTOS EXTERNOS */}
                 <div className="space-y-4">
                     <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                        <Plus className="h-4 w-4" /> 4. Otros Medicamentos (Adquisición Externa)
+                        <Plus className="h-4 w-4" /> 5. Otros Medicamentos (Adquisición Externa)
                     </Label>
                     <Textarea 
-                        placeholder="Escribe otros medicamentos que el paciente deba adquirir por su cuenta y su posología..."
-                        className="min-h-[80px] bg-muted/10"
+                        placeholder="Escribe otros medicamentos que el paciente deba adquirir por su cuenta..."
+                        className="min-h-[80px] bg-muted/10 uppercase"
                         value={otherMedications}
                         onChange={e => setOtherMedications(e.target.value.toUpperCase())}
                     />
                 </div>
 
-                {/* 5. ESTUDIOS DE LABORATORIO */}
+                {/* 6. ESTUDIOS DE LABORATORIO */}
                 <div className="space-y-4">
                     <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                        <FlaskConical className="h-4 w-4" /> 5. Estudios de Laboratorio
+                        <FlaskConical className="h-4 w-4" /> 6. Estudios de Laboratorio
                     </Label>
                     <Combobox 
                         options={labOptions}
@@ -396,9 +490,9 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                         disabled={isLoadingInitialData}
                     />
                     {selectedLabStudies.length > 0 && (
-                        <div className="flex flex-wrap gap-2 p-4 bg-muted/20 border rounded-xl">
+                        <div className="flex flex-wrap gap-2 p-4 bg-muted/20 border rounded-xl shadow-inner">
                             {selectedLabStudies.map(study => (
-                                <Badge key={study} variant="secondary" className="pl-3 pr-1.5 py-1.5 flex items-center gap-2 bg-background border-primary/20 text-foreground font-bold">
+                                <Badge key={study} variant="secondary" className="pl-3 pr-1.5 py-1.5 flex items-center gap-2 bg-background border-primary/20 text-foreground font-bold shadow-sm">
                                     <span className="text-xs uppercase">{study}</span>
                                     <button onClick={() => toggleLabStudy(study)} className="hover:text-destructive transition-colors"><X className="h-3 w-3" /></button>
                                 </Badge>
@@ -413,7 +507,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
           <Button variant="outline" onClick={onClose} disabled={isSaving} className="h-12 px-8">Cancelar</Button>
           <Button 
             onClick={handleSave} 
-            disabled={isSaving || !selectedPatient || !diagnosis} 
+            disabled={isSaving || !selectedPatient || !diagnosis || (!selectedDoctor && !isManualDoctor)} 
             className="h-12 px-10 font-bold bg-primary hover:bg-primary/90 shadow-lg transition-all"
           >
             {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
@@ -424,3 +518,4 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
     </Dialog>
   );
 }
+

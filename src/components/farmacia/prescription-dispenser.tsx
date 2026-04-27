@@ -23,7 +23,8 @@ import {
     Filter,
     ClipboardList,
     RefreshCw,
-    ShieldCheck
+    ShieldCheck,
+    UserRound
 } from 'lucide-react';
 import { 
     getPendingPrescriptions, 
@@ -260,25 +261,33 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
     const [patientSearch, setPatientSearch] = useState('');
     const [patients, setPatients] = useState<Patient[]>([]);
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-    const [doctorName, setDoctorName] = useState('');
-    const [doctorLicense, setDoctorLicense] = useState('');
-    const [unitName, setUnitName] = useState('');
+    
+    // Medical Directory state
+    const [allDoctors, setAllDoctors] = useState<Clinic[]>([]);
+    const [selectedDoctorId, setSelectedDoctorId] = useState('');
+    const [manualDoctor, setManualDoctor] = useState({ name: '', license: '', unit: '' });
+    const [isManualDoctor, setIsManualDoctor] = useState(false);
     
     const [medications, setMedications] = useState<Medication[]>([]);
     const [items, setItems] = useState<any[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
-    const [isLoadingMeds, setIsLoadingMeds] = useState(false);
+    const [isLoadingInitial, setIsLoadingInitial] = useState(false);
 
     const { toast } = useToast();
 
     useEffect(() => {
-        setIsLoadingMeds(true);
-        getMedications().then(data => {
-            setMedications(data);
-            setIsLoadingMeds(false);
+        setIsLoadingInitial(true);
+        Promise.all([getMedications(), getClinics()]).then(([medData, docData]) => {
+            setMedications(medData);
+            setAllDoctors(docData);
+            setIsLoadingInitial(false);
         });
     }, []);
+
+    const selectedDoctor = useMemo(() => {
+        return allDoctors.find(d => d.id === selectedDoctorId) || null;
+    }, [allDoctors, selectedDoctorId]);
 
     const handleSearchPatients = async () => {
         if (!patientSearch.trim()) return;
@@ -297,19 +306,24 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
     };
 
     const handleSave = async () => {
-        if (!selectedPatient || !doctorName.trim() || !unitName.trim() || items.length === 0) {
-            toast({ title: "Faltan datos", description: "Completa los datos del médico, unidad y al menos un medicamento.", variant: "destructive" });
+        const docName = isManualDoctor ? manualDoctor.name : selectedDoctor?.doctorName;
+        const docLicense = isManualDoctor ? manualDoctor.license : selectedDoctor?.professionalLicense;
+        const unit = isManualDoctor ? manualDoctor.unit : selectedDoctor?.name;
+
+        if (!selectedPatient || !docName || !unit || items.length === 0) {
+            toast({ title: "Faltan datos", description: "Verifica médico, paciente e insumos.", variant: "destructive" });
             return;
         }
+
         setIsSaving(true);
         try {
             const resCreate = await createPrescription({
                 patientId: selectedPatient.id,
                 patientName: `${selectedPatient.name} ${selectedPatient.paternalLastName}`,
-                clinicId: 'externo',
-                doctorName,
-                doctorLicense,
-                unitName,
+                clinicId: isManualDoctor ? 'externo' : (selectedDoctor?.id || 'externo'),
+                doctorName: docName,
+                doctorLicense: docLicense || '',
+                unitName: unit || '',
                 date: new Date().toISOString(),
                 items,
                 type: 'externo'
@@ -319,12 +333,11 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                 const pending = await getPendingPrescriptions({ folio: resCreate.folio });
                 if (pending.length > 0) {
                     await dispensePrescription(pending[0].id);
-                    toast({ title: "Receta Externa Surtida", description: "Se descontó el inventario correctamente." });
+                    toast({ title: "Receta Externa Surtida" });
                     setSelectedPatient(null);
                     setItems([]);
-                    setDoctorName('');
-                    setDoctorLicense('');
-                    setUnitName('');
+                    setManualDoctor({ name: '', license: '', unit: '' });
+                    setSelectedDoctorId('');
                     onDispenseSuccess();
                 }
             }
@@ -332,6 +345,20 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
             setIsSaving(false);
         }
     };
+
+    const doctorOptions = useMemo(() => {
+        return allDoctors.map(d => ({
+            value: d.id,
+            label: `${d.doctorName} (${d.name})`,
+            keywords: `${d.doctorName} ${d.name} ${d.professionalLicense}`,
+            content: (
+                <div className="flex flex-col gap-0.5 py-1">
+                    <span className="font-bold text-sm uppercase">{d.doctorName}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase">{d.name} • CED: {d.professionalLicense || 'S/C'}</span>
+                </div>
+            )
+        }));
+    }, [allDoctors]);
 
     const medOptions = useMemo(() => {
         return medications.map(m => ({
@@ -348,7 +375,6 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground font-mono font-bold uppercase mt-1">
                         <span className="flex items-center gap-1.5"><Pill className="h-3 w-3 text-primary" /> LOTE: {m.lote}</span>
                         <span className="flex items-center gap-1.5"><CalendarIcon className="h-3 w-3 text-primary" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
-                        <span className="text-primary/60">{m.claveCuadroBasico}</span>
                     </div>
                 </div>
             )
@@ -359,59 +385,79 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
         <Card className="shadow-lg border-primary/20 bg-primary/5">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5 text-primary" /> Captura de Receta Externa</CardTitle>
-                <CardDescription>Surtido directo de recetas de médicos externos u otras áreas del hospital.</CardDescription>
+                <CardDescription>Surtido directo vinculando al personal del hospital o captura manual.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+                {/* Paciente Section */}
                 <div className="space-y-4">
-                    <Label className="text-xs font-bold uppercase opacity-60">Paciente</Label>
+                    <Label className="text-xs font-bold uppercase opacity-60">1. Paciente</Label>
                     {!selectedPatient ? (
                         <div className="flex gap-2">
                             <Input placeholder="Buscar por nombre..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchPatients()} />
                             <Button size="sm" onClick={handleSearchPatients} disabled={isSearching}><Search className="h-4 w-4"/></Button>
                         </div>
                     ) : (
-                        <div className="p-3 bg-background border rounded-lg flex items-center justify-between">
+                        <div className="p-3 bg-background border rounded-lg flex items-center justify-between shadow-sm">
                             <span className="text-xs font-bold uppercase">{selectedPatient.name} {selectedPatient.paternalLastName}</span>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedPatient(null)}><X className="h-3 w-3"/></Button>
                         </div>
                     )}
                     {patients.length > 0 && !selectedPatient && (
-                        <div className="border rounded bg-background p-1 space-y-1 max-h-32 overflow-y-auto">
+                        <div className="border rounded bg-background p-1 space-y-1 max-h-32 overflow-y-auto shadow-inner">
                             {patients.map(p => <button key={p.id} className="w-full text-left p-2 hover:bg-muted text-xs rounded" onClick={() => setSelectedPatient(p)}>{p.name} {p.paternalLastName}</button>)}
                         </div>
                     )}
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase opacity-60">Médico que prescribe</Label>
-                        <Input placeholder="Ej. Dr. Juan Pérez" value={doctorName} onChange={e => setDoctorName(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase opacity-60">Cédula Profesional</Label>
-                        <Input placeholder="Cédula del médico" value={doctorLicense} onChange={e => setDoctorLicense(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase opacity-60">Unidad de procedencia</Label>
-                        <Select value={unitName} onValueChange={setUnitName}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona unidad..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Urgencias">Urgencias</SelectItem>
-                                <SelectItem value="Hospitalización">Hospitalización</SelectItem>
-                                <SelectItem value="Consulta Externa">Consulta Externa</SelectItem>
-                                <SelectItem value="C.S. Rural">Centro de Salud Rural</SelectItem>
-                                <SelectItem value="Especialista Externo">Especialista Externo</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <Separator />
+
+                {/* Médico Section */}
+                <div className="space-y-4">
+                    <Label className="text-xs font-bold uppercase opacity-60">2. Médico que prescribe</Label>
+                    {!isManualDoctor ? (
+                        <div className="space-y-3">
+                            <Combobox 
+                                options={doctorOptions}
+                                value={selectedDoctorId}
+                                onChange={setSelectedDoctorId}
+                                placeholder="Selecciona el médico del directorio..."
+                                searchPlaceholder="Buscar médico o unidad..."
+                                disabled={isLoadingInitial}
+                            />
+                            {selectedDoctor && (
+                                <div className="grid sm:grid-cols-2 gap-4 p-3 rounded-lg border bg-background text-[10px] uppercase font-bold text-muted-foreground animate-in slide-in-from-left-2">
+                                    <span>UNIDAD: <span className="text-foreground">{selectedDoctor.name}</span></span>
+                                    <span className="text-right">CÉDULA: <span className="text-foreground">{selectedDoctor.professionalLicense || 'N/A'}</span></span>
+                                </div>
+                            )}
+                            <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setIsManualDoctor(true)}>Capturar médico manualmente (fuera del hospital)</Button>
+                        </div>
+                    ) : (
+                        <div className="space-y-4 p-4 border rounded-xl bg-background shadow-inner">
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold uppercase opacity-60">Nombre del Médico</Label>
+                                    <Input placeholder="Ej. Dr. Juan Pérez" value={manualDoctor.name} onChange={e => setManualDoctor({...manualDoctor, name: e.target.value.toUpperCase()})} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold uppercase opacity-60">Cédula Profesional</Label>
+                                    <Input placeholder="Cédula del médico" value={manualDoctor.license} onChange={e => setManualDoctor({...manualDoctor, license: e.target.value.toUpperCase()})} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-bold uppercase opacity-60">Unidad de procedencia</Label>
+                                <Input placeholder="Ej. Urgencias, Centro de Salud Rural..." value={manualDoctor.unit} onChange={e => setManualDoctor({...manualDoctor, unit: e.target.value.toUpperCase()})} />
+                            </div>
+                            <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setIsManualDoctor(false)}>Volver al Directorio Médico</Button>
+                        </div>
+                    )}
                 </div>
 
                 <Separator />
 
+                {/* Insumos Section */}
                 <div className="space-y-4">
-                    <Label className="text-xs font-bold uppercase opacity-60">Medicamentos a descontar</Label>
+                    <Label className="text-xs font-bold uppercase opacity-60">3. Medicamentos a descontar</Label>
                     <Combobox 
                         options={medOptions} 
                         value="" 
@@ -421,15 +467,15 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                         }}
                         placeholder="Busca por nombre o lote del medicamento..."
                         searchPlaceholder="Filtrar catálogo..."
-                        disabled={isLoadingMeds}
+                        disabled={isLoadingInitial}
                     />
                     
                     <div className="border rounded-lg bg-background shadow-inner">
                         <Table>
                             <TableHeader className="bg-muted/30">
                                 <TableRow>
-                                    <TableHead>Medicamento / Lote</TableHead>
-                                    <TableHead className="w-[100px]">Cant.</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase">Medicamento / Lote</TableHead>
+                                    <TableHead className="w-[100px] text-center text-[10px] font-black uppercase">Cant.</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
