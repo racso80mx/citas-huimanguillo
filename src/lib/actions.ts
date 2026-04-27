@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -232,6 +233,10 @@ export async function getPendingPrescriptions(filter?: { folio?: string, clinicI
     return data.getPendingPrescriptions(filter);
 }
 
+export async function getPrescriptionHistory(filter: { startDate?: string, endDate?: string, clinicId?: string }) {
+    return data.getPrescriptionHistory(filter);
+}
+
 export async function dispensePrescription(prescriptionId: string) {
     const res = await data.dispensePrescription(prescriptionId);
     if (res.success) {
@@ -251,7 +256,7 @@ export async function deleteAllMedications() { return data.deleteAllMedications(
 
 export async function getSupplies() { return data.getSupplies(); }
 export async function bulkInsertSupplies(chunk: any[]) { return data.bulkInsertSupplies(chunk); }
-export async function deleteAllSupplies() { return deleteInventoryItems('supplies'); }
+export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
 
 export async function getPharmacySettings() { return data.getPharmacySettings(); }
 export async function updatePharmacySettings(settings: any) {
@@ -306,23 +311,7 @@ export async function updateAnnouncements(messages: string[]) {
 }
 
 export async function getModuleSettings() { 
-  return getSettingsDoc<ModuleSettings>('moduleSettings', { 
-    citasMedicasEnabled: true, 
-    laboratorioEnabled: true, 
-    rayosXEnabled: true, 
-    ultrasoundEnabled: true, 
-    vacunasEnabled: true, 
-    archivoEnabled: true, 
-    farmaciaEnabled: true, 
-    almacenEnabled: true,
-    archivoConsultaEnabled: true,
-    citasMedicasWhatsAppEnabled: true,
-    laboratorioWhatsAppEnabled: true,
-    rayosXWhatsAppEnabled: true,
-    ultrasoundWhatsAppEnabled: true,
-    vacunasWhatsAppEnabled: true,
-    archivoWhatsAppEnabled: true
-  }); 
+  return data.getModuleSettings();
 }
 export async function updateModuleSettings(settings: any) {
   const res = await data.updateModuleSettings(settings);
@@ -443,6 +432,8 @@ export async function updateSpecialActionDays(items: SpecialActionDay[]) {
 // =====================================================================
 
 export async function verifyArchivePassword(password: string) { return data.verifyArchivePassword(password); }
+export async function verifyPharmacyPassword(password: string) { return data.verifyPharmacyPassword(password); }
+export async function verifyWarehousePassword(password: string) { return data.verifyWarehousePassword(password); }
 export async function verifyClinicPassword(id: string, password: string) { return data.verifyClinicPassword(id, password); }
 export async function verifyLabPassword(password: string) { return data.verifyLabPassword(password); }
 export async function verifyXRayPassword(password: string) { return data.verifyXRayPassword(password); }

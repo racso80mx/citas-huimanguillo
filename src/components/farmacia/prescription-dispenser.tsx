@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,32 +9,53 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { 
     Search, 
-    CheckCircle2, 
     Loader2, 
     FileText, 
     Hospital, 
     History, 
-    AlertTriangle,
     PackageCheck,
     X,
-    Filter,
     Plus,
     User,
     Trash2,
     Pill,
-    Calendar
+    Calendar as CalendarIcon,
+    Download,
+    Filter,
+    ClipboardList
 } from 'lucide-react';
-import { getPendingPrescriptions, dispensePrescription, getClinics, getMedications, createPrescription, getPatients } from '@/lib/actions';
+import { 
+    getPendingPrescriptions, 
+    dispensePrescription, 
+    getClinics, 
+    getMedications, 
+    createPrescription, 
+    getPatients,
+    getPrescriptionHistory
+} from '@/lib/actions';
 import type { Prescription, Clinic, Medication, Patient } from '@/lib/definitions';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { 
+    format, 
+    startOfDay, 
+    endOfDay, 
+    startOfWeek, 
+    endOfWeek, 
+    startOfMonth, 
+    endOfMonth, 
+    parseISO, 
+    isWithinInterval 
+} from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Combobox } from '../ui/combobox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '../ui/calendar';
+import { DateRange } from 'react-day-picker';
 
 export function PrescriptionDispenser() {
     const [view, setActiveView] = useState<'pending' | 'manual'>('pending');
@@ -44,11 +66,12 @@ export function PrescriptionDispenser() {
     const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isDispensing, setIsDispensing] = useState<string | null>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     
     const { toast } = useToast();
 
     // Fetch filters data
-    React.useEffect(() => {
+    useEffect(() => {
         getClinics().then(setClinics);
     }, []);
 
@@ -75,6 +98,7 @@ export function PrescriptionDispenser() {
             if (res.success) {
                 toast({ title: "Receta Surtida", description: "El inventario ha sido actualizado correctamente." });
                 setPrescriptions(prev => prev.filter(p => p.id !== pId));
+                setRefreshTrigger(prev => prev + 1); // Trigger history update
             } else {
                 toast({ title: "Error al surtir", description: res.message, variant: "destructive" });
             }
@@ -84,19 +108,19 @@ export function PrescriptionDispenser() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-10">
             <div className="flex gap-2">
                 <Button 
                     variant={view === 'pending' ? 'default' : 'outline'} 
                     onClick={() => setActiveView('pending')}
-                    className="flex-1 sm:flex-none"
+                    className="flex-1 sm:flex-none h-11"
                 >
                     <FileText className="mr-2 h-4 w-4" /> Recetas de Núcleos
                 </Button>
                 <Button 
                     variant={view === 'manual' ? 'default' : 'outline'} 
                     onClick={() => setActiveView('manual')}
-                    className="flex-1 sm:flex-none"
+                    className="flex-1 sm:flex-none h-11"
                 >
                     <Plus className="mr-2 h-4 w-4" /> Captura Externa
                 </Button>
@@ -222,8 +246,10 @@ export function PrescriptionDispenser() {
                     )}
                 </div>
             ) : (
-                <ExternalPrescriptionForm onDispenseSuccess={loadPrescriptions} />
+                <ExternalPrescriptionForm onDispenseSuccess={() => { loadPrescriptions(); setRefreshTrigger(prev => prev + 1); }} />
             )}
+
+            <PrescriptionHistory refreshTrigger={refreshTrigger} clinics={clinics} />
         </div>
     );
 }
@@ -242,7 +268,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
 
     const { toast } = useToast();
 
-    React.useEffect(() => {
+    useEffect(() => {
         setIsLoadingMeds(true);
         getMedications().then(data => {
             setMedications(data);
@@ -273,7 +299,6 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
         }
         setIsSaving(true);
         try {
-            // Step 1: Create a surtida prescription
             const resCreate = await createPrescription({
                 patientId: selectedPatient.id,
                 patientName: `${selectedPatient.name} ${selectedPatient.paternalLastName}`,
@@ -285,7 +310,6 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
             });
 
             if (resCreate.success) {
-                // Step 2: Immediately dispense it
                 const pending = await getPendingPrescriptions({ folio: resCreate.folio });
                 if (pending.length > 0) {
                     await dispensePrescription(pending[0].id);
@@ -315,7 +339,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground font-mono font-bold uppercase mt-1">
                         <span className="flex items-center gap-1.5"><Pill className="h-3 w-3 text-primary" /> LOTE: {m.lote}</span>
-                        <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 text-primary" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
+                        <span className="flex items-center gap-1.5"><CalendarIcon className="h-3 w-3 text-primary" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
                         <span className="text-primary/60">{m.claveCuadroBasico}</span>
                     </div>
                 </div>
@@ -359,7 +383,7 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                 <Separator />
 
                 <div className="space-y-4">
-                    <Label className="text-xs font-bold uppercase opacity-60">Selección de Lote y Medicamento</Label>
+                    <Label className="text-xs font-bold uppercase opacity-60">Medicamentos a descontar</Label>
                     <Combobox 
                         options={medOptions} 
                         value="" 
@@ -408,6 +432,246 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
                     SURTIR Y ACTUALIZAR INVENTARIO
                 </Button>
             </CardFooter>
+        </Card>
+    );
+}
+
+function PrescriptionHistory({ refreshTrigger, clinics }: { refreshTrigger: number, clinics: Clinic[] }) {
+    const [history, setHistory] = useState<Prescription[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'range'>('today');
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    const { toast } = useToast();
+
+    const loadHistory = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const now = new Date();
+            let startDate: string | undefined;
+            let endDate: string | undefined;
+
+            switch (filterType) {
+                case 'today':
+                    startDate = startOfDay(now).toISOString();
+                    endDate = endOfDay(now).toISOString();
+                    break;
+                case 'week':
+                    startDate = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
+                    endDate = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
+                    break;
+                case 'month':
+                    startDate = startOfMonth(now).toISOString();
+                    endDate = endOfMonth(now).toISOString();
+                    break;
+                case 'range':
+                    if (dateRange?.from) {
+                        startDate = startOfDay(dateRange.from).toISOString();
+                        endDate = endOfDay(dateRange.to || dateRange.from).toISOString();
+                    }
+                    break;
+            }
+
+            if (filterType === 'range' && !startDate) {
+                setHistory([]);
+                return;
+            }
+
+            const data = await getPrescriptionHistory({ startDate, endDate });
+            setHistory(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [filterType, dateRange]);
+
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory, refreshTrigger]);
+
+    const filteredHistory = useMemo(() => {
+        if (!searchTerm) return history;
+        const term = searchTerm.toUpperCase();
+        return history.filter(p => 
+            p.folio.toUpperCase().includes(term) || 
+            p.patientName.toUpperCase().includes(term)
+        );
+    }, [history, searchTerm]);
+
+    const handleDownloadExcel = async () => {
+        if (filteredHistory.length === 0) return;
+        const xlsx = await import('xlsx');
+        
+        const data = filteredHistory.flatMap(p => 
+            p.items.map(item => ({
+                'Folio': p.folio,
+                'Fecha Surtido': format(parseISO(p.date), 'dd/MM/yyyy HH:mm'),
+                'Paciente': p.patientName,
+                'Médico': p.doctorName,
+                'Núcleo/Consultorio': clinics.find(c => c.id === p.clinicId)?.name || (p.type === 'externo' ? 'Externo' : 'N/A'),
+                'Clave': item.clave,
+                'Medicamento': item.name,
+                'Lote': item.lote,
+                'Cant.': item.quantity,
+                'Indicaciones': item.indications || ''
+            }))
+        );
+
+        const ws = xlsx.utils.json_to_sheet(data);
+        const wb = xlsx.utils.book_new();
+        xlsx.utils.book_append_sheet(wb, ws, 'Historial Surtido');
+        xlsx.writeFile(wb, `historial_surtido_${filterType}.xlsx`);
+    };
+
+    const handleDownloadPDF = async () => {
+        if (filteredHistory.length === 0) return;
+        const { jsPDF } = await import('jspdf');
+        await import('jspdf-autotable');
+        const doc = new jsPDF('landscape') as any;
+
+        doc.setFontSize(18);
+        doc.text('Reporte de Medicamentos Surtidos', 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Filtro: ${filterType.toUpperCase()} | Fecha: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 22);
+
+        const tableBody = filteredHistory.flatMap(p => 
+            p.items.map(item => [
+                p.folio,
+                format(parseISO(p.date), 'dd/MM/yy HH:mm'),
+                p.patientName,
+                item.name,
+                item.lote,
+                item.quantity,
+                clinics.find(c => c.id === p.clinicId)?.name || (p.type === 'externo' ? 'EXTERNO' : 'N/A')
+            ])
+        );
+
+        doc.autoTable({
+            startY: 30,
+            head: [['Folio', 'Fecha/Hora', 'Paciente', 'Insumo', 'Lote', 'Cant.', 'Origen']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 102, 51], fontSize: 9 },
+            styles: { fontSize: 8 }
+        });
+
+        doc.save(`reporte_surtido_${filterType}.pdf`);
+    };
+
+    return (
+        <Card className="shadow-xl border-primary/20">
+            <CardHeader className="bg-primary/5 pb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <ClipboardList className="h-6 w-6 text-primary" />
+                        <div>
+                            <CardTitle className="text-xl">Historial de Medicamentos Surtidos</CardTitle>
+                            <CardDescription>Consulta el registro de insumos entregados a pacientes.</CardDescription>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" onClick={handleDownloadExcel} disabled={filteredHistory.length === 0}>
+                            <Download className="mr-2 h-4 w-4" /> Excel
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleDownloadPDF} disabled={filteredHistory.length === 0} className="text-red-700 border-red-200 hover:bg-red-50">
+                            <FileText className="mr-2 h-4 w-4" /> PDF
+                        </Button>
+                    </div>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-4 mt-6">
+                    <div className="flex items-center gap-1 bg-background p-1 border rounded-lg shadow-sm">
+                        <Button variant={filterType === 'today' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilterType('today')}>Hoy</Button>
+                        <Button variant={filterType === 'week' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilterType('week')}>Semana</Button>
+                        <Button variant={filterType === 'month' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilterType('month')}>Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={filterType === 'range' ? 'secondary' : 'ghost'} size="sm" className="gap-2">
+                                    <CalendarIcon className="h-3.5 w-3.5" /> {filterType === 'range' ? 'Rango' : ''}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="range" selected={dateRange} onSelect={(r) => { setDateRange(r); setFilterType('range'); }} numberOfMonths={2} locale={es} />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Buscar por folio o paciente..." 
+                            className="pl-9 h-10"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    
+                    <Button variant="outline" onClick={loadHistory} disabled={isLoading} className="h-10">
+                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <ScrollArea className="h-[500px]">
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-40 gap-3">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                            <p className="text-sm font-medium text-muted-foreground">Cargando historial...</p>
+                        </div>
+                    ) : filteredHistory.length > 0 ? (
+                        <Table>
+                            <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+                                <TableRow>
+                                    <TableHead className="w-[120px] font-bold">FOLIO</TableHead>
+                                    <TableHead className="w-[140px] font-bold">FECHA SURTIDO</TableHead>
+                                    <TableHead className="font-bold">PACIENTE</TableHead>
+                                    <TableHead className="font-bold">INSUMOS</TableHead>
+                                    <TableHead className="w-[180px] font-bold">ORIGEN</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredHistory.map(p => (
+                                    <TableRow key={p.id} className="hover:bg-muted/30">
+                                        <TableCell className="font-mono text-xs font-bold text-primary">{p.folio}</TableCell>
+                                        <TableCell className="text-xs">
+                                            {format(parseISO(p.date), 'dd/MM/yyyy', { locale: es })}
+                                            <span className="block text-[10px] text-muted-foreground">{format(parseISO(p.date), 'HH:mm')} hrs</span>
+                                        </TableCell>
+                                        <TableCell className="text-xs font-bold uppercase">{p.patientName}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-1.5 py-1">
+                                                {p.items.map((item, idx) => (
+                                                    <div key={idx} className="flex items-start gap-2 border-b border-dashed last:border-0 pb-1 mb-1">
+                                                        <Badge variant="outline" className="h-5 px-1.5 font-black shrink-0">{item.quantity}</Badge>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[10px] font-bold uppercase leading-tight">{item.name}</span>
+                                                            <span className="text-[9px] font-mono text-primary/70">LOTE: {item.lote}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-[10px]">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold uppercase">{clinics.find(c => c.id === p.clinicId)?.name || (p.type === 'externo' ? 'EXTERNO' : 'N/A')}</span>
+                                                <span className="text-muted-foreground italic">Dr. {p.doctorName}</span>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <div className="text-center py-32 opacity-40">
+                            <History className="h-16 w-16 mx-auto mb-4" />
+                            <p className="font-bold">No hay registros surtidos</p>
+                            <p className="text-sm">Ajusta los filtros o realiza una búsqueda.</p>
+                        </div>
+                    )}
+                </ScrollArea>
+            </CardContent>
         </Card>
     );
 }

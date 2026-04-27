@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -1095,6 +1096,31 @@ export async function getPendingPrescriptions(filter?: { folio?: string, clinicI
     return snap.docs.map(d => serializeData(d.data()) as Prescription)
         .filter(p => new Date(p.expiresAt).getTime() > now)
         .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function getPrescriptionHistory(filter: { 
+  startDate?: string, 
+  endDate?: string,
+  clinicId?: string 
+}) {
+    const db = getDb();
+    let q = query(collection(db, 'prescriptions'), where('status', '==', 'surtida'));
+
+    if (filter.startDate) {
+        q = query(q, where('date', '>=', filter.startDate));
+    }
+    if (filter.endDate) {
+        q = query(q, where('date', '<=', filter.endDate));
+    }
+
+    const snap = await getDocs(q);
+    let results = snap.docs.map(d => serializeData(d.data()) as Prescription);
+    
+    if (filter.clinicId && filter.clinicId !== 'all') {
+        results = results.filter(p => p.clinicId === filter.clinicId);
+    }
+
+    return results.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export async function dispensePrescription(prescriptionId: string) {
