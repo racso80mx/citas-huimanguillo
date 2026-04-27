@@ -37,6 +37,7 @@ import {
   CalendarDays,
   CalendarPlus,
   Search,
+  FileText,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -71,6 +72,7 @@ import { VaccineSettingsManager } from '../admin/vaccine-settings-manager';
 import { MedicationInventoryDialog } from './medication-inventory-dialog';
 import { AvailabilityViewerDialog } from './availability-viewer-dialog';
 import { ScheduleAppointmentDialog } from '../archivo/schedule-appointment-dialog';
+import { CreatePrescriptionDialog } from './create-prescription-dialog';
 import { Input } from '../ui/input';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
@@ -95,6 +97,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
   const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   
   const { toast } = useToast();
 
@@ -382,10 +385,16 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
           </div>
           <div className="flex flex-wrap gap-2">
             {reportType === 'clinic' && (
-                <Button variant="outline" className="text-green-700 border-green-200 hover:bg-green-50" onClick={() => setIsNewAppointmentOpen(true)}>
-                    <CalendarPlus className="mr-2 h-4 w-4" />
-                    Nueva Cita (Médico)
-                </Button>
+                <>
+                    <Button variant="outline" className="text-blue-700 border-blue-200 hover:bg-blue-50" onClick={() => setIsPrescriptionOpen(true)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Generar Receta
+                    </Button>
+                    <Button variant="outline" className="text-green-700 border-green-200 hover:bg-green-50" onClick={() => setIsNewAppointmentOpen(true)}>
+                        <CalendarPlus className="mr-2 h-4 w-4" />
+                        Nueva Cita (Médico)
+                    </Button>
+                </>
             )}
             <Button variant="outline" className="text-primary border-primary/40 hover:bg-primary/5" onClick={() => setIsAvailabilityDialogOpen(true)}>
                 <CalendarDays className="mr-2 h-4 w-4" />
@@ -581,6 +590,15 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                 fetchData();
             }}
             isDoctorBypass={true}
+          />
+      )}
+
+      {isPrescriptionOpen && (
+          <CreatePrescriptionDialog 
+            isOpen={isPrescriptionOpen} 
+            onClose={() => setIsPrescriptionOpen(false)} 
+            clinicId={entity.id}
+            doctorName={entity.doctorName}
           />
       )}
     </div>

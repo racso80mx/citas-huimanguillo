@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as data from './data';
-import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay } from './definitions';
+import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Prescription } from './definitions';
 
 // =====================================================================
 // MAINTENANCE ACTIONS
@@ -216,6 +216,32 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
 }
 
 // =====================================================================
+// PRESCRIPTION ACTIONS
+// =====================================================================
+
+export async function createPrescription(prescription: Omit<Prescription, 'id' | 'folio' | 'status'>) {
+    const res = await data.createPrescription(prescription);
+    if (res.success) {
+        revalidatePath('/reports');
+        revalidatePath('/farmacia');
+    }
+    return res;
+}
+
+export async function getPendingPrescriptions(filter?: { folio?: string, clinicId?: string }) {
+    return data.getPendingPrescriptions(filter);
+}
+
+export async function dispensePrescription(prescriptionId: string) {
+    const res = await data.dispensePrescription(prescriptionId);
+    if (res.success) {
+        revalidatePath('/farmacia');
+        revalidatePath('/archivo-consulta');
+    }
+    return res;
+}
+
+// =====================================================================
 // INVENTORY ACTIONS (Pharmacy & Warehouse)
 // =====================================================================
 
@@ -225,7 +251,7 @@ export async function deleteAllMedications() { return data.deleteAllMedications(
 
 export async function getSupplies() { return data.getSupplies(); }
 export async function bulkInsertSupplies(chunk: any[]) { return data.bulkInsertSupplies(chunk); }
-export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
+export async function deleteAllSupplies() { return deleteInventoryItems('supplies'); }
 
 export async function getPharmacySettings() { return data.getPharmacySettings(); }
 export async function updatePharmacySettings(settings: any) {
@@ -279,7 +305,25 @@ export async function updateAnnouncements(messages: string[]) {
   return res;
 }
 
-export async function getModuleSettings() { return data.getModuleSettings(); }
+export async function getModuleSettings() { 
+  return getSettingsDoc<ModuleSettings>('moduleSettings', { 
+    citasMedicasEnabled: true, 
+    laboratorioEnabled: true, 
+    rayosXEnabled: true, 
+    ultrasoundEnabled: true, 
+    vacunasEnabled: true, 
+    archivoEnabled: true, 
+    farmaciaEnabled: true, 
+    almacenEnabled: true,
+    archivoConsultaEnabled: true,
+    citasMedicasWhatsAppEnabled: true,
+    laboratorioWhatsAppEnabled: true,
+    rayosXWhatsAppEnabled: true,
+    ultrasoundWhatsAppEnabled: true,
+    vacunasWhatsAppEnabled: true,
+    archivoWhatsAppEnabled: true
+  }); 
+}
 export async function updateModuleSettings(settings: any) {
   const res = await data.updateModuleSettings(settings);
   revalidatePath('/');

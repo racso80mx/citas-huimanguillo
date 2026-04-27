@@ -353,3 +353,27 @@ export type SpecialActionDay = {
   clinicType: ClinicType;
   name: string;
 };
+
+export type PrescriptionStatus = 'pendiente' | 'surtida' | 'vencida';
+
+export type PrescriptionItem = {
+    medicationId: string;
+    name: string;
+    clave: string;
+    quantity: number;
+    indications?: string;
+};
+
+export type Prescription = {
+    id: string;
+    folio: string;
+    patientId: string;
+    patientName: string;
+    clinicId: string; // 'externo' for external doctors
+    doctorName: string;
+    date: string; // ISO
+    expiresAt: string; // ISO
+    items: PrescriptionItem[];
+    status: PrescriptionStatus;
+    type: 'interno' | 'externo';
+};

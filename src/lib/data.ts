@@ -17,7 +17,8 @@ import {
   documentId,
   addDoc,
   getFirestore,
-  getCountFromServer
+  getCountFromServer,
+  increment
 } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -55,6 +56,7 @@ import type {
   Supply,
   Holiday,
   SpecialActionDay,
+  Prescription,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -1050,6 +1052,94 @@ export async function bulkInsertSupplies(chunk: any[]) { return bulkInsertInvent
 export async function deleteAllSupplies() { return deleteInventoryItems('supplies'); }
 
 // =====================================================================
+// PRESCRIPTIONS (RECETAS)
+// =====================================================================
+
+export async function createPrescription(data: Omit<Prescription, 'id' | 'folio' | 'status'>) {
+    const db = getDb();
+    try {
+        const id = uuidv4();
+        const folio = `REC-${uuidv4().split('-')[0].toUpperCase()}`;
+        const expiresAt = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString();
+        
+        const prescription: Prescription = {
+            ...data,
+            id,
+            folio,
+            expiresAt,
+            status: 'pendiente'
+        };
+
+        await setDoc(doc(db, 'prescriptions', id), prescription);
+        await logActivity("Nueva Receta", `Folio ${folio} para ${data.patientName}`);
+        return { success: true, folio };
+    } catch (e: any) {
+        return { success: false, message: e.message };
+    }
+}
+
+export async function getPendingPrescriptions(filter?: { folio?: string, clinicId?: string }) {
+    const db = getDb();
+    let q = query(collection(db, 'prescriptions'), where('status', '==', 'pendiente'));
+
+    if (filter?.folio) {
+        q = query(q, where('folio', '==', filter.folio.toUpperCase().trim()));
+    }
+    if (filter?.clinicId && filter.clinicId !== 'all') {
+        q = query(q, where('clinicId', '==', filter.clinicId));
+    }
+
+    const snap = await getDocs(q);
+    const now = new Date().getTime();
+    
+    return snap.docs.map(d => serializeData(d.data()) as Prescription)
+        .filter(p => new Date(p.expiresAt).getTime() > now)
+        .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function dispensePrescription(prescriptionId: string) {
+    const db = getDb();
+    try {
+        const pRef = doc(db, 'prescriptions', prescriptionId);
+        const pSnap = await getDoc(pRef);
+        if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
+        
+        const prescription = pSnap.data() as Prescription;
+        if (prescription.status !== 'pendiente') return { success: false, message: "Esta receta ya ha sido procesada." };
+        if (new Date(prescription.expiresAt).getTime() < new Date().getTime()) {
+            await updateDoc(pRef, { status: 'vencida' });
+            return { success: false, message: "La receta ha vencido (más de 24 horas)." };
+        }
+
+        const batch = writeBatch(db);
+        
+        // Check availability and decrement inventory for each item
+        for (const item of prescription.items) {
+            const medRef = doc(db, 'medications', item.medicationId);
+            const medSnap = await getDoc(medRef);
+            if (!medSnap.exists()) throw new Error(`Medicamento ${item.name} no encontrado.`);
+            
+            const currentStock = medSnap.data().existencia || 0;
+            if (currentStock < item.quantity) {
+                return { success: false, message: `Stock insuficiente para: ${item.name}. Disponible: ${currentStock}` };
+            }
+
+            batch.update(medRef, { 
+                existencia: increment(-item.quantity),
+                updatedAt: new Date().toISOString()
+            });
+        }
+
+        batch.update(pRef, { status: 'surtida' });
+        await batch.commit();
+        await logActivity("Receta Surtida", `Folio ${prescription.folio} surtido en farmacia.`);
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, message: e.message };
+    }
+}
+
+// =====================================================================
 // MAINTENANCE
 // =====================================================================
 
@@ -1277,7 +1367,7 @@ export async function cloneAppointment(originalId: string, date: string, type: s
     const newRef = doc(collection(db, collectionName));
     const newFolio = `${data.appointmentNumber.split('-')[0]}-${uuidv4().split('-')[0].toUpperCase()}`;
     const newAppData = { ...data, date: Timestamp.fromDate(new Date(date)), appointmentNumber: newFolio, status: 'Agendada' };
-    if (newTime) newAppData.time = newTime;
+    if (time) newAppData.time = time;
     await setDoc(newRef, newAppData);
     return { success: true, message: `Nueva cita asignada con folio: ${newFolio}` };
   } catch (e: any) { return { success: false, message: e.message }; }
