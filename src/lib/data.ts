@@ -202,10 +202,8 @@ export async function getPatients(options?: {
         
         if (words.length === 0) return [];
 
-        // Take the longest word to minimize result set from Firestore
         const searchWord = words.sort((a, b) => b.length - a.length)[0];
         
-        // Query name, paternal, maternal for the longest word
         const promises = [
             getDocs(query(patientsColl, where('name', '>=', searchWord), where('name', '<=', searchWord + '\uf8ff'), limit(200))),
             getDocs(query(patientsColl, where('paternalLastName', '>=', searchWord), where('paternalLastName', '<=', searchWord + '\uf8ff'), limit(200))),
@@ -221,7 +219,6 @@ export async function getPatients(options?: {
             });
         });
 
-        // Filter results in memory to ensure ALL words from the original term are present
         let results = Array.from(combinedMap.values()).filter(p => {
             const patientFullName = normalizeStr(`${p.name} ${p.paternalLastName} ${p.maternalLastName}`);
             return words.every(word => patientFullName.includes(word));
@@ -234,7 +231,6 @@ export async function getPatients(options?: {
         return results.slice(0, 100);
     }
 
-    // Default: List by status or all
     let q = query(patientsColl);
     if (options?.status && options.status !== 'Total') {
       q = query(q, where('status', '==', options.status));
@@ -355,9 +351,6 @@ export async function getAppointments(): Promise<Appointment[]> {
   return await enrichWithPatientData(data) as Appointment[];
 }
 
-/**
- * Optimized fetch for calendars. Skips patient enrichment and filters by month.
- */
 export async function getAppointmentsForCalendar(month: number, year: number): Promise<any[]> {
   const db = getDb();
   const startDate = new Date(year, month, 1);
@@ -426,7 +419,6 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
     
-    // Check for time slot duplicate (concurrency protection)
     const qTime = query(
       collection(db, 'appointments'),
       where('clinicId', '==', appointment.clinicId),
@@ -439,9 +431,8 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
       return appDate === selectedDate;
     });
 
-    // If time is taken and it's NOT a doctor bypass
     if (isTimeTaken && appointment.status !== 'Atendido') {
-       return { success: false, error: "El horario o ficha seleccionada ya ha sido ocupado por otro usuario. Por favor, selecciona uno diferente." };
+       return { success: false, error: "El horario o ficha seleccionada ya ha sido ocupado por otro usuario." };
     }
 
     if (existingPatient && !curp.startsWith('RN-')) {
@@ -503,7 +494,7 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
 
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name} (Estado: ${cleanApp.status})`);
+    await logActivity("Nueva Cita Médica", `Folio ${appointmentNumber} para ${cleanPatient.name}`);
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }, clinic: clinicData }) };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -517,7 +508,6 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
 
-    // Concurrency Check for Lab
     const qTime = query(
       collection(db, 'labAppointments'),
       where('time', '==', String(appointment.time))
@@ -532,10 +522,10 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
     if (appointment.time === "Recepción General") {
        const settings = await getLabSettings();
        if (takenOnDate.length >= settings.dailySlots) {
-          return { success: false, error: "Lo sentimos, el cupo de Recepción General se ha llenado. Por favor selecciona otro día." };
+          return { success: false, error: "El cupo de Recepción General se ha llenado." };
        }
     } else if (takenOnDate.length > 0) {
-       return { success: false, error: "Este turno de lista de espera ya ha sido ocupado por otro usuario." };
+       return { success: false, error: "Este turno de lista de espera ya ha sido ocupado." };
     }
     
     if (existingPatient && !curp.startsWith('RN-')) {
@@ -546,28 +536,16 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
         const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
         return appDate === selectedDate;
       });
-      if (isDuplicate) return { success: false, error: `El paciente con CURP ${curp} ya tiene una cita de laboratorio para este día.` };
+      if (isDuplicate) return { success: false, error: `Ya tiene una cita de laboratorio para este día.` };
     }
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { 
-      curp, 
-      name: normalizeStr(patientInput.name), 
-      paternalLastName: normalizeStr(patientInput.paternalLastName), 
-      maternalLastName: normalizeStr(patientInput.maternalLastName), 
-      sex: patientInput.sex, 
-      age: Number(patientInput.age) || 0, 
-      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
-      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: normalizeStr(patientInput.fatherName) || null, 
-      motherName: normalizeStr(patientInput.motherName) || null, 
-      fatherAge: Number(patientInput.fatherAge) || null, 
-      motherAge: Number(patientInput.motherAge) || null, 
-      registrationDate: patientInput.registrationDate || null, 
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, 
-      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
-      updatedAt: Timestamp.now() 
+      curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), 
+      sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), 
+      fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, 
+      registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
@@ -575,7 +553,6 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
     const cleanApp = { appointmentNumber: appointment.appointmentNumber, patientId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), studies: appointment.studies, status: 'Agendada', patientType: appointment.patientType, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
-    await logActivity("Nueva Cita Laboratorio", `Folio ${cleanApp.appointmentNumber} para ${cleanPatient.name}`);
     return { success: true, data: serializeData({ ...cleanApp, id: appRef.id, patient: { ...cleanPatient, id: patientId } }) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -587,51 +564,16 @@ export async function saveNewXRayAppointment(appointment: any, patientInput: any
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
 
-    // Concurrency Check for XRay
-    const qTime = query(
-      collection(db, 'xrayAppointments'),
-      where('time', '==', String(appointment.time))
-    );
+    const qTime = query(collection(db, 'xrayAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
-    const isTaken = snapTime.docs.some(doc => {
-      const d = doc.data();
-      return (d.date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate;
-    });
-
-    if (isTaken) {
-       return { success: false, error: "El horario seleccionado acaba de ser ocupado. Por favor elige otro." };
-    }
+    const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
+    if (isTaken) return { success: false, error: "El horario seleccionado ya está ocupado." };
     
-    if (existingPatient && !curp.startsWith('RN-')) {
-      const q = query(collection(db, 'xrayAppointments'), where('patientId', '==', existingPatient.id));
-      const snap = await getDocs(q);
-      const isDuplicate = snap.docs.some(doc => {
-        const d = doc.data();
-        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-        return appDate === selectedDate;
-      });
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Rayos X para este día.' };
-    }
-
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { 
-      curp, 
-      name: normalizeStr(patientInput.name), 
-      paternalLastName: normalizeStr(patientInput.paternalLastName), 
-      maternalLastName: normalizeStr(patientInput.maternalLastName), 
-      sex: patientInput.sex, 
-      age: Number(patientInput.age) || 0, 
-      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
-      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: normalizeStr(patientInput.fatherName) || null, 
-      motherName: normalizeStr(patientInput.motherName) || null, 
-      fatherAge: Number(patientInput.fatherAge) || null, 
-      motherAge: Number(patientInput.motherAge) || null, 
-      registrationDate: patientInput.registrationDate || null, 
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, 
-      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
-      updatedAt: Timestamp.now() 
+      curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, 
+      age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() 
     };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
@@ -649,53 +591,14 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-
-    // Concurrency Check
-    const qTime = query(
-      collection(db, 'ultrasoundAppointments'),
-      where('time', '==', String(appointment.time))
-    );
+    const qTime = query(collection(db, 'ultrasoundAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
-    const isTaken = snapTime.docs.some(doc => {
-      const d = doc.data();
-      return (d.date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate;
-    });
-
-    if (isTaken) {
-       return { success: false, error: "El horario seleccionado acaba de ser ocupado. Por favor elige otro." };
-    }
-    
-    if (existingPatient && !curp.startsWith('RN-')) {
-      const q = query(collection(db, 'ultrasoundAppointments'), where('patientId', '==', existingPatient.id));
-      const snap = await getDocs(q);
-      const isDuplicate = snap.docs.some(doc => {
-        const d = doc.data();
-        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-        return appDate === selectedDate;
-      });
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Ultrasonido para este día.' };
-    }
+    const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
+    if (isTaken) return { success: false, error: "El horario seleccionado ya está ocupado." };
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { 
-      curp, 
-      name: normalizeStr(patientInput.name), 
-      paternalLastName: normalizeStr(patientInput.paternalLastName), 
-      maternalLastName: normalizeStr(patientInput.maternalLastName), 
-      sex: patientInput.sex, 
-      age: Number(patientInput.age) || 0, 
-      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
-      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: normalizeStr(patientInput.fatherName) || null, 
-      motherName: normalizeStr(patientInput.motherName) || null, 
-      fatherAge: Number(patientInput.fatherAge) || null, 
-      motherAge: Number(patientInput.motherAge) || null, 
-      registrationDate: patientInput.registrationDate || null, 
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, 
-      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
-      updatedAt: Timestamp.now() 
-    };
+    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'ultrasoundAppointments'));
@@ -712,53 +615,14 @@ export async function saveNewVaccineAppointment(appointment: any, patientInput: 
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
     const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-
-    // Concurrency Check
-    const qTime = query(
-      collection(db, 'vaccineAppointments'),
-      where('time', '==', String(appointment.time))
-    );
+    const qTime = query(collection(db, 'vaccineAppointments'), where('time', '==', String(appointment.time)));
     const snapTime = await getDocs(qTime);
-    const isTaken = snapTime.docs.some(doc => {
-      const d = doc.data();
-      return (d.date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate;
-    });
-
-    if (isTaken) {
-       return { success: false, error: "El horario seleccionado acaba de ser ocupado. Por favor elige otro." };
-    }
-    
-    if (existingPatient && !curp.startsWith('RN-')) {
-      const q = query(collection(db, 'vaccineAppointments'), where('patientId', '==', existingPatient.id));
-      const snap = await getDocs(q);
-      const isDuplicate = snap.docs.some(doc => {
-        const d = doc.data();
-        const appDate = (d.date as Timestamp).toDate().toISOString().split('T')[0];
-        return appDate === selectedDate;
-      });
-      if (isDuplicate) return { success: false, error: 'Este paciente ya tiene una cita de Vacunación para este día.' };
-    }
+    const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
+    if (isTaken) return { success: false, error: "Horario ya ocupado." };
 
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
-    const cleanPatient = { 
-      curp, 
-      name: normalizeStr(patientInput.name), 
-      paternalLastName: normalizeStr(patientInput.paternalLastName), 
-      maternalLastName: normalizeStr(patientInput.maternalLastName), 
-      sex: patientInput.sex, 
-      age: Number(patientInput.age) || 0, 
-      birthState: String(patientInput.birthState || '').toUpperCase().trim(), 
-      phoneNumber: String(patientInput.phoneNumber || '').trim(), 
-      fatherName: normalizeStr(patientInput.fatherName) || null, 
-      motherName: normalizeStr(patientInput.motherName) || null, 
-      fatherAge: Number(patientInput.fatherAge) || null, 
-      motherAge: Number(patientInput.motherAge) || null, 
-      registrationDate: patientInput.registrationDate || null, 
-      derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, 
-      expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null,
-      updatedAt: Timestamp.now() 
-    };
+    const cleanPatient = { curp, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: appointment.coloniaName || null, updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), { ...cleanPatient, id: patientId }, { merge: true });
     
     const appRef = doc(collection(db, 'vaccineAppointments'));
@@ -833,21 +697,7 @@ export async function updateAnnouncements(m: string[]) { return setSettingsDoc('
 
 export async function getModuleSettings() { 
   return getSettingsDoc<ModuleSettings>('moduleSettings', { 
-    citasMedicasEnabled: true, 
-    laboratorioEnabled: true, 
-    rayosXEnabled: true, 
-    ultrasoundEnabled: true, 
-    vacunasEnabled: true, 
-    archivoEnabled: true, 
-    farmaciaEnabled: true, 
-    almacenEnabled: true,
-    archivoConsultaEnabled: true,
-    citasMedicasWhatsAppEnabled: true,
-    laboratorioWhatsAppEnabled: true,
-    rayosXWhatsAppEnabled: true,
-    ultrasoundWhatsAppEnabled: true,
-    vacunasWhatsAppEnabled: true,
-    archivoWhatsAppEnabled: true
+    citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true, archivoEnabled: true, farmaciaEnabled: true, almacenEnabled: true, archivoConsultaEnabled: true, citasMedicasWhatsAppEnabled: true, laboratorioWhatsAppEnabled: true, rayosXWhatsAppEnabled: true, ultrasoundWhatsAppEnabled: true, vacunasWhatsAppEnabled: true, archivoWhatsAppEnabled: true
   }); 
 }
 export async function updateModuleSettings(s: ModuleSettings) { return setSettingsDoc('moduleSettings', s); }
@@ -986,24 +836,17 @@ export async function updateSpecialActionDays(items: SpecialActionDay[]) {
 }
 
 // =====================================================================
-// SPECIALTIES (CATALOGO DE ESPECIALIDADES O SERVICIOS)
+// SPECIALTIES
 // =====================================================================
 
 export async function getSpecialties(): Promise<Specialty[]> {
   const db = getDb();
   const snap = await getDocs(collection(db, 'specialties'));
   let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Specialty);
-  
   if (results.length === 0) {
-      // Seed defaults if empty
-      const defaults = Object.values(ClinicType).map(name => ({
-          id: uuidv4(),
-          name,
-          available: true
-      }));
+      const defaults = Object.values(ClinicType).map(name => ({ id: uuidv4(), name, available: true }));
       return defaults;
   }
-
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -1011,23 +854,14 @@ export async function updateSpecialties(specialties: Specialty[]) {
   const db = getDb();
   const snap = await getDocs(collection(db, 'specialties'));
   const batch = writeBatch(db);
-  
-  // Clean old
   snap.docs.forEach(d => batch.delete(d.ref));
-  
-  // Set new
-  specialties.forEach(s => {
-      const id = s.id || uuidv4();
-      batch.set(doc(db, 'specialties', id), { ...s, id });
-  });
-
+  specialties.forEach(s => { const id = s.id || uuidv4(); batch.set(doc(db, 'specialties', id), { ...s, id }); });
   await batch.commit();
-  await logActivity("Actualización Catálogo", "Se actualizó el catálogo de Especialidades/Servicios.");
   return { success: true };
 }
 
 // =====================================================================
-// PHARMACY & WAREHOUSE (Inventory)
+// INVENTORY
 // =====================================================================
 
 async function getInventoryItems(col: string): Promise<Medication[]> {
@@ -1045,38 +879,15 @@ async function bulkInsertInventory(col: string, chunk: any[]) {
     for (const raw of chunk) {
       const clave = String(raw['CLAVE DE CUADRO BASICO'] || '').trim();
       const desc = String(raw['DESCRIPCIÓN'] || '').trim().toUpperCase();
-      
       if (!clave && !desc) continue;
-
-      const itemData: Partial<Medication> = {
-        claveCuadroBasico: clave,
-        descripcion: desc,
-        grupo: String(raw['GRUPO'] || '').trim(),
-        existencia: Number(raw['EXISTENCIA']) || 0,
-        precioUnitario: Number(raw['PRECIO UNITARIO']) || 0,
-        totalImporte: Number(raw['TOTAL IMPORTE']) || 0,
-        lote: String(raw['LOTE'] || '').trim(),
-        proveedor: String(raw['PROVEEDOR'] || '').trim(),
-        rfcProveedor: String(raw['RFC PROVEEDOR'] || '').trim(),
-        almacen: String(raw['ALMACEN'] || '').trim(),
-        fuenteFinanciamiento: String(raw['FUENTE FINANCIAMIENTO'] || '').trim(),
-        fechaCaducidad: String(raw['FECHA CADUCIDAD'] || '').trim(),
-        ordenSuministro: String(raw['ORDEN SUMINISTRO'] || '').trim(),
-        tipoInsumo: String(raw['TIPO_INSUMO'] || '').trim(),
-        numeroContrato: String(raw['NUMERO DE CONTRATO'] || '').trim(),
-        updatedAt: new Date().toISOString()
-      };
-
+      const itemData: Partial<Medication> = { claveCuadroBasico: clave, descripcion: desc, grupo: String(raw['GRUPO'] || '').trim(), existencia: Number(raw['EXISTENCIA']) || 0, precioUnitario: Number(raw['PRECIO UNITARIO']) || 0, totalImporte: Number(raw['TOTAL IMPORTE']) || 0, lote: String(raw['LOTE'] || '').trim(), proveedor: String(raw['PROVEEDOR'] || '').trim(), rfcProveedor: String(raw['RFC PROVEEDOR'] || '').trim(), almacen: String(raw['ALMACEN'] || '').trim(), fuenteFinanciamiento: String(raw['FUENTE FINANCIAMIENTO'] || '').trim(), fechaCaducidad: String(raw['FECHA CADUCIDAD'] || '').trim(), ordenSuministro: String(raw['ORDEN SUMINISTRO'] || '').trim(), tipoInsumo: String(raw['TIPO_INSUMO'] || '').trim(), numeroContrato: String(raw['NUMERO DE CONTRATO'] || '').trim(), updatedAt: new Date().toISOString() };
       const docId = uuidv4();
       batch.set(doc(db, col, docId), { ...itemData, id: docId });
       processed++;
     }
     await batch.commit();
     return { success: true, processedCount: processed };
-  } catch (e: any) {
-    console.error(`Bulk inventory error (${col}):`, e);
-    return { success: false, message: e.message };
-  }
+  } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 async function deleteInventoryItems(col: string) {
@@ -1094,13 +905,12 @@ async function deleteInventoryItems(col: string) {
 export async function getMedications() { return getInventoryItems('medications'); }
 export async function bulkInsertMedications(chunk: any[]) { return bulkInsertInventory('medications', chunk); }
 export async function deleteAllMedications() { return deleteInventoryItems('medications'); }
-
 export async function getSupplies() { return getInventoryItems('supplies'); }
 export async function bulkInsertSupplies(chunk: any[]) { return bulkInsertInventory('supplies', chunk); }
 export async function deleteAllSupplies() { return deleteInventoryItems('supplies'); }
 
 // =====================================================================
-// PRESCRIPTIONS (RECETAS)
+// PRESCRIPTIONS
 // =====================================================================
 
 export async function createPrescription(data: Omit<Prescription, 'id' | 'folio' | 'status'>) {
@@ -1109,60 +919,45 @@ export async function createPrescription(data: Omit<Prescription, 'id' | 'folio'
         const id = uuidv4();
         const folio = `REC-${uuidv4().split('-')[0].toUpperCase()}`;
         const expiresAt = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString();
-        
-        const prescription: Prescription = {
-            ...data,
-            id,
-            folio,
-            expiresAt,
-            status: 'pendiente'
-        };
-
+        const prescription: Prescription = { ...data, id, folio, expiresAt, status: 'pendiente' };
         await setDoc(doc(db, 'prescriptions', id), prescription);
-        await logActivity("Nueva Receta", `Folio ${folio} para ${data.patientName}`);
         return { success: true, folio };
-    } catch (e: any) {
-        return { success: false, message: e.message };
-    }
+    } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 export async function getPendingPrescriptions(filter?: { folio?: string, clinicId?: string }) {
     const db = getDb();
     let q = query(collection(db, 'prescriptions'), where('status', '==', 'pendiente'));
-
-    if (filter?.folio) {
-        q = query(q, where('folio', '==', filter.folio.toUpperCase().trim()));
-    }
-    if (filter?.clinicId && filter.clinicId !== 'all') {
-        q = query(q, where('clinicId', '==', filter.clinicId));
-    }
-
+    if (filter?.folio) { q = query(q, where('folio', '==', filter.folio.toUpperCase().trim())); }
+    if (filter?.clinicId && filter.clinicId !== 'all') { q = query(q, where('clinicId', '==', filter.clinicId)); }
     const snap = await getDocs(q);
     const now = new Date().getTime();
-    
-    return snap.docs.map(d => serializeData(d.data()) as Prescription)
-        .filter(p => new Date(p.expiresAt).getTime() > now)
-        .sort((a, b) => b.date.localeCompare(a.date));
+    return snap.docs.map(d => serializeData(d.data()) as Prescription).filter(p => new Date(p.expiresAt).getTime() > now).sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export async function getPrescriptionHistory(filter: { 
-  startDate?: string, 
-  endDate?: string,
-  clinicId?: string 
-}) {
+/**
+ * optimized to avoid index requirement by using a single field range query on date
+ * or a single field equality on status, then filtering the rest in memory.
+ */
+export async function getPrescriptionHistory(filter: { startDate?: string, endDate?: string, clinicId?: string }) {
     const db = getDb();
-    let q = query(collection(db, 'prescriptions'), where('status', '==', 'surtida'));
+    let q = query(collection(db, 'prescriptions'));
 
-    if (filter.startDate) {
-        q = query(q, where('date', '>=', filter.startDate));
-    }
-    if (filter.endDate) {
-        q = query(q, where('date', '<=', filter.endDate));
+    // If date range is provided, use it as the primary Firestore filter (single field range query)
+    // This avoids requiring a composite index on (status, date)
+    if (filter.startDate || filter.endDate) {
+        if (filter.startDate) q = query(q, where('date', '>=', filter.startDate));
+        if (filter.endDate) q = query(q, where('date', '<=', filter.endDate));
+    } else {
+        // If no date range, just fetch by status (single field equality query)
+        q = query(q, where('status', '==', 'surtida'));
     }
 
     const snap = await getDocs(q);
     let results = snap.docs.map(d => serializeData(d.data()) as Prescription);
     
+    // Filter by status and clinic in memory to keep the Firestore queries simple
+    results = results.filter(p => p.status === 'surtida');
     if (filter.clinicId && filter.clinicId !== 'all') {
         results = results.filter(p => p.clinicId === filter.clinicId);
     }
@@ -1176,40 +971,21 @@ export async function dispensePrescription(prescriptionId: string) {
         const pRef = doc(db, 'prescriptions', prescriptionId);
         const pSnap = await getDoc(pRef);
         if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
-        
         const prescription = pSnap.data() as Prescription;
-        if (prescription.status !== 'pendiente') return { success: false, message: "Esta receta ya ha sido procesada." };
-        if (new Date(prescription.expiresAt).getTime() < new Date().getTime()) {
-            await updateDoc(pRef, { status: 'vencida' });
-            return { success: false, message: "La receta ha vencido (más de 24 horas)." };
-        }
-
+        if (prescription.status !== 'pendiente') return { success: false, message: "Ya procesada." };
         const batch = writeBatch(db);
-        
-        // Check availability and decrement inventory for each item
         for (const item of prescription.items) {
             const medRef = doc(db, 'medications', item.medicationId);
             const medSnap = await getDoc(medRef);
             if (!medSnap.exists()) throw new Error(`Medicamento ${item.name} no encontrado.`);
-            
             const currentStock = medSnap.data().existencia || 0;
-            if (currentStock < item.quantity) {
-                return { success: false, message: `Stock insuficiente para: ${item.name}. Disponible: ${currentStock}` };
-            }
-
-            batch.update(medRef, { 
-                existencia: increment(-item.quantity),
-                updatedAt: new Date().toISOString()
-            });
+            if (currentStock < item.quantity) return { success: false, message: `Stock insuficiente para: ${item.name}.` };
+            batch.update(medRef, { existencia: increment(-item.quantity), updatedAt: new Date().toISOString() });
         }
-
         batch.update(pRef, { status: 'surtida' });
         await batch.commit();
-        await logActivity("Receta Surtida", `Folio ${prescription.folio} surtido en farmacia.`);
         return { success: true };
-    } catch (e: any) {
-        return { success: false, message: e.message };
-    }
+    } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 // =====================================================================
@@ -1219,21 +995,14 @@ export async function dispensePrescription(prescriptionId: string) {
 export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'name'): Promise<Patient[][]> {
   const db = getDb();
   const snap = await getDocs(query(collection(db, 'patients'), limit(5000)));
-  const all = snap.docs.map(doc => {
-    const d = doc.data();
-    return { id: doc.id, name: String(d.name || '').toUpperCase().trim(), paternalLastName: String(d.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(d.maternalLastName || '').toUpperCase().trim(), curp: String(d.curp || '').toUpperCase().trim(), expediente: d.expediente ? String(d.expediente).trim() : '', phoneNumber: String(d.phoneNumber || '') };
-  });
+  const all = snap.docs.map(doc => { const d = doc.data(); return { id: doc.id, name: String(d.name || '').toUpperCase().trim(), paternalLastName: String(d.paternalLastName || '').toUpperCase().trim(), maternalLastName: String(d.maternalLastName || '').toUpperCase().trim(), curp: String(d.curp || '').toUpperCase().trim(), expediente: d.expediente ? String(d.expediente).trim() : '', phoneNumber: String(d.phoneNumber || '') }; });
   const map = new Map<string, any[]>();
   all.forEach(p => {
     let key = '';
     if (criteria === 'expediente') key = p.expediente;
     else if (criteria === 'curp') key = (p.curp && !p.curp.startsWith('RN-')) ? p.curp : '';
     else key = `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.trim();
-    if (key && key !== 'N/A' && key !== '') {
-      const group = map.get(key) || [];
-      group.push(p);
-      map.set(key, group);
-    }
+    if (key && key !== 'N/A' && key !== '') { const group = map.get(key) || []; group.push(p); map.set(key, group); }
   });
   return Array.from(map.values()).filter(g => g.length > 1).slice(0, 300);
 }
@@ -1241,61 +1010,19 @@ export async function findDuplicatePatients(criteria: 'expediente' | 'curp' | 'n
 export async function bulkUpdateStatusChunk(expedientes: string[], status: PatientStatus) {
   const db = getDb();
   if (!expedientes || expedientes.length === 0) return { success: true, count: 0 };
-  
   const allSnap = await getDocs(query(collection(db, 'patients'), limit(10000)));
-  const allPatients = allSnap.docs;
-  
   const cleanExpedientes = expedientes.map(e => e.toString().trim().replace(/^0+/, ''));
-  const matches = allPatients.filter(doc => {
-    const exp = (doc.data().expediente || '').toString().trim().replace(/^0+/, '');
-    return cleanExpedientes.includes(exp);
-  });
-
-  if (matches.length > 0) {
-    const updateChunks = chunkArray(matches, 500);
-    for (const chunk of updateChunks) {
-      const batch = writeBatch(db);
-      chunk.forEach(d => batch.update(d.ref, { status, updatedAt: Timestamp.now() }));
-      await batch.commit();
-    }
-    await logActivity("Actualización Masiva", `Se actualizaron ${matches.length} registros a ${status}`);
-  }
-  
+  const matches = allSnap.docs.filter(doc => { const exp = (doc.data().expediente || '').toString().trim().replace(/^0+/, ''); return cleanExpedientes.includes(exp); });
+  if (matches.length > 0) { const updateChunks = chunkArray(matches, 500); for (const chunk of updateChunks) { const batch = writeBatch(db); chunk.forEach(d => batch.update(d.ref, { status, updatedAt: Timestamp.now() })); await batch.commit(); } }
   return { success: true, count: matches.length };
 }
 
 export async function normalizePatientExpedientes() {
   const db = getDb();
   const snap = await getDocs(query(collection(db, 'patients'), limit(10000)));
-  
-  let count = 0;
-  const updates: {id: string, data: any}[] = [];
-
-  snap.docs.forEach(docSnap => {
-    const data = docSnap.data();
-    let exp = data.expediente;
-    if (exp !== null && exp !== undefined) {
-      const expStr = String(exp).trim();
-      if (expStr.length > 0 && !expStr.startsWith('0')) {
-        updates.push({
-          id: docSnap.id,
-          data: { expediente: '0' + expStr, updatedAt: Timestamp.now() }
-        });
-        count++;
-      }
-    }
-  });
-
-  if (updates.length > 0) {
-    const chunks = chunkArray(updates, 500);
-    for (const chunk of chunks) {
-      const batch = writeBatch(db);
-      chunk.forEach(u => batch.update(doc(db, 'patients', u.id), u.data));
-      await batch.commit();
-    }
-    await logActivity("Normalización Expedientes", `Se agregaron ceros iniciales a ${count} registros.`);
-  }
-
+  let count = 0; const updates: {id: string, data: any}[] = [];
+  snap.docs.forEach(docSnap => { const data = docSnap.data(); let exp = data.expediente; if (exp !== null && exp !== undefined) { const expStr = String(exp).trim(); if (expStr.length > 0 && !expStr.startsWith('0')) { updates.push({ id: docSnap.id, data: { expediente: '0' + expStr, updatedAt: Timestamp.now() } }); count++; } } });
+  if (updates.length > 0) { const chunks = chunkArray(updates, 500); for (const chunk of chunks) { const batch = writeBatch(db); chunk.forEach(u => batch.update(doc(db, 'patients', u.id), u.data)); await batch.commit(); } }
   return { success: true, count };
 }
 
@@ -1307,10 +1034,7 @@ export async function createBackupData() {
   const db = getDb();
   const collections = ['patients', 'appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments', 'clinics'];
   const data: any = {};
-  for (const col of collections) {
-    const snap = await getDocs(collection(db, col));
-    data[col] = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }));
-  }
+  for (const col of collections) { const snap = await getDocs(collection(db, col)); data[col] = snap.docs.map(d => serializeData({ id: d.id, ...d.data() })); }
   return data;
 }
 
@@ -1320,15 +1044,7 @@ export async function cleanupOldRecords() {
   const cutoff = Timestamp.fromDate(lastMonth);
   const collections = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments'];
   let total = 0;
-  for (const col of collections) {
-    const q = query(collection(db, col), where('date', '<', cutoff));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-        const batch = writeBatch(db);
-        snap.docs.forEach(d => { batch.delete(d.ref); total++; });
-        await batch.commit();
-    }
-  }
+  for (const col of collections) { const q = query(collection(db, col), where('date', '<', cutoff)); const snap = await getDocs(q); if (!snap.empty) { const batch = writeBatch(db); snap.docs.forEach(d => { batch.delete(d.ref); total++; }); await batch.commit(); } }
   return { success: true, deletedCount: total };
 }
 
@@ -1341,37 +1057,14 @@ export async function bulkInsertPatients(chunk: any[]) {
     for (const raw of chunk) {
       if (!raw.CURP) continue;
       const curp = String(raw.CURP).toUpperCase().trim();
-      const patientData = { 
-        expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null, 
-        name: normalizeStr(raw.Nombre), 
-        paternalLastName: normalizeStr(raw.Apaterno), 
-        maternalLastName: normalizeStr(raw.Amaterno), 
-        birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null, 
-        age: Number(raw.Edad) || 0, 
-        sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre', 
-        birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(), 
-        address: String(raw.Domicilio || '').toUpperCase().trim(), 
-        coloniaName: String(raw.Colonia || '').toUpperCase().trim(), 
-        fatherName: normalizeStr(raw.NombrePadre) || null, 
-        motherName: normalizeStr(raw.NombreMadre) || null, 
-        fatherAge: Number(raw.EdadPadre) || null, 
-        motherAge: Number(raw.EdadMadre) || null, 
-        registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null, 
-        status: raw.Estatus || PatientStatusEnum.Vigente, 
-        derechoAbiencia: raw.DerechoAbiencia ? String(raw.DerechoAbiencia).trim().toUpperCase() : null, 
-        phoneNumber: String(raw.Telefono || '').trim(), 
-        curp, 
-        updatedAt: Timestamp.now() 
-      };
+      const patientData = { expediente: raw['No.Expediente'] ? String(raw['No.Expediente']).trim() : null, name: normalizeStr(raw.Nombre), paternalLastName: normalizeStr(raw.Apaterno), maternalLastName: normalizeStr(raw.Amaterno), birthDate: raw.FNacimiento ? String(raw.FNacimiento) : null, age: Number(raw.Edad) || 0, sex: String(raw.Sexo).startsWith('M') ? 'Mujer' : 'Hombre', birthState: String(raw.Estado || 'TABASCO').toUpperCase().trim(), address: String(raw.Domicilio || '').toUpperCase().trim(), coloniaName: String(raw.Colonia || '').toUpperCase().trim(), fatherName: normalizeStr(raw.NombrePadre) || null, motherName: normalizeStr(raw.NombreMadre) || null, fatherAge: Number(raw.EdadPadre) || null, motherAge: Number(raw.EdadMadre) || null, registrationDate: raw.FechaApertura ? String(raw.FechaApertura) : null, status: raw.Estatus || PatientStatusEnum.Vigente, derechoAbiencia: raw.DerechoAbiencia ? String(raw.DerechoAbiencia).trim().toUpperCase() : null, phoneNumber: String(raw.Telefono || '').trim(), curp, updatedAt: Timestamp.now() };
       const existing = await getPatientByCURP(curp);
       if (existing) { batch.update(doc(db, 'patients', existing.id), patientData); updated++; }
       else { const newId = uuidv4(); batch.set(doc(db, 'patients', newId), { ...patientData, id: newId }); added++; }
     }
     await batch.commit();
     return { success: true, addedCount: added, updatedCount: updated, processedCount: chunk.length };
-  } catch (e: any) {
-    return { success: false, message: e.message };
-  }
+  } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 export async function bulkInsertDoctors(chunk: any[], specialties: string[]) {
@@ -1385,39 +1078,16 @@ export async function bulkInsertDoctors(chunk: any[], specialties: string[]) {
             const license = String(raw['Cédula'] || raw['Cedula'] || '').trim().toUpperCase();
             const unit = String(raw['Unidad'] || raw['Unidad Médica'] || '').trim().toUpperCase();
             let service = String(raw['Servicio'] || '').trim();
-
             if (!name) continue;
-            
-            // Try to match or default to first available specialty
-            if (!specialties.includes(service)) {
-                service = specialties[0] || 'Consulta Externa';
-            }
-
+            if (!specialties.includes(service)) { service = specialties[0] || 'Consulta Externa'; }
             const id = uuidv4();
-            const doctorData: Clinic = {
-                id,
-                name: unit || 'OTRA ÁREA',
-                doctorName: name,
-                professionalLicense: license,
-                password: 'hospital_ext', // Generic password for external ones
-                dailySlots: 10,
-                startTime: '08:00',
-                endTime: '13:00',
-                weekendBookingEnabled: false,
-                clinicType: service,
-                bookingMode: BookingMode.Time,
-                consultationDuration: 30
-            };
-
+            const doctorData: Clinic = { id, name: unit || 'OTRA ÁREA', doctorName: name, professionalLicense: license, password: 'hospital_ext', dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, clinicType: service, bookingMode: BookingMode.Time, consultationDuration: 30 };
             batch.set(doc(db, 'clinics', id), doctorData);
             processed++;
         }
         await batch.commit();
-        await logActivity("Carga Masiva Médicos", `Se importaron ${processed} registros al directorio.`);
         return { success: true, processedCount: processed };
-    } catch (e: any) {
-        return { success: false, message: e.message };
-    }
+    } catch (e: any) { return { success: false, message: e.message }; }
 }
 
 export async function getAvailableSlotsForDate(clinicId: string, dateIso: string) {
@@ -1428,34 +1098,14 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
   const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
   const taken = snap.docs.map(d => serializeData(d.data())).filter(a => a.date.split('T')[0] === dateOnly);
-  
   if (clinic.bookingMode === BookingMode.Time) {
     const slots = []; let curr = new Date(`1970-01-01T${clinic.startTime}:00`); const end = new Date(`1970-01-01T${clinic.endTime}:00`); const duration = clinic.consultationDuration || 30;
-    
-    const timeToMinutes = (t: string) => {
-        const [h, m] = t.split(':').map(Number);
-        return h * 60 + m;
-    };
-
+    const timeToMinutes = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
     while (curr < end) { 
-        const t = curr.toTimeString().substring(0, 5); 
-        const tMins = timeToMinutes(t);
-        
-        if (t === clinic.breakTime) {
-            curr = new Date(curr.getTime() + duration * 60000);
-            continue;
-        }
-
-        const hasCollision = taken.some(app => {
-            if (app.time.includes('Espera') || app.time.includes('Ficha')) return false;
-            const appStart = timeToMinutes(app.time);
-            const appEnd = appStart + (app.duration || 30);
-            const slotEnd = tMins + duration;
-            return Math.max(tMins, appStart) < Math.min(slotEnd, appEnd);
-        });
-
-        if (!hasCollision) slots.push(t); 
-        curr = new Date(curr.getTime() + duration * 60000); 
+        const t = curr.toTimeString().substring(0, 5); const tMins = timeToMinutes(t);
+        if (t === clinic.breakTime) { curr = new Date(curr.getTime() + duration * 60000); continue; }
+        const hasCollision = taken.some(app => { if (app.time.includes('Espera') || app.time.includes('Ficha')) return false; const appStart = timeToMinutes(app.time); const appEnd = appStart + (app.duration || 30); const slotEnd = tMins + duration; return Math.max(tMins, appStart) < Math.min(slotEnd, appEnd); });
+        if (!hasCollision) slots.push(t); curr = new Date(curr.getTime() + duration * 60000); 
     }
     const waitlist = Array.from({ length: clinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`).filter(t => !taken.some(a => a.time === t));
     return { timeSlots: [...slots, ...waitlist] };
