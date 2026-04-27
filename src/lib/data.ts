@@ -18,7 +18,9 @@ import {
   addDoc,
   getFirestore,
   getCountFromServer,
-  increment
+  increment,
+  startAt,
+  endAt
 } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -773,7 +775,7 @@ export async function createPrescription(data: Omit<Prescription, 'id' | 'folio'
         const expiresAt = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString();
         const prescription: Prescription = { ...data, id, folio, expiresAt, status: 'pendiente' };
         await setDoc(doc(db, 'prescriptions', id), prescription);
-        return { success: true, folio };
+        return { success: true, folio, prescription: serializeData(prescription) };
     } catch (e: any) { return { success: false, message: e.message }; }
 }
 
@@ -847,6 +849,22 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
         await batch.commit();
         return { success: true };
     } catch (e: any) { return { success: false, message: e.message }; }
+}
+
+export async function getPatientPrescriptionsCountToday(patientId: string): Promise<number> {
+    const db = getDb();
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+    
+    const q = query(
+        collection(db, 'prescriptions'),
+        where('patientId', '==', patientId),
+        where('date', '>=', start),
+        where('date', '<=', end)
+    );
+    const snap = await getDocs(q);
+    return snap.size;
 }
 
 // =====================================================================

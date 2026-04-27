@@ -1,5 +1,5 @@
 'use client';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine } from "./definitions";
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine, Prescription } from "./definitions";
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -532,4 +532,134 @@ export async function generateVaccineAppointmentPDF(appointmentData: VaccineAppo
     doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
     doc.save(`recibo_vacuna_${patient.name.split(' ')[0]}_${patient.paternalLastName}.pdf`);
+}
+
+export async function generatePrescriptionPDF(prescription: Prescription) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF() as any;
+
+    // Header
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(0, 102, 51); // Primary green
+    doc.text('HOSPITAL GENERAL DE HUIMANGUILLO', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('SECRETARÍA DE SALUD DEL ESTADO DE TABASCO', 105, 26, { align: 'center' });
+    
+    doc.setDrawColor(0, 102, 51);
+    doc.setLineWidth(1);
+    doc.line(20, 32, 190, 32);
+
+    // Folio and Date
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text(`FOLIO: ${prescription.folio}`, 20, 42);
+    doc.text(`FECHA: ${format(parseISO(prescription.date), 'dd/MM/yyyy HH:mm')}`, 190, 42, { align: 'right' });
+
+    // Patient Info
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, 48, 170, 22, 'F');
+    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('DATOS DEL PACIENTE', 25, 54);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text(`NOMBRE: ${prescription.patientName.toUpperCase()}`, 25, 62);
+    
+    // Doctor Info
+    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('MÉDICO QUE PRESCRIBE', 110, 54);
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`DR(A): ${prescription.doctorName.toUpperCase()}`, 110, 62);
+    doc.text(`CED: ${prescription.doctorLicense || 'S/C'}`, 110, 67);
+
+    // Diagnosis
+    let currentY = 80;
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('DIAGNÓSTICO:', 20, currentY);
+    currentY += 6;
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(10);
+    const diagnosisLines = doc.splitTextToSize(prescription.diagnosis?.toUpperCase() || 'NO ESPECIFICADO', 170);
+    doc.text(diagnosisLines, 20, currentY);
+    currentY += (diagnosisLines.length * 5) + 10;
+
+    // Medications Table
+    if (prescription.items.length > 0) {
+        doc.setFont('Helvetica', 'bold');
+        doc.text('MEDICAMENTOS (SURTIDO EN FARMACIA):', 20, currentY);
+        currentY += 4;
+        
+        const tableBody = prescription.items.map(i => [
+            `${i.name.toUpperCase()}\nLote: ${i.lote || 'N/A'}`,
+            i.quantity,
+            i.frequency || '',
+            i.indications || ''
+        ]);
+
+        doc.autoTable({
+            startY: currentY,
+            head: [['Insumo', 'Cant.', 'Frecuencia/Vía', 'Indicaciones']],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 102, 51], fontSize: 9 },
+            styles: { fontSize: 8 },
+            columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 15, halign: 'center' } }
+        });
+        currentY = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Other medications
+    if (prescription.otherMedications) {
+        doc.setFont('Helvetica', 'bold');
+        doc.text('OTROS MEDICAMENTOS (ADQUISICIÓN EXTERNA):', 20, currentY);
+        currentY += 6;
+        doc.setFont('Helvetica', 'normal');
+        const otherMedLines = doc.splitTextToSize(prescription.otherMedications.toUpperCase(), 170);
+        doc.text(otherMedLines, 20, currentY);
+        currentY += (otherMedLines.length * 5) + 10;
+    }
+
+    // Studies
+    if (prescription.labStudies?.length || prescription.otherStudies) {
+        doc.setFont('Helvetica', 'bold');
+        doc.text('SOLICITUD DE ESTUDIOS:', 20, currentY);
+        currentY += 6;
+        doc.setFont('Helvetica', 'normal');
+        
+        let studiesText = '';
+        if (prescription.labStudies?.length) {
+            studiesText += `LABORATORIO: ${prescription.labStudies.join(', ').toUpperCase()}\n`;
+        }
+        if (prescription.otherStudies) {
+            studiesText += `OTROS: ${prescription.otherStudies.toUpperCase()}`;
+        }
+        
+        const studiesLines = doc.splitTextToSize(studiesText, 170);
+        doc.text(studiesLines, 20, currentY);
+        currentY += (studiesLines.length * 5) + 15;
+    }
+
+    // Footer / Signature
+    if (currentY > 250) {
+        doc.addPage();
+        currentY = 40;
+    }
+    
+    doc.line(70, currentY, 140, currentY);
+    doc.setFontSize(10);
+    doc.text('FIRMA Y SELLO DEL MÉDICO', 105, currentY + 5, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Esta receta tiene una vigencia de 24 horas para surtido en farmacia del hospital.', 105, 280, { align: 'center' });
+    doc.text('Hospital General Huimanguillo - CitaMedicaFacil', 105, 285, { align: 'center' });
+
+    doc.save(`receta_${prescription.folio}.pdf`);
 }

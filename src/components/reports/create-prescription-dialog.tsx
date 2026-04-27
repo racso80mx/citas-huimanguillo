@@ -27,10 +27,14 @@ import {
   FlaskConical,
   Stethoscope,
   UserRound,
-  Hospital
+  Hospital,
+  Download,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import { getMedications, createPrescription, getPatients, getLabStudies, getClinics } from '@/lib/actions';
-import type { Medication, Patient, PrescriptionItem, Clinic, LabStudy } from '@/lib/definitions';
+import { getMedications, createPrescription, getPatients, getLabStudies, getClinics, getPatientPrescriptionsCountTodayAction } from '@/lib/actions';
+import { generatePrescriptionPDF } from '@/lib/report-helpers';
+import type { Medication, Patient, PrescriptionItem, Clinic, LabStudy, Prescription } from '@/lib/definitions';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,7 +45,7 @@ import { Combobox } from '../ui/combobox';
 type CreatePrescriptionDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  clinic: Clinic; // This is the current logged-in context
+  clinic: Clinic; 
   initialPatient?: Patient | null;
 };
 
@@ -49,6 +53,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   const [patientSearch, setPatientSearch] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
+  const [prescriptionsTodayCount, setPrescriptionsTodayCount] = useState(0);
   
   const [diagnosis, setDiagnosis] = useState('');
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -68,6 +73,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [savedPrescription, setSavedPrescription] = useState<Prescription | null>(null);
   
   const { toast } = useToast();
 
@@ -80,10 +86,21 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         setAllDoctors(docs);
         setIsLoadingInitialData(false);
       });
-      if (initialPatient) setSelectedPatient(initialPatient);
+      if (initialPatient) {
+          setSelectedPatient(initialPatient);
+          getPatientPrescriptionsCountTodayAction(initialPatient.id).then(setPrescriptionsTodayCount);
+      }
       setSelectedDoctorId(clinic.id);
+      setIsManualDoctor(false);
+      setSavedPrescription(null);
     }
   }, [isOpen, initialPatient, clinic.id]);
+
+  useEffect(() => {
+    if (selectedPatient) {
+        getPatientPrescriptionsCountTodayAction(selectedPatient.id).then(setPrescriptionsTodayCount);
+    }
+  }, [selectedPatient]);
 
   const selectedDoctor = useMemo(() => {
     return allDoctors.find(d => d.id === selectedDoctorId) || null;
@@ -175,20 +192,21 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
             type: 'interno'
         });
 
-        if (result.success) {
+        if (result.success && result.prescription) {
             toast({ title: "Receta Generada", description: `Folio: ${result.folio}.` });
-            setPrescriptionItems([]);
-            setDiagnosis('');
-            setOtherMedications('');
-            setSelectedLabStudies([]);
-            setOtherStudies('');
-            setSelectedPatient(null);
-            onClose();
+            setSavedPrescription(result.prescription as Prescription);
+            // Don't close yet, allow printing
         } else {
             toast({ title: "Error", description: result.message, variant: "destructive" });
         }
     } finally {
         setIsSaving(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (savedPrescription) {
+        await generatePrescriptionPDF(savedPrescription);
     }
   };
 
@@ -238,14 +256,40 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
     }));
   }, [allLabStudies]);
 
+  if (savedPrescription) {
+      return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader className="text-center items-center">
+                    <div className="bg-green-100 p-3 rounded-full mb-4">
+                        <CheckCircle2 className="h-10 w-10 text-green-600" />
+                    </div>
+                    <DialogTitle className="text-2xl font-black">¡RECETA GENERADA!</DialogTitle>
+                    <DialogDescription>
+                        La receta con folio <span className="font-bold text-primary">{savedPrescription.folio}</span> ha sido guardada exitosamente.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-6 space-y-4">
+                    <Button onClick={handlePrint} className="w-full h-14 text-lg font-bold" variant="default">
+                        <Download className="mr-2 h-6 w-6" /> DESCARGAR RECETA (PDF)
+                    </Button>
+                    <Button onClick={onClose} variant="outline" className="w-full h-12">
+                        Cerrar Ventana
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+      );
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-6xl h-[95vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2 border-b bg-muted/20">
           <div className="flex items-center justify-between">
             <div>
-                <DialogTitle className="flex items-center gap-2 text-2xl font-black">
-                    <FileText className="h-7 w-7 text-primary" /> PRESCRIPCIÓN MÉDICA
+                <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase">
+                    <FileText className="h-7 w-7 text-primary" /> Prescripción Médica
                 </DialogTitle>
                 <DialogDescription>
                     Completa la receta para el paciente. Los insumos se descuentan en Farmacia.
@@ -261,9 +305,16 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
             <div className="p-6 space-y-8">
                 {/* 1. SELECCIÓN DE PACIENTE */}
                 <div className="space-y-4">
-                    <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                        <User className="h-4 w-4" /> 1. Información del Paciente
-                    </Label>
+                    <div className="flex items-center justify-between">
+                        <Label className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                            <User className="h-4 w-4" /> 1. Información del Paciente
+                        </Label>
+                        {selectedPatient && (
+                            <Badge variant={prescriptionsTodayCount > 0 ? "destructive" : "outline"} className="text-[10px] font-bold">
+                                {prescriptionsTodayCount === 0 ? "Primera receta hoy" : `${prescriptionsTodayCount} recetas previas hoy`}
+                            </Badge>
+                        )}
+                    </div>
                     {!selectedPatient ? (
                     <div className="flex gap-2">
                         <div className="relative flex-1">
@@ -329,7 +380,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                                 onChange={setSelectedDoctorId}
                                 placeholder="Selecciona el médico del directorio..."
                                 searchPlaceholder="Buscar por nombre o unidad..."
-                                disabled={isLoadingInitialData}
+                                disabled={isLoadingInitialData || !!clinic.id} // Lock if we're in a specific clinic session
                             />
                             {selectedDoctor && (
                                 <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-xl border bg-muted/30 animate-in fade-in">
@@ -343,9 +394,11 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                                     </div>
                                 </div>
                             )}
-                            <Button variant="link" size="sm" className="px-0" onClick={() => setIsManualDoctor(true)}>
-                                ¿No está en el directorio? Capturar manualmente
-                            </Button>
+                            {!clinic.id && (
+                                <Button variant="link" size="sm" className="px-0" onClick={() => setIsManualDoctor(true)}>
+                                    ¿No está en el directorio? Capturar manualmente
+                                </Button>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-4 p-4 border rounded-xl bg-accent/5">

@@ -283,6 +283,10 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
     return res;
 }
 
+export async function getPatientPrescriptionsCountTodayAction(patientId: string) {
+    return data.getPatientPrescriptionsCountToday(patientId);
+}
+
 // =====================================================================
 // INVENTORY ACTIONS
 // =====================================================================
