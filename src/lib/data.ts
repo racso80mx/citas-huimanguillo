@@ -18,9 +18,7 @@ import {
   addDoc,
   getFirestore,
   getCountFromServer,
-  increment,
-  startAt,
-  endAt
+  increment
 } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -814,41 +812,53 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
         const pSnap = await getDoc(pRef);
         if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
         const prescription = pSnap.data() as Prescription;
-        if (prescription.status !== 'pendiente') return { success: false, message: "Ya procesada." };
+        if (prescription.status !== 'pendiente') return { success: false, message: "Esta receta ya ha sido procesada." };
         
         const batch = writeBatch(db);
-        const items = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
         
-        // Filter and update the prescription items to reflect what was actually dispensed
-        const actualDispensedItems = prescription.items
-          .filter(originalItem => items.some(dispensed => dispensed.medicationId === originalItem.medicationId))
-          .map(originalItem => {
-            const dispensedInfo = items.find(d => d.medicationId === originalItem.medicationId);
+        // Determinar qué artículos se van a surtir realmente
+        // Si no se proporciona itemsToDispense (legacy o carga manual completa), se usan todos los de la receta
+        const dispenseList = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
+        
+        // 1. Filtrar los items originales para quedarnos solo con los que se surtieron
+        // y actualizar sus cantidades a las entregadas en farmacia
+        const finalItems = prescription.items
+          .filter(pItem => dispenseList.some(d => d.medicationId === pItem.medicationId))
+          .map(pItem => {
+            const updateInfo = dispenseList.find(d => d.medicationId === pItem.medicationId);
             return {
-              ...originalItem,
-              quantity: dispensedInfo?.quantity || originalItem.quantity
+              ...pItem,
+              quantity: updateInfo ? updateInfo.quantity : pItem.quantity
             };
           });
 
-        for (const item of items) {
+        if (finalItems.length === 0) {
+            return { success: false, message: "No se seleccionó ningún artículo para surtir." };
+        }
+
+        // 2. Descontar del inventario (solo los artículos marcados con cantidad > 0)
+        for (const item of dispenseList) {
             if (item.quantity <= 0) continue;
             const medRef = doc(db, 'medications', item.medicationId);
-            const medSnap = await getDoc(medRef);
-            if (medSnap.exists()) {
-                batch.update(medRef, { existencia: increment(-item.quantity), updatedAt: new Date().toISOString() });
-            }
+            batch.update(medRef, { 
+                existencia: increment(-item.quantity), 
+                updatedAt: new Date().toISOString() 
+            });
         }
         
-        // Update the prescription with ONLY the items that were dispensed and their actual quantities
+        // 3. Actualizar la receta con el estado final y la lista de artículos REALMENTE entregados
         batch.update(pRef, { 
           status: 'surtida',
-          items: actualDispensedItems,
+          items: finalItems,
           updatedAt: new Date().toISOString()
         });
         
         await batch.commit();
         return { success: true };
-    } catch (e: any) { return { success: false, message: e.message }; }
+    } catch (e: any) { 
+        console.error("Dispense error:", e);
+        return { success: false, message: "Error interno al procesar el surtido." }; 
+    }
 }
 
 export async function getPatientPrescriptionsCountToday(patientId: string): Promise<number> {

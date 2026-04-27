@@ -449,7 +449,8 @@ function ExternalPrescriptionForm({ onDispenseSuccess }: { onDispenseSuccess: ()
             if (resCreate.success) {
                 const pending = await getPendingPrescriptions({ folio: resCreate.folio });
                 if (pending.length > 0) {
-                    await dispensePrescription(pending[0].id);
+                    const itemsToDispense = items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
+                    await dispensePrescription(pending[0].id, itemsToDispense);
                     toast({ title: "Receta Externa Surtida" });
                     setSelectedPatient(null);
                     setItems([]);
