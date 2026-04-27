@@ -9,7 +9,7 @@ import {
 } from '../ui/card';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { downloadBackupAction, cleanupOldRecordsAction } from '@/lib/actions';
+import { downloadBackupAction, cleanupOldRecords } from '@/lib/actions';
 import { Loader2, Download, Upload, Trash } from 'lucide-react';
 import {
   AlertDialog,
@@ -116,7 +116,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
   
   const handleCleanup = () => {
       startCleanTransition(async () => {
-          const result = await cleanupOldRecordsAction();
+          const result = await cleanupOldRecords();
           if (result.success) {
               toast({
                   title: 'Limpieza Completada',

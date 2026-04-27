@@ -78,6 +78,7 @@ export enum ClinicType {
     Psicologia = 'Psicología',
     Nutricion = 'Nutrición',
     Odontologia = 'Odontología',
+    Externo = 'Médico Externo / Otra Área'
 }
 
 export enum BookingMode {
@@ -87,7 +88,7 @@ export enum BookingMode {
 
 export const ClinicSchema = z.object({
   id: z.string(),
-  name: z.string().min(1, "El nombre es requerido."),
+  name: z.string().min(1, "El nombre de la unidad es requerido."),
   doctorName: z.string().min(1, "El nombre del doctor es requerido."),
   professionalLicense: z.string().optional(),
   password: z.string().min(1, "La contraseña es requerida."),

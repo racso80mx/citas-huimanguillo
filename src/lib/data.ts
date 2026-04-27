@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -59,7 +58,7 @@ import type {
   SpecialActionDay,
   Prescription,
 } from './definitions';
-import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
+import { BookingMode, PatientStatus as PatientStatusEnum, ClinicType } from './definitions';
 
 // =====================================================================
 // UTILS & DB INITIALIZATION
@@ -806,6 +805,12 @@ export async function updateClinics(clinics: Clinic[]) {
   return { success: true };
 }
 
+export async function deleteClinic(id: string) {
+    const db = getDb();
+    await deleteDoc(doc(db, 'clinics', id));
+    return { success: true };
+}
+
 export async function getColonias(): Promise<Colonia[]> {
   const db = getDb();
   const snap = await getDocs(collection(db, 'colonias'));
@@ -1325,6 +1330,47 @@ export async function bulkInsertPatients(chunk: any[]) {
   } catch (e: any) {
     return { success: false, message: e.message };
   }
+}
+
+export async function bulkInsertDoctors(chunk: any[]) {
+    const db = getDb();
+    if (!chunk || chunk.length === 0) return { success: false };
+    try {
+        const batch = writeBatch(db);
+        let processed = 0;
+        for (const raw of chunk) {
+            const name = String(raw['Médico'] || raw['Nombre'] || '').trim().toUpperCase();
+            const license = String(raw['Cédula'] || raw['Cedula'] || '').trim().toUpperCase();
+            const unit = String(raw['Unidad'] || raw['Unidad Médica'] || '').trim().toUpperCase();
+            const service = String(raw['Servicio'] || '').trim() as ClinicType;
+
+            if (!name) continue;
+
+            const id = uuidv4();
+            const doctorData: Clinic = {
+                id,
+                name: unit || 'OTRA ÁREA',
+                doctorName: name,
+                professionalLicense: license,
+                password: 'hospital_ext', // Generic password for external ones
+                dailySlots: 10,
+                startTime: '08:00',
+                endTime: '13:00',
+                weekendBookingEnabled: false,
+                clinicType: service || ClinicType.Externo,
+                bookingMode: BookingMode.Time,
+                consultationDuration: 30
+            };
+
+            batch.set(doc(db, 'clinics', id), doctorData);
+            processed++;
+        }
+        await batch.commit();
+        await logActivity("Carga Masiva Médicos", `Se importaron ${processed} registros al directorio.`);
+        return { success: true, processedCount: processed };
+    } catch (e: any) {
+        return { success: false, message: e.message };
+    }
 }
 
 export async function getAvailableSlotsForDate(clinicId: string, dateIso: string) {

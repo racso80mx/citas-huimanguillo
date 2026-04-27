@@ -128,29 +128,29 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
     return (
         <DialogContent className="sm:max-w-[60%]">
             <DialogHeader>
-                <DialogTitle>Editar Núcleo Básico: {clinic.name || "Nuevo Núcleo"}</DialogTitle>
+                <DialogTitle>Editar Configuración: {clinic.name || "Nueva Unidad"}</DialogTitle>
                 <DialogDescription>
-                    Modifica los detalles del núcleo básico y sus colonias. Los cambios se guardarán al presionar "Guardar Cambios".
+                    Modifica los horarios y capacidad de atención. Para registrar médicos de adscripción, utiliza el Catálogo de Médicos.
                 </DialogDescription>
             </DialogHeader>
             <div className="max-h-[70vh] overflow-y-auto p-4 space-y-6">
                  <div className='grid sm:grid-cols-2 gap-4'>
                     <div className='space-y-2'>
-                        <Label htmlFor={`name-${editedClinic.id}`}>Nombre del Núcleo</Label>
+                        <Label htmlFor={`name-${editedClinic.id}`}>Nombre de la Unidad / Consultorio</Label>
                         <Input
                         id={`name-${editedClinic.id}`}
                         value={editedClinic.name}
-                        onChange={(e) => handleFieldChange('name', e.target.value)}
-                        placeholder="Ej. Núcleo Básico 1"
+                        onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())}
+                        placeholder="Ej. CONSULTORIO 1"
                         />
                     </div>
                     <div className='space-y-2'>
-                        <Label htmlFor={`doctor-${editedClinic.id}`}>Nombre del Doctor</Label>
+                        <Label htmlFor={`doctor-${editedClinic.id}`}>Médico Responsable</Label>
                         <Input
                         id={`doctor-${editedClinic.id}`}
                         value={editedClinic.doctorName}
-                        onChange={(e) => handleFieldChange('doctorName', e.target.value)}
-                        placeholder="Ej. Dr. Juan Pérez"
+                        onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())}
+                        placeholder="Ej. DR. JUAN PEREZ"
                         />
                     </div>
                 </div>
@@ -160,7 +160,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                         <Input
                         id={`license-${editedClinic.id}`}
                         value={editedClinic.professionalLicense || ''}
-                        onChange={(e) => handleFieldChange('professionalLicense', e.target.value)}
+                        onChange={(e) => handleFieldChange('professionalLicense', e.target.value.toUpperCase())}
                         placeholder="Ej. 1234567"
                         />
                     </div>
@@ -188,7 +188,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                 </div>
                 <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
-                    <Label htmlFor={`clinicType-${editedClinic.id}`}>Tipo de Núcleo</Label>
+                    <Label htmlFor={`clinicType-${editedClinic.id}`}>Tipo de Servicio</Label>
                     <Select value={editedClinic.clinicType} onValueChange={(value: ClinicType) => handleFieldChange('clinicType', value)}>
                         <SelectTrigger id={`clinicType-${editedClinic.id}`}><SelectValue/></SelectTrigger>
                         <SelectContent>
@@ -296,7 +296,6 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                                     mode="multiple"
                                     selected={(editedClinic.unavailableDates || []).map(d => new Date(d))}
                                     onSelect={(dates) => {
-                                        // Ensure unique dates to prevent duplicate key errors
                                         const uniqueDates = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
                                         handleFieldChange('unavailableDates', uniqueDates);
                                     }}
@@ -306,30 +305,6 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                                 />
                             </PopoverContent>
                         </Popover>
-                        {editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 && (
-                            <div className="mt-2 space-y-2">
-                                <div className="flex flex-wrap gap-2">
-                                    {Array.from(new Set(editedClinic.unavailableDates || [])).sort().map(dateStr => (
-                                        <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pl-2 pr-1 py-0.5">
-                                            <span>
-                                                {format(new Date(dateStr + 'T12:00:00'), "PPP", { locale: es })}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                aria-label={`Quitar ${dateStr}`}
-                                                className="rounded-full hover:bg-muted-foreground/20 p-0.5"
-                                                onClick={() => {
-                                                    const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr) || [];
-                                                    handleFieldChange('unavailableDates', newDates);
-                                                }}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        </Badge>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -364,7 +339,7 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                      <div className="flex items-center gap-2 pt-2">
                         <Input 
                             value={newColoniaName}
-                            onChange={(e) => setNewColoniaName(e.target.value)}
+                            onChange={(e) => setNewColoniaName(e.target.value.toUpperCase())}
                             placeholder="Nombre de la nueva colonia"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
@@ -397,7 +372,6 @@ export function ClinicsManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
-  // States for filtering and sorting
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -526,7 +500,7 @@ export function ClinicsManager() {
       if (associatedColonias.length > 0) {
         toast({
           title: "Acción Bloqueada",
-          description: `No se puede eliminar el núcleo "${clinicToRemove.name}" porque tiene ${associatedColonias.length} colonia(s) asignada(s). Por favor, reasigna o elimina esas colonias primero.`,
+          description: `No se puede eliminar el consultorio "${clinicToRemove.name}" porque tiene ${associatedColonias.length} colonia(s) asignada(s).`,
           variant: "destructive",
           duration: 8000
         });
@@ -541,7 +515,7 @@ export function ClinicsManager() {
     if (validClinics.length !== clinics.length) {
         toast({
             title: 'Campos Requeridos',
-            description: 'El nombre del núcleo, del doctor y la contraseña no pueden estar vacíos en ningún núcleo.',
+            description: 'Nombre, Responsable y Contraseña son obligatorios.',
             variant: 'destructive',
         });
         return;
@@ -555,15 +529,14 @@ export function ClinicsManager() {
       if (clinicsResult.success && coloniasResult.success) {
         toast({
           title: 'Configuración Guardada',
-          description: 'La configuración de núcleos y colonias ha sido actualizada. Se requiere un reinicio del servidor para que los cambios se verán reflejados.',
+          description: 'La estructura de atención ha sido actualizada.',
           className: 'bg-accent text-accent-foreground',
-          duration: 8000,
         });
         await fetchData();
       } else {
         toast({
           title: 'Error',
-          description: clinicsResult.message || coloniasResult.message || 'No se pudo guardar la configuración.',
+          description: clinicsResult.message || coloniasResult.message || 'No se pudo guardar.',
           variant: 'destructive',
         });
       }
@@ -574,8 +547,8 @@ export function ClinicsManager() {
     return (
       <Card className="shadow-lg">
         <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
-            <CardDescription>Configura los detalles de cada núcleo básico y sus colonias asignadas.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Hospital /> Estructura de Atención</CardTitle>
+            <CardDescription>Cargando unidades médicas...</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center h-24">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -589,11 +562,11 @@ export function ClinicsManager() {
         <Card className="shadow-lg">
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
-                <CardTitle className="flex items-center gap-2"><Hospital /> Gestionar Núcleos Básicos</CardTitle>
-                <CardDescription>Configura los detalles de cada núcleo básico y sus colonias asignadas.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Hospital /> Estructura de Atención</CardTitle>
+                <CardDescription>Configura los consultorios físicos y sus áreas de influencia.</CardDescription>
             </div>
             <Button onClick={handleAddNewClick} className="bg-primary hover:bg-primary/90">
-                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Núcleo
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Consultorio
             </Button>
         </CardHeader>
         <CardContent>
@@ -601,7 +574,7 @@ export function ClinicsManager() {
                 <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Buscar por nombre o doctor..." 
+                        placeholder="Buscar por consultorio o responsable..." 
                         className="pl-9 h-10"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -610,10 +583,10 @@ export function ClinicsManager() {
                 <div className="w-full sm:w-64">
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
                         <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Filtrar por Tipo" />
+                            <SelectValue placeholder="Filtrar por Servicio" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">Todos los Tipos</SelectItem>
+                            <SelectItem value="all">Todos los Servicios</SelectItem>
                             {Object.values(ClinicType).map(type => (
                                 <SelectItem key={type} value={type}>{type}</SelectItem>
                             ))}
@@ -627,12 +600,12 @@ export function ClinicsManager() {
                     <TableRow>
                         <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
                             <div className="flex items-center">
-                                Nombre del Núcleo {getSortIcon('name')}
+                                Consultorio {getSortIcon('name')}
                             </div>
                         </TableHead>
                         <TableHead onClick={() => handleSort('doctorName')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
                             <div className="flex items-center">
-                                Doctor {getSortIcon('doctorName')}
+                                Responsable {getSortIcon('doctorName')}
                             </div>
                         </TableHead>
                         <TableHead onClick={() => handleSort('clinicType')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
@@ -642,7 +615,7 @@ export function ClinicsManager() {
                         </TableHead>
                         <TableHead onClick={() => handleSort('coloniaCount')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
                             <div className="flex items-center">
-                                Colonias {getSortIcon('coloniaCount')}
+                                Municipios {getSortIcon('coloniaCount')}
                             </div>
                         </TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
@@ -651,9 +624,9 @@ export function ClinicsManager() {
                 <TableBody>
                     {filteredAndSortedClinics.map(clinic => (
                         <TableRow key={clinic.id}>
-                            <TableCell className="font-medium">{clinic.name}</TableCell>
-                            <TableCell>{clinic.doctorName}</TableCell>
-                            <TableCell>{clinic.clinicType}</TableCell>
+                            <TableCell className="font-bold text-xs">{clinic.name}</TableCell>
+                            <TableCell className="text-xs uppercase">{clinic.doctorName}</TableCell>
+                            <TableCell className="text-[10px] uppercase font-medium">{clinic.clinicType}</TableCell>
                             <TableCell>{colonias.filter(c => c.clinicId === clinic.id).length}</TableCell>
                             <TableCell className="text-right">
                                 <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
@@ -668,19 +641,15 @@ export function ClinicsManager() {
                 </TableBody>
             </Table>
              {filteredAndSortedClinics.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground">
-                    No se encontraron núcleos básicos con los criterios seleccionados.
+                <div className="text-center py-10 text-muted-foreground italic">
+                    No se encontraron consultorios con los criterios seleccionados.
                 </div>
             )}
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-                <Save className="mr-2 h-4 w-4" />
-            )}
-            {isSaving ? 'Guardando...' : 'Guardar Todos los Cambios'}
+            <Button onClick={handleSave} disabled={isSaving} className="w-full h-12 font-bold">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {isSaving ? 'Guardando...' : 'Confirmar Cambios en Estructura'}
             </Button>
         </CardFooter>
         </Card>

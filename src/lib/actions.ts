@@ -31,6 +31,26 @@ export async function normalizeExpedientesAction() {
 }
 
 // =====================================================================
+// DOCTOR CATALOG ACTIONS
+// =====================================================================
+
+export async function bulkInsertDoctors(chunk: any[]) {
+    const res = await data.bulkInsertDoctors(chunk);
+    if (res.success) {
+        revalidatePath('/admin');
+    }
+    return res;
+}
+
+export async function deleteClinic(id: string) {
+    const res = await data.deleteClinic(id);
+    if (res.success) {
+        revalidatePath('/admin');
+    }
+    return res;
+}
+
+// =====================================================================
 // PATIENT ACTIONS
 // =====================================================================
 
@@ -373,7 +393,10 @@ export async function updateVaccineSettings(settings: any) {
   return res;
 }
 
-export async function getVaccines() { return data.getVaccines(); }
+export async function getVaccines() {
+  const db = data.getVaccines(); // Note: getVaccines might need to be called correctly
+  return data.getVaccines();
+}
 export async function updateVaccines(vaccines: any[]) {
   const res = await data.updateVaccines(vaccines);
   revalidatePath('/vacunas');
@@ -453,7 +476,7 @@ export async function downloadBackupAction() {
   return { success: true, data: backup };
 }
 
-export async function cleanupOldRecordsAction() {
+export async function cleanupOldRecords() {
   return data.cleanupOldRecords();
 }
 
