@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -273,8 +274,8 @@ export async function getPrescriptionHistory(filter: { startDate?: string, endDa
     return data.getPrescriptionHistory(filter);
 }
 
-export async function dispensePrescription(prescriptionId: string) {
-    const res = await data.dispensePrescription(prescriptionId);
+export async function dispensePrescription(prescriptionId: string, itemsToDispense?: { medicationId: string, quantity: number }[]) {
+    const res = await data.dispensePrescription(prescriptionId, itemsToDispense);
     if (res.success) {
         revalidatePath('/farmacia');
         revalidatePath('/archivo-consulta');
@@ -326,7 +327,7 @@ export async function updateColonias(colonias: any[]) {
   return res;
 }
 
-export async function getAnnouncements() { return data.getAnnouncements(); }
+export async function getAnnouncements() { return (await getSettingsDoc<{ messages: string[] }>('announcements', { messages: [] })).messages; }
 export async function updateAnnouncements(messages: string[]) {
   const res = await data.updateAnnouncements(messages);
   revalidatePath('/citas-medicas'); revalidatePath('/laboratorio'); revalidatePath('/rayos-x'); revalidatePath('/ultrasonidos'); revalidatePath('/vacunas');
@@ -347,11 +348,19 @@ export async function updateLabSettings(settings: any) {
   return res;
 }
 
-export async function getLabStudies() { return data.getLabStudies(); }
-export async function updateLabStudies(studies: any[]) {
-  const res = await data.updateLabStudies(studies);
-  revalidatePath('/laboratorio'); revalidatePath('/reports');
-  return res;
+export async function getLabStudies() {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'labStudies'));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as LabStudy);
+}
+export async function updateLabStudies(studies: LabStudy[]) {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'labStudies'));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  studies.forEach(s => batch.set(doc(db, 'labStudies', s.id || uuidv4()), s));
+  await batch.commit();
+  return { success: true };
 }
 
 export async function getXRaySettings() { return data.getXRaySettings(); }
@@ -361,11 +370,19 @@ export async function updateXRaySettings(settings: any) {
   return res;
 }
 
-export async function getXRayStudies() { return data.getXRayStudies(); }
-export async function updateXRayStudies(studies: any[]) {
-  const res = await data.updateXRayStudies(studies);
-  revalidatePath('/rayos-x'); revalidatePath('/reports');
-  return res;
+export async function getXRayStudies() {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'xrayStudies'));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as XRayStudy);
+}
+export async function updateXRayStudies(studies: XRayStudy[]) {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'xrayStudies'));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  studies.forEach(s => batch.set(doc(db, 'xrayStudies', s.id || uuidv4()), s));
+  await batch.commit();
+  return { success: true };
 }
 
 export async function getUltrasoundSettings() { return data.getUltrasoundSettings(); }
@@ -375,11 +392,19 @@ export async function updateUltrasoundSettings(settings: any) {
   return res;
 }
 
-export async function getUltrasoundStudies() { return data.getUltrasoundStudies(); }
-export async function updateUltrasoundStudies(studies: any[]) {
-  const res = await data.updateUltrasoundStudies(studies);
-  revalidatePath('/ultrasonidos'); revalidatePath('/reports');
-  return res;
+export async function getUltrasoundStudies() {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'ultrasoundStudies'));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as UltrasoundStudy);
+}
+export async function updateUltrasoundStudies(studies: UltrasoundStudy[]) {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'ultrasoundStudies'));
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  studies.forEach(s => batch.set(doc(db, 'ultrasoundStudies', s.id || uuidv4()), s));
+  await batch.commit();
+  return { success: true };
 }
 
 export async function getVaccineSettings() { return data.getVaccineSettings(); }
@@ -389,11 +414,19 @@ export async function updateVaccineSettings(settings: any) {
   return res;
 }
 
-export async function getVaccines() { return data.getVaccines(); }
+export async function getVaccines() {
+  const db = getDb();
+  const snap = await getDocs(collection(db, 'vaccines'));
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Vaccine);
+}
 export async function updateVaccines(vaccines: any[]) {
-  const res = await data.updateVaccines(vaccines);
-  revalidatePath('/vacunas'); revalidatePath('/reports');
-  return res;
+  const db = getDb();
+  const batch = writeBatch(db);
+  const snap = await getDocs(collection(db, 'vaccines'));
+  snap.docs.forEach(d => batch.delete(d.ref));
+  vaccines.forEach(v => batch.set(doc(db, 'vaccines', v.id || uuidv4()), v));
+  await batch.commit();
+  return { success: true };
 }
 
 export async function getUsers() { return data.getUsers(); }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -24,7 +25,8 @@ import {
     ClipboardList,
     RefreshCw,
     ShieldCheck,
-    UserRound
+    UserRound,
+    CheckCircle2
 } from 'lucide-react';
 import { 
     getPendingPrescriptions, 
@@ -58,6 +60,7 @@ import { Combobox } from '../ui/combobox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '../ui/calendar';
 import { DateRange } from 'react-day-picker';
+import { Checkbox } from '../ui/checkbox';
 
 export function PrescriptionDispenser() {
     const [view, setActiveView] = useState<'pending' | 'manual'>('pending');
@@ -67,7 +70,6 @@ export function PrescriptionDispenser() {
     
     const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isDispensing, setIsDispensing] = useState<string | null>(null);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     
     const { toast } = useToast();
@@ -90,22 +92,6 @@ export function PrescriptionDispenser() {
             }
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const handleDispense = async (pId: string) => {
-        setIsDispensing(pId);
-        try {
-            const res = await dispensePrescription(pId);
-            if (res.success) {
-                toast({ title: "Receta Surtida", description: "El inventario ha sido actualizado correctamente." });
-                setPrescriptions(prev => prev.filter(p => p.id !== pId));
-                setRefreshTrigger(prev => prev + 1); // Trigger history update
-            } else {
-                toast({ title: "Error al surtir", description: res.message, variant: "destructive" });
-            }
-        } finally {
-            setIsDispensing(null);
         }
     };
 
@@ -175,67 +161,15 @@ export function PrescriptionDispenser() {
                     {prescriptions.length > 0 ? (
                         <div className="grid gap-6">
                             {prescriptions.map(p => (
-                                <Card key={p.id} className="border-l-4 border-l-primary shadow-md animate-in fade-in slide-in-from-top-4">
-                                    <CardHeader className="bg-muted/10 pb-2">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                            <div className="flex items-center gap-3">
-                                                <Badge className="h-7 px-3 text-sm font-black bg-primary/10 text-primary border-primary/20">{p.folio}</Badge>
-                                                <div>
-                                                    <CardTitle className="text-lg uppercase">{p.patientName}</CardTitle>
-                                                    <CardDescription className="flex items-center gap-2">
-                                                        <Hospital className="h-3 w-3" /> {clinics.find(c => c.id === p.clinicId)?.name || 'Consultorio Externo'}
-                                                        <span className="mx-1">•</span>
-                                                        <User className="h-3 w-3" /> Dr. {p.doctorName}
-                                                        {p.doctorLicense && <span className="text-[10px] bg-muted px-1.5 rounded ml-2">CED: {p.doctorLicense}</span>}
-                                                    </CardDescription>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <Badge variant="outline" className="font-mono text-[10px]">Expira en: {format(new Date(p.expiresAt), "HH:mm 'del' dd/MM", { locale: es })}</Badge>
-                                            </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-4">
-                                        <div className="border rounded-lg overflow-hidden">
-                                            <Table>
-                                                <TableHeader className="bg-muted/30">
-                                                    <TableRow>
-                                                        <TableHead className="text-xs font-bold uppercase">Medicamento</TableHead>
-                                                        <TableHead className="w-[80px] text-center text-xs font-bold uppercase">Cant.</TableHead>
-                                                        <TableHead className="text-xs font-bold uppercase">Indicaciones</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {p.items.map((item, idx) => (
-                                                        <TableRow key={idx}>
-                                                            <TableCell>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-bold text-xs uppercase">{item.name}</span>
-                                                                    <div className="flex items-center gap-2 text-[10px] font-mono text-primary font-bold">
-                                                                        <span>LOTE: {item.lote || 'N/A'}</span>
-                                                                        <span className="opacity-40 text-muted-foreground">| {item.clave}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-center font-black">{item.quantity}</TableCell>
-                                                            <TableCell className="text-xs italic">{item.indications || 'Sin especificaciones'}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="bg-primary/5 pt-4">
-                                        <Button 
-                                            onClick={() => handleDispense(p.id)} 
-                                            className="w-full bg-primary hover:bg-primary/90 font-bold h-12"
-                                            disabled={isDispensing === p.id}
-                                        >
-                                            {isDispensing === p.id ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <PackageCheck className="mr-2 h-5 w-5" />}
-                                            SURTIR RECETA Y ACTUALIZAR STOCK
-                                        </Button>
-                                    </CardFooter>
-                                </Card>
+                                <PrescriptionCard 
+                                    key={p.id} 
+                                    prescription={p} 
+                                    clinics={clinics} 
+                                    onSuccess={() => {
+                                        setPrescriptions(prev => prev.filter(x => x.id !== p.id));
+                                        setRefreshTrigger(prev => prev + 1);
+                                    }}
+                                />
                             ))}
                         </div>
                     ) : (
@@ -254,6 +188,154 @@ export function PrescriptionDispenser() {
 
             <PrescriptionHistory refreshTrigger={refreshTrigger} clinics={clinics} />
         </div>
+    );
+}
+
+function PrescriptionCard({ prescription, clinics, onSuccess }: { prescription: Prescription, clinics: Clinic[], onSuccess: () => void }) {
+    // Selection state for items: { [medId]: { selected: boolean, quantity: number } }
+    const [selectedItems, setSelectedItems] = useState<Record<string, { selected: boolean, quantity: number }>>(() => {
+        const initial: Record<string, { selected: boolean, quantity: number }> = {};
+        prescription.items.forEach(item => {
+            initial[item.medicationId] = { selected: true, quantity: item.quantity };
+        });
+        return initial;
+    });
+    const [isDispensing, setIsDispensing] = useState(false);
+    const { toast } = useToast();
+
+    const handleToggleItem = (medId: string, checked: boolean) => {
+        setSelectedItems(prev => ({
+            ...prev,
+            [medId]: { ...prev[medId], selected: checked }
+        }));
+    };
+
+    const handleQuantityChange = (medId: string, qty: string) => {
+        const n = parseInt(qty) || 0;
+        setSelectedItems(prev => ({
+            ...prev,
+            [medId]: { ...prev[medId], quantity: Math.max(0, n) }
+        }));
+    };
+
+    const handleDispense = async () => {
+        const itemsToSurtir = Object.entries(selectedItems)
+            .filter(([_, val]) => val.selected && val.quantity > 0)
+            .map(([id, val]) => ({ medicationId: id, quantity: val.quantity }));
+
+        if (itemsToSurtir.length === 0) {
+            toast({ title: "Atención", description: "Selecciona al menos un medicamento con cantidad mayor a 0.", variant: "destructive" });
+            return;
+        }
+
+        setIsDispensing(true);
+        try {
+            const res = await dispensePrescription(prescription.id, itemsToSurtir);
+            if (res.success) {
+                toast({ title: "Receta Surtida", description: `Se procesaron ${itemsToSurtir.length} artículos.` });
+                onSuccess();
+            } else {
+                toast({ title: "Error al surtir", description: res.message, variant: "destructive" });
+            }
+        } finally {
+            setIsDispensing(false);
+        }
+    };
+
+    const numSelected = Object.values(selectedItems).filter(v => v.selected && v.quantity > 0).length;
+
+    return (
+        <Card className="border-l-4 border-l-primary shadow-md animate-in fade-in slide-in-from-top-4">
+            <CardHeader className="bg-muted/10 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <Badge className="h-7 px-3 text-sm font-black bg-primary/10 text-primary border-primary/20">{prescription.folio}</Badge>
+                        <div>
+                            <CardTitle className="text-lg uppercase">{prescription.patientName}</CardTitle>
+                            <CardDescription className="flex items-center gap-2">
+                                <Hospital className="h-3 w-3" /> {clinics.find(c => c.id === prescription.clinicId)?.name || 'Consultorio Externo'}
+                                <span className="mx-1">•</span>
+                                <User className="h-3 w-3" /> Dr. {prescription.doctorName}
+                            </CardDescription>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <Badge variant="outline" className="font-mono text-[10px]">Expira en: {format(new Date(prescription.expiresAt), "HH:mm 'del' dd/MM", { locale: es })}</Badge>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+                <div className="space-y-4">
+                    <div className="text-xs font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                        <ClipboardList className="h-3 w-3" /> Detalle de Medicamentos Prescritos:
+                    </div>
+                    <div className="border rounded-lg overflow-hidden bg-background">
+                        <Table>
+                            <TableHeader className="bg-muted/30">
+                                <TableRow>
+                                    <TableHead className="w-[50px] text-center"></TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase">Insumo / Lote</TableHead>
+                                    <TableHead className="w-[100px] text-center text-[10px] font-black uppercase">Prescrito</TableHead>
+                                    <TableHead className="w-[120px] text-center text-[10px] font-black uppercase">A Surtir</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {prescription.items.map((item) => {
+                                    const state = selectedItems[item.medicationId];
+                                    return (
+                                        <TableRow key={item.medicationId} className={cn(!state.selected && "opacity-40 grayscale")}>
+                                            <TableCell className="text-center">
+                                                <Checkbox 
+                                                    checked={state.selected} 
+                                                    onCheckedChange={(checked) => handleToggleItem(item.medicationId, !!checked)}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-xs uppercase leading-tight">{item.name}</span>
+                                                    <div className="flex items-center gap-2 text-[9px] font-mono text-primary font-bold">
+                                                        <span>LOTE: {item.lote || 'N/A'}</span>
+                                                        <span className="opacity-40 text-muted-foreground">| {item.clave}</span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <Badge variant="outline" className="font-mono text-[10px] bg-muted/20">
+                                                    {item.quantity}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input 
+                                                    type="number" 
+                                                    min={0} 
+                                                    className="h-8 text-center font-black"
+                                                    value={state.quantity}
+                                                    onChange={e => handleQuantityChange(item.medicationId, e.target.value)}
+                                                    disabled={!state.selected}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+            </CardContent>
+            <CardFooter className="bg-primary/5 pt-4 flex items-center justify-between">
+                <div className="text-[10px] font-bold uppercase text-muted-foreground">
+                    Items seleccionados: <span className="text-primary font-black">{numSelected}</span>
+                </div>
+                <Button 
+                    onClick={handleDispense} 
+                    className="bg-primary hover:bg-primary/90 font-bold h-11 px-8"
+                    disabled={isDispensing || numSelected === 0}
+                >
+                    {isDispensing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <PackageCheck className="mr-2 h-4 w-4" />}
+                    SURTIR SELECCIONADOS
+                </Button>
+            </CardFooter>
+        </Card>
     );
 }
 

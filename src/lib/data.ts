@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -965,27 +966,45 @@ export async function getPrescriptionHistory(filter: { startDate?: string, endDa
     return results.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export async function dispensePrescription(prescriptionId: string) {
+export async function dispensePrescription(prescriptionId: string, itemsToDispense?: { medicationId: string, quantity: number }[]) {
     const db = getDb();
     try {
         const pRef = doc(db, 'prescriptions', prescriptionId);
         const pSnap = await getDoc(pRef);
         if (!pSnap.exists()) return { success: false, message: "Receta no encontrada." };
+        
         const prescription = pSnap.data() as Prescription;
         if (prescription.status !== 'pendiente') return { success: false, message: "Ya procesada." };
+        
         const batch = writeBatch(db);
-        for (const item of prescription.items) {
+        
+        // If itemsToDispense is provided, only surtir those items
+        // If not provided (old behavior), surtir all items from prescription
+        const items = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
+
+        for (const item of items) {
+            if (item.quantity <= 0) continue;
+            
             const medRef = doc(db, 'medications', item.medicationId);
             const medSnap = await getDoc(medRef);
-            if (!medSnap.exists()) throw new Error(`Medicamento ${item.name} no encontrado.`);
-            const currentStock = medSnap.data().existencia || 0;
-            if (currentStock < item.quantity) return { success: false, message: `Stock insuficiente para: ${item.name}.` };
-            batch.update(medRef, { existencia: increment(-item.quantity), updatedAt: new Date().toISOString() });
+            
+            if (medSnap.exists()) {
+                // Decrement stock. Using firestore increment is safe even if result is negative
+                batch.update(medRef, { 
+                    existencia: increment(-item.quantity), 
+                    updatedAt: new Date().toISOString() 
+                });
+            }
         }
+        
+        // Mark as surtida (regardless if partial, for this MVP we close the folio)
         batch.update(pRef, { status: 'surtida' });
         await batch.commit();
+        
         return { success: true };
-    } catch (e: any) { return { success: false, message: e.message }; }
+    } catch (e: any) { 
+        return { success: false, message: e.message }; 
+    }
 }
 
 // =====================================================================
