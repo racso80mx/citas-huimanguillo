@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
@@ -30,6 +31,14 @@ import {
   Search,
   UserRound,
   Tags,
+  Settings,
+  ClipboardList,
+  Pill,
+  Package,
+  FlaskConical,
+  Stethoscope,
+  Waves,
+  ShieldPlus,
 } from 'lucide-react';
 import {
   startOfDay,
@@ -100,7 +109,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [colonias, setColonias] = useState<Colonia[]>([]);
 
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState("configuracion");
+  const [mainTab, setMainTab] = useState("configuracion");
   const [activeFilter, setActiveFilter] = useState<FilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
@@ -138,7 +147,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         setAllXRayAppointments(xRayAppointmentsData);
         setAllUltrasoundAppointments(ultrasoundAppointmentsData);
         setAllVaccineAppointments(vaccineAppointmentsData);
-        setClinics(clinicsData);
         setClinics(clinicsData);
         setColonias(coloniasData);
       } catch (error) {
@@ -265,23 +273,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setActiveFilter('range');
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (type: string) => {
     let dataToDownload: any[] = [];
     let filename = '';
 
-    if (activeTab === 'citas') {
+    if (type === 'citas') {
         dataToDownload = appointmentsToDisplay;
         filename = 'citas_medicas';
-    } else if (activeTab === 'laboratorio') {
+    } else if (type === 'laboratorio') {
         dataToDownload = labAppointmentsToDisplay;
         filename = 'citas_laboratorio';
-    } else if (activeTab === 'rayos-x') {
+    } else if (type === 'rayos-x') {
         dataToDownload = xRayAppointmentsToDisplay;
         filename = 'citas_rayos_x';
-    } else if (activeTab === 'ultrasonidos') {
+    } else if (type === 'ultrasonidos') {
         dataToDownload = ultrasoundAppointmentsToDisplay;
         filename = 'citas_ultrasonidos';
-    } else if (activeTab === 'vacunas') {
+    } else if (type === 'vacunas') {
         dataToDownload = vaccineAppointmentsToDisplay;
         filename = 'citas_vacunas';
     }
@@ -307,86 +315,23 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     await downloadExcel(enrichedAppointments, `${filename}_${activeFilter}`);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, type: string) => {
     try {
-      await deleteAppointment(id);
+      if (type === 'medical') await deleteAppointment(id);
+      else if (type === 'lab') await deleteLabAppointment(id);
+      else if (type === 'xray') await deleteXRayAppointment(id);
+      else if (type === 'us') await deleteUltrasoundAppointment(id);
+      else if (type === 'vaccine') await deleteVaccineAppointment(id);
+
       toast({
         title: 'Cita Eliminada',
-        description: 'La cita ha sido eliminada y el cupo liberado.',
+        description: 'La cita ha sido eliminada correctamente.',
       });
       fetchData(); 
     } catch (error) {
       toast({
         title: 'Error',
         description: 'No se pudo eliminar la cita.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleLabDelete = async (id: string) => {
-    try {
-      await deleteLabAppointment(id);
-      toast({
-        title: 'Cita de Laboratorio Eliminada',
-        description: 'La cita ha sido eliminada.',
-      });
-      fetchData();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la cita de laboratorio.',
-        variant: 'destructive',
-      });
-    }
-  };
-  
-  const handleXRayDelete = async (id: string) => {
-    try {
-      await deleteXRayAppointment(id);
-      toast({
-        title: 'Cita de Rayos X Eliminada',
-        description: 'La cita ha sido eliminada.',
-      });
-      fetchData();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la cita de Rayos X.',
-        variant: 'destructive',
-      });
-    }
-  };
-  
-  const handleUltrasoundDelete = async (id: string) => {
-    try {
-      await deleteUltrasoundAppointment(id);
-      toast({
-        title: 'Cita de Ultrasonido Eliminada',
-        description: 'La cita ha sido eliminada.',
-      });
-      fetchData();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la cita de Ultrasonido.',
-        variant: 'destructive',
-      });
-    }
-  };
-  
-  const handleVaccineDelete = async (id: string) => {
-    try {
-      await deleteVaccineAppointment(id);
-      toast({
-        title: 'Cita de Vacunación Eliminada',
-        description: 'La cita ha sido eliminada.',
-      });
-      fetchData();
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la cita de vacunación.',
         variant: 'destructive',
       });
     }
@@ -407,10 +352,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
           <div>
             <CardTitle className="text-3xl font-bold font-headline">
-              Panel de Administración
+              Administración Central
             </CardTitle>
             <CardDescription>
-              Bienvenido, SuperAdmin. Gestiona las citas y configuraciones.
+              Gestión de catálogos, configuración del sistema y reportes de atención.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -418,410 +363,232 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <RefreshCw
                 className={cn('mr-2 h-4 w-4', isPending && 'animate-spin')}
               />
-              Recargar Datos
+              Sincronizar
             </Button>
             <Button variant="outline" onClick={onLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              Cerrar Sesión
+              Salir
             </Button>
           </div>
         </CardHeader>
       </Card>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-10 h-auto">
-          <TabsTrigger value="configuracion">Configuración</TabsTrigger>
-          <TabsTrigger value="especialidades" className="flex items-center gap-2"><Tags className="h-3 w-3" /> Catálogos</TabsTrigger>
-          <TabsTrigger value="medicos" className="flex items-center gap-2"><UserRound className="h-3 w-3" /> Médicos</TabsTrigger>
-          <TabsTrigger value="farmacia">Farmacia</TabsTrigger>
-          <TabsTrigger value="almacen">Almacén</TabsTrigger>
-          <TabsTrigger value="citas">Citas Médicas</TabsTrigger>
-          <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
-          <TabsTrigger value="rayos-x">Rayos X</TabsTrigger>
-          <TabsTrigger value="ultrasonidos">Ultrasonidos</TabsTrigger>
-          <TabsTrigger value="vacunas">Vacunas</TabsTrigger>
+      <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 h-auto mb-8 bg-muted/20 p-1">
+          <TabsTrigger value="configuracion" className="py-3 font-bold flex items-center gap-2"><Settings className="h-4 w-4" /> 1. Configuración</TabsTrigger>
+          <TabsTrigger value="catalogos" className="py-3 font-bold flex items-center gap-2"><UserRound className="h-4 w-4" /> 2. Catálogos</TabsTrigger>
+          <TabsTrigger value="citas" className="py-3 font-bold flex items-center gap-2"><ClipboardList className="h-4 w-4" /> 3. Citas por Servicio</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="configuracion" className="mt-6">
-            <div className="space-y-8">
-                <ModuleManager />
-                <ClinicsManager />
-                <div className="grid md:grid-cols-2 gap-8">
-                  <HolidaysManager />
-                  <SpecialActionDaysManager />
+        {/* 1. CONFIGURACION */}
+        <TabsContent value="configuracion" className="mt-0 space-y-8 animate-in fade-in duration-300">
+            <div className="grid lg:grid-cols-2 gap-8">
+                <div className="space-y-8">
+                    <ModuleManager />
+                    <ClinicsManager />
+                    <HolidaysManager />
                 </div>
-                
-                <ModuleSecurityManager />
-                <AdminPasswordManager />
-
-                <AnnouncementsManager />
+                <div className="space-y-8">
+                    <ModuleSecurityManager />
+                    <AdminPasswordManager />
+                    <SpecialActionDaysManager />
+                    <AnnouncementsManager />
+                </div>
+            </div>
+            
+            <div className="grid lg:grid-cols-2 gap-8">
                 <BackupManager onRestoreSuccess={fetchData} />
-                 <Card>
+                <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><DatabaseZap /> Mantenimiento de Base de Datos</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><DatabaseZap /> Mantenimiento de Datos</CardTitle>
                         <CardDescription>
-                            Herramientas para limpiar y mantener la integridad de los datos de pacientes.
+                            Limpieza de duplicados y optimización del padrón.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Link href="/admin/duplicates" passHref>
-                            <Button variant="outline">
-                                Gestionar Pacientes Duplicados
+                            <Button variant="outline" className="w-full h-12">
+                                <DatabaseZap className="mr-2 h-4 w-4" /> Gestionar Pacientes Duplicados
                             </Button>
                         </Link>
                     </CardContent>
                 </Card>
-                <ActivityLogViewer />
             </div>
+            <ActivityLogViewer />
         </TabsContent>
 
-        <TabsContent value="especialidades" className="mt-6">
-            <SpecialtiesManager />
-        </TabsContent>
-
-        <TabsContent value="medicos" className="mt-6">
-            <DoctorsCatalog />
-        </TabsContent>
-
-        <TabsContent value="farmacia" className="mt-6">
-            <PharmacyManager />
-        </TabsContent>
-
-        <TabsContent value="almacen" className="mt-6">
-            <WarehouseManager />
+        {/* 2. CATALOGOS */}
+        <TabsContent value="catalogos" className="mt-0 animate-in fade-in duration-300">
+            <Tabs defaultValue="medicos" className="w-full">
+                <TabsList className="flex w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
+                    <TabsTrigger value="especialidades" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Especialidades</TabsTrigger>
+                    <TabsTrigger value="medicos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Directorio Médico</TabsTrigger>
+                    <TabsTrigger value="farmacia" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Farmacia</TabsTrigger>
+                    <TabsTrigger value="almacen" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Almacén</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="especialidades" className="mt-0">
+                    <SpecialtiesManager />
+                </TabsContent>
+                
+                <TabsContent value="medicos" className="mt-0">
+                    <DoctorsCatalog />
+                </TabsContent>
+                
+                <TabsContent value="farmacia" className="mt-0">
+                    <PharmacyManager />
+                </TabsContent>
+                
+                <TabsContent value="almacen" className="mt-0">
+                    <WarehouseManager />
+                </TabsContent>
+            </Tabs>
         </TabsContent>
         
-        <TabsContent value="citas" className="mt-6">
-           <div className="space-y-8">
-            <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas Médicas</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="h-10 border-dashed">
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Tipo de Consulta
-                                {selectedClinicType !== 'all' && (
-                                    <>
-                                        <Separator orientation="vertical" className="mx-2 h-4" />
-                                        <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                                            {selectedClinicType}
-                                        </Badge>
-                                    </>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0" align="start">
-                            <Command>
-                                <CommandList>
-                                    <CommandGroup>
-                                        <CommandItem onSelect={() => setSelectedClinicType('all')}>
-                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === 'all' ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
-                                                <Check className="h-4 w-4" />
-                                            </div>
-                                            <span>Todos</span>
-                                        </CommandItem>
-                                        {Object.values(ClinicType).map(type => (
-                                            <CommandItem key={type} onSelect={() => setSelectedClinicType(type)}>
-                                                <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === type ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
-                                                    <Check className="h-4 w-4" />
-                                                </div>
-                                                <span>{type}</span>
-                                            </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                          <Button variant="outline" className="h-10 border-dashed">
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              Núcleo Básico
-                              {selectedClinics.length > 0 && (
-                                  <>
-                                      <Separator orientation="vertical" className="mx-2 h-4" />
-                                      <Badge
-                                          variant="secondary"
-                                          className="rounded-sm px-1 font-normal"
-                                      >
-                                          {selectedClinics.length}
-                                      </Badge>
-                                  </>
-                              )}
-                          </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[250px] p-0" align="start">
-                          <Command>
-                              <CommandInput placeholder="Buscar núcleo..." />
-                              <CommandList>
-                                  <CommandEmpty>No se encontraron resultados.</CommandEmpty>
-                                   {Object.entries(groupedClinics).map(([type, clinicGroup]) => (
-                                    <CommandGroup key={type} heading={type}>
-                                        {clinicGroup.map(clinic => {
-                                            const isSelected = selectedClinics.includes(clinic.id);
-                                            return (
-                                                <CommandItem
-                                                    key={clinic.id}
-                                                    onSelect={() => handleClinicSelect(clinic.id)}
-                                                >
-                                                    <div
-                                                        className={cn(
-                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                            isSelected
-                                                                ? "bg-primary text-primary-foreground"
-                                                                : "opacity-50 [&_svg]:invisible"
-                                                        )}
-                                                    >
-                                                        <Check className={cn("h-4 w-4")} />
-                                                    </div>
-                                                    <span>{clinic.name}</span>
-                                                </CommandItem>
-                                            );
-                                        })}
-                                    </CommandGroup>
-                                  ))}
-                                  {selectedClinics.length > 0 && (
-                                      <>
-                                          <CommandSeparator />
-                                          <CommandGroup>
-                                              <CommandItem
-                                                  onSelect={() => setSelectedClinics([])}
-                                                  className="justify-center text-center"
-                                              >
-                                                  Limpiar filtro
-                                              </CommandItem>
-                                          </CommandGroup>
-                                      </>
-                                  )}
-                              </CommandList>
-                          </Command>
-                      </PopoverContent>
-                  </Popover>
+        {/* 3. CITAS POR SERVICIO */}
+        <TabsContent value="citas" className="mt-0 animate-in fade-in duration-300">
+            <Tabs defaultValue="citas-medicas" className="w-full">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
+                    <TabsList className="bg-muted/40 p-1">
+                        <TabsTrigger value="citas-medicas" className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> General</TabsTrigger>
+                        <TabsTrigger value="laboratorio" className="flex items-center gap-2"><FlaskConical className="h-3.5 w-3.5" /> Laboratorio</TabsTrigger>
+                        <TabsTrigger value="rayos-x" className="flex items-center gap-2"><Stethoscope className="h-3.5 w-3.5" /> Rayos X</TabsTrigger>
+                        <TabsTrigger value="ultrasonidos" className="flex items-center gap-2"><Waves className="h-3.5 w-3.5" /> Ultrasonidos</TabsTrigger>
+                        <TabsTrigger value="vacunas" className="flex items-center gap-2"><ShieldPlus className="h-3.5 w-3.5" /> Vacunación</TabsTrigger>
+                    </TabsList>
 
-                    <div className="relative w-full sm:w-64 ml-auto">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Nombre, CURP o Folio..." 
-                            className="pl-9 h-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} size="sm" onClick={() => setActiveFilter('today')}>Hoy</Button>
+                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setActiveFilter('week')}>Semana</Button>
+                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} size="sm" onClick={() => setActiveFilter('month')}>Mes</Button>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} size="sm" className="w-[180px] justify-start text-left font-normal">
+                                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM')}</>) : (format(dateRange.from, 'dd/MM'))) : (<span>Rango</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} locale={es} />
+                            </PopoverContent>
+                        </Popover>
                     </div>
-                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                      <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                      </div>
-                  ) : (
-                      <AppointmentList appointments={appointmentsToDisplay} onDelete={handleDelete} onEditSuccess={fetchData} isAdmin clinics={clinics} />
-                  )}
-                </CardContent>
-            </Card>
-           </div>
-        </TabsContent>
+                </div>
 
-        <TabsContent value="laboratorio" className="mt-6">
-           <div className="space-y-8">
-            <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Laboratorio</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-lab" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <div className="relative w-full sm:w-64 ml-auto">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Nombre, CURP o Folio..." 
-                            className="pl-9 h-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={handleLabDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <LabSettingsManager />
-           </div>
-        </TabsContent>
+                <div className="relative w-full mb-6">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar por Nombre, CURP o Folio de cita en cualquier servicio..." 
+                        className="pl-9 h-11"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
 
-        <TabsContent value="rayos-x" className="mt-6">
-           <div className="space-y-8">
-            <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Rayos X</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-xray" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <div className="relative w-full sm:w-64 ml-auto">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Nombre, CURP o Folio..." 
-                            className="pl-9 h-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={handleXRayDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <XRaySettingsManager />
-            </div>
-        </TabsContent>
-        
-        <TabsContent value="ultrasonidos" className="mt-6">
-           <div className="space-y-8">
-            <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Ultrasonido</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-ultrasound" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <div className="relative w-full sm:w-64 ml-auto">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Nombre, CURP o Folio..." 
-                            className="pl-9 h-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={handleUltrasoundDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <UltrasoundSettingsManager />
-            </div>
-        </TabsContent>
+                {/* CITAS MEDICAS */}
+                <TabsContent value="citas-medicas" className="mt-0 space-y-6">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4 border-b">
+                            <div>
+                                <CardTitle className="text-xl">Consultas Externas Generales</CardTitle>
+                                <CardDescription>Filtrado dinámico por núcleo y especialidad.</CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-9 border-dashed">
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Tipo de Consulta
+                                            {selectedClinicType !== 'all' && <Badge variant="secondary" className="ml-2 px-1 font-normal">{selectedClinicType}</Badge>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[200px] p-0" align="start">
+                                        <Command>
+                                            <CommandList>
+                                                <CommandGroup>
+                                                    <CommandItem onSelect={() => setSelectedClinicType('all')}>
+                                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === 'all' ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                            <Check className="h-4 w-4" />
+                                                        </div>
+                                                        <span>Todos</span>
+                                                    </CommandItem>
+                                                    {Object.values(ClinicType).map(type => (
+                                                        <CommandItem key={type} onSelect={() => setSelectedClinicType(type)}>
+                                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === type ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                                <Check className="h-4 w-4" />
+                                                            </div>
+                                                            <span>{type}</span>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                <Button onClick={() => handleDownload('citas')} variant="secondary" size="sm" className="h-9"><Download className="mr-2 h-4 w-4" />Excel</Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <AppointmentList appointments={appointmentsToDisplay} onDelete={(id) => handleDelete(id, 'medical')} onEditSuccess={fetchData} isAdmin clinics={clinics} />
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-        <TabsContent value="vacunas" className="mt-6">
-           <div className="space-y-8">
-            <Card className="w-full shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold font-headline">Reporte de Citas de Vacunación</CardTitle>
-                  <div className="flex flex-wrap items-center gap-2 pt-4">
-                    <Button variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Hoy</Button>
-                    <Button variant={activeFilter === 'week' ? 'default' : 'outline'} onClick={() => setActiveFilter('week')}>Esta Semana</Button>
-                    <Button variant={activeFilter === 'month' ? 'default' : 'outline'} onClick={() => setActiveFilter('month')}>Este Mes</Button>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button id="date-vaccine" variant={activeFilter === 'range' ? 'default' : 'outline'} className={cn('w-[260px] justify-start text-left font-normal')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'LLL dd, y')} - {format(dateRange.to, 'LLL dd, y')}</>) : (format(dateRange.from, 'LLL dd, y'))) : (<span>Seleccionar rango</span>)}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} />
-                        </PopoverContent>
-                    </Popover>
-                    <div className="relative w-full sm:w-64 ml-auto">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            placeholder="Nombre, CURP o Folio..." 
-                            className="pl-9 h-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <Button onClick={handleDownload} variant="secondary" disabled={isPending}><Download className="mr-2 h-4 w-4" />Excel</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <div className="flex justify-center items-center h-40">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" /><span className="ml-4 text-muted-foreground">Cargando citas...</span>
-                    </div>
-                  ) : (
-                    <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={handleVaccineDelete} onEditSuccess={fetchData} isAdmin />
-                  )}
-                </CardContent>
-            </Card>
-            <VaccineSettingsManager />
-            </div>
+                {/* LABORATORIO */}
+                <TabsContent value="laboratorio" className="mt-0 space-y-8">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between border-b">
+                            <div><CardTitle className="text-xl">Citas de Laboratorio Clínico</CardTitle></div>
+                            <Button onClick={() => handleDownload('laboratorio')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'lab')} onEditSuccess={fetchData} isAdmin />
+                        </CardContent>
+                    </Card>
+                    <LabSettingsManager />
+                </TabsContent>
+
+                {/* RAYOS X */}
+                <TabsContent value="rayos-x" className="mt-0 space-y-8">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between border-b">
+                            <div><CardTitle className="text-xl">Citas de Radiología (Rayos X)</CardTitle></div>
+                            <Button onClick={() => handleDownload('rayos-x')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'xray')} onEditSuccess={fetchData} isAdmin />
+                        </CardContent>
+                    </Card>
+                    <XRaySettingsManager />
+                </TabsContent>
+                
+                {/* ULTRASONIDOS */}
+                <TabsContent value="ultrasonidos" className="mt-0 space-y-8">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between border-b">
+                            <div><CardTitle className="text-xl">Citas de Ultrasonografía</CardTitle></div>
+                            <Button onClick={() => handleDownload('ultrasonidos')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'us')} onEditSuccess={fetchData} isAdmin />
+                        </CardContent>
+                    </Card>
+                    <UltrasoundSettingsManager />
+                </TabsContent>
+
+                {/* VACUNAS */}
+                <TabsContent value="vacunas" className="mt-0 space-y-8">
+                    <Card className="shadow-lg">
+                        <CardHeader className="flex flex-row items-center justify-between border-b">
+                            <div><CardTitle className="text-xl">Citas de Vacunación Preventiva</CardTitle></div>
+                            <Button onClick={() => handleDownload('vacunas')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'vaccine')} onEditSuccess={fetchData} isAdmin />
+                        </CardContent>
+                    </Card>
+                    <VaccineSettingsManager />
+                </TabsContent>
+            </Tabs>
         </TabsContent>
       </Tabs>
     </div>
