@@ -94,7 +94,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
             name: med.descripcion,
             clave: med.claveCuadroBasico,
             quantity: 1,
-            lote: med.lote // Added lote to prescription item
+            lote: med.lote
         }
     ]);
   };
@@ -149,18 +149,19 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
   const medOptions = useMemo(() => {
     return medications.map(m => ({
         value: m.id,
-        label: `${m.descripcion} [Lote: ${m.lote}] - Disp: ${m.existencia}`,
+        label: `${m.descripcion} [LOTE: ${m.lote}]`,
         keywords: `${m.claveCuadroBasico} ${m.descripcion} ${m.lote}`,
         disabled: m.existencia <= 0,
         content: (
-            <div className="flex flex-col gap-0.5 py-1">
-                <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm uppercase truncate max-w-[250px]">{m.descripcion}</span>
-                    <Badge variant={m.existencia > 0 ? "secondary" : "destructive"} className="text-[10px] h-4">Stock: {m.existencia}</Badge>
+            <div className="flex flex-col gap-1 py-2">
+                <div className="flex items-start justify-between gap-4">
+                    <span className="font-bold text-sm uppercase leading-tight">{m.descripcion}</span>
+                    <Badge variant={m.existencia > 0 ? "secondary" : "destructive"} className="text-[10px] h-5 shrink-0 font-black">Stock: {m.existencia}</Badge>
                 </div>
-                <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-mono uppercase">
-                    <span className="flex items-center gap-1"><Pill className="h-3 w-3" /> LOTE: {m.lote}</span>
-                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground font-mono font-bold uppercase mt-1">
+                    <span className="flex items-center gap-1.5"><Pill className="h-3 w-3 text-primary" /> LOTE: {m.lote}</span>
+                    <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3 text-primary" /> VENCE: {m.fechaCaducidad || 'N/A'}</span>
+                    <span className="text-primary/60">{m.claveCuadroBasico}</span>
                 </div>
             </div>
         )
@@ -169,7 +170,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="sm:max-w-5xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-6 w-6 text-primary" /> Generar Receta Médica
@@ -239,8 +240,9 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinicId, doctorName
                     if (med) handleAddMedication(med);
                 }}
                 placeholder="Busca por nombre, clave o lote del medicamento..."
-                searchPlaceholder="Filtrar catálogo..."
+                searchPlaceholder="Filtrar catálogo de farmacia..."
                 noResultsText="No se encontraron lotes con existencia."
+                disabled={isLoadingMeds}
                />
             </div>
 

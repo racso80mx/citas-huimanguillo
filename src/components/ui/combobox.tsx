@@ -35,6 +35,7 @@ type ComboboxProps = {
   searchPlaceholder?: string;
   noResultsText?: string;
   allowCustomValue?: boolean;
+  disabled?: boolean;
 };
 
 export function Combobox({
@@ -45,6 +46,7 @@ export function Combobox({
   searchPlaceholder = 'Search...',
   noResultsText = 'No results found.',
   allowCustomValue = false,
+  disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState('');
@@ -58,11 +60,14 @@ export function Combobox({
     setInputValue('');
   };
   
-  const filteredOptions = inputValue 
-    ? options.filter(option => 
-        (option.keywords || option.label).toLowerCase().includes(inputValue.toLowerCase())
-      )
-    : options;
+  // Custom filter logic to handle cases where content might be present
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue) return options;
+    const term = inputValue.toLowerCase();
+    return options.filter(option => 
+      (option.keywords || option.label).toLowerCase().includes(term)
+    );
+  }, [options, inputValue]);
 
   const selectedLabel = value
     ? options.find((option) => option.value === value)?.label ?? value
@@ -75,20 +80,21 @@ export function Combobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between h-11"
+          disabled={disabled}
         >
-          <span className="truncate">{selectedLabel}</span>
+          <span className="truncate text-left">{selectedLabel}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+      <PopoverContent className="min-w-[var(--radix-popover-trigger-width)] w-full md:max-w-[700px] p-0" align="start">
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder={searchPlaceholder}
             value={inputValue}
             onValueChange={setInputValue}
           />
-          <CommandList>
+          <CommandList className="max-h-[400px]">
             <CommandEmpty>{noResultsText}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
@@ -97,15 +103,20 @@ export function Combobox({
                   value={option.value}
                   onSelect={handleSelect}
                   disabled={option.disabled}
-                  className={option.disabled ? "opacity-50 cursor-not-allowed" : ""}
+                  className={cn(
+                    "cursor-pointer",
+                    option.disabled ? "opacity-50 cursor-not-allowed" : ""
+                  )}
                 >
                   <Check
                     className={cn(
-                      'mr-2 h-4 w-4',
+                      'mr-2 h-4 w-4 shrink-0',
                       value === option.value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  {option.content || option.label}
+                  <div className="flex-1 min-w-0">
+                    {option.content || <span>{option.label}</span>}
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>

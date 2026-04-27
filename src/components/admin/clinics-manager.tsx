@@ -154,25 +154,36 @@ function ClinicEditDialog({ clinic, allColonias, onSave, onCancel }: { clinic: C
                         />
                     </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor={`password-${editedClinic.id}`}>Contraseña</Label>
-                    <div className="relative">
+                <div className='grid sm:grid-cols-2 gap-4'>
+                    <div className='space-y-2'>
+                        <Label htmlFor={`license-${editedClinic.id}`}>Cédula Profesional</Label>
                         <Input
-                            id={`password-${editedClinic.id}`}
-                            type={showPassword ? 'text' : 'password'}
-                            value={editedClinic.password}
-                            onChange={(e) => handleFieldChange('password', e.target.value)}
-                            placeholder="Contraseña para reportes"
+                        id={`license-${editedClinic.id}`}
+                        value={editedClinic.professionalLicense || ''}
+                        onChange={(e) => handleFieldChange('professionalLicense', e.target.value)}
+                        placeholder="Ej. 1234567"
                         />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute inset-y-0 right-0 h-full px-3"
-                            onClick={() => setShowPassword(!showPassword)}
-                        >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`password-${editedClinic.id}`}>Contraseña de Reportes</Label>
+                        <div className="relative">
+                            <Input
+                                id={`password-${editedClinic.id}`}
+                                type={showPassword ? 'text' : 'password'}
+                                value={editedClinic.password}
+                                onChange={(e) => handleFieldChange('password', e.target.value)}
+                                placeholder="Contraseña para reportes"
+                            />
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute inset-y-0 right-0 h-full px-3"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                        </div>
                     </div>
                 </div>
                 <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
@@ -470,6 +481,7 @@ export function ClinicsManager() {
         id: uuidv4(), 
         name: '', 
         doctorName: '', 
+        professionalLicense: '',
         password: '',
         dailySlots: 15,
         waitlistSlots: 0,
