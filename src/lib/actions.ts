@@ -7,7 +7,6 @@ import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Presc
 /**
  * ARCHIVO DE ACCIONES DE SERVIDOR (SERVER ACTIONS)
  * Actúa como puente puro entre la UI y el módulo de datos.
- * Evita errores de referencia centralizando la lógica de DB en data.ts
  */
 
 export async function scanDuplicates(criteria: 'expediente' | 'curp' | 'name') {
@@ -41,8 +40,8 @@ export async function updateSpecialties(specialties: Specialty[]) {
 
 export async function bulkInsertDoctors(chunk: any[]) {
     const specialtiesData = await data.getSpecialties();
-    const specialties = specialtiesData.map(s => s.name);
-    const res = await data.bulkInsertDoctors(chunk, specialties);
+    const specialtiesList = specialtiesData.map(s => s.name);
+    const res = await data.bulkInsertDoctors(chunk, specialtiesList);
     if (res.success) revalidatePath('/admin');
     return res;
 }
@@ -284,6 +283,7 @@ export async function verifyUltrasoundPassword(p: string) { return data.verifyUl
 export async function verifyVaccinePassword(p: string) { return data.verifyVaccinePassword(p); }
 export async function verifyBIPassword(p: string) { return data.verifyBIPassword(p); }
 export async function verifyAdminPassword(p: string) { return data.verifyAdminPassword(p); }
+export async function verifyCitasMedicasPassword(p: string) { return data.verifyCitasMedicasPassword(p); }
 
 export async function getLogs() { return data.getLogs(); }
 export async function logActivity(action: string, details: string) { return data.logActivity(action, details); }
@@ -303,11 +303,4 @@ export async function bulkInsertPatients(chunk: any[]) {
   const res = await data.bulkInsertPatients(chunk);
   revalidatePath('/archivo');
   return res;
-}
-
-export async function getBIData() {
-  const [ appointments, labAppointments, xRayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias ] = await Promise.all([
-    data.getAppointments(), data.getLabAppointments(), data.getXRayAppointments(), data.getUltrasoundAppointments(), data.getVaccineAppointments(), data.getClinics(), data.getColonias()
-  ]);
-  return { appointments, labAppointments, xRayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias };
 }

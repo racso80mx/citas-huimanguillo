@@ -59,7 +59,7 @@ import type {
   Prescription,
   Specialty,
 } from './definitions';
-import { BookingMode, PatientStatus as PatientStatusEnum, ClinicType } from './definitions';
+import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
 // =====================================================================
 // UTILS & DB INITIALIZATION
@@ -664,6 +664,7 @@ export async function verifyUltrasoundPassword(p: string) { const s = await getU
 export async function verifyVaccinePassword(p: string) { const s = await getVaccineSettings(); return { success: s.password === p }; }
 export async function verifyBIPassword(p: string) { const s = await getBISettings(); return { success: s.password === p }; }
 export async function verifyAdminPassword(p: string) { const s = await getAdminSettings(); return { success: s.password === p }; }
+export async function verifyCitasMedicasPassword(p: string) { const s = await getModuleSettings(); return { success: s.citasMedicasPassword === p }; }
 
 export async function getLogs(): Promise<ActivityLog[]> {
   const db = getDb();
@@ -696,8 +697,7 @@ export async function getSpecialties(): Promise<Specialty[]> {
   const snap = await getDocs(collection(db, 'specialties'));
   let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Specialty);
   if (results.length === 0) {
-      const defaults = Object.values(ClinicType).map(name => ({ id: uuidv4(), name, available: true }));
-      return defaults;
+      return [];
   }
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -815,48 +815,14 @@ export async function dispensePrescription(prescriptionId: string, itemsToDispen
         if (prescription.status !== 'pendiente') return { success: false, message: "Esta receta ya ha sido procesada." };
         
         const batch = writeBatch(db);
-        
-        // Determinar qué artículos se van a surtir realmente
         const dispenseList = itemsToDispense || prescription.items.map(i => ({ medicationId: i.medicationId, quantity: i.quantity }));
-        
-        // 1. Filtrar los items originales para quedarnos solo con los que se surtieron
-        const finalItems = prescription.items
-          .filter(pItem => dispenseList.some(d => d.medicationId === pItem.medicationId))
-          .map(pItem => {
-            const updateInfo = dispenseList.find(d => d.medicationId === pItem.medicationId);
-            return {
-              ...pItem,
-              quantity: updateInfo ? updateInfo.quantity : pItem.quantity
-            };
-          });
-
-        if (finalItems.length === 0) {
-            return { success: false, message: "No se seleccionó ningún artículo para surtir." };
-        }
-
-        // 2. Descontar del inventario
-        for (const item of dispenseList) {
-            if (item.quantity <= 0) continue;
-            const medRef = doc(db, 'medications', item.medicationId);
-            batch.update(medRef, { 
-                existencia: increment(-item.quantity), 
-                updatedAt: new Date().toISOString() 
-            });
-        }
-        
-        // 3. Actualizar la receta
-        batch.update(pRef, { 
-          status: 'surtida',
-          items: finalItems,
-          updatedAt: new Date().toISOString()
-        });
-        
+        const finalItems = prescription.items.filter(pItem => dispenseList.some(d => d.medicationId === pItem.medicationId)).map(pItem => { const updateInfo = dispenseList.find(d => d.medicationId === pItem.medicationId); return { ...pItem, quantity: updateInfo ? updateInfo.quantity : pItem.quantity }; });
+        if (finalItems.length === 0) return { success: false, message: "No se seleccionó ningún artículo para surtir." };
+        for (const item of dispenseList) { if (item.quantity <= 0) continue; const medRef = doc(db, 'medications', item.medicationId); batch.update(medRef, { existencia: increment(-item.quantity), updatedAt: new Date().toISOString() }); }
+        batch.update(pRef, { status: 'surtida', items: finalItems, updatedAt: new Date().toISOString() });
         await batch.commit();
         return { success: true };
-    } catch (e: any) { 
-        console.error("Dispense error:", e);
-        return { success: false, message: "Error interno al procesar el surtido." }; 
-    }
+    } catch (e: any) { console.error("Dispense error:", e); return { success: false, message: "Error interno al procesar el surtido." }; }
 }
 
 export async function getPatientPrescriptionsCountToday(patientId: string): Promise<number> {
@@ -864,17 +830,9 @@ export async function getPatientPrescriptionsCountToday(patientId: string): Prom
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
-    
-    // Para evitar error de índice compuesto, consultamos por patientId y filtramos fechas en memoria
-    const q = query(
-        collection(db, 'prescriptions'),
-        where('patientId', '==', patientId)
-    );
+    const q = query(collection(db, 'prescriptions'), where('patientId', '==', patientId));
     const snap = await getDocs(q);
-    const count = snap.docs.filter(d => {
-        const date = d.data().date;
-        return date >= start && date <= end;
-    }).length;
+    const count = snap.docs.filter(d => { const date = d.data().date; return date >= start && date <= end; }).length;
     return count;
 }
 
