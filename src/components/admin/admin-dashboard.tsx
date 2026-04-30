@@ -506,14 +506,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                             <CommandList>
                                                 <CommandEmpty>No se encontraron resultados.</CommandEmpty>
                                                 <CommandGroup>
-                                                    <CommandItem onSelect={() => setSelectedClinicType('all')}>
+                                                    <CommandItem onSelect={() => { setSelectedClinicType('all'); setSelectedClinics([]); }}>
                                                         <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === 'all' ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
                                                             <Check className="h-4 w-4" />
                                                         </div>
                                                         <span>Todos</span>
                                                     </CommandItem>
                                                     {Object.values(ClinicType).map(type => (
-                                                        <CommandItem key={type} onSelect={() => setSelectedClinicType(type)}>
+                                                        <CommandItem key={type} onSelect={() => { setSelectedClinicType(type); setSelectedClinics([]); }}>
                                                             <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === type ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
                                                                 <Check className="h-4 w-4" />
                                                             </div>
@@ -525,6 +525,67 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                         </Command>
                                     </PopoverContent>
                                 </Popover>
+
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-9 border-dashed">
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Núcleo
+                                            {selectedClinics.length > 0 && (
+                                                <Badge variant="secondary" className="ml-2 rounded-sm px-1 font-normal">
+                                                    {selectedClinics.length}
+                                                </Badge>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[250px] p-0" align="start">
+                                        <Command>
+                                            <CommandInput placeholder="Buscar núcleo..." />
+                                            <CommandList>
+                                                <CommandEmpty>No se encontraron núcleos.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {clinics
+                                                        .filter(c => selectedClinicType === 'all' || c.clinicType === selectedClinicType)
+                                                        .sort((a,b) => a.name.localeCompare(b.name))
+                                                        .map((clinic) => {
+                                                            const isSelected = selectedClinics.includes(clinic.id)
+                                                            return (
+                                                                <CommandItem
+                                                                    key={clinic.id}
+                                                                    onSelect={() => handleClinicSelect(clinic.id)}
+                                                                >
+                                                                    <div
+                                                                        className={cn(
+                                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                            isSelected
+                                                                                ? "bg-primary text-primary-foreground"
+                                                                                : "opacity-50 [&_svg]:invisible"
+                                                                        )}
+                                                                    >
+                                                                        <Check className="h-4 w-4" />
+                                                                    </div>
+                                                                    <span>{clinic.name}</span>
+                                                                </CommandItem>
+                                                            )
+                                                        })}
+                                                </CommandGroup>
+                                                {selectedClinics.length > 0 && (
+                                                    <>
+                                                        <CommandSeparator />
+                                                        <CommandGroup>
+                                                            <CommandItem
+                                                                onSelect={() => setSelectedClinics([])}
+                                                                className="justify-center text-center"
+                                                            >
+                                                                Limpiar filtros
+                                                            </CommandItem>
+                                                        </CommandGroup>
+                                                    </>
+                                                )}
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
+
                                 <Button onClick={() => handleDownload('citas')} variant="secondary" size="sm" className="h-9"><Download className="mr-2 h-4 w-4" />Excel</Button>
                             </div>
                         </CardHeader>
