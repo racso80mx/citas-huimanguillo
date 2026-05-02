@@ -1,0 +1,54 @@
+RESUMEN DE INSTRUCCIONES Y REQUERIMIENTOS - CITAMEDICAFACIL
+=========================================================
+
+Este documento contiene la lista de funcionalidades y ajustes solicitados durante el desarrollo del sistema:
+
+1. CATÁLOGOS DINÁMICOS:
+   - Creación de un Catálogo de Especialidades y Servicios para gestionar áreas médicas de forma dinámica.
+   - Vinculación del catálogo con el Directorio Médico y la Estructura de Atención (Consultorios).
+
+2. REORGANIZACIÓN DEL PANEL DE ADMINISTRACIÓN:
+   - Distribución de módulos en tres categorías principales:
+     * 1. CONFIGURACIÓN: Activación de módulos, seguridad, bloqueos, LOGs y respaldos.
+     * 2. CATÁLOGOS: Especialidades, Directorio Médico, Farmacia y Almacén.
+     * 3. CITAS POR SERVICIO: Reportes y configuración de horarios por cada servicio.
+
+3. SISTEMA DE PRESCRIPCIÓN MÉDICA:
+   - Selección obligatoria del médico desde el "Directorio Médico" oficial.
+   - Bloqueo del campo de médico cuando la receta se genera desde un reporte de consulta específico (el médico no se puede cambiar).
+   - Campo de "Diagnóstico Médico" obligatorio.
+   - Sección de "Medicamentos de Farmacia" con búsqueda en catálogo, lote, cantidad y frecuencia.
+   - Sección de "Medicamentos Externos" (texto libre).
+   - Selección de "Estudios de Laboratorio" desde catálogo oficial.
+   - Campo de "Otros Estudios / Gabinete" para órdenes especiales.
+   - Contador de recetas emitidas para el paciente en el mismo día.
+
+4. GESTIÓN DE FARMACIA (SURTIDO):
+   - Al buscar un folio de receta, se muestra el detalle completo de la prescripción.
+   - El personal de farmacia puede seleccionar mediante checkboxes qué medicamentos entregará.
+   - Las cantidades a surtir son editables, permitiendo entregas parciales o modificadas.
+   - El surtido se procesa independientemente de si hay stock en sistema (no bloquea la operación).
+   - El historial de medicamentos surtidos muestra únicamente lo que se entregó físicamente.
+
+5. REPORTES Y DOCUMENTOS (PDF):
+   - Generación de Receta Médica en PDF al finalizar la consulta.
+   - Optimización del diseño del PDF:
+     * Columna "Frecuencia/Vía" más pequeña.
+     * Columna "Insumo/Medicamento" mucho más amplia para nombres largos.
+     * Mayor espacio vertical al final para sello y firma del médico.
+   - Reportes de citas con filtros granulares por Fecha, Tipo de Consulta y Núcleo Básico.
+
+6. SEGURIDAD Y FILTROS:
+   - Implementación de contraseñas independientes para cada módulo (Citas, Farmacia, Archivo, BI, etc.).
+   - Filtro de "Núcleo Básico" (Consultorio) añadido después del filtro de "Tipo de Consulta" en el Panel Admin.
+   - Manejo de filtros múltiples para búsqueda de pacientes (Nombre, CURP, Expediente).
+
+7. CORRECCIONES TÉCNICAS:
+   - Importación de locales de español (date-fns) para calendarios.
+   - Optimización de consultas en Firestore para evitar errores de índices compuestos (procesamiento en memoria).
+   - Consolidación de acciones de servidor para eliminar duplicidad de funciones.
+   - Limpieza de errores de referencia en verificaciones de seguridad.
+
+=========================================================
+Desarrollado para: Hospital General de Huimanguillo
+Bitácora de Desarrollo - CitaMedicaFacil
