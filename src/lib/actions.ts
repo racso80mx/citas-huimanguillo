@@ -182,7 +182,9 @@ export async function updateColonias(colonias: any[]) {
   return res;
 }
 
-export async function getModuleSettings() { return data.getModuleSettings(); }
+export async function getModuleSettings() { 
+  return data.getModuleSettings();
+}
 export async function updateModuleSettings(settings: any) {
   const res = await data.updateModuleSettings(settings);
   revalidatePath('/'); revalidatePath('/admin'); revalidatePath('/citas-medicas');
@@ -303,4 +305,8 @@ export async function bulkInsertPatients(chunk: any[]) {
   const res = await data.bulkInsertPatients(chunk);
   revalidatePath('/archivo');
   return res;
+}
+
+export async function getAppointmentCountOnDate(clinicId: string, date: string) {
+    return data.getAppointmentCountOnDate(clinicId, date);
 }

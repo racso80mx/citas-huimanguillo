@@ -343,6 +343,17 @@ export async function getAppointmentsForClinic(clinicId: string): Promise<Appoin
   return await enrichWithPatientData(data) as Appointment[];
 }
 
+export async function getAppointmentCountOnDate(clinicId: string, dateStr: string): Promise<number> {
+  const db = getDb();
+  const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId));
+  const snap = await getDocs(q);
+  // Manual filtering to avoid composite index requirement
+  return snap.docs.filter(doc => {
+    const d = doc.data();
+    return (d.date as Timestamp).toDate().toISOString().split('T')[0] === dateStr;
+  }).length;
+}
+
 export async function getLabAppointments(): Promise<LabAppointment[]> {
   const db = getDb();
   const snap = await getDocs(query(collection(db, 'labAppointments'), orderBy('date', 'desc'), limit(1000)));

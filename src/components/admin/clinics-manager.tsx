@@ -12,7 +12,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { updateClinics, getClinics, updateColonias, getColonias, getSpecialties } from '@/lib/actions';
+import { updateClinics, getClinics, updateColonias, getColonias, getSpecialties, getAppointmentCountOnDate } from '@/lib/actions';
 import { 
     Loader2, 
     Trash2, 
@@ -28,7 +28,8 @@ import {
     Search, 
     ArrowUpDown, 
     ArrowUp, 
-    ArrowDown 
+    ArrowDown,
+    AlertTriangle
 } from 'lucide-react';
 import type { Clinic, Colonia, Specialty } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -59,6 +60,16 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -69,6 +80,12 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
     const [showPassword, setShowPassword] = useState(false);
     const [clinicColonias, setClinicColonias] = useState<Colonia[]>(() => allColonias.filter(c => c.clinicId === clinic.id));
     const [newColoniaName, setNewColoniaName] = useState('');
+
+    // Confirmation logic for vacation days
+    const [isConfirmDateOpen, setIsConfirmDateOpen] = useState(false);
+    const [pendingDate, setPendingDate] = useState<string | null>(null);
+    const [conflictingCount, setConflictingCount] = useState(0);
+    const [isCheckingAppointments, setIsCheckingAppointments] = useState(false);
 
     const dynamicBreakSlots = useMemo(() => {
         if (!editedClinic.startTime || !editedClinic.endTime) return [];
@@ -124,6 +141,37 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
         setClinicColonias(prev => prev.filter(c => c.id !== idToRemove));
     }
 
+    const handleDateSelection = async (dates: Date[] | undefined) => {
+        const currentDates = editedClinic.unavailableDates || [];
+        const newDateStrings = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
+        
+        // Find if a new date was added
+        const addedDate = newDateStrings.find(d => !currentDates.includes(d));
+
+        if (addedDate) {
+            setIsCheckingAppointments(true);
+            const count = await getAppointmentCountOnDate(editedClinic.id, addedDate);
+            setIsCheckingAppointments(false);
+
+            if (count > 0) {
+                setPendingDate(addedDate);
+                setConflictingCount(count);
+                setIsConfirmDateOpen(true);
+                return; // Wait for confirmation
+            }
+        }
+        
+        handleFieldChange('unavailableDates', newDateStrings);
+    };
+
+    const confirmAddDate = () => {
+        if (pendingDate) {
+            const currentDates = editedClinic.unavailableDates || [];
+            handleFieldChange('unavailableDates', [...currentDates, pendingDate]);
+        }
+        setIsConfirmDateOpen(false);
+        setPendingDate(null);
+    };
 
     return (
         <DialogContent className="sm:max-w-[60%]">
@@ -286,19 +334,16 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                         <Label>Días Inhábiles (Vacaciones)</Label>
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" className='w-full justify-start text-left font-normal h-11'>
-                                    <CalendarIcon className='mr-2 h-4 w-4' />
+                                <Button variant="outline" className='w-full justify-start text-left font-normal h-11' disabled={isCheckingAppointments}>
+                                    {isCheckingAppointments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className='mr-2 h-4 w-4' />}
                                     <span>{editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 ? `${editedClinic.unavailableDates.length} días seleccionados` : "Seleccionar fechas"}</span>
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className='w-auto p-0'>
+                            <PopoverContent className='w-auto p-0' align="end">
                                 <Calendar
                                     mode="multiple"
                                     selected={(editedClinic.unavailableDates || []).map(d => new Date(d + 'T12:00:00'))}
-                                    onSelect={(dates) => {
-                                        const uniqueDates = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
-                                        handleFieldChange('unavailableDates', uniqueDates);
-                                    }}
+                                    onSelect={(dates) => handleDateSelection(dates)}
                                     initialFocus
                                     locale={es}
                                     disabled={{ before: new Date() }}
@@ -384,6 +429,32 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                 </DialogClose>
                 <Button type="button" onClick={() => onSave(editedClinic, clinicColonias)}>Guardar Cambios</Button>
             </DialogFooter>
+
+            {/* Conflicting Appointments Alert */}
+            <AlertDialog open={isConfirmDateOpen} onOpenChange={setIsConfirmDateOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <div className="flex items-center gap-2 text-destructive mb-2">
+                            <AlertTriangle className="h-6 w-6" />
+                            <AlertDialogTitle>¡Citas detectadas!</AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription className="space-y-4">
+                            <p>
+                                Se encontraron <span className="font-bold text-foreground">{conflictingCount} cita(s) agendada(s)</span> para el día 
+                                <span className="font-bold text-foreground"> {pendingDate ? format(new Date(pendingDate + 'T12:00:00'), 'dd/MM/yyyy') : ''}</span>.
+                            </p>
+                            <p className="bg-destructive/10 p-3 rounded-lg border border-destructive/20 text-destructive text-xs">
+                                Bloquear esta fecha impedirá nuevas citas, pero deberás gestionar las ya existentes (reprogramarlas o cancelarlas).
+                            </p>
+                            <p className="font-bold text-foreground">¿Deseas agregar este día de vacaciones de todas formas?</p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => { setIsConfirmDateOpen(false); setPendingDate(null); }}>No, seleccionar otro</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmAddDate} className="bg-destructive hover:bg-destructive/90">Sí, agregar día</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </DialogContent>
     );
 }

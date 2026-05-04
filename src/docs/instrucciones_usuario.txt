@@ -43,7 +43,11 @@ Este documento contiene la lista de funcionalidades y ajustes solicitados durant
    - Filtro de "Núcleo Básico" (Consultorio) añadido después del filtro de "Tipo de Consulta" en el Panel Admin.
    - Manejo de filtros múltiples para búsqueda de pacientes (Nombre, CURP, Expediente).
 
-7. CORRECCIONES TÉCNICAS:
+7. CONTROL DE AGENDA Y VACACIONES:
+   - Listado visual de días de vacaciones seleccionados en la configuración del núcleo.
+   - Validación de citas existentes: Al intentar bloquear un día como vacación, el sistema alerta si hay pacientes ya agendados y requiere confirmación del administrador.
+
+8. CORRECCIONES TÉCNICAS:
    - Importación de locales de español (date-fns) para calendarios.
    - Optimización de consultas en Firestore para evitar errores de índices compuestos (procesamiento en memoria).
    - Consolidación de acciones de servidor para eliminar duplicidad de funciones.
