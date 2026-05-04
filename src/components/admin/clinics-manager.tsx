@@ -286,7 +286,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                         <Label>Días Inhábiles (Vacaciones)</Label>
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" className='w-full justify-start text-left font-normal'>
+                                <Button variant="outline" className='w-full justify-start text-left font-normal h-11'>
                                     <CalendarIcon className='mr-2 h-4 w-4' />
                                     <span>{editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 ? `${editedClinic.unavailableDates.length} días seleccionados` : "Seleccionar fechas"}</span>
                                 </Button>
@@ -294,7 +294,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                             <PopoverContent className='w-auto p-0'>
                                 <Calendar
                                     mode="multiple"
-                                    selected={(editedClinic.unavailableDates || []).map(d => new Date(d))}
+                                    selected={(editedClinic.unavailableDates || []).map(d => new Date(d + 'T12:00:00'))}
                                     onSelect={(dates) => {
                                         const uniqueDates = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
                                         handleFieldChange('unavailableDates', uniqueDates);
@@ -305,6 +305,30 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                                 />
                             </PopoverContent>
                         </Popover>
+                        
+                        <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto p-2 border rounded-md bg-muted/20">
+                            {editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 ? (
+                                editedClinic.unavailableDates
+                                    .sort()
+                                    .map(dateStr => (
+                                        <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pr-1 font-bold text-[10px]">
+                                            {format(new Date(dateStr + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })}
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr);
+                                                    handleFieldChange('unavailableDates', newDates);
+                                                }}
+                                                className="hover:text-destructive transition-colors p-0.5"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))
+                            ) : (
+                                <p className="text-[10px] text-muted-foreground p-1 italic">No hay días de vacaciones seleccionados.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -564,115 +588,117 @@ export function ClinicsManager() {
   }
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleDialogCancel() }}>
-        <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
-            <div>
-                <CardTitle className="flex items-center gap-2"><Hospital /> Estructura de Atención</CardTitle>
-                <CardDescription>Configura los consultorios físicos y sus áreas de influencia.</CardDescription>
-            </div>
-            <Button onClick={handleAddNewClick} className="bg-primary hover:bg-primary/90">
-                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Consultorio
-            </Button>
-        </CardHeader>
-        <CardContent>
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
-                <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Buscar por consultorio o responsable..." 
-                        className="pl-9 h-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="w-full sm:w-64">
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger className="h-10">
-                            <SelectValue placeholder="Filtrar por Servicio" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los Servicios</SelectItem>
-                            {specialties.map(s => (
-                                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
+    <div className="w-full">
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleDialogCancel() }}>
+          <Card className="shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
+              <div>
+                  <CardTitle className="flex items-center gap-2"><Hospital /> Estructura de Atención</CardTitle>
+                  <CardDescription>Configura los consultorios físicos y sus áreas de influencia.</CardDescription>
+              </div>
+              <Button onClick={handleAddNewClick} className="bg-primary hover:bg-primary/90">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Agregar Consultorio
+              </Button>
+          </CardHeader>
+          <CardContent>
+              <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+                  <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                          placeholder="Buscar por consultorio o responsable..." 
+                          className="pl-9 h-10"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                  </div>
+                  <div className="w-full sm:w-64">
+                      <Select value={typeFilter} onValueChange={setTypeFilter}>
+                          <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Filtrar por Servicio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">Todos los Servicios</SelectItem>
+                              {specialties.map(s => (
+                                  <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
 
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
-                            <div className="flex items-center">
-                                Consultorio {getSortIcon('name')}
-                            </div>
-                        </TableHead>
-                        <TableHead onClick={() => handleSort('doctorName')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
-                            <div className="flex items-center">
-                                Responsable {getSortIcon('doctorName')}
-                            </div>
-                        </TableHead>
-                        <TableHead onClick={() => handleSort('clinicType')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
-                            <div className="flex items-center">
-                                Tipo / Servicio {getSortIcon('clinicType')}
-                            </div>
-                        </TableHead>
-                        <TableHead onClick={() => handleSort('coloniaCount')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
-                            <div className="flex items-center">
-                                Municipios {getSortIcon('coloniaCount')}
-                            </div>
-                        </TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredAndSortedClinics.map(clinic => (
-                        <TableRow key={clinic.id}>
-                            <TableCell className="font-bold text-xs">{clinic.name}</TableCell>
-                            <TableCell className="text-xs uppercase">{clinic.doctorName}</TableCell>
-                            <TableCell>
-                                <Badge variant="outline" className="text-[10px] uppercase font-black tracking-tighter">
-                                    {clinic.clinicType}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>{colonias.filter(c => c.clinicId === clinic.id).length}</TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
-                                    <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => removeClinic(clinic.id)}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-             {filteredAndSortedClinics.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground italic">
-                    No se encontraron consultorios con los criterios seleccionados.
-                </div>
-            )}
-        </CardContent>
-        <CardFooter>
-            <Button onClick={handleSave} disabled={isSaving} className="w-full h-12 font-bold">
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            {isSaving ? 'Guardando...' : 'Confirmar Cambios en Estructura'}
-            </Button>
-        </CardFooter>
-        </Card>
+              <Table>
+                  <TableHeader>
+                      <TableRow>
+                          <TableHead onClick={() => handleSort('name')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                              <div className="flex items-center">
+                                  Consultorio {getSortIcon('name')}
+                              </div>
+                          </TableHead>
+                          <TableHead onClick={() => handleSort('doctorName')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                              <div className="flex items-center">
+                                  Responsable {getSortIcon('doctorName')}
+                              </div>
+                          </TableHead>
+                          <TableHead onClick={() => handleSort('clinicType')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                              <div className="flex items-center">
+                                  Tipo / Servicio {getSortIcon('clinicType')}
+                              </div>
+                          </TableHead>
+                          <TableHead onClick={() => handleSort('coloniaCount')} className="cursor-pointer hover:bg-accent/50 group transition-colors">
+                              <div className="flex items-center">
+                                  Municipios {getSortIcon('coloniaCount')}
+                              </div>
+                          </TableHead>
+                          <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {filteredAndSortedClinics.map(clinic => (
+                          <TableRow key={clinic.id}>
+                              <TableCell className="font-bold text-xs">{clinic.name}</TableCell>
+                              <TableCell className="text-xs uppercase">{clinic.doctorName}</TableCell>
+                              <TableCell>
+                                  <Badge variant="outline" className="text-[10px] uppercase font-black tracking-tighter">
+                                      {clinic.clinicType}
+                                  </Badge>
+                              </TableCell>
+                              <TableCell>{colonias.filter(c => c.clinicId === clinic.id).length}</TableCell>
+                              <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
+                                      <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => removeClinic(clinic.id)}>
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                              </TableCell>
+                          </TableRow>
+                      ))}
+                  </TableBody>
+              </Table>
+               {filteredAndSortedClinics.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground italic">
+                      No se encontraron consultorios con los criterios seleccionados.
+                  </div>
+              )}
+          </CardContent>
+          <CardFooter>
+              <Button onClick={handleSave} disabled={isSaving} className="w-full h-12 font-bold">
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {isSaving ? 'Guardando...' : 'Confirmar Cambios en Estructura'}
+              </Button>
+          </CardFooter>
+          </Card>
 
-        {selectedClinic && (
-            <ClinicEditDialog
-                clinic={selectedClinic}
-                allColonias={colonias}
-                specialties={specialties}
-                onSave={handleDialogSave}
-                onCancel={handleDialogCancel}
-            />
-        )}
-    </Dialog>
+          {selectedClinic && (
+              <ClinicEditDialog
+                  clinic={selectedClinic}
+                  allColonias={colonias}
+                  specialties={specialties}
+                  onSave={handleDialogSave}
+                  onCancel={handleDialogCancel}
+              />
+          )}
+      </Dialog>
+    </div>
   );
 }
