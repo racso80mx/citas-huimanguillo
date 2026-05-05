@@ -120,7 +120,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         if (reportType === 'clinic') {
             appointmentsData = await getAppointmentsForClinic(entity.id);
         } else if (reportType === 'x-ray') {
-            appointmentsData = await getLabAppointments();
+            appointmentsData = await getXRayAppointments();
         } else if (reportType === 'ultrasound') {
             appointmentsData = await getUltrasoundAppointments();
         } else if (reportType === 'laboratorio') {

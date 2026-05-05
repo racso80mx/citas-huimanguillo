@@ -167,11 +167,17 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
     const confirmAddDate = () => {
         if (pendingDate) {
             const currentDates = editedClinic.unavailableDates || [];
-            handleFieldChange('unavailableDates', [...currentDates, pendingDate]);
+            if (!currentDates.includes(pendingDate)) {
+                handleFieldChange('unavailableDates', Array.from(new Set([...currentDates, pendingDate])).sort());
+            }
         }
         setIsConfirmDateOpen(false);
         setPendingDate(null);
     };
+
+    const displayDates = useMemo(() => {
+        return Array.from(new Set(editedClinic.unavailableDates || [])).sort();
+    }, [editedClinic.unavailableDates]);
 
     return (
         <DialogContent className="sm:max-w-[60%]">
@@ -269,8 +275,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                         id={`waitlist-${editedClinic.id}`}
                         type="number"
                         value={editedClinic.waitlistSlots || 0}
-                        onChange={(e) => handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0)}
-                        placeholder="Ej. 5"
+                        onChange={(e) => handleSettingsChange ? handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0) : null}
                         />
                     </div>
                 </div>
@@ -336,13 +341,13 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className='w-full justify-start text-left font-normal h-11' disabled={isCheckingAppointments}>
                                     {isCheckingAppointments ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarIcon className='mr-2 h-4 w-4' />}
-                                    <span>{editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 ? `${editedClinic.unavailableDates.length} días seleccionados` : "Seleccionar fechas"}</span>
+                                    <span>{displayDates.length > 0 ? `${displayDates.length} días seleccionados` : "Seleccionar fechas"}</span>
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className='w-auto p-0' align="end">
                                 <Calendar
                                     mode="multiple"
-                                    selected={(editedClinic.unavailableDates || []).map(d => new Date(d + 'T12:00:00'))}
+                                    selected={displayDates.map(d => new Date(d + 'T12:00:00'))}
                                     onSelect={(dates) => handleDateSelection(dates)}
                                     initialFocus
                                     locale={es}
@@ -352,24 +357,22 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                         </Popover>
                         
                         <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto p-2 border rounded-md bg-muted/20">
-                            {editedClinic.unavailableDates && editedClinic.unavailableDates.length > 0 ? (
-                                editedClinic.unavailableDates
-                                    .sort()
-                                    .map(dateStr => (
-                                        <Badge key={dateStr} variant="secondary" className="flex items-center gap-1.5 pr-1 font-bold text-[10px]">
-                                            {format(new Date(dateStr + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })}
-                                            <button 
-                                                type="button"
-                                                onClick={() => {
-                                                    const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr);
-                                                    handleFieldChange('unavailableDates', newDates);
-                                                }}
-                                                className="hover:text-destructive transition-colors p-0.5"
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </button>
-                                        </Badge>
-                                    ))
+                            {displayDates.length > 0 ? (
+                                displayDates.map(dateStr => (
+                                    <Badge key={`vac-${dateStr}`} variant="secondary" className="flex items-center gap-1.5 pr-1 font-bold text-[10px]">
+                                        {format(new Date(dateStr + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })}
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr);
+                                                handleFieldChange('unavailableDates', newDates);
+                                            }}
+                                            className="hover:text-destructive transition-colors p-0.5"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))
                             ) : (
                                 <p className="text-[10px] text-muted-foreground p-1 italic">No hay días de vacaciones seleccionados.</p>
                             )}
@@ -387,10 +390,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                 
                  <Separator />
                 <div className="space-y-4 pt-4">
-                    <Label className="text-lg font-semibold flex items-center gap-2"><MapPin/> Colonias Asignadas</Label>
-                    <CardDescription>
-                        Añade o elimina las colonias que son atendidas por este núcleo.
-                    </CardDescription>
+                    <Label className="text-lg font-semibold flex items-center gap-2"><MapPin/> Municipios Asignados</Label>
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                         {clinicColonias.length > 0 ? (
                             clinicColonias.map(col => (
@@ -402,14 +402,14 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                                 </div>
                             ))
                         ) : (
-                            <p className="text-sm text-muted-foreground text-center py-4">No hay colonias asignadas a este núcleo.</p>
+                            <p className="text-sm text-muted-foreground text-center py-4">No hay áreas asignadas.</p>
                         )}
                     </div>
                      <div className="flex items-center gap-2 pt-2">
                         <Input 
                             value={newColoniaName}
                             onChange={(e) => setNewColoniaName(e.target.value.toUpperCase())}
-                            placeholder="Nombre de la nueva colonia"
+                            placeholder="Nombre del municipio"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -490,7 +490,7 @@ export function ClinicsManager() {
       console.error("Failed to fetch clinics and colonias:", error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los datos. Por favor, recarga la página.",
+        description: "No se pudieron cargar los datos.",
         variant: "destructive"
       });
     } finally {
@@ -601,7 +601,7 @@ export function ClinicsManager() {
       if (associatedColonias.length > 0) {
         toast({
           title: "Acción Bloqueada",
-          description: `No se puede eliminar el consultorio "${clinicToRemove.name}" porque tiene ${associatedColonias.length} colonia(s) asignada(s).`,
+          description: `No se puede eliminar el consultorio "${clinicToRemove.name}" porque tiene ${associatedColonias.length} área(s) asignada(s).`,
           variant: "destructive",
           duration: 8000
         });
@@ -676,7 +676,7 @@ export function ClinicsManager() {
                   <div className="relative w-full sm:w-72">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
-                          placeholder="Buscar por consultorio o responsable..." 
+                          placeholder="Buscar consultorio o médico..." 
                           className="pl-9 h-10"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
