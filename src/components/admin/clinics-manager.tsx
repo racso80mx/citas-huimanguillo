@@ -275,7 +275,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                         id={`waitlist-${editedClinic.id}`}
                         type="number"
                         value={editedClinic.waitlistSlots || 0}
-                        onChange={(e) => handleSettingsChange ? handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0) : null}
+                        onChange={(e) => handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0)}
                         />
                     </div>
                 </div>
@@ -438,15 +438,17 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                             <AlertTriangle className="h-6 w-6" />
                             <AlertDialogTitle>¡Citas detectadas!</AlertDialogTitle>
                         </div>
-                        <AlertDialogDescription className="space-y-4">
-                            <p>
-                                Se encontraron <span className="font-bold text-foreground">{conflictingCount} cita(s) agendada(s)</span> para el día 
-                                <span className="font-bold text-foreground"> {pendingDate ? format(new Date(pendingDate + 'T12:00:00'), 'dd/MM/yyyy') : ''}</span>.
-                            </p>
-                            <p className="bg-destructive/10 p-3 rounded-lg border border-destructive/20 text-destructive text-xs">
-                                Bloquear esta fecha impedirá nuevas citas, pero deberás gestionar las ya existentes (reprogramarlas o cancelarlas).
-                            </p>
-                            <p className="font-bold text-foreground">¿Deseas agregar este día de vacaciones de todas formas?</p>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p>
+                                    Se encontraron <span className="font-bold text-foreground">{conflictingCount} cita(s) agendada(s)</span> para el día 
+                                    <span className="font-bold text-foreground"> {pendingDate ? format(new Date(pendingDate + 'T12:00:00'), 'dd/MM/yyyy') : ''}</span>.
+                                </p>
+                                <p className="bg-destructive/10 p-3 rounded-lg border border-destructive/20 text-destructive text-xs">
+                                    Bloquear esta fecha impedirá nuevas citas, pero deberás gestionar las ya existentes (reprogramarlas o cancelarlas).
+                                </p>
+                                <p className="font-bold text-foreground">¿Deseas agregar este día de vacaciones de todas formas?</p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

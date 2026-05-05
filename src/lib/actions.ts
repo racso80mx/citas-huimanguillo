@@ -7,7 +7,6 @@ import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Presc
 /**
  * ARCHIVO DE ACCIONES DE SERVIDOR (SERVER ACTIONS)
  * Actúa como puente puro entre la UI y el módulo de datos.
- * Se eliminaron utilidades internas para evitar ReferenceError: getSettingsDoc.
  */
 
 export async function scanDuplicates(criteria: 'expediente' | 'curp' | 'name') {
