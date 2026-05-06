@@ -93,6 +93,11 @@ export enum BookingMode {
     Token = 'token'
 }
 
+export type CustomSchedule = {
+    date: string; // YYYY-MM-DD
+    endTime: string; // HH:mm
+};
+
 export const ClinicSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "El nombre de la unidad es requerido."),
@@ -107,7 +112,11 @@ export const ClinicSchema = z.object({
   weekendBookingEnabled: z.boolean(),
   daysOfAction: z.array(z.string()).optional(),
   unavailableDates: z.array(z.string()).optional(),
-  clinicType: z.string(), // Changed from nativeEnum to string to support dynamic specialties
+  customSchedules: z.array(z.object({
+      date: z.string(),
+      endTime: z.string()
+  })).optional(),
+  clinicType: z.string(), 
   bookingMode: z.nativeEnum(BookingMode),
   consultationDuration: z.number().min(1).optional(),
 }).refine(data => {
@@ -133,7 +142,7 @@ export type DailyAvailability = {
   date: string; // YYYY-MM-DD
   availableSlots: number;
   availabilityByClinic: { [key: string]: number };
-  takenTimesByClinic: { [key: string]: any[] }; // Changed to support time range objects
+  takenTimesByClinic: { [key: string]: any[] }; 
 };
 
 export type Report = {
@@ -260,14 +269,14 @@ export type Vaccine = z.infer<typeof VaccineSchema>;
 export type VaccineAppointment = {
   id: string;
   appointmentNumber: string;
-  patientId: string; // Can be a temporary ID for newborns
+  patientId: string; 
   date: string;
   time: string;
-  clinicId?: string; // Optional for newborns
+  clinicId?: string; 
   coloniaName?: string;
   vaccines: Vaccine[];
   status: AppointmentStatus;
-  patient: Patient; // Patient data might be partial for newborns
+  patient: Patient; 
   patientType: PatientType;
   createdAt?: string;
 };
@@ -350,7 +359,7 @@ export type Medication = {
   updatedAt?: string;
 };
 
-export type Supply = Medication; // Supply (Almacén) uses the same structure
+export type Supply = Medication; 
 
 export type Holiday = {
   date: string; // YYYY-MM-DD
@@ -359,7 +368,7 @@ export type Holiday = {
 
 export type SpecialActionDay = {
   date: string; // YYYY-MM-DD
-  clinicType: string; // Changed from ClinicType to string for flexibility
+  clinicType: string; 
   name: string;
 };
 

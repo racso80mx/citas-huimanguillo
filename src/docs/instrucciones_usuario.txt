@@ -47,7 +47,11 @@ Este documento contiene la lista de funcionalidades y ajustes solicitados durant
    - Listado visual de días de vacaciones seleccionados en la configuración del núcleo.
    - Validación de citas existentes: Al intentar bloquear un día como vacación, el sistema alerta si hay pacientes ya agendados y requiere confirmación del administrador.
 
-8. CORRECCIONES TÉCNICAS:
+8. HORARIOS ESPECIALES POR FECHA:
+   - Capacidad para definir una hora de fin de jornada distinta para días específicos (ej. salidas tempranas a las 11:00 o 13:00 hrs).
+   - El sistema de citas respeta automáticamente estos cierres anticipados al mostrar los horarios disponibles al público.
+
+9. CORRECCIONES TÉCNICAS:
    - Importación de locales de español (date-fns) para calendarios.
    - Optimización de consultas en Firestore para evitar errores de índices compuestos (procesamiento en memoria).
    - Consolidación de acciones de servidor para eliminar duplicidad de funciones.

@@ -29,9 +29,10 @@ import {
     ArrowUpDown, 
     ArrowUp, 
     ArrowDown,
-    AlertTriangle
+    AlertTriangle,
+    Clock
 } from 'lucide-react';
-import type { Clinic, Colonia, Specialty } from '@/lib/definitions';
+import type { Clinic, Colonia, Specialty, CustomSchedule } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -80,6 +81,10 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
     const [showPassword, setShowPassword] = useState(false);
     const [clinicColonias, setClinicColonias] = useState<Colonia[]>(() => allColonias.filter(c => c.clinicId === clinic.id));
     const [newColoniaName, setNewColoniaName] = useState('');
+
+    // Custom Schedule states
+    const [newScheduleDate, setNewScheduleDate] = useState<Date | undefined>();
+    const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     // Confirmation logic for vacation days
     const [isConfirmDateOpen, setIsConfirmDateOpen] = useState(false);
@@ -141,6 +146,24 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
         setClinicColonias(prev => prev.filter(c => c.id !== idToRemove));
     }
 
+    const handleAddCustomSchedule = () => {
+        if (!newScheduleDate || !newScheduleTime) return;
+        const dateStr = format(newScheduleDate, 'yyyy-MM-dd');
+        const currentSchedules = editedClinic.customSchedules || [];
+        
+        // Update if already exists, else add
+        const filtered = currentSchedules.filter(s => s.date !== dateStr);
+        handleFieldChange('customSchedules', [...filtered, { date: dateStr, endTime: newScheduleTime }].sort((a,b) => a.date.localeCompare(b.date)));
+        
+        setNewScheduleDate(undefined);
+        setNewScheduleTime('13:00');
+    };
+
+    const handleRemoveCustomSchedule = (dateStr: string) => {
+        const newSchedules = editedClinic.customSchedules?.filter(s => s.date !== dateStr);
+        handleFieldChange('customSchedules', newSchedules);
+    };
+
     const handleDateSelection = async (dates: Date[] | undefined) => {
         const currentDates = editedClinic.unavailableDates || [];
         const newDateStrings = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
@@ -157,7 +180,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                 setPendingDate(addedDate);
                 setConflictingCount(count);
                 setIsConfirmDateOpen(true);
-                return; // Wait for confirmation
+                return; 
             }
         }
         
@@ -180,14 +203,14 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
     }, [editedClinic.unavailableDates]);
 
     return (
-        <DialogContent className="sm:max-w-[60%]">
+        <DialogContent className="sm:max-w-[70%]">
             <DialogHeader>
                 <DialogTitle>Editar Configuración: {clinic.name || "Nueva Unidad"}</DialogTitle>
                 <DialogDescription>
                     Modifica los horarios y capacidad de atención.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[70vh] overflow-y-auto p-4 space-y-6">
+            <div className="max-h-[75vh] overflow-y-auto p-4 space-y-8">
                  <div className='grid sm:grid-cols-2 gap-4'>
                     <div className='space-y-2'>
                         <Label htmlFor={`name-${editedClinic.id}`}>Nombre de la Unidad / Consultorio</Label>
@@ -281,14 +304,14 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                 </div>
                 <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
                     <div className='space-y-2'>
-                        <Label htmlFor={`start-${editedClinic.id}`}>Hora Inicio</Label>
+                        <Label htmlFor={`start-${editedClinic.id}`}>Hora Inicio Habitual</Label>
                         <Select value={editedClinic.startTime} onValueChange={(value) => handleFieldChange('startTime', value)}>
                             <SelectTrigger id={`start-${editedClinic.id}`}><SelectValue /></SelectTrigger>
                             <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`start-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                     <div className='space-y-2'>
-                        <Label htmlFor={`end-${editedClinic.id}`}>Hora Fin</Label>
+                        <Label htmlFor={`end-${editedClinic.id}`}>Hora Fin Habitual</Label>
                         <Select value={editedClinic.endTime} onValueChange={(value) => handleFieldChange('endTime', value)}>
                             <SelectTrigger id={`end-${editedClinic.id}`}><SelectValue /></SelectTrigger>
                             <SelectContent>{timeSlots30Min.map(slot => <SelectItem key={`end-${slot.value}`} value={slot.value}>{slot.label}</SelectItem>)}</SelectContent>
@@ -319,24 +342,69 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                     </div>
                     )}
                 </div>
-                <div className='grid sm:grid-cols-2 gap-4'>
-                    <div className='space-y-2'>
-                    <Label>Días de Acción (No Citas)</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 rounded-lg border p-4">
-                        {daysOfWeek.map(day => (
-                        <div key={day} className="flex items-center space-x-2">
-                            <Checkbox
-                            id={`day-${editedClinic.id}-${day}`}
-                            checked={editedClinic.daysOfAction?.includes(day)}
-                            onCheckedChange={(checked) => handleDaysOfActionChange(day, !!checked)}
-                            />
-                            <Label htmlFor={`day-${editedClinic.id}-${day}`} className="font-normal">{day}</Label>
+
+                <div className="grid lg:grid-cols-2 gap-8 bg-muted/20 p-6 rounded-xl border border-dashed border-primary/20">
+                    <div className='space-y-4'>
+                        <div className="flex items-center justify-between">
+                            <Label className="text-base font-bold flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Horarios Especiales (Salidas Tempranas)</Label>
                         </div>
-                        ))}
+                        <p className="text-[10px] text-muted-foreground">Define días específicos donde el médico se retirará antes de la hora habitual.</p>
+                        <div className="grid grid-cols-3 gap-2 items-end">
+                            <div className="col-span-1 space-y-1.5">
+                                <Label className="text-[10px]">Fecha</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-start h-9 text-xs">
+                                            <CalendarIcon className="mr-1 h-3 w-3" />
+                                            {newScheduleDate ? format(newScheduleDate, 'dd/MM') : 'Elegir'}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar 
+                                            mode="single" 
+                                            selected={newScheduleDate} 
+                                            onSelect={setNewScheduleDate} 
+                                            locale={es} 
+                                            disabled={{ before: new Date() }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="col-span-1 space-y-1.5">
+                                <Label className="text-[10px]">Hora Salida</Label>
+                                <Select value={newScheduleTime} onValueChange={setNewScheduleTime}>
+                                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {timeSlots30Min.map(t => <SelectItem key={`sch-${t.value}`} value={t.value}>{t.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button size="sm" onClick={handleAddCustomSchedule} className="h-9" disabled={!newScheduleDate}>
+                                <PlusCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="space-y-2 mt-4">
+                            {editedClinic.customSchedules?.length ? (
+                                <div className="max-h-32 overflow-y-auto space-y-1 pr-2">
+                                    {editedClinic.customSchedules.map((s, idx) => (
+                                        <div key={`sch-list-${idx}`} className="flex items-center justify-between p-2 bg-background border rounded text-xs">
+                                            <span className="font-bold">{format(new Date(s.date + 'T12:00:00'), 'dd/MM/yyyy')}</span>
+                                            <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-black">Cierre: {s.endTime} hrs</span>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveCustomSchedule(s.date)}>
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[10px] text-center text-muted-foreground py-4 italic border border-dashed rounded bg-background/50">No hay horarios especiales configurados.</p>
+                            )}
+                        </div>
                     </div>
-                    </div>
-                    <div className='space-y-2'>
-                        <Label>Días Inhábiles (Vacaciones)</Label>
+
+                    <div className='space-y-4'>
+                        <Label className="text-base font-bold flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" /> Días Inhábiles (Vacaciones / Permisos)</Label>
+                        <p className="text-[10px] text-muted-foreground">Selecciona días donde NO habrá servicio en este consultorio.</p>
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className='w-full justify-start text-left font-normal h-11' disabled={isCheckingAppointments}>
@@ -356,10 +424,10 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                             </PopoverContent>
                         </Popover>
                         
-                        <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto p-2 border rounded-md bg-muted/20">
+                        <div className="flex flex-wrap gap-2 mt-2 max-h-32 overflow-y-auto p-2 border rounded-md bg-background shadow-inner">
                             {displayDates.length > 0 ? (
                                 displayDates.map(dateStr => (
-                                    <Badge key={`vac-${dateStr}`} variant="secondary" className="flex items-center gap-1.5 pr-1 font-bold text-[10px]">
+                                    <Badge key={`vac-${dateStr}`} variant="secondary" className="flex items-center gap-1.5 pr-1 font-bold text-[10px] bg-red-50 text-red-700 border-red-100">
                                         {format(new Date(dateStr + 'T12:00:00'), 'dd/MM/yyyy', { locale: es })}
                                         <button 
                                             type="button"
@@ -367,70 +435,87 @@ function ClinicEditDialog({ clinic, allColonias, specialties, onSave, onCancel }
                                                 const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr);
                                                 handleFieldChange('unavailableDates', newDates);
                                             }}
-                                            className="hover:text-destructive transition-colors p-0.5"
+                                            className="hover:text-red-900 transition-colors p-0.5"
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
                                     </Badge>
                                 ))
                             ) : (
-                                <p className="text-[10px] text-muted-foreground p-1 italic">No hay días de vacaciones seleccionados.</p>
+                                <p className="text-[10px] text-muted-foreground p-1 italic w-full text-center">Sin días de vacaciones seleccionados.</p>
                             )}
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Switch 
-                    id={`weekend-${editedClinic.id}`}
-                    checked={editedClinic.weekendBookingEnabled}
-                    onCheckedChange={(checked) => handleFieldChange('weekendBookingEnabled', checked)}
-                    />
-                    <Label htmlFor={`weekend-${editedClinic.id}`}>Permitir citas en fin de semana</Label>
-                </div>
-                
-                 <Separator />
-                <div className="space-y-4 pt-4">
-                    <Label className="text-lg font-semibold flex items-center gap-2"><MapPin/> Municipios Asignados</Label>
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                        {clinicColonias.length > 0 ? (
-                            clinicColonias.map(col => (
-                                <div key={col.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary/50">
-                                    <span className="text-sm">{col.name}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveColonia(col.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-sm text-muted-foreground text-center py-4">No hay áreas asignadas.</p>
-                        )}
+
+                <div className='grid sm:grid-cols-2 gap-8'>
+                    <div className='space-y-4'>
+                        <Label className="text-base font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Municipios Asignados</Label>
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 border rounded-lg p-2 bg-muted/10">
+                            {clinicColonias.length > 0 ? (
+                                clinicColonias.map(col => (
+                                    <div key={col.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary/50">
+                                        <span className="text-xs font-medium">{col.name}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveColonia(col.id)}>
+                                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-xs text-muted-foreground text-center py-4 italic">No hay áreas asignadas.</p>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 pt-2">
+                            <Input 
+                                value={newColoniaName}
+                                onChange={(e) => setNewColoniaName(e.target.value.toUpperCase())}
+                                placeholder="Nombre del municipio..."
+                                className="h-9 text-xs"
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddColonia(); } }}
+                            />
+                            <Button type="button" onClick={handleAddColonia} size="sm">
+                                <PlusCircle className="mr-1.5 h-3.5 w-3.5" /> Agregar
+                            </Button>
+                        </div>
                     </div>
-                     <div className="flex items-center gap-2 pt-2">
-                        <Input 
-                            value={newColoniaName}
-                            onChange={(e) => setNewColoniaName(e.target.value.toUpperCase())}
-                            placeholder="Nombre del municipio"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleAddColonia();
-                                }
-                            }}
-                        />
-                        <Button type="button" onClick={handleAddColonia}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Agregar
-                        </Button>
+
+                    <div className='space-y-6 pt-4'>
+                         <Label className="text-base font-bold flex items-center gap-2">Reglas de Operación</Label>
+                         <div className="space-y-4">
+                            <div className='space-y-2'>
+                                <Label className="text-xs">Días de Acción (No Citas)</Label>
+                                <div className="grid grid-cols-2 gap-2 rounded-lg border p-4 bg-muted/10">
+                                    {daysOfWeek.map(day => (
+                                    <div key={day} className="flex items-center space-x-2">
+                                        <Checkbox
+                                        id={`day-${editedClinic.id}-${day}`}
+                                        checked={editedClinic.daysOfAction?.includes(day)}
+                                        onCheckedChange={(checked) => handleDaysOfActionChange(day, !!checked)}
+                                        />
+                                        <Label htmlFor={`day-${editedClinic.id}-${day}`} className="font-normal text-xs">{day}</Label>
+                                    </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2 border p-4 rounded-lg bg-muted/10">
+                                <Switch 
+                                id={`weekend-${editedClinic.id}`}
+                                checked={editedClinic.weekendBookingEnabled}
+                                onCheckedChange={(checked) => handleFieldChange('weekendBookingEnabled', checked)}
+                                />
+                                <Label htmlFor={`weekend-${editedClinic.id}`} className="text-xs font-bold">Permitir citas en fin de semana</Label>
+                            </div>
+                         </div>
                     </div>
                 </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-6 border-t bg-muted/5">
                 <DialogClose asChild>
-                    <Button type="button" variant="outline">Cancelar</Button>
+                    <Button type="button" variant="outline" className="h-11 px-8">Cancelar</Button>
                 </DialogClose>
-                <Button type="button" onClick={() => onSave(editedClinic, clinicColonias)}>Guardar Cambios</Button>
+                <Button type="button" onClick={() => onSave(editedClinic, clinicColonias)} className="h-11 px-10 font-bold">Confirmar Todos los Cambios</Button>
             </DialogFooter>
 
-            {/* Conflicting Appointments Alert */}
             <AlertDialog open={isConfirmDateOpen} onOpenChange={setIsConfirmDateOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -568,6 +653,7 @@ export function ClinicsManager() {
         weekendBookingEnabled: false,
         daysOfAction: [],
         unavailableDates: [],
+        customSchedules: [],
         clinicType: specialties[0]?.name || 'Consulta Externa',
         bookingMode: BookingMode.Time,
         consultationDuration: 30,
@@ -737,12 +823,14 @@ export function ClinicsManager() {
                               </TableCell>
                               <TableCell>{colonias.filter(c => c.clinicId === clinic.id).length}</TableCell>
                               <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
-                                      <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => removeClinic(clinic.id)}>
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
+                                  <div className="flex justify-end gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => removeClinic(clinic.id)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </div>
                               </TableCell>
                           </TableRow>
                       ))}

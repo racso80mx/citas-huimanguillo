@@ -44,7 +44,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     React.useEffect(() => {
         if (isOpen && clinics.length === 1) {
             const singleClinic = clinics[0];
-            setSelectedClinicType(singleClinic.clinicType);
+            setSelectedClinicType(singleClinic.clinicType as ClinicType);
             setSelectedClinicId(singleClinic.id);
         }
     }, [isOpen, clinics]);
@@ -133,7 +133,12 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
                     if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                         const duration = clinic.consultationDuration;
-                        const candidateSlots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, duration);
+                        
+                        // Respect custom end time
+                        const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
+                        const effectiveEndTime = customSchedule ? customSchedule.endTime : clinic.endTime;
+
+                        const candidateSlots = generateDynamicTimeSlots(clinic.startTime, effectiveEndTime, duration);
                         
                         const unblockedSlots = candidateSlots.filter(slot => {
                             if (slot === clinic.breakTime) return false;
@@ -265,12 +270,18 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     }, [colonias, selectedClinicId]);
 
     const clinicHasColonias = React.useMemo(() => coloniaOptions.length > 0, [coloniaOptions]);
+    
     const allTimeSlots = React.useMemo(() => {
-        if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
-        const regularSlots = generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
+        if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration || !selectedDate) return [];
+        
+        const dateString = format(selectedDate, 'yyyy-MM-dd');
+        const customSchedule = selectedClinic.customSchedules?.find(s => s.date === dateString);
+        const effectiveEndTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
+
+        const regularSlots = generateDynamicTimeSlots(selectedClinic.startTime, effectiveEndTime, selectedClinic.consultationDuration);
         const waitlistSlots = Array.from({ length: selectedClinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
         return [...regularSlots, ...waitlistSlots];
-    }, [selectedClinic]);
+    }, [selectedClinic, selectedDate]);
 
     const availableTimeSlots = React.useMemo(() => {
         if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Time) return [];

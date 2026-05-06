@@ -134,7 +134,12 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
                 if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                     const duration = clinic.consultationDuration;
-                    const candidateSlots = generateDynamicTimeSlots(clinic.startTime, clinic.endTime, duration);
+                    
+                    // Respect custom end time if exists
+                    const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
+                    const effectiveEndTime = customSchedule ? customSchedule.endTime : clinic.endTime;
+
+                    const candidateSlots = generateDynamicTimeSlots(clinic.startTime, effectiveEndTime, duration);
                     
                     const unblockedSlots = candidateSlots.filter(slot => {
                         if (slot === clinic.breakTime) return false;
@@ -326,13 +331,17 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const clinicHasColonias = React.useMemo(() => coloniaOptions.length > 0, [coloniaOptions]);
 
   const allTimeSlots = React.useMemo(() => {
-    if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration) return [];
+    if (!selectedClinic || selectedClinic.bookingMode !== BookingMode.Time || !selectedClinic.consultationDuration || !selectedDate) return [];
     
-    const regularSlots = generateDynamicTimeSlots(selectedClinic.startTime, selectedClinic.endTime, selectedClinic.consultationDuration);
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+    const customSchedule = selectedClinic.customSchedules?.find(s => s.date === dateString);
+    const effectiveEndTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
+
+    const regularSlots = generateDynamicTimeSlots(selectedClinic.startTime, effectiveEndTime, selectedClinic.consultationDuration);
     const waitlistSlots = Array.from({ length: selectedClinic.waitlistSlots || 0 }, (_, i) => `Espera ${i + 1}`);
     
     return [...regularSlots, ...waitlistSlots];
-  }, [selectedClinic, generateDynamicTimeSlots]);
+  }, [selectedClinic, selectedDate, generateDynamicTimeSlots]);
 
 
   const availableTimeSlots = React.useMemo(() => {
