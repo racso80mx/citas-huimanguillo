@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -136,6 +137,38 @@ export async function logActivity(action: string, details: string) {
   } catch (e) {
     console.error("Failed to log activity:", e);
   }
+}
+
+/**
+ * Helper interno para verificar disponibilidad de horario y evitar duplicados.
+ */
+async function isTimeSlotTaken(
+    collectionName: 'appointments' | 'labAppointments' | 'xrayAppointments' | 'ultrasoundAppointments' | 'vaccineAppointments',
+    dateIso: string,
+    time: string,
+    clinicId?: string,
+    excludeId?: string
+): Promise<boolean> {
+    const db = getDb();
+    const dateOnly = dateIso.split('T')[0];
+    
+    // Consulta base por tiempo (filtro más restrictivo primero)
+    let q = query(collection(db, collectionName), where('time', '==', String(time)));
+    
+    // Si es cita médica o vacuna por clínica, filtramos también por unidad
+    if (clinicId && (collectionName === 'appointments' || collectionName === 'vaccineAppointments')) {
+        q = query(q, where('clinicId', '==', clinicId));
+    }
+
+    const snap = await getDocs(q);
+    
+    // Verificamos si alguna de las citas encontradas coincide con el día y no es la misma que estamos editando
+    return snap.docs.some(docSnap => {
+        if (excludeId && docSnap.id === excludeId) return false;
+        const d = docSnap.data();
+        const storedDate = (d.date instanceof Timestamp) ? d.date.toDate().toISOString().split('T')[0] : String(d.date).split('T')[0];
+        return storedDate === dateOnly;
+    });
 }
 
 // =====================================================================
@@ -385,15 +418,15 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
 export async function saveAppointment(appointment: any, patientInput: any, coloniaName?: string) {
   const db = getDb();
   try {
+    const taken = await isTimeSlotTaken('appointments', appointment.date, appointment.time, appointment.clinicId);
+    if (taken) return { success: false, error: "Horario/Ficha ya ocupado para este núcleo básico." };
+
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-    const qTime = query(collection(db, 'appointments'), where('clinicId', '==', appointment.clinicId), where('time', '==', String(appointment.time)));
-    const snapTime = await getDocs(qTime);
-    const isTimeTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTimeTaken && appointment.status !== 'Atendido') return { success: false, error: "Horario/Ficha ya ocupado." };
+    
     const clinicData = await getClinicById(appointment.clinicId);
     if (!clinicData) return { success: false, error: "La clínica no existe." };
+    
     const batch = writeBatch(db);
     let patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthDate: patientInput.birthDate || '', birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: coloniaName || patientInput.coloniaName || null, status: patientInput.status || PatientStatusEnum.Vigente, fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() };
@@ -410,14 +443,21 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
 export async function saveLabAppointment(appointment: any, patientInput: any) {
   const db = getDb();
   try {
+    const taken = await isTimeSlotTaken('labAppointments', appointment.date, appointment.time);
+    if (appointment.time !== "Recepción General" && taken) return { success: false, error: "Turno ya ocupado." };
+    
+    // Check general reception capacity if that's the time
+    if (appointment.time === "Recepción General") {
+        const selectedDate = appointment.date.split('T')[0];
+        const q = query(collection(db, 'labAppointments'), where('time', '==', 'Recepción General'));
+        const snap = await getDocs(q);
+        const count = snap.docs.filter(d => (d.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate).length;
+        const s = await getLabSettings();
+        if (count >= s.dailySlots) return { success: false, error: "Cupo lleno para recepción general." };
+    }
+
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-    const qTime = query(collection(db, 'labAppointments'), where('time', '==', String(appointment.time)));
-    const snapTime = await getDocs(qTime);
-    const takenOnDate = snapTime.docs.filter(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (appointment.time === "Recepción General") { const s = await getLabSettings(); if (takenOnDate.length >= s.dailySlots) return { success: false, error: "Cupo lleno." }; }
-    else if (takenOnDate.length > 0) return { success: false, error: "Turno ya ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
@@ -431,15 +471,13 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
 }
 
 export async function saveNewXRayAppointment(appointment: any, patientInput: any) {
-  const db = getDb();
   try {
+    const taken = await isTimeSlotTaken('xrayAppointments', appointment.date, appointment.time);
+    if (taken) return { success: false, error: "Horario ocupado." };
+
+    const db = getDb();
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-    const qTime = query(collection(db, 'xrayAppointments'), where('time', '==', String(appointment.time)));
-    const snapTime = await getDocs(qTime);
-    const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
@@ -453,15 +491,13 @@ export async function saveNewXRayAppointment(appointment: any, patientInput: any
 }
 
 export async function saveNewUltrasoundAppointment(appointment: any, patientInput: any) {
-  const db = getDb();
   try {
+    const taken = await isTimeSlotTaken('ultrasoundAppointments', appointment.date, appointment.time);
+    if (taken) return { success: false, error: "Horario ocupado." };
+
+    const db = getDb();
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-    const qTime = query(collection(db, 'ultrasoundAppointments'), where('time', '==', String(appointment.time)));
-    const snapTime = await getDocs(qTime);
-    const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), updatedAt: Timestamp.now() };
@@ -475,15 +511,13 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
 }
 
 export async function saveNewVaccineAppointment(appointment: any, patientInput: any) {
-  const db = getDb();
   try {
+    const taken = await isTimeSlotTaken('vaccineAppointments', appointment.date, appointment.time, appointment.clinicId);
+    if (taken) return { success: false, error: "Horario ocupado." };
+
+    const db = getDb();
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-    const selectedDate = new Date(appointment.date).toISOString().split('T')[0];
-    const qTime = query(collection(db, 'vaccineAppointments'), where('time', '==', String(appointment.time)));
-    const snapTime = await getDocs(qTime);
-    const isTaken = snapTime.docs.some(doc => (doc.data().date as Timestamp).toDate().toISOString().split('T')[0] === selectedDate);
-    if (isTaken) return { success: false, error: "Horario ocupado." };
     const batch = writeBatch(db);
     const patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: appointment.coloniaName || null, updatedAt: Timestamp.now() };
@@ -976,10 +1010,23 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
 }
 
 export async function rescheduleAppointment(id: string, date: string, type: string) {
-  const db = getDb();
   try {
-    const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
-    await updateDoc(doc(db, collMap[type] || 'appointments', id), { date: Timestamp.fromDate(new Date(date)) });
+    const collMap: Record<string, string> = { 
+        'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' 
+    };
+    const collectionName = collMap[type] || 'appointments';
+    
+    // Obtener datos de la cita actual para verificar disponibilidad
+    const db = getDb();
+    const appSnap = await getDoc(doc(db, collectionName, id));
+    if (!appSnap.exists()) return { success: false, message: 'Cita no encontrada.' };
+    const appData = appSnap.data();
+    
+    // Verificar si el nuevo horario está libre
+    const taken = await isTimeSlotTaken(collectionName as any, date, appData.time, appData.clinicId, id);
+    if (taken) return { success: false, message: 'No se puede reagendar: El horario de destino ya está ocupado.' };
+
+    await updateDoc(doc(db, collectionName, id), { date: Timestamp.fromDate(new Date(date)) });
     return { success: true, message: 'Fecha actualizada correctamente' };
   } catch (e: any) { return { success: false, message: e.message }; }
 }
@@ -992,10 +1039,24 @@ export async function cloneAppointment(originalId: string, date: string, type: s
     const originalDoc = await getDoc(doc(db, collectionName, originalId));
     if (!originalDoc.exists()) return { success: false, message: 'Cita original no encontrada' };
     const data = originalDoc.data();
+    
+    const finalTime = time || data.time;
+    
+    // Verificar disponibilidad para la nueva cita
+    const taken = await isTimeSlotTaken(collectionName as any, date, finalTime, data.clinicId);
+    if (taken) return { success: false, message: 'No se puede asignar: El horario/ficha seleccionado ya está ocupado.' };
+
     const newRef = doc(collection(db, collectionName));
     const newFolio = `${data.appointmentNumber.split('-')[0]}-${uuidv4().split('-')[0].toUpperCase()}`;
-    const newAppData = { ...data, date: Timestamp.fromDate(new Date(date)), appointmentNumber: newFolio, status: 'Agendada' };
-    if (time) newAppData.time = time;
+    const newAppData = { 
+        ...data, 
+        date: Timestamp.fromDate(new Date(date)), 
+        appointmentNumber: newFolio, 
+        status: 'Agendada',
+        time: finalTime,
+        createdAt: Timestamp.now()
+    };
+    
     await setDoc(newRef, newAppData);
     return { success: true, message: `Nueva cita asignada con folio: ${newFolio}` };
   } catch (e: any) { return { success: false, message: e.message }; }
