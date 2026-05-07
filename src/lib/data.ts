@@ -143,9 +143,6 @@ export async function logActivity(action: string, details: string) {
   }
 }
 
-/**
- * Helper interno para verificar disponibilidad de horario y evitar duplicados.
- */
 async function isTimeSlotTaken(
     collectionName: 'appointments' | 'labAppointments' | 'xrayAppointments' | 'ultrasoundAppointments' | 'vaccineAppointments',
     dateIso: string,
@@ -570,8 +567,8 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
 
 export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
   const db = getDb();
-  // CRITICAL FIX: To avoid index errors, we must NOT use orderBy('date') with where('patientId')
-  // unless a manual composite index is created. Instead, we query simply and sort in memory.
+  // CRITICAL FIX: Firestore requires a composite index when using 'where' + 'orderBy' on different fields.
+  // To avoid this error, we perform a simple 'where' query and then sort in memory with JavaScript.
   const colRef = collection(db, 'medicalConsultations');
   const q = query(colRef, where('patientId', '==', patientId));
   
@@ -579,7 +576,7 @@ export async function getConsultationsByPatientId(patientId: string): Promise<Me
     const snap = await getDocs(q);
     const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
     
-    // Sort in memory by date descending (assuming ISO string format)
+    // Sort in memory by date descending (assuming ISO string format) to show newest first.
     return results.sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
@@ -1009,7 +1006,6 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 epiMortaM5: String(raw['EPI_MORTA_M5'] || ''),
                 epiMorbi: String(raw['EPI_MORBI'] || ''),
                 defMaternas: String(raw['DEF_MATERNAS'] || ''),
-                defMaternas: String(raw['DEF_MATERNAS'] || ''),
                 esCauses: String(raw['ES_CAUSES'] || ''),
                 numCauses: String(raw['NUM_CAUSES'] || ''),
                 esSuiveMorta: String(raw['ES_SUIVE_MORTA'] || ''),
@@ -1051,7 +1047,6 @@ export async function searchCie10(searchTerm: string): Promise<Cie10Record[]> {
 
   const catalogColl = collection(db, 'cie10Catalog');
   
-  // Attempt search by code first (exact match)
   const qCode = query(catalogColl, where('catalogKey', '==', term), limit(5));
   const snapCode = await getDocs(qCode);
   
@@ -1059,7 +1054,6 @@ export async function searchCie10(searchTerm: string): Promise<Cie10Record[]> {
     return snapCode.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Cie10Record);
   }
 
-  // Attempt search by description (prefix)
   const qDesc = query(catalogColl, where('nombre', '>=', term), where('nombre', '<=', term + '\uf8ff'), limit(20));
   const snapDesc = await getDocs(qDesc);
   
