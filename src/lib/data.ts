@@ -570,18 +570,23 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
 
 export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
   const db = getDb();
-  // We removed orderBy from the query to avoid needing a composite index.
-  // We'll sort in memory instead since the limit is small.
+  // CRITICAL: We MUST remove orderBy from the Firestore query itself to avoid composite index requirements.
+  // We'll perform the sorting in memory (JavaScript) instead.
   const q = query(
     collection(db, 'medicalConsultations'), 
     where('patientId', '==', patientId), 
-    limit(100) 
+    limit(100) // Increase limit slightly to ensure we have enough data for a meaningful history
   );
+  
   const snap = await getDocs(q);
   const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
   
-  // Sort in memory by date descending
-  return results.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50);
+  // Sort in memory by date descending (assuming date is an ISO string)
+  return results.sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    return dateB.localeCompare(dateA);
+  }).slice(0, 50); // Final slice for UI display
 }
 
 // =====================================================================
