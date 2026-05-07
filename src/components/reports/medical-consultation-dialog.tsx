@@ -38,8 +38,8 @@ import {
     Users,
     AlertTriangle,
     CheckCircle2,
-    Command,
-    X
+    X,
+    Command
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { saveMedicalConsultation, getConsultationByAppointmentId, searchCie10 } from '@/lib/actions';
@@ -750,17 +750,43 @@ export function MedicalConsultationDialog({
 }
 
 function Cie10DiagnosisSelector({ number, form, patient }: { number: number, form: any, patient: Patient }) {
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(form.getValues(`diagnosis${number}`) || '');
     const [results, setResults] = useState<Cie10Record[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
 
+    // Sync external changes to search term (e.g. on reset)
+    useEffect(() => {
+        const val = form.watch(`diagnosis${number}`);
+        if (val !== searchTerm && !isSearching) {
+            setSearchTerm(val || '');
+        }
+    }, [form.watch(`diagnosis${number}`)]);
+
     const handleSearch = useCallback(async (val: string) => {
         setSearchTerm(val);
+        
+        // If user clears the input, clear the selection in the form too
+        if (val === '') {
+            form.setValue(`diagnosis${number}`, '');
+            form.setValue(`diagnosis${number}Code`, '');
+            setResults([]);
+            setIsOpen(false);
+            return;
+        }
+        
+        // If user is typing something that doesn't match the current diagnosis,
+        // clear the code field to indicate it's a new search
+        const currentDiag = form.getValues(`diagnosis${number}`);
+        if (val !== currentDiag) {
+            form.setValue(`diagnosis${number}Code`, '');
+        }
+
         if (val.length < 2) {
             setResults([]);
             return;
         }
+        
         setIsSearching(true);
         try {
             const data = await searchCie10(val);
@@ -769,7 +795,7 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
         } finally {
             setIsSearching(false);
         }
-    }, []);
+    }, [form, number]);
 
     const validateDiagnosis = (record: Cie10Record): { valid: boolean; reason?: string } => {
         // Sex validation
@@ -806,8 +832,9 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
 
         form.setValue(`diagnosis${number}`, record.nombre);
         form.setValue(`diagnosis${number}Code`, record.catalogKey);
+        setSearchTerm(record.nombre);
         setIsOpen(false);
-        setSearchTerm('');
+        setResults([]);
     };
 
     return (
@@ -824,11 +851,20 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                         placeholder="Escribe nombre o código CIE-10..." 
-                        value={searchTerm || form.watch(`diagnosis${number}`) || ''}
+                        value={searchTerm}
                         onChange={e => handleSearch(e.target.value.toUpperCase())}
-                        className="pl-9 h-11 font-bold uppercase"
+                        className="pl-9 pr-9 h-11 font-bold uppercase"
                     />
-                    {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
+                    {isSearching && <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
+                    {searchTerm && (
+                        <button 
+                            type="button"
+                            onClick={() => handleSearch('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
 
                 {isOpen && results.length > 0 && (
