@@ -1014,7 +1014,7 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 esCauses: String(raw['ES_CAUSES'] || ''),
                 numCauses: String(raw['NUM_CAUSES'] || ''),
                 esSuiveMorta: String(raw['ES_SUIVE_MORTA'] || ''),
-                esSuiveMorb: String(raw['ES_SUIVE_MORB'] || ''),
+                esSuiveMorbi: String(raw['ES_SUIVE_MORBI'] || ''),
                 epiClave: String(raw['EPI_CLAVE'] || ''),
                 epiClaveDesc: String(raw['EPI_CLAVE_DESC'] || ''),
                 esSuiveNotin: String(raw['ES_SUIVE_NOTIN'] || ''),
@@ -1152,13 +1152,14 @@ export async function bulkInsertDoctors(chunk: any[], specialties: string[]) {
         let processed = 0;
         for (const raw of chunk) {
             const name = String(raw['Médico'] || raw['Nombre'] || '').trim().toUpperCase();
+            const curp = String(raw['CURP'] || '').trim().toUpperCase();
             const license = String(raw['Cédula'] || raw['Cedula'] || '').trim().toUpperCase();
             const unit = String(raw['Unidad'] || raw['Unidad Médica'] || '').trim().toUpperCase();
             let service = String(raw['Servicio'] || '').trim();
             if (!name) continue;
             if (!specialties.includes(service)) { service = specialties[0] || 'Consulta Externa'; }
             const id = uuidv4();
-            const doctorData: Clinic = { id, name: unit || 'OTRA ÁREA', doctorName: name, professionalLicense: license, password: 'hospital_ext', dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, clinicType: service, bookingMode: BookingMode.Time, consultationDuration: 30 };
+            const doctorData: Clinic = { id, name: unit || 'OTRA ÁREA', doctorName: name, doctorCurp: curp, professionalLicense: license, password: 'hospital_ext', dailySlots: 10, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, clinicType: service, bookingMode: BookingMode.Time, consultationDuration: 30 };
             batch.set(doc(db, 'clinics', id), doctorData);
             processed++;
         }

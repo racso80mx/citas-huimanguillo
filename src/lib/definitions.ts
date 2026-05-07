@@ -102,6 +102,7 @@ export const ClinicSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "El nombre de la unidad es requerido."),
   doctorName: z.string().min(1, "El nombre del doctor es requerido."),
+  doctorCurp: z.string().optional(),
   professionalLicense: z.string().optional(),
   password: z.string().min(1, "La contraseña es requerida."),
   dailySlots: z.number().min(1, "Debe haber al menos 1 cita."),
@@ -560,7 +561,7 @@ export type Cie10Record = {
     esCauses: string;
     numCauses: string;
     esSuiveMorta: string;
-    esSuiveMorb: string;
+    esSuiveMorbi: string;
     epiClave: string;
     epiClaveDesc: string;
     esSuiveNotin: string;

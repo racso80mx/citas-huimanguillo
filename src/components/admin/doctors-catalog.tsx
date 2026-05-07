@@ -36,7 +36,8 @@ import {
   Upload,
   Pencil,
   Trash2,
-  FileDown
+  FileDown,
+  Fingerprint
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -108,6 +109,7 @@ export function DoctorsCatalog() {
       const term = searchTerm.toUpperCase();
       results = results.filter(c => 
         c.doctorName.toUpperCase().includes(term) || 
+        (c.doctorCurp && c.doctorCurp.toUpperCase().includes(term)) ||
         (c.professionalLicense && c.professionalLicense.includes(term)) ||
         c.name.toUpperCase().includes(term)
       );
@@ -131,6 +133,7 @@ export function DoctorsCatalog() {
     const xlsx = await import('xlsx');
     const data = filteredDoctors.map(d => ({
         'Médico': d.doctorName,
+        'CURP': d.doctorCurp || 'S/C',
         'Cédula Profesional': d.professionalLicense || 'S/C',
         'Unidad de Adscripción': d.name,
         'Servicio': d.clinicType
@@ -146,6 +149,7 @@ export function DoctorsCatalog() {
         id: uuidv4(),
         name: '',
         doctorName: '',
+        doctorCurp: '',
         professionalLicense: '',
         password: 'hospital_default',
         dailySlots: 10,
@@ -206,7 +210,7 @@ export function DoctorsCatalog() {
                 <div className="relative mt-6">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Buscar por nombre del médico, cédula o unidad..." 
+                        placeholder="Buscar por nombre, CURP, cédula o unidad..." 
                         className="pl-9 h-11"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -226,6 +230,9 @@ export function DoctorsCatalog() {
                         <TableRow>
                         <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('doctorName')}>
                             <div className="flex items-center">Médico {getSortIcon('doctorName')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('doctorCurp')}>
+                            <div className="flex items-center">CURP {getSortIcon('doctorCurp')}</div>
                         </TableHead>
                         <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('professionalLicense')}>
                             <div className="flex items-center">Cédula {getSortIcon('professionalLicense')}</div>
@@ -248,6 +255,14 @@ export function DoctorsCatalog() {
                                         <UserRound className="h-4 w-4 text-primary" />
                                     </div>
                                     <span className="font-bold text-sm uppercase">{doc.doctorName}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-2">
+                                    <Fingerprint className="h-4 w-4 text-blue-600" />
+                                    <code className="bg-muted px-2 py-0.5 rounded font-mono text-[10px] font-bold">
+                                        {doc.doctorCurp || 'S/C'}
+                                    </code>
                                 </div>
                             </TableCell>
                             <TableCell>
@@ -282,7 +297,7 @@ export function DoctorsCatalog() {
                         </TableRow>
                         )) : (
                         <TableRow>
-                            <TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">
+                            <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">
                                 No se encontraron médicos que coincidan con la búsqueda.
                             </TableCell>
                         </TableRow>
@@ -345,6 +360,10 @@ function EditDoctorDialog({ isOpen, onClose, doctor, specialties, onSave }: { is
                         <Input value={formData.doctorName} onChange={e => setFormData({...formData, doctorName: e.target.value.toUpperCase()})} placeholder="DR. NOMBRE APELLIDO" />
                     </div>
                     <div className="space-y-2">
+                        <Label>CURP</Label>
+                        <Input value={formData.doctorCurp || ''} onChange={e => setFormData({...formData, doctorCurp: e.target.value.toUpperCase()})} placeholder="CURP de 18 caracteres" maxLength={18} />
+                    </div>
+                    <div className="space-y-2">
                         <Label>Cédula Profesional</Label>
                         <Input value={formData.professionalLicense} onChange={e => setFormData({...formData, professionalLicense: e.target.value.toUpperCase()})} placeholder="Número de cédula o 'EN TRÁMITE'" />
                     </div>
@@ -385,8 +404,8 @@ function MassUploadDoctorsDialog({ isOpen, onClose, onSuccess }: { isOpen: boole
     const handleDownloadTemplate = async () => {
         const xlsx = await import('xlsx');
         const ws = xlsx.utils.json_to_sheet([
-            { 'Médico': 'DR. JUAN PEREZ', 'Cédula': '1234567', 'Unidad': 'URGENCIAS', 'Servicio': 'Médico Externo / Otra Área' },
-            { 'Médico': 'DRA. MARIA GARCIA', 'Cédula': '7654321', 'Unidad': 'NUCLEO BASICO 5', 'Servicio': 'Consulta Externa' }
+            { 'Médico': 'DR. JUAN PEREZ', 'CURP': 'ABCD010101HXXXXXXX', 'Cédula': '1234567', 'Unidad': 'URGENCIAS', 'Servicio': 'Médico Externo / Otra Área' },
+            { 'Médico': 'DRA. MARIA GARCIA', 'CURP': 'EFGH010101MXXXXXXX', 'Cédula': '7654321', 'Unidad': 'NUCLEO BASICO 5', 'Servicio': 'Consulta Externa' }
         ]);
         const wb = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(wb, ws, 'Médicos');
@@ -466,3 +485,4 @@ function MassUploadDoctorsDialog({ isOpen, onClose, onSuccess }: { isOpen: boole
         </Dialog>
     );
 }
+
