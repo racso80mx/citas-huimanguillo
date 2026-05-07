@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -566,6 +567,18 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
     const snap = await getDocs(q);
     if (snap.empty) return null;
     return serializeData({ id: snap.docs[0].id, ...snap.docs[0].data() }) as MedicalConsultation;
+}
+
+export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
+  const db = getDb();
+  const q = query(
+    collection(db, 'medicalConsultations'), 
+    where('patientId', '==', patientId), 
+    orderBy('date', 'desc'),
+    limit(50)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
 }
 
 // =====================================================================

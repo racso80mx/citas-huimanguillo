@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -321,6 +322,10 @@ export async function saveMedicalConsultation(consultation: Omit<MedicalConsulta
 
 export async function getConsultationByAppointmentId(id: string) {
     return data.getConsultationByAppointmentId(id);
+}
+
+export async function getConsultationsByPatientId(patientId: string) {
+    return data.getConsultationsByPatientId(patientId);
 }
 
 export async function bulkInsertCie10Glossary(chunk: any[]) {
