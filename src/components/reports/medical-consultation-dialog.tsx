@@ -38,11 +38,12 @@ import {
     Users,
     AlertTriangle,
     CheckCircle2,
-    Command
+    Command,
+    X
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { saveMedicalConsultation, getConsultationByAppointmentId, searchCie10 } from '@/lib/actions';
-import type { Appointment, Clinic, MedicalConsultation, Cie10Record } from '@/lib/definitions';
+import type { Appointment, Clinic, MedicalConsultation, Cie10Record, Patient } from '@/lib/definitions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -772,14 +773,11 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
 
     const validateDiagnosis = (record: Cie10Record): { valid: boolean; reason?: string } => {
         // Sex validation
-        // 1=Men, 2=Women, 3=Both (standard MEX catalog)
         const patientSex = patient.sex === 'Mujer' ? '2' : '1';
         if (record.lsex && record.lsex !== '3' && record.lsex !== patientSex) {
             return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
         }
 
-        // Age validation
-        // Sinf/lsup format usually UnitValue (1=Days, 2=Months, 3=Years)
         const parseAgeLimit = (limit: string) => {
             if (!limit || limit.length < 2) return null;
             const unit = limit[0];
@@ -817,7 +815,7 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
             <div className="sm:col-span-1 space-y-1.5">
                 <Label className="text-[10px] font-black opacity-50 uppercase">Código {number}</Label>
                 <FormField control={form.control} name={`diagnosis${number}Code`} render={({ field }) => (
-                    <Input {...field} readOnly className="bg-muted/30 font-mono font-bold text-primary h-11" />
+                    <Input {...field} value={field.value ?? ''} readOnly className="bg-muted/30 font-mono font-bold text-primary h-11" />
                 )} />
             </div>
             <div className="sm:col-span-3 space-y-1.5 relative">
@@ -826,7 +824,7 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                         placeholder="Escribe nombre o código CIE-10..." 
-                        value={searchTerm || form.watch(`diagnosis${number}`)}
+                        value={searchTerm || form.watch(`diagnosis${number}`) || ''}
                         onChange={e => handleSearch(e.target.value.toUpperCase())}
                         className="pl-9 h-11 font-bold uppercase"
                     />
