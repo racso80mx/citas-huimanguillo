@@ -403,3 +403,79 @@ export type Prescription = {
     status: PrescriptionStatus;
     type: 'interno' | 'externo';
 };
+
+export type MedicalConsultation = {
+    id: string;
+    appointmentId: string;
+    patientId: string;
+    clinicId: string;
+    doctorName: string;
+    date: string;
+    service: string;
+    
+    // Signos Vitales
+    weight?: number;
+    height?: number;
+    imc?: number;
+    waist?: number;
+    systolicBP?: number;
+    diastolicBP?: number;
+    heartRate?: number;
+    respiratoryRate?: number;
+    temperature?: number;
+    oxygenSaturation?: number;
+    glucose?: number;
+    fastingGlucose?: boolean;
+    
+    // Clínica
+    tbSymptomatic?: string;
+    firstTimeOfYear?: boolean;
+    motiveRelation: string;
+    
+    // Diagnósticos
+    diagnosis1: string;
+    diagnosis1Type: string;
+    diagnosis2?: string;
+    diagnosis2Type?: string;
+    diagnosis3?: string;
+    diagnosis3Type?: string;
+    
+    // Salud Mental
+    mentalHealthAction?: string;
+    recipeFolio?: string;
+    
+    // Atención Pregestacional
+    pregestationalCare?: 'Primera vez' | 'Subsecuente';
+    pregestationalRisk?: string;
+    
+    // Embarazada
+    pregnancyTrimester?: string;
+    pregnancyHighRisk?: boolean;
+    pregnancyComplications?: string[];
+    pregnancyActions?: string[];
+    
+    // Puerperio
+    puerperiumType?: 'Puérpera 1ra' | 'Puérpera Sub';
+    puerperiumInfection?: boolean;
+    puerperiumPlanning?: boolean;
+    
+    // Otros eventos
+    otherEvents?: string[];
+    
+    // Promoción
+    vsoPackets?: number;
+    lifeLine?: boolean;
+    healthCard?: boolean;
+    vaccinationComplete?: boolean;
+    
+    // Referencia
+    referredBy?: string;
+    counterReferred?: boolean;
+    
+    // Telemedicina
+    telemedicineRole?: string;
+    telemedicineStudies?: boolean;
+    
+    nextAppointmentDate?: string;
+    createdAt: string;
+};

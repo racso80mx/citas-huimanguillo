@@ -1,8 +1,9 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import * as data from './data';
-import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Prescription, Specialty, LabStudy, XRayStudy, UltrasoundStudy, Vaccine } from './definitions';
+import type { PatientStatus, AppointmentStatus, Holiday, SpecialActionDay, Prescription, Specialty, LabStudy, XRayStudy, UltrasoundStudy, Vaccine, MedicalConsultation } from './definitions';
 
 /**
  * ARCHIVO DE ACCIONES DE SERVIDOR (SERVER ACTIONS)
@@ -309,4 +310,16 @@ export async function bulkInsertPatients(chunk: any[]) {
 
 export async function getAppointmentCountOnDate(clinicId: string, date: string) {
     return data.getAppointmentCountOnDate(clinicId, date);
+}
+
+export async function saveMedicalConsultation(consultation: Omit<MedicalConsultation, 'id'>) {
+    const res = await data.saveMedicalConsultation(consultation);
+    if (res.success) {
+        revalidatePath('/reports');
+    }
+    return res;
+}
+
+export async function getConsultationByAppointmentId(id: string) {
+    return data.getConsultationByAppointmentId(id);
 }

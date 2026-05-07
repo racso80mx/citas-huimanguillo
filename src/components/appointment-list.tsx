@@ -13,7 +13,7 @@ import type { Appointment, Clinic, Patient, AppointmentStatus, ModuleSettings } 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from './ui/button';
-import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle, FileText } from 'lucide-react';
+import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle, FileText, UserPlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from './ui/label';
+import { MedicalConsultationDialog } from './reports/medical-consultation-dialog';
 
 
 type AppointmentListProps = {
@@ -55,12 +56,13 @@ type AppointmentListProps = {
   clinics: Clinic[];
   onEditSuccess?: () => void;
   onPrescribe?: (patient: Patient) => void;
+  onConsultation?: (appointment: Appointment) => void;
 };
 
 type SortableKeys = keyof Appointment | 'patientName' | 'clinicName' | 'curp' | 'phoneNumber' | 'coloniaName';
 
 
-export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics, onEditSuccess, onPrescribe }: AppointmentListProps) {
+export function AppointmentList({ appointments, isAdmin = false, onDelete, clinics, onEditSuccess, onPrescribe, onConsultation }: AppointmentListProps) {
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [isUpdating, startUpdateTransition] = useTransition();
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
@@ -78,6 +80,10 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
   
   const [announcements, setAnnouncements] = useState<string[]>([]);
   const [settings, setSettings] = useState<ModuleSettings | null>(null);
+
+  // New Consultation states
+  const [consultingAppointment, setConsultingAppointment] = useState<Appointment | null>(null);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -419,6 +425,11 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
+                      <DropdownMenuItem onSelect={() => setConsultingAppointment(app)}>
+                        <UserPlus className="mr-2 h-4 w-4 text-primary" />
+                        Registrar Consulta
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'Atendido')}>Atendido</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Atendido')}>No Atendido</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => handleStatusChange(app.id, 'No Asistió')}>No Asistió</DropdownMenuItem>
@@ -662,6 +673,18 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+      )}
+      {consultingAppointment && (
+        <MedicalConsultationDialog 
+            appointment={consultingAppointment}
+            clinic={clinics.find(c => c.id === consultingAppointment.clinicId)!}
+            isOpen={!!consultingAppointment}
+            onClose={() => setConsultingAppointment(null)}
+            onSuccess={() => {
+                setConsultingAppointment(null);
+                onEditSuccess?.();
+            }}
+        />
       )}
     </div>
   );

@@ -59,6 +59,7 @@ import type {
   SpecialActionDay,
   Prescription,
   Specialty,
+  MedicalConsultation,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -541,6 +542,35 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
   const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
   await updateDoc(doc(db, collMap[type] || 'appointments', id), { status });
   return { success: true };
+}
+
+// =====================================================================
+// MEDICAL CONSULTATIONS
+// =====================================================================
+
+export async function saveMedicalConsultation(consultation: Omit<MedicalConsultation, 'id'>) {
+    const db = getDb();
+    try {
+        const id = uuidv4();
+        const data = { ...consultation, id, createdAt: Timestamp.now() };
+        await setDoc(doc(db, 'medicalConsultations', id), data);
+        
+        // Mark appointment as attended
+        await updateDoc(doc(db, 'appointments', consultation.appointmentId), { status: 'Atendido' });
+        
+        return { success: true, id };
+    } catch (e: any) {
+        console.error("Save consultation error:", e);
+        return { success: false, message: e.message };
+    }
+}
+
+export async function getConsultationByAppointmentId(appointmentId: string): Promise<MedicalConsultation | null> {
+    const db = getDb();
+    const q = query(collection(db, 'medicalConsultations'), where('appointmentId', '==', appointmentId), limit(1));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return serializeData({ id: snap.docs[0].id, ...snap.docs[0].data() }) as MedicalConsultation;
 }
 
 // =====================================================================
