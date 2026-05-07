@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -755,7 +756,6 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
     const [isSearching, setIsSearching] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
 
-    // Sync external changes to search term (e.g. on reset)
     useEffect(() => {
         const val = form.watch(`diagnosis${number}`);
         if (val !== searchTerm && !isSearching) {
@@ -766,7 +766,6 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
     const handleSearch = useCallback(async (val: string) => {
         setSearchTerm(val);
         
-        // If user clears the input, clear the selection in the form too
         if (val === '') {
             form.setValue(`diagnosis${number}`, '');
             form.setValue(`diagnosis${number}Code`, '');
@@ -775,8 +774,6 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
             return;
         }
         
-        // If user is typing something that doesn't match the current diagnosis,
-        // clear the code field to indicate it's a new search
         const currentDiag = form.getValues(`diagnosis${number}`);
         if (val !== currentDiag) {
             form.setValue(`diagnosis${number}Code`, '');
@@ -798,27 +795,43 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
     }, [form, number]);
 
     const validateDiagnosis = (record: Cie10Record): { valid: boolean; reason?: string } => {
-        // Sex validation
-        const patientSex = patient.sex === 'Mujer' ? '2' : '1';
-        if (record.lsex && record.lsex !== '3' && record.lsex !== patientSex) {
-            return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
+        const isMujer = patient.sex === 'Mujer';
+        const isHombre = patient.sex === 'Hombre';
+        
+        // Letra O es exclusiva para obstetricia (mujeres)
+        const isObstetricCode = record.catalogKey?.startsWith('O') || record.letra === 'O';
+        
+        if (isObstetricCode && isHombre) {
+            return { valid: false, reason: 'Código exclusivo para mujeres (Obstetricia)' };
+        }
+
+        // Si es mujer y es un código de embarazo, lo permitimos aunque el catálogo tenga 1 (por error de carga)
+        if (isObstetricCode && isMujer) {
+            return { valid: true };
+        }
+
+        const sexLimit = String(record.lsex || '3').trim();
+        if (sexLimit !== '3' && sexLimit !== '0' && sexLimit !== '' && sexLimit !== 'NO') {
+            // 1=Hombre, 2=Mujer (Estándar SSA)
+            if (sexLimit === '1' && isMujer) return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
+            if (sexLimit === '2' && isHombre) return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
         }
 
         const parseAgeLimit = (limit: string) => {
             if (!limit || limit.length < 2) return null;
             const unit = limit[0];
             const val = parseInt(limit.substring(1)) || 0;
-            if (unit === '3') return val; // Years
-            if (unit === '2') return val / 12; // Months
-            if (unit === '1') return val / 365; // Days
+            if (unit === '3') return val; // Años
+            if (unit === '2') return val / 12; // Meses
+            if (unit === '1') return val / 365; // Días
             return null;
         };
 
         const minAge = parseAgeLimit(record.linf);
         const maxAge = parseAgeLimit(record.lsup);
 
-        if (minAge !== null && patient.age < minAge) return { valid: false, reason: 'Edad menor a la permitida' };
-        if (maxAge !== null && patient.age > maxAge) return { valid: false, reason: 'Edad mayor a la permitida' };
+        if (minAge !== null && patient.age < minAge) return { valid: false, reason: 'Edad menor a la permitida por el catálogo' };
+        if (maxAge !== null && patient.age > maxAge) return { valid: false, reason: 'Edad mayor a la permitida por el catálogo' };
 
         return { valid: true };
     };
@@ -869,6 +882,10 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
 
                 {isOpen && results.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-popover border rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                        <div className="p-2 bg-muted/50 border-b flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            <span>Resultados CIE-10</span>
+                            <span className="flex items-center gap-1"><Command className="h-3 w-3" /> Selección por click</span>
+                        </div>
                         {results.map(r => {
                             const { valid, reason } = validateDiagnosis(r);
                             return (
@@ -885,9 +902,9 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
                                             <Badge variant="outline" className="font-mono text-[10px] bg-background">{r.catalogKey}</Badge>
                                             <span className="text-xs font-bold uppercase leading-tight">{r.nombre}</span>
                                         </div>
-                                        {!valid && <span className="text-[9px] text-red-600 font-black flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5" /> {reason}</span>}
+                                        {!valid && <span className="text-[9px] text-red-600 font-black flex items-center gap-1 mt-1"><AlertTriangle className="h-2.5 w-2.5" /> {reason}</span>}
                                     </div>
-                                    {valid ? <CheckCircle2 className="h-4 w-4 text-green-600 mt-1" /> : <X className="h-4 w-4 text-red-400 mt-1" />}
+                                    {valid ? <CheckCircle2 className="h-4 w-4 text-green-600 mt-1 shrink-0" /> : <X className="h-4 w-4 text-red-400 mt-1 shrink-0" />}
                                 </div>
                             );
                         })}
