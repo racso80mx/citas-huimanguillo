@@ -568,17 +568,18 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
 
 export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
   const db = getDb();
-  // CRITICAL FIX: Firestore requires a composite index when using 'where' + 'orderBy' on different fields.
-  // To avoid this error, we perform a simple 'where' query WITHOUT 'orderBy'.
+  if (!patientId) return [];
+
+  // CRITICAL FIX: To avoid FirebaseError regarding composite index (patientId + date),
+  // we perform a primitive query by patientId and then sort in memory with JavaScript.
   const colRef = collection(db, 'medicalConsultations');
-  const q = query(colRef, where('patientId', '==', patientId));
+  const q = query(colRef, where('patientId', '==', String(patientId)));
   
   try {
     const snap = await getDocs(q);
     const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
     
     // Sort in memory by date descending (assuming ISO string format) to show newest first.
-    // This removes the need for composite indexes in Firestore.
     return results.sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
@@ -1238,4 +1239,17 @@ export async function cloneAppointment(originalId: string, date: string, type: s
     await setDoc(newRef, newAppData);
     return { success: true, message: `Nueva cita asignada con folio: ${newFolio}` };
   } catch (e: any) { return { success: false, message: e.message }; }
+}
+
+export async function getBIData(): Promise<any> {
+    const [appointments, labAppointments, xrayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias] = await Promise.all([
+        getAppointments(),
+        getLabAppointments(),
+        getXRayAppointments(),
+        getUltrasoundAppointments(),
+        getVaccineAppointments(),
+        getClinics(),
+        getColonias()
+    ]);
+    return { appointments, labAppointments, xrayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias };
 }
