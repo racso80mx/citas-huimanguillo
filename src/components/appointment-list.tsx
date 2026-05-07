@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useTransition, useMemo, useCallback, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -77,6 +76,7 @@ import { MedicalConsultationDialog } from './reports/medical-consultation-dialog
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
+import { Card, CardContent } from './ui/card';
 
 
 type AppointmentListProps = {
@@ -829,7 +829,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                         {cloningClinic.bookingMode === 'time' && (
                           <div className="space-y-2">
                             <Label className="text-xs font-bold uppercase">Selecciona una Hora</Label>
-                             <Select onValueChange={newCloneTime} value={newCloneTime}>
+                             <Select onValueChange={setNewCloneTime} value={newCloneTime}>
                               <SelectTrigger className="h-11">
                                 <SelectValue placeholder="Elegir horario disponible..." />
                               </SelectTrigger>
