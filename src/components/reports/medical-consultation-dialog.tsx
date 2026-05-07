@@ -123,7 +123,13 @@ export function MedicalConsultationDialog({
       otherEvents: [],
       vsoPackets: 0,
       motiveRelation: 'Subsecuente',
-      diagnosis1Type: 'Subsecuente'
+      diagnosis1Type: 'Subsecuente',
+      diagnosis1: '',
+      diagnosis2: '',
+      diagnosis3: '',
+      recipeFolio: '',
+      referredBy: '',
+      nextAppointmentDate: '',
     },
   });
 
@@ -148,14 +154,26 @@ export function MedicalConsultationDialog({
         if (existing) {
           form.reset({
               ...existing as any,
-              vsoPackets: existing.vsoPackets || 0
+              vsoPackets: existing.vsoPackets || 0,
+              diagnosis1: existing.diagnosis1 || '',
+              diagnosis2: existing.diagnosis2 || '',
+              diagnosis3: existing.diagnosis3 || '',
+              recipeFolio: existing.recipeFolio || '',
+              referredBy: existing.referredBy || '',
+              nextAppointmentDate: existing.nextAppointmentDate || '',
           });
         } else {
           form.reset({
               service: clinic.clinicType || 'Consulta Externa',
               motiveRelation: 'Subsecuente',
               diagnosis1Type: 'Subsecuente',
-              vsoPackets: 0
+              vsoPackets: 0,
+              diagnosis1: '',
+              diagnosis2: '',
+              diagnosis3: '',
+              recipeFolio: '',
+              referredBy: '',
+              nextAppointmentDate: '',
           });
         }
         setIsInitialLoading(false);
@@ -241,10 +259,10 @@ export function MedicalConsultationDialog({
                                     </h3>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-6 bg-muted/10 p-6 rounded-2xl border border-dashed">
                                         <FormField control={form.control} name="weight" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Peso (kg)</FormLabel><FormControl><Input type="number" step="0.1" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">Peso (kg)</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <FormField control={form.control} name="height" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Talla (cm)</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">Talla (cm)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <div className="space-y-2">
                                             <Label className="text-xs">IMC (Calculado)</Label>
@@ -256,30 +274,30 @@ export function MedicalConsultationDialog({
                                             </div>
                                         </div>
                                         <FormField control={form.control} name="waist" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Cintura (cm)</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">Cintura (cm)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <div className="col-span-2 grid grid-cols-2 gap-2">
                                             <FormField control={form.control} name="systolicBP" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-[10px]">T.A. Sistólica</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                                <FormItem><FormLabel className="text-[10px]">T.A. Sistólica</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                             )} />
                                             <FormField control={form.control} name="diastolicBP" render={({ field }) => (
-                                                <FormItem><FormLabel className="text-[10px]">T.A. Diastólica</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                                <FormItem><FormLabel className="text-[10px]">T.A. Diastólica</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                             )} />
                                         </div>
                                         <FormField control={form.control} name="heartRate" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">FC (lpm)</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">FC (lpm)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <FormField control={form.control} name="respiratoryRate" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">FR (rpm)</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">FR (rpm)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <FormField control={form.control} name="temperature" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Temp (°C)</FormLabel><FormControl><Input type="number" step="0.1" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">Temp (°C)</FormLabel><FormControl><Input type="number" step="0.1" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <FormField control={form.control} name="oxygenSaturation" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">SatO2 (%)</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">SatO2 (%)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <FormField control={form.control} name="glucose" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-xs">Glucemia</FormLabel><FormControl><Input type="number" {...field} className="h-10 font-bold"/></FormControl></FormItem>
+                                            <FormItem><FormLabel className="text-xs">Glucemia</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                         )} />
                                         <FormField control={form.control} name="fastingGlucose" render={({ field }) => (
                                             <FormItem className="flex flex-row items-center space-x-2 space-y-0 pt-8">
@@ -344,7 +362,7 @@ export function MedicalConsultationDialog({
                                                 <div className="sm:col-span-4 space-y-2">
                                                     <Label className="text-[10px] font-black opacity-50">DIAGNÓSTICO {n} {n === 1 ? '*' : ''}</Label>
                                                     <FormField control={form.control} name={`diagnosis${n}` as any} render={({ field }) => (
-                                                        <FormControl><Input placeholder="Buscar código o nombre de enfermedad..." {...field} className="h-11 uppercase font-bold" /></FormControl>
+                                                        <FormControl><Input placeholder="Buscar código o nombre de enfermedad..." {...field} value={field.value ?? ''} className="h-11 uppercase font-bold" /></FormControl>
                                                     )} />
                                                 </div>
                                                 <div className="sm:col-span-2 space-y-2">
@@ -382,7 +400,7 @@ export function MedicalConsultationDialog({
                                     <FormField control={form.control} name="recipeFolio" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="font-bold">Folio de Receta</FormLabel>
-                                            <FormControl><Input placeholder="Folio físico o digital..." {...field} className="h-11" /></FormControl>
+                                            <FormControl><Input placeholder="Folio físico o digital..." {...field} value={field.value ?? ''} className="h-11" /></FormControl>
                                         </FormItem>
                                     )} />
                                 </section>
@@ -524,7 +542,7 @@ export function MedicalConsultationDialog({
                                             <FormField control={form.control} name="vsoPackets" render={({ field }) => (
                                                 <FormItem className="flex items-center justify-between">
                                                     <FormLabel>Sobres VSO Entregados</FormLabel>
-                                                    <FormControl><Input type="number" {...field} className="w-24 text-center font-bold" /></FormControl>
+                                                    <FormControl><Input type="number" {...field} value={field.value ?? 0} className="w-24 text-center font-bold" /></FormControl>
                                                 </FormItem>
                                             )} />
                                             <FormField control={form.control} name="lifeLine" render={({ field }) => (
@@ -554,7 +572,7 @@ export function MedicalConsultationDialog({
                                             <FormField control={form.control} name="referredBy" render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel className="text-[10px] font-bold">REFERIDO POR</FormLabel>
-                                                    <Input placeholder="Unidad de origen..." {...field} className="h-10" />
+                                                    <Input placeholder="Unidad de origen..." {...field} value={field.value ?? ''} className="h-10" />
                                                 </FormItem>
                                             )} />
                                             <FormField control={form.control} name="counterReferred" render={({ field }) => (
@@ -595,7 +613,7 @@ export function MedicalConsultationDialog({
                                             <FormLabel className="font-bold flex items-center gap-2">
                                                 <CalendarDays className="h-4 w-4 text-primary" /> Próxima Cita Sugerida
                                             </FormLabel>
-                                            <FormControl><Input type="date" {...field} className="h-11" /></FormControl>
+                                            <FormControl><Input type="date" {...field} value={field.value ?? ''} className="h-11" /></FormControl>
                                         </FormItem>
                                     )} />
                                 </section>
@@ -605,7 +623,7 @@ export function MedicalConsultationDialog({
                 </Tabs>
 
                 <DialogFooter className="p-6 border-t bg-muted/20 shrink-0">
-                  <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="h-12 px-8">Cerrar sin guardar</Button>
+                  <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="h-12 px-8">Cancelar</Button>
                   <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="h-12 px-12 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all">
                     {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
                     FINALIZAR Y GUARDAR CONSULTA
