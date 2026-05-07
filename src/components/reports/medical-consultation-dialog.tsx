@@ -19,7 +19,6 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,9 @@ import {
     Save, 
     CalendarDays,
     Search,
-    FilePlus
+    FilePlus,
+    Activity,
+    Users
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { saveMedicalConsultation, getConsultationByAppointmentId } from '@/lib/actions';
@@ -74,16 +75,38 @@ const formSchema = z.object({
   diagnosis3Type: z.string().optional(),
   mentalHealthAction: z.string().optional(),
   recipeFolio: z.string().optional(),
+  
+  // Pregnancy Control
   pregestationalCare: z.enum(['Primera vez', 'Subsecuente']).optional(),
   pregestationalRisk: z.string().optional(),
   pregnancyTrimester: z.string().optional(),
   pregnancyHighRisk: z.boolean().default(false),
   pregnancyComplications: z.array(z.string()).default([]),
   pregnancyActions: z.array(z.string()).default([]),
+  
+  // Obstetric Attention (Event)
+  obstetricAttentionDate: z.string().optional(),
+  obstetricAttentionTime: z.string().optional(),
+  gestationalWeeks: z.coerce.number().optional(),
+  obstetricAttentionType: z.string().optional(),
+  abortionType: z.string().optional(),
+  freePositionChosen: z.string().optional(),
+  verticalExpulsivePeriod: z.string().optional(),
+  psychologicalAccompaniment: z.string().optional(),
+  activeThirdPeriodManagement: z.string().optional(),
+  nonPharmacologicalMeasures: z.string().optional(),
+  delayedCordClamping: z.string().optional(),
+  birthType: z.string().optional(),
+  withProduct: z.string().optional(),
+  familyPlanningMethods: z.array(z.string()).default([]),
+
+  // Puerperium
   puerperiumType: z.enum(['Puérpera 1ra', 'Puérpera Sub']).optional(),
   puerperiumInfection: z.boolean().default(false),
   puerperiumPlanning: z.boolean().default(false),
   otherEvents: z.array(z.string()).default([]),
+  
+  // Promotion & Referral
   vsoPackets: z.coerce.number().default(0),
   lifeLine: z.boolean().default(false),
   healthCard: z.boolean().default(false),
@@ -121,6 +144,7 @@ export function MedicalConsultationDialog({
       service: clinic.clinicType || 'Consulta Externa',
       pregnancyComplications: [],
       pregnancyActions: [],
+      familyPlanningMethods: [],
       otherEvents: [],
       vsoPackets: 0,
       motiveRelation: 'Subsecuente',
@@ -131,6 +155,8 @@ export function MedicalConsultationDialog({
       recipeFolio: '',
       referredBy: '',
       nextAppointmentDate: '',
+      obstetricAttentionDate: '',
+      obstetricAttentionTime: '',
     },
   });
 
@@ -162,6 +188,10 @@ export function MedicalConsultationDialog({
               recipeFolio: existing.recipeFolio || '',
               referredBy: existing.referredBy || '',
               nextAppointmentDate: existing.nextAppointmentDate || '',
+              familyPlanningMethods: existing.familyPlanningMethods || [],
+              pregnancyComplications: existing.pregnancyComplications || [],
+              pregnancyActions: existing.pregnancyActions || [],
+              otherEvents: existing.otherEvents || [],
           });
         }
         setIsInitialLoading(false);
@@ -193,6 +223,26 @@ export function MedicalConsultationDialog({
       setIsSaving(false);
     }
   };
+
+  const abortionOptions = [
+      { id: 'IVE', label: 'IVE (Interrupción Voluntaria)' },
+      { id: 'ILE', label: 'ILE (Interrupción Legal)' },
+      { id: 'Espontáneo', label: 'Espontáneo' },
+      { id: 'Otras causas', label: 'Otras causas' }
+  ];
+
+  const familyPlanningOptions = [
+      { id: 'DIU Normal', label: 'DIU Normal' },
+      { id: 'DIU Medicado', label: 'DIU Medicado' },
+      { id: 'OTB', label: 'OTB' },
+      { id: 'Oral', label: 'Oral' },
+      { id: 'Inyectable Mensual', label: 'Inyectable Mensual' },
+      { id: 'Inyectable Bimestral', label: 'Inyectable Bimestral' },
+      { id: 'Inyectable Trimestral', label: 'Inyectable Trimestral' },
+      { id: 'Implante Dérmico', label: 'Implante Dérmico' },
+      { id: 'Implante Subdérmico', label: 'Implante Subdérmico' },
+      { id: 'Parche', label: 'Parche' }
+  ];
 
   return (
     <>
@@ -229,7 +279,7 @@ export function MedicalConsultationDialog({
                                   <ClipboardList className="mr-2 h-4 w-4" /> 1. Consulta Externa
                               </TabsTrigger>
                               <TabsTrigger value="obstetrica" className="data-[state=active]:bg-primary data-[state=active]:text-white font-bold h-10 px-6 rounded-t-lg">
-                                  <Baby className="mr-2 h-4 w-4" /> 2. Consulta Obstétrica / Eventos
+                                  <Baby className="mr-2 h-4 w-4" /> 2. Atención Obstétrica
                               </TabsTrigger>
                               <TabsTrigger value="promocion" className="data-[state=active]:bg-primary data-[state=active]:text-white font-bold h-10 px-6 rounded-t-lg">
                                   <ShieldCheck className="mr-2 h-4 w-4" /> 3. Promoción y Referencia
@@ -392,67 +442,168 @@ export function MedicalConsultationDialog({
                                   </section>
                               </TabsContent>
 
-                              <TabsContent value="obstetrica" className="mt-0 space-y-10">
-                                  <div className="grid lg:grid-cols-2 gap-10">
-                                      <Card className="border-primary/10 shadow-sm overflow-hidden">
-                                          <CardHeader className="bg-primary/5 pb-4">
-                                              <CardTitle className="text-base uppercase tracking-tight">Atención Pregestacional</CardTitle>
-                                          </CardHeader>
-                                          <CardContent className="pt-6 space-y-6">
-                                              <FormField control={form.control} name="pregestationalCare" render={({ field }) => (
-                                                  <FormItem className="space-y-3">
-                                                      <FormControl>
-                                                          <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
-                                                              <div className="flex items-center space-x-2"><RadioGroupItem value="Primera vez" id="pg-1" /><Label htmlFor="pg-1">Primera vez</Label></div>
-                                                              <div className="flex items-center space-x-2"><RadioGroupItem value="Subsecuente" id="pg-2" /><Label htmlFor="pg-2">Subsecuente</Label></div>
-                                                          </RadioGroup>
-                                                      </FormControl>
-                                                  </FormItem>
-                                              )} />
-                                              <FormField control={form.control} name="pregestationalRisk" render={({ field }) => (
-                                                  <FormItem>
-                                                      <FormLabel className="text-xs font-bold">Riesgo Detectado</FormLabel>
-                                                      <Select onValueChange={field.onChange} value={field.value}>
-                                                          <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Riesgo..." /></SelectTrigger></FormControl>
-                                                          <SelectContent>
-                                                              <SelectItem value="Bajo">Bajo</SelectItem>
-                                                              <SelectItem value="Alto">Alto</SelectItem>
-                                                              <SelectItem value="Muy Alto">Muy Alto</SelectItem>
-                                                          </SelectContent>
-                                                      </Select>
-                                                  </FormItem>
-                                              )} />
-                                          </CardContent>
-                                      </Card>
+                              <TabsContent value="obstetrica" className="mt-0 space-y-12">
+                                  {/* ATENCIÓN DEL EVENTO (PARTO/ABORTO) */}
+                                  <section className="space-y-6">
+                                      <h3 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                                          <Activity className="h-5 w-5" /> Atención del Evento (Parto / Aborto)
+                                      </h3>
+                                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 bg-muted/10 p-6 rounded-2xl border border-dashed">
+                                          <FormField control={form.control} name="obstetricAttentionDate" render={({ field }) => (
+                                              <FormItem><FormLabel className="text-xs font-bold">Fecha de Atención*</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} className="h-10"/></FormControl></FormItem>
+                                          )} />
+                                          <FormField control={form.control} name="obstetricAttentionTime" render={({ field }) => (
+                                              <FormItem><FormLabel className="text-xs font-bold">Hora de Atención*</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} className="h-10"/></FormControl></FormItem>
+                                          )} />
+                                          <FormField control={form.control} name="gestationalWeeks" render={({ field }) => (
+                                              <FormItem><FormLabel className="text-xs font-bold">Semanas Gestación*</FormLabel><FormControl><Input type="number" min={0} max={45} {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
+                                          )} />
+                                          <FormField control={form.control} name="obstetricAttentionType" render={({ field }) => (
+                                              <FormItem>
+                                                  <FormLabel className="text-xs font-bold">Atención*</FormLabel>
+                                                  <Select onValueChange={field.onChange} value={field.value}>
+                                                      <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
+                                                      <SelectContent>
+                                                          <SelectItem value="Parto Normal">Parto Normal</SelectItem>
+                                                          <SelectItem value="Cesárea">Cesárea</SelectItem>
+                                                          <SelectItem value="Aborto">Aborto</SelectItem>
+                                                          <SelectItem value="Legrado">Legrado</SelectItem>
+                                                      </SelectContent>
+                                                  </Select>
+                                              </FormItem>
+                                          )} />
+                                      </div>
 
-                                      <Card className="border-pink-200 shadow-sm overflow-hidden">
-                                          <CardHeader className="bg-pink-50 pb-4">
-                                              <CardTitle className="text-base uppercase tracking-tight text-pink-700">Control de Embarazada</CardTitle>
-                                          </CardHeader>
-                                          <CardContent className="pt-6 space-y-6">
-                                              <div className="grid grid-cols-2 gap-4">
-                                                  <FormField control={form.control} name="pregnancyTrimester" render={({ field }) => (
+                                      <div className="grid lg:grid-cols-2 gap-8">
+                                          <Card className="shadow-sm">
+                                              <CardHeader className="bg-muted/10 pb-4"><CardTitle className="text-xs uppercase">Detalles del Evento</CardTitle></CardHeader>
+                                              <CardContent className="pt-6 space-y-4">
+                                                  <FormField control={form.control} name="abortionType" render={({ field }) => (
                                                       <FormItem>
-                                                          <FormLabel className="text-xs font-bold">Trimestre</FormLabel>
+                                                          <FormLabel className="text-[10px] font-bold">Aborto (&lt;500gr / 22 sem)</FormLabel>
                                                           <Select onValueChange={field.onChange} value={field.value}>
-                                                              <FormControl><SelectTrigger className="h-10"><SelectValue /></SelectTrigger></FormControl>
+                                                              <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Tipo de aborto..." /></SelectTrigger></FormControl>
                                                               <SelectContent>
-                                                                  <SelectItem value="1ro">1ro</SelectItem>
-                                                                  <SelectItem value="2do">2do</SelectItem>
-                                                                  <SelectItem value="3ro">3ro</SelectItem>
+                                                                  {abortionOptions.map(opt => <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>)}
                                                               </SelectContent>
                                                           </Select>
                                                       </FormItem>
                                                   )} />
-                                                  <FormField control={form.control} name="pregnancyHighRisk" render={({ field }) => (
-                                                      <FormItem className="flex items-center space-x-2 space-y-0 pt-8">
-                                                          <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                                          <FormLabel className="text-xs font-bold text-red-600">ALTO RIESGO</FormLabel>
-                                                      </FormItem>
-                                                  )} />
+                                                  <div className="grid grid-cols-2 gap-4">
+                                                      <FormField control={form.control} name="birthType" render={({ field }) => (
+                                                          <FormItem>
+                                                              <FormLabel className="text-[10px] font-bold">Tipo de Parto*</FormLabel>
+                                                              <Select onValueChange={field.onChange} value={field.value}>
+                                                                  <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Elegir..." /></SelectTrigger></FormControl>
+                                                                  <SelectContent>
+                                                                      <SelectItem value="Eutócico">Eutócico</SelectItem>
+                                                                      <SelectItem value="Distócico">Distócico</SelectItem>
+                                                                  </SelectContent>
+                                                              </Select>
+                                                          </FormItem>
+                                                      )} />
+                                                      <FormField control={form.control} name="withProduct" render={({ field }) => (
+                                                          <FormItem>
+                                                              <FormLabel className="text-[10px] font-bold">Con Producto*</FormLabel>
+                                                              <Select onValueChange={field.onChange} value={field.value}>
+                                                                  <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Elegir..." /></SelectTrigger></FormControl>
+                                                                  <SelectContent>
+                                                                      <SelectItem value="Vivo">Vivo</SelectItem>
+                                                                      <SelectItem value="Muerto">Mortinato</SelectItem>
+                                                                  </SelectContent>
+                                                              </Select>
+                                                          </FormItem>
+                                                      )} />
+                                                  </div>
+                                              </CardContent>
+                                          </Card>
+
+                                          <Card className="shadow-sm border-blue-100">
+                                              <CardHeader className="bg-blue-50/50 pb-4"><CardTitle className="text-xs uppercase text-blue-700">Humanización del Parto</CardTitle></CardHeader>
+                                              <CardContent className="pt-6 grid grid-cols-2 gap-x-6 gap-y-3">
+                                                  {[
+                                                      { id: 'freePositionChosen', label: 'Posición libre', opts: ['Si', 'No'] },
+                                                      { id: 'verticalExpulsivePeriod', label: 'Expulsivo vertical', opts: ['Si', 'No'] },
+                                                      { id: 'psychologicalAccompaniment', label: 'Acompañamiento psic.', opts: ['Si', 'No'] },
+                                                      { id: 'activeThirdPeriodManagement', label: 'Manejo activo 3er P.', opts: ['Si', 'No'] },
+                                                      { id: 'nonPharmacologicalMeasures', label: 'Medidas no farmac.', opts: ['Si', 'No'] },
+                                                      { id: 'delayedCordClamping', label: 'Corte tardío cordón', opts: ['Si', 'No'] },
+                                                  ].map(item => (
+                                                      <FormField key={item.id} control={form.control} name={item.id as any} render={({ field }) => (
+                                                          <FormItem className="space-y-1">
+                                                              <FormLabel className="text-[10px] font-bold">{item.label}</FormLabel>
+                                                              <Select onValueChange={field.onChange} value={field.value}>
+                                                                  <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
+                                                                  <SelectContent>
+                                                                      {item.opts.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                                                  </SelectContent>
+                                                              </Select>
+                                                          </FormItem>
+                                                      )} />
+                                                  ))}
+                                              </CardContent>
+                                          </Card>
+                                      </div>
+                                  </section>
+
+                                  <div className="grid lg:grid-cols-2 gap-10">
+                                      <Card className="border-green-100 shadow-sm overflow-hidden">
+                                          <CardHeader className="bg-green-50 pb-4">
+                                              <CardTitle className="text-base uppercase tracking-tight text-green-700 flex items-center gap-2">
+                                                  <Users className="h-4 w-4" /> Planificación Familiar Post-Evento
+                                              </CardTitle>
+                                          </CardHeader>
+                                          <CardContent className="pt-6">
+                                              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                                  {familyPlanningOptions.map(method => (
+                                                      <div key={method.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-lg transition-colors border border-transparent hover:border-border">
+                                                          <Checkbox 
+                                                              id={`method-${method.id}`} 
+                                                              checked={form.watch('familyPlanningMethods')?.includes(method.id)} 
+                                                              onCheckedChange={(checked) => {
+                                                                  const current = form.getValues('familyPlanningMethods') || [];
+                                                                  form.setValue('familyPlanningMethods', checked ? [...current, method.id] : current.filter(m => m !== method.id));
+                                                              }}
+                                                          />
+                                                          <Label htmlFor={`method-${method.id}`} className="text-xs font-medium cursor-pointer">{method.label}</Label>
+                                                      </div>
+                                                  ))}
                                               </div>
                                           </CardContent>
                                       </Card>
+
+                                      <div className="space-y-6">
+                                          <Card className="border-primary/10 shadow-sm overflow-hidden">
+                                              <CardHeader className="bg-primary/5 pb-4">
+                                                  <CardTitle className="text-base uppercase tracking-tight">Atención Pregestacional</CardTitle>
+                                              </CardHeader>
+                                              <CardContent className="pt-6 space-y-6">
+                                                  <FormField control={form.control} name="pregestationalCare" render={({ field }) => (
+                                                      <FormItem className="space-y-3">
+                                                          <FormControl>
+                                                              <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                                                  <div className="flex items-center space-x-2"><RadioGroupItem value="Primera vez" id="pg-1" /><Label htmlFor="pg-1">Primera vez</Label></div>
+                                                                  <div className="flex items-center space-x-2"><RadioGroupItem value="Subsecuente" id="pg-2" /><Label htmlFor="pg-2">Subsecuente</Label></div>
+                                                              </RadioGroup>
+                                                          </FormControl>
+                                                      </FormItem>
+                                                  )} />
+                                                  <FormField control={form.control} name="pregestationalRisk" render={({ field }) => (
+                                                      <FormItem>
+                                                          <FormLabel className="text-xs font-bold">Riesgo Detectado</FormLabel>
+                                                          <Select onValueChange={field.onChange} value={field.value}>
+                                                              <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Riesgo..." /></SelectTrigger></FormControl>
+                                                              <SelectContent>
+                                                                  <SelectItem value="Bajo">Bajo</SelectItem>
+                                                                  <SelectItem value="Alto">Alto</SelectItem>
+                                                                  <SelectItem value="Muy Alto">Muy Alto</SelectItem>
+                                                              </SelectContent>
+                                                          </Select>
+                                                      </FormItem>
+                                                  )} />
+                                              </CardContent>
+                                          </Card>
+                                      </div>
                                   </div>
 
                                   <div className="grid lg:grid-cols-2 gap-10">
@@ -488,7 +639,14 @@ export function MedicalConsultationDialog({
                                       <div className="space-y-6">
                                           <h4 className="text-xs font-black uppercase text-muted-foreground tracking-wider">Otros Eventos</h4>
                                           <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-6 border rounded-2xl bg-muted/5">
-                                              {[{ id: 'hormonal', label: 'Terapia Hormonal' }, { id: 'menopause', label: 'Menopausia' }, { id: 'its', label: 'ITS' }, { id: 'mamaria', label: 'Patología Mamaria' }, { id: 'cancer', label: 'Detección Cáncer' }].map(ev => (
+                                              {[
+                                                  { id: 'hormonal', label: 'Terapia Hormonal' }, 
+                                                  { id: 'menopause', label: 'Menopausia' }, 
+                                                  { id: 'its', label: 'ITS' }, 
+                                                  { id: 'mamaria', label: 'Patología Mamaria' }, 
+                                                  { id: 'cancer', label: 'Detección Cáncer' },
+                                                  { id: 'colposcopia', label: 'Colposcopía' }
+                                              ].map(ev => (
                                                   <div key={ev.id} className="flex items-center space-x-2">
                                                       <Checkbox id={ev.id} checked={form.watch('otherEvents')?.includes(ev.id)} onCheckedChange={(v) => {
                                                               const cur = form.getValues('otherEvents') || [];
@@ -517,6 +675,9 @@ export function MedicalConsultationDialog({
                                               <FormField control={form.control} name="healthCard" render={({ field }) => (
                                                   <FormItem className="flex items-center justify-between space-y-0"><FormLabel>Presentó Cartilla</FormLabel><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>
                                               )} />
+                                              <FormField control={form.control} name="vaccinationComplete" render={({ field }) => (
+                                                  <FormItem className="flex items-center justify-between space-y-0"><FormLabel>Esquema Vacunación Completo</FormLabel><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>
+                                              )} />
                                           </div>
                                       </div>
                                       <div className="space-y-6">
@@ -527,6 +688,25 @@ export function MedicalConsultationDialog({
                                               )} />
                                               <FormField control={form.control} name="counterReferred" render={({ field }) => (
                                                   <FormItem className="flex items-center space-x-2 space-y-0"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="text-xs">CONTRARREFERIDO</FormLabel></FormItem>
+                                              )} />
+                                              <Separator className="my-4" />
+                                              <FormField control={form.control} name="telemedicineRole" render={({ field }) => (
+                                                  <FormItem>
+                                                      <FormLabel className="text-[10px] font-bold uppercase">Rol Telemedicina</FormLabel>
+                                                      <Select onValueChange={field.onChange} value={field.value}>
+                                                          <FormControl><SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Elegir..." /></SelectTrigger></FormControl>
+                                                          <SelectContent>
+                                                              <SelectItem value="Consultante">Unidad Consultante</SelectItem>
+                                                              <SelectItem value="Interconsultante">Unidad Interconsultante</SelectItem>
+                                                          </SelectContent>
+                                                      </Select>
+                                                  </FormItem>
+                                              )} />
+                                              <FormField control={form.control} name="telemedicineStudies" render={({ field }) => (
+                                                  <FormItem className="flex items-center space-x-2 space-y-0">
+                                                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                                      <Label className="text-xs">Se solicitaron estudios por telemedicina</Label>
+                                                  </FormItem>
                                               )} />
                                           </div>
                                       </div>
@@ -573,4 +753,3 @@ export function MedicalConsultationDialog({
     </>
   );
 }
-

@@ -448,11 +448,27 @@ export type MedicalConsultation = {
     pregestationalCare?: 'Primera vez' | 'Subsecuente';
     pregestationalRisk?: string;
     
-    // Embarazada
+    // Embarazada (Control prenatal)
     pregnancyTrimester?: string;
     pregnancyHighRisk?: boolean;
     pregnancyComplications?: string[];
     pregnancyActions?: string[];
+
+    // Atención Obstétrica (Atención del evento)
+    obstetricAttentionDate?: string;
+    obstetricAttentionTime?: string;
+    gestationalWeeks?: number;
+    obstetricAttentionType?: string;
+    abortionType?: string;
+    freePositionChosen?: string;
+    verticalExpulsivePeriod?: string;
+    psychologicalAccompaniment?: string;
+    activeThirdPeriodManagement?: string;
+    nonPharmacologicalMeasures?: string;
+    delayedCordClamping?: string;
+    birthType?: string;
+    withProduct?: string;
+    familyPlanningMethods?: string[];
     
     // Puerperio
     puerperiumType?: 'Puérpera 1ra' | 'Puérpera Sub';
@@ -551,17 +567,17 @@ export type Cie10Record = {
     esSuiveEstEpi: string;
     esSuiveEstBrote: string;
     sinac: string;
-    prinSinac: string;
-    prinSinacGrupo: string;
-    descripcionSinacGrupo: string;
-    prinSinacSubgrupo: string;
-    descripcionSinacSubgrupo: string;
+    prin_sinac: string;
+    prin_sinac_grupo: string;
+    descripcion_sinac_grupo: string;
+    prin_sinac_subgrupo: string;
+    descripcion_sinac_subgrupo: string;
     daga: string;
     asterisco: string;
-    prinMm: string;
-    prinMmGrupo: string;
-    descripcionMmGrupo: string;
-    prinMmSubgrupo: string;
-    descripcionMmSubgrupo: string;
-    codAdiMort: string;
+    prin_mm: string;
+    prin_mm_grupo: string;
+    descripcion_mm_grupo: string;
+    prin_mm_subgrupo: string;
+    descripcion_mm_subgrupo: string;
+    cod_adi_mort: string;
 };
