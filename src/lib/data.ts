@@ -570,23 +570,25 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
 
 export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
   const db = getDb();
-  // CRITICAL: We MUST remove orderBy from the Firestore query itself to avoid composite index requirements.
-  // We'll perform the sorting in memory (JavaScript) instead.
-  const q = query(
-    collection(db, 'medicalConsultations'), 
-    where('patientId', '==', patientId), 
-    limit(100) // Increase limit slightly to ensure we have enough data for a meaningful history
-  );
+  // CRITICAL FIX: To avoid index errors, we must NOT use orderBy('date') with where('patientId')
+  // unless a manual composite index is created. Instead, we query simply and sort in memory.
+  const colRef = collection(db, 'medicalConsultations');
+  const q = query(colRef, where('patientId', '==', patientId));
   
-  const snap = await getDocs(q);
-  const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
-  
-  // Sort in memory by date descending (assuming date is an ISO string)
-  return results.sort((a, b) => {
-    const dateA = a.date || '';
-    const dateB = b.date || '';
-    return dateB.localeCompare(dateA);
-  }).slice(0, 50); // Final slice for UI display
+  try {
+    const snap = await getDocs(q);
+    const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
+    
+    // Sort in memory by date descending (assuming ISO string format)
+    return results.sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      return dateB.localeCompare(dateA);
+    });
+  } catch (e) {
+    console.error("Error fetching patient consultations history:", e);
+    return [];
+  }
 }
 
 // =====================================================================
@@ -1006,6 +1008,7 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 cveMaternasSeedEpid: String(raw['CVE_MATERNAS-SEED-EPID'] || ''),
                 epiMortaM5: String(raw['EPI_MORTA_M5'] || ''),
                 epiMorbi: String(raw['EPI_MORBI'] || ''),
+                defMaternas: String(raw['DEF_MATERNAS'] || ''),
                 defMaternas: String(raw['DEF_MATERNAS'] || ''),
                 esCauses: String(raw['ES_CAUSES'] || ''),
                 numCauses: String(raw['NUM_CAUSES'] || ''),
