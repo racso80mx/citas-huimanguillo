@@ -47,9 +47,10 @@ type CreatePrescriptionDialogProps = {
   onClose: () => void;
   clinic: Clinic; 
   initialPatient?: Patient | null;
+  onPrescriptionCreated?: (folio: string) => void;
 };
 
-export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatient }: CreatePrescriptionDialogProps) {
+export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatient, onPrescriptionCreated }: CreatePrescriptionDialogProps) {
   const [patientSearch, setPatientSearch] = useState('');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPatient || null);
@@ -195,7 +196,9 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         if (result.success && result.prescription) {
             toast({ title: "Receta Generada", description: `Folio: ${result.folio}.` });
             setSavedPrescription(result.prescription as Prescription);
-            // Don't close yet, allow printing
+            if (onPrescriptionCreated) {
+                onPrescriptionCreated(result.folio);
+            }
         } else {
             toast({ title: "Error", description: result.message, variant: "destructive" });
         }
@@ -332,7 +335,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                         </Button>
                     </div>
                     ) : (
-                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between animate-in fade-in zoom-in duration-200 shadow-sm">
+                    <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between animate-in fade-in zoom-in duration-300 shadow-sm">
                         <div className="flex items-center gap-4">
                             <div className="bg-primary/10 p-3 rounded-full"><User className="h-6 w-6 text-primary" /></div>
                             <div>

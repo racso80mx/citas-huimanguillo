@@ -22,6 +22,7 @@ Este documento contiene la lista de funcionalidades y ajustes solicitados durant
    - Selección de "Estudios de Laboratorio" desde catálogo oficial.
    - Campo de "Otros Estudios / Gabinete" para órdenes especiales.
    - Contador de recetas emitidas para el paciente en el mismo día.
+   - INTEGRACIÓN: Botón de "GENERAR DIGITAL" dentro de la consulta médica que vincula automáticamente el folio de la receta al registro del paciente.
 
 4. GESTIÓN DE FARMACIA (SURTIDO):
    - Al buscar un folio de receta, se muestra el detalle completo de la prescripción.
