@@ -66,7 +66,8 @@ import {
   getAnnouncements, 
   getAvailableSlotsForDate, 
   getModuleSettings,
-  getConsultationsByPatientId
+  getConsultationsByPatientId,
+  deleteMedicalConsultation
 } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from './ui/calendar';
@@ -171,6 +172,22 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
       } finally {
         setIsLoadingHistory(prev => ({ ...prev, [patientId]: false }));
       }
+    }
+  };
+
+  const handleDeleteConsultation = async (consultationId: string, patientId: string) => {
+    try {
+      const res = await deleteMedicalConsultation(consultationId);
+      if (res.success) {
+        toast({ title: 'Nota Médica Eliminada' });
+        // Update local state to remove the item instantly
+        setPatientConsultations(prev => ({
+          ...prev,
+          [patientId]: prev[patientId].filter(c => c.id !== consultationId)
+        }));
+      }
+    } catch (e) {
+      toast({ title: 'Error', description: 'No se pudo eliminar la nota.', variant: 'destructive' });
     }
   };
 
@@ -503,17 +520,50 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                       </div>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-9 font-bold text-[10px] uppercase tracking-wider hover:bg-primary hover:text-white transition-all shadow-sm"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setViewingConsultation({ consultation, appointment: app });
-                    }}
-                  >
-                    Ver Nota Completa
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-9 font-bold text-[10px] uppercase tracking-wider hover:bg-primary hover:text-white transition-all shadow-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingConsultation({ consultation, appointment: app });
+                        }}
+                    >
+                        Ver Nota Completa
+                    </Button>
+                    {isAdmin && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-9 w-9 text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar esta consulta?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción es irreversible y eliminará permanentemente la nota médica del historial del paciente.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                        className="bg-destructive hover:bg-destructive/90"
+                                        onClick={() => handleDeleteConsultation(consultation.id, patientId)}
+                                    >
+                                        Sí, Eliminar
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

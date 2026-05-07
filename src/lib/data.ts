@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -570,8 +569,6 @@ export async function getConsultationsByPatientId(patientId: string): Promise<Me
   const db = getDb();
   if (!patientId) return [];
 
-  // CRITICAL FIX: To avoid FirebaseError regarding composite index (patientId + date),
-  // we perform a primitive query by patientId and then sort in memory with JavaScript.
   const colRef = collection(db, 'medicalConsultations');
   const q = query(colRef, where('patientId', '==', String(patientId)));
   
@@ -579,7 +576,6 @@ export async function getConsultationsByPatientId(patientId: string): Promise<Me
     const snap = await getDocs(q);
     const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
     
-    // Sort in memory by date descending (assuming ISO string format) to show newest first.
     return results.sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
@@ -589,6 +585,12 @@ export async function getConsultationsByPatientId(patientId: string): Promise<Me
     console.error("Error fetching patient consultations history:", e);
     return [];
   }
+}
+
+export async function deleteMedicalConsultation(id: string) {
+    const db = getDb();
+    await deleteDoc(doc(db, 'medicalConsultations', id));
+    return { success: true };
 }
 
 // =====================================================================
