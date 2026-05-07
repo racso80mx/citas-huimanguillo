@@ -754,6 +754,7 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
     const [results, setResults] = useState<Cie10Record[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const { toast } = useToast();
 
     const isPrincipal = number === 1;
     const diagLabel = isPrincipal ? "PRINCIPAL" : `SECUNDARIO ${number - 1}`;
@@ -765,38 +766,7 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
         }
     }, [form.watch(`diagnosis${number}`)]);
 
-    const handleSearch = useCallback(async (val: string) => {
-        setSearchTerm(val);
-        
-        if (val === '') {
-            form.setValue(`diagnosis${number}`, '');
-            form.setValue(`diagnosis${number}Code`, '');
-            setResults([]);
-            setIsOpen(false);
-            return;
-        }
-        
-        const currentDiag = form.getValues(`diagnosis${number}`);
-        if (val !== currentDiag) {
-            form.setValue(`diagnosis${number}Code`, '');
-        }
-
-        if (val.length < 2) {
-            setResults([]);
-            return;
-        }
-        
-        setIsSearching(true);
-        try {
-            const data = await searchCie10(val);
-            setResults(data);
-            setIsOpen(true);
-        } finally {
-            setIsSearching(false);
-        }
-    }, [form, number]);
-
-    const validateDiagnosis = (record: Cie10Record): { valid: boolean; reason?: string } => {
+    const validateDiagnosis = useCallback((record: Cie10Record): { valid: boolean; reason?: string } => {
         const isMujer = patient.sex === 'Mujer';
         const isHombre = patient.sex === 'Hombre';
         
@@ -833,7 +803,66 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
         if (maxAge !== null && patient.age > maxAge) return { valid: false, reason: 'Edad mayor a la permitida por el catálogo' };
 
         return { valid: true };
-    };
+    }, [patient.sex, patient.age]);
+
+    const handleSearch = useCallback(async (val: string) => {
+        setSearchTerm(val);
+        
+        if (val === '') {
+            form.setValue(`diagnosis${number}`, '');
+            form.setValue(`diagnosis${number}Code`, '');
+            setResults([]);
+            setIsOpen(false);
+            return;
+        }
+        
+        const currentDiag = form.getValues(`diagnosis${number}`);
+        if (val !== currentDiag) {
+            form.setValue(`diagnosis${number}Code`, '');
+        }
+
+        if (val.length < 2) {
+            setResults([]);
+            return;
+        }
+        
+        setIsSearching(true);
+        try {
+            const data = await searchCie10(val);
+            setResults(data);
+            setIsOpen(true);
+        } finally {
+            setIsSearching(false);
+        }
+    }, [form, number]);
+
+    const handleCodeLookup = useCallback(async (code: string) => {
+        if (!code) {
+            form.setValue(`diagnosis${number}`, '');
+            setSearchTerm('');
+            setResults([]);
+            return;
+        }
+
+        if (code.length < 3) return;
+        
+        setIsSearching(true);
+        try {
+            const data = await searchCie10(code);
+            const exactMatch = data.find(r => r.catalogKey.toUpperCase() === code.toUpperCase());
+            if (exactMatch) {
+                const { valid, reason } = validateDiagnosis(exactMatch);
+                if (valid) {
+                    form.setValue(`diagnosis${number}`, exactMatch.nombre);
+                    setSearchTerm(exactMatch.nombre);
+                } else {
+                    toast({ title: 'Incompatible', description: reason, variant: 'destructive' });
+                }
+            }
+        } finally {
+            setIsSearching(false);
+        }
+    }, [form, number, validateDiagnosis, toast]);
 
     const onSelect = (record: Cie10Record) => {
         const { valid, reason } = validateDiagnosis(record);
@@ -861,18 +890,30 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
                 {isPrincipal && <span className="text-[10px] font-bold text-primary animate-pulse italic">REQUERIDO</span>}
             </div>
 
-            <div className="sm:col-span-1 space-y-1.5">
-                <Label className="text-[10px] font-black opacity-50 uppercase">Código {diagLabel}</Label>
+            <div className="sm:col-span-1 space-y-1.5 relative">
+                <Label className="text-[10px] font-black opacity-50 uppercase">Código {number}</Label>
                 <FormField control={form.control} name={`diagnosis${number}Code`} render={({ field }) => (
-                    <Input {...field} value={field.value ?? ''} readOnly className="bg-muted/30 font-mono font-bold text-primary h-11" />
+                    <div className="relative">
+                        <Input 
+                            {...field} 
+                            value={field.value ?? ''} 
+                            className="bg-muted/30 font-mono font-bold text-primary h-11 uppercase" 
+                            onChange={(e) => {
+                                const val = e.target.value.toUpperCase();
+                                field.onChange(val);
+                                handleCodeLookup(val);
+                            }}
+                        />
+                        {isSearching && <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary opacity-50" />}
+                    </div>
                 )} />
             </div>
             <div className="sm:col-span-3 space-y-1.5 relative">
-                <Label className="text-[10px] font-black opacity-50 uppercase">Descripción / Búsqueda {diagLabel}</Label>
+                <Label className="text-[10px] font-black opacity-50 uppercase">Descripción / Búsqueda {number}</Label>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder={`Escribe nombre o código CIE-10 ${isPrincipal ? 'Principal' : 'Secundario'}...`}
+                        placeholder={`Escribe nombre de enfermedad o código...`}
                         value={searchTerm}
                         onChange={e => handleSearch(e.target.value.toUpperCase())}
                         className="pl-9 pr-9 h-11 font-bold uppercase"
