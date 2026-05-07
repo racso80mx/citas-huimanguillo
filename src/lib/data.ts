@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -568,7 +569,7 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
 export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
   const db = getDb();
   // CRITICAL FIX: Firestore requires a composite index when using 'where' + 'orderBy' on different fields.
-  // To avoid this error, we perform a simple 'where' query and then sort in memory with JavaScript.
+  // To avoid this error, we perform a simple 'where' query WITHOUT 'orderBy'.
   const colRef = collection(db, 'medicalConsultations');
   const q = query(colRef, where('patientId', '==', patientId));
   
@@ -577,6 +578,7 @@ export async function getConsultationsByPatientId(patientId: string): Promise<Me
     const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
     
     // Sort in memory by date descending (assuming ISO string format) to show newest first.
+    // This removes the need for composite indexes in Firestore.
     return results.sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
@@ -1013,7 +1015,7 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 epiClave: String(raw['EPI_CLAVE'] || ''),
                 epiClaveDesc: String(raw['EPI_CLAVE_DESC'] || ''),
                 esSuiveNotin: String(raw['ES_SUIVE_NOTIN'] || ''),
-                esSuiveEstEpi: String(raw['ES_SUIVE_EST_EPI'] || ''),
+                esSuiveEstEpi: String(raw['ES_SUIVE_EST_EPID'] || ''),
                 esSuiveEstBrote: String(raw['ES_SUIVE_EST_BROTE'] || ''),
                 sinac: String(raw['SINAC'] || ''),
                 prin_sinac: String(raw['PRIN_SINAC'] || ''),
