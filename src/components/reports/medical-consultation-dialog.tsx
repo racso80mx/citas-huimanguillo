@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -35,11 +35,14 @@ import {
     Search,
     FilePlus,
     Activity,
-    Users
+    Users,
+    AlertTriangle,
+    CheckCircle2,
+    Command
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { saveMedicalConsultation, getConsultationByAppointmentId } from '@/lib/actions';
-import type { Appointment, Clinic, MedicalConsultation } from '@/lib/definitions';
+import { saveMedicalConsultation, getConsultationByAppointmentId, searchCie10 } from '@/lib/actions';
+import type { Appointment, Clinic, MedicalConsultation, Cie10Record } from '@/lib/definitions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -67,11 +70,14 @@ const formSchema = z.object({
   tbSymptomatic: z.string().optional(),
   firstTimeOfYear: z.boolean().default(false),
   motiveRelation: z.string().min(1, 'Motivo requerido'),
-  diagnosis1: z.string().min(1, 'Diagnóstico primario requerido'),
+  diagnosis1: z.string().min(1, 'Descripción requerida'),
+  diagnosis1Code: z.string().min(1, 'Código requerido'),
   diagnosis1Type: z.string().default('Subsecuente'),
   diagnosis2: z.string().optional(),
+  diagnosis2Code: z.string().optional(),
   diagnosis2Type: z.string().optional(),
   diagnosis3: z.string().optional(),
+  diagnosis3Code: z.string().optional(),
   diagnosis3Type: z.string().optional(),
   mentalHealthAction: z.string().optional(),
   recipeFolio: z.string().optional(),
@@ -150,8 +156,11 @@ export function MedicalConsultationDialog({
       motiveRelation: 'Subsecuente',
       diagnosis1Type: 'Subsecuente',
       diagnosis1: '',
+      diagnosis1Code: '',
       diagnosis2: '',
+      diagnosis2Code: '',
       diagnosis3: '',
+      diagnosis3Code: '',
       recipeFolio: '',
       referredBy: '',
       nextAppointmentDate: '',
@@ -183,8 +192,11 @@ export function MedicalConsultationDialog({
               ...existing as any,
               vsoPackets: existing.vsoPackets || 0,
               diagnosis1: existing.diagnosis1 || '',
+              diagnosis1Code: existing.diagnosis1Code || '',
               diagnosis2: existing.diagnosis2 || '',
+              diagnosis2Code: existing.diagnosis2Code || '',
               diagnosis3: existing.diagnosis3 || '',
+              diagnosis3Code: existing.diagnosis3Code || '',
               recipeFolio: existing.recipeFolio || '',
               referredBy: existing.referredBy || '',
               nextAppointmentDate: existing.nextAppointmentDate || '',
@@ -224,13 +236,6 @@ export function MedicalConsultationDialog({
     }
   };
 
-  const abortionOptions = [
-      { id: 'IVE', label: 'IVE (Interrupción Voluntaria)' },
-      { id: 'ILE', label: 'ILE (Interrupción Legal)' },
-      { id: 'Espontáneo', label: 'Espontáneo' },
-      { id: 'Otras causas', label: 'Otras causas' }
-  ];
-
   const familyPlanningOptions = [
       { id: 'DIU Normal', label: 'DIU Normal' },
       { id: 'DIU Medicado', label: 'DIU Medicado' },
@@ -248,7 +253,7 @@ export function MedicalConsultationDialog({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[95vw] h-[95vh] flex flex-col p-0 overflow-hidden">
-          <DialogHeader className="p-6 border-b bg-muted/20">
+          <DialogHeader className="p-6 pb-2 border-b bg-muted/20">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <DialogTitle className="flex items-center gap-2 text-2xl font-black uppercase">
@@ -385,28 +390,14 @@ export function MedicalConsultationDialog({
                                       <h3 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2">
                                           <Search className="h-5 w-5" /> Diagnósticos (CIE-10)
                                       </h3>
-                                      <div className="grid gap-4">
+                                      <div className="grid gap-6">
                                           {[1, 2, 3].map(n => (
-                                              <div key={n} className="grid sm:grid-cols-6 gap-4 p-4 border rounded-xl bg-background shadow-sm">
-                                                  <div className="sm:col-span-4 space-y-2">
-                                                      <Label className="text-[10px] font-black opacity-50">DIAGNÓSTICO {n}</Label>
-                                                      <FormField control={form.control} name={`diagnosis${n}` as any} render={({ field }) => (
-                                                          <FormControl><Input placeholder="Código o nombre..." {...field} value={field.value ?? ''} className="h-11 uppercase font-bold" /></FormControl>
-                                                      )} />
-                                                  </div>
-                                                  <div className="sm:col-span-2 space-y-2">
-                                                      <Label className="text-[10px] font-black opacity-50">TIPO</Label>
-                                                      <FormField control={form.control} name={`diagnosis${n}Type` as any} render={({ field }) => (
-                                                          <Select onValueChange={field.onChange} value={field.value || 'Subsecuente'}>
-                                                              <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
-                                                              <SelectContent>
-                                                                  <SelectItem value="Primera vez">Primera vez</SelectItem>
-                                                                  <SelectItem value="Subsecuente">Subsecuente</SelectItem>
-                                                              </SelectContent>
-                                                          </Select>
-                                                      )} />
-                                                  </div>
-                                              </div>
+                                              <Cie10DiagnosisSelector 
+                                                key={n} 
+                                                number={n} 
+                                                form={form} 
+                                                patient={appointment.patient}
+                                              />
                                           ))}
                                       </div>
                                   </section>
@@ -450,17 +441,17 @@ export function MedicalConsultationDialog({
                                       </h3>
                                       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 bg-muted/10 p-6 rounded-2xl border border-dashed">
                                           <FormField control={form.control} name="obstetricAttentionDate" render={({ field }) => (
-                                              <FormItem><FormLabel className="text-xs font-bold">Fecha de Atención*</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} className="h-10"/></FormControl></FormItem>
+                                              <FormItem><FormLabel className="text-xs font-bold">Fecha de Atención</FormLabel><FormControl><Input type="date" {...field} value={field.value ?? ''} className="h-10"/></FormControl></FormItem>
                                           )} />
                                           <FormField control={form.control} name="obstetricAttentionTime" render={({ field }) => (
-                                              <FormItem><FormLabel className="text-xs font-bold">Hora de Atención*</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} className="h-10"/></FormControl></FormItem>
+                                              <FormItem><FormLabel className="text-xs font-bold">Hora de Atención</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} className="h-10"/></FormControl></FormItem>
                                           )} />
                                           <FormField control={form.control} name="gestationalWeeks" render={({ field }) => (
-                                              <FormItem><FormLabel className="text-xs font-bold">Semanas Gestación*</FormLabel><FormControl><Input type="number" min={0} max={45} {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
+                                              <FormItem><FormLabel className="text-xs font-bold">Semanas Gestación</FormLabel><FormControl><Input type="number" min={0} max={45} {...field} value={field.value ?? ''} className="h-10 font-bold"/></FormControl></FormItem>
                                           )} />
                                           <FormField control={form.control} name="obstetricAttentionType" render={({ field }) => (
                                               <FormItem>
-                                                  <FormLabel className="text-xs font-bold">Atención*</FormLabel>
+                                                  <FormLabel className="text-xs font-bold">Atención</FormLabel>
                                                   <Select onValueChange={field.onChange} value={field.value}>
                                                       <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
                                                       <SelectContent>
@@ -484,7 +475,10 @@ export function MedicalConsultationDialog({
                                                           <Select onValueChange={field.onChange} value={field.value}>
                                                               <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Tipo de aborto..." /></SelectTrigger></FormControl>
                                                               <SelectContent>
-                                                                  {abortionOptions.map(opt => <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>)}
+                                                                  <SelectItem value="IVE">IVE (Interrupción Voluntaria)</SelectItem>
+                                                                  <SelectItem value="ILE">ILE (Interrupción Legal)</SelectItem>
+                                                                  <SelectItem value="Espontáneo">Espontáneo</SelectItem>
+                                                                  <SelectItem value="Otras causas">Otras causas</SelectItem>
                                                               </SelectContent>
                                                           </Select>
                                                       </FormItem>
@@ -492,7 +486,7 @@ export function MedicalConsultationDialog({
                                                   <div className="grid grid-cols-2 gap-4">
                                                       <FormField control={form.control} name="birthType" render={({ field }) => (
                                                           <FormItem>
-                                                              <FormLabel className="text-[10px] font-bold">Tipo de Parto*</FormLabel>
+                                                              <FormLabel className="text-[10px] font-bold">Tipo de Parto</FormLabel>
                                                               <Select onValueChange={field.onChange} value={field.value}>
                                                                   <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Elegir..." /></SelectTrigger></FormControl>
                                                                   <SelectContent>
@@ -504,7 +498,7 @@ export function MedicalConsultationDialog({
                                                       )} />
                                                       <FormField control={form.control} name="withProduct" render={({ field }) => (
                                                           <FormItem>
-                                                              <FormLabel className="text-[10px] font-bold">Con Producto*</FormLabel>
+                                                              <FormLabel className="text-[10px] font-bold">Con Producto</FormLabel>
                                                               <Select onValueChange={field.onChange} value={field.value}>
                                                                   <FormControl><SelectTrigger className="h-10"><SelectValue placeholder="Elegir..." /></SelectTrigger></FormControl>
                                                                   <SelectContent>
@@ -752,4 +746,132 @@ export function MedicalConsultationDialog({
       )}
     </>
   );
+}
+
+function Cie10DiagnosisSelector({ number, form, patient }: { number: number, form: any, patient: Patient }) {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [results, setResults] = useState<Cie10Record[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handleSearch = useCallback(async (val: string) => {
+        setSearchTerm(val);
+        if (val.length < 2) {
+            setResults([]);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            const data = await searchCie10(val);
+            setResults(data);
+            setIsOpen(true);
+        } finally {
+            setIsSearching(false);
+        }
+    }, []);
+
+    const validateDiagnosis = (record: Cie10Record): { valid: boolean; reason?: string } => {
+        // Sex validation
+        // 1=Men, 2=Women, 3=Both (standard MEX catalog)
+        const patientSex = patient.sex === 'Mujer' ? '2' : '1';
+        if (record.lsex && record.lsex !== '3' && record.lsex !== patientSex) {
+            return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
+        }
+
+        // Age validation
+        // Sinf/lsup format usually UnitValue (1=Days, 2=Months, 3=Years)
+        const parseAgeLimit = (limit: string) => {
+            if (!limit || limit.length < 2) return null;
+            const unit = limit[0];
+            const val = parseInt(limit.substring(1)) || 0;
+            if (unit === '3') return val; // Years
+            if (unit === '2') return val / 12; // Months
+            if (unit === '1') return val / 365; // Days
+            return null;
+        };
+
+        const minAge = parseAgeLimit(record.linf);
+        const maxAge = parseAgeLimit(record.lsup);
+
+        if (minAge !== null && patient.age < minAge) return { valid: false, reason: 'Edad menor a la permitida' };
+        if (maxAge !== null && patient.age > maxAge) return { valid: false, reason: 'Edad mayor a la permitida' };
+
+        return { valid: true };
+    };
+
+    const onSelect = (record: Cie10Record) => {
+        const { valid, reason } = validateDiagnosis(record);
+        if (!valid) {
+            alert(`ATENCIÓN: El diagnóstico ${record.catalogKey} no es compatible con el perfil del paciente.\nMotivo: ${reason}`);
+            return;
+        }
+
+        form.setValue(`diagnosis${number}`, record.nombre);
+        form.setValue(`diagnosis${number}Code`, record.catalogKey);
+        setIsOpen(false);
+        setSearchTerm('');
+    };
+
+    return (
+        <div className="grid sm:grid-cols-6 gap-4 p-5 border rounded-2xl bg-background shadow-sm hover:border-primary/20 transition-all">
+            <div className="sm:col-span-1 space-y-1.5">
+                <Label className="text-[10px] font-black opacity-50 uppercase">Código {number}</Label>
+                <FormField control={form.control} name={`diagnosis${number}Code`} render={({ field }) => (
+                    <Input {...field} readOnly className="bg-muted/30 font-mono font-bold text-primary h-11" />
+                )} />
+            </div>
+            <div className="sm:col-span-3 space-y-1.5 relative">
+                <Label className="text-[10px] font-black opacity-50 uppercase">Descripción / Búsqueda {number}</Label>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Escribe nombre o código CIE-10..." 
+                        value={searchTerm || form.watch(`diagnosis${number}`)}
+                        onChange={e => handleSearch(e.target.value.toUpperCase())}
+                        className="pl-9 h-11 font-bold uppercase"
+                    />
+                    {isSearching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />}
+                </div>
+
+                {isOpen && results.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border rounded-xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                        {results.map(r => {
+                            const { valid, reason } = validateDiagnosis(r);
+                            return (
+                                <div 
+                                    key={r.id} 
+                                    className={cn(
+                                        "p-3 cursor-pointer border-b last:border-0 flex items-start justify-between gap-3",
+                                        valid ? "hover:bg-accent" : "bg-red-50/50 opacity-60 grayscale cursor-not-allowed"
+                                    )}
+                                    onClick={() => valid && onSelect(r)}
+                                >
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="font-mono text-[10px] bg-background">{r.catalogKey}</Badge>
+                                            <span className="text-xs font-bold uppercase leading-tight">{r.nombre}</span>
+                                        </div>
+                                        {!valid && <span className="text-[9px] text-red-600 font-black flex items-center gap-1"><AlertTriangle className="h-2.5 w-2.5" /> {reason}</span>}
+                                    </div>
+                                    {valid ? <CheckCircle2 className="h-4 w-4 text-green-600 mt-1" /> : <X className="h-4 w-4 text-red-400 mt-1" />}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+            <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-[10px] font-black opacity-50 uppercase">Tipo</Label>
+                <FormField control={form.control} name={`diagnosis${number}Type`} render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || 'Subsecuente'}>
+                        <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="Primera vez">Primera vez</SelectItem>
+                            <SelectItem value="Subsecuente">Subsecuente</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )} />
+            </div>
+        </div>
+    );
 }

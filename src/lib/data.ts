@@ -18,7 +18,9 @@ import {
   addDoc,
   getFirestore,
   getCountFromServer,
-  increment
+  increment,
+  or,
+  and
 } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
@@ -994,19 +996,19 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 esSuiveEstEpi: String(raw['ES_SUIVE_EST_EPI'] || ''),
                 esSuiveEstBrote: String(raw['ES_SUIVE_EST_BROTE'] || ''),
                 sinac: String(raw['SINAC'] || ''),
-                prinSinac: String(raw['PRIN_SINAC'] || ''),
-                prinSinacGrupo: String(raw['PRIN_SINAC_GRUPO'] || ''),
-                descripcionSinacGrupo: String(raw['DESCRIPCION_SINAC_GRUPO'] || ''),
-                prinSinacSubgrupo: String(raw['PRIN_SINAC_SUBGRUPO'] || ''),
-                descripcionSinacSubgrupo: String(raw['DESCRIPCION_SINAC_SUBGRUPO'] || ''),
+                prin_sinac: String(raw['PRIN_SINAC'] || ''),
+                prin_sinac_grupo: String(raw['PRIN_SINAC_GRUPO'] || ''),
+                descripcion_sinac_grupo: String(raw['DESCRIPCION_SINAC_GRUPO'] || ''),
+                prin_sinac_subgrupo: String(raw['PRIN_SINAC_SUBGRUPO'] || ''),
+                descripcion_sinac_subgrupo: String(raw['DESCRIPCION_SINAC_SUBGRUPO'] || ''),
                 daga: String(raw['DAGA'] || ''),
                 asterisco: String(raw['ASTERISCO'] || ''),
-                prinMm: String(raw['PRIN_MM'] || ''),
-                prinMmGrupo: String(raw['PRIN_MM_GRUPO'] || ''),
-                descripcionMmGrupo: String(raw['DESCRIPCION_MM_GRUPO'] || ''),
-                prinMmSubgrupo: String(raw['PRIN_MM_SUBGRUPO'] || ''),
-                descripcionMmSubgrupo: String(raw['DESCRIPCION_MM_SUBGRUPO'] || ''),
-                codAdiMort: String(raw['COD_ADI_MORT'] || ''),
+                prin_mm: String(raw['PRIN_MM'] || ''),
+                prin_mm_grupo: String(raw['PRIN_MM_GRUPO'] || ''),
+                descripcion_mm_grupo: String(raw['DESCRIPCION_MM_GRUPO'] || ''),
+                prin_mm_subgrupo: String(raw['PRIN_MM_SUBGRUPO'] || ''),
+                descripcion_mm_subgrupo: String(raw['DESCRIPCION_MM_SUBGRUPO'] || ''),
+                cod_adi_mort: String(raw['COD_ADI_MORT'] || ''),
             };
             batch.set(doc(db, 'cie10Catalog', id), record);
         });
@@ -1017,6 +1019,28 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
 
 export async function deleteAllCie10Glossary() { return deleteInventoryItems('cie10Glossary'); }
 export async function deleteAllCie10Catalog() { return deleteInventoryItems('cie10Catalog'); }
+
+export async function searchCie10(searchTerm: string): Promise<Cie10Record[]> {
+  const db = getDb();
+  const term = searchTerm.toUpperCase().trim();
+  if (!term || term.length < 2) return [];
+
+  const catalogColl = collection(db, 'cie10Catalog');
+  
+  // Attempt search by code first (exact match)
+  const qCode = query(catalogColl, where('catalogKey', '==', term), limit(5));
+  const snapCode = await getDocs(qCode);
+  
+  if (!snapCode.empty) {
+    return snapCode.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Cie10Record);
+  }
+
+  // Attempt search by description (prefix)
+  const qDesc = query(catalogColl, where('nombre', '>=', term), where('nombre', '<=', term + '\uf8ff'), limit(20));
+  const snapDesc = await getDocs(qDesc);
+  
+  return snapDesc.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Cie10Record);
+}
 
 // =====================================================================
 // MAINTENANCE

@@ -338,3 +338,7 @@ export async function deleteAllCie10Glossary() {
 export async function deleteAllCie10Catalog() {
     return data.deleteAllCie10Catalog();
 }
+
+export async function searchCie10(term: string) {
+    return data.searchCie10(term);
+}
