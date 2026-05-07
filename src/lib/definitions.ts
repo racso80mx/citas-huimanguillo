@@ -457,6 +457,7 @@ export type MedicalConsultation = {
     // Puerperio
     puerperiumType?: 'Puérpera 1ra' | 'Puérpera Sub';
     puerperiumInfection?: boolean;
+    puerperiumInfectionDetails?: string;
     puerperiumPlanning?: boolean;
     
     // Otros eventos
@@ -478,4 +479,89 @@ export type MedicalConsultation = {
     
     nextAppointmentDate?: string;
     createdAt: string;
+};
+
+export type Cie10Glossary = {
+    id: string;
+    campo: string;
+    descripcion: string;
+};
+
+export type Cie10Record = {
+    id: string;
+    consecutivo: string;
+    letra: string;
+    catalogKey: string;
+    nombre: string;
+    codigox: string;
+    lsex: string;
+    linf: string;
+    lsup: string;
+    trivial: string;
+    erradicado: string;
+    n_inter: string;
+    nin: string;
+    ninmtobs: string;
+    codSitLesion: string;
+    noCbd: string;
+    cbd: string;
+    noAph: string;
+    afPrin: string;
+    diaSis: string;
+    claveProgramaSis: string;
+    codComplemenMorbi: string;
+    diaFetal: string;
+    defFetalCm: string;
+    defFetalCbd: string;
+    claveCapitulo: string;
+    capitulo: string;
+    lista1: string;
+    grupo1: string;
+    lista5: string;
+    rubricaType: string;
+    yearModifi: string;
+    yearAplicacion: string;
+    valid: string;
+    prinmorta: string;
+    prinmorbi: string;
+    lmMorbi: string;
+    lmMorta: string;
+    lgbd165: string;
+    lomsbeck: string;
+    lgbd190: string;
+    notdiaria: string;
+    notsemanal: string;
+    sistemaEspecial: string;
+    birmm: string;
+    cveCausaType: string;
+    causaType: string;
+    epiMorta: string;
+    edasEIrasEnM5: string;
+    cveMaternasSeedEpid: string;
+    epiMortaM5: string;
+    epiMorbi: string;
+    defMaternas: string;
+    esCauses: string;
+    numCauses: string;
+    esSuiveMorta: string;
+    esSuiveMorb: string;
+    epiClave: string;
+    epiClaveDesc: string;
+    esSuiveNotin: string;
+    esSuiveEstEpi: string;
+    esSuiveEstBrote: string;
+    sinac: string;
+    prinSinac: string;
+    prinSinacGrupo: string;
+    descripcionSinacGrupo: string;
+    prinSinacSubgrupo: string;
+    descripcionSinacSubgrupo: string;
+    daga: string;
+    asterisco: string;
+    prinMm: string;
+    prinMmGrupo: string;
+    descripcionMmGrupo: string;
+    prinMmSubgrupo: string;
+    descripcionMmSubgrupo: string;
+    codAdiMort: string;
 };

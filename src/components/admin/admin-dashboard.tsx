@@ -38,6 +38,7 @@ import {
   Stethoscope,
   Waves,
   ShieldPlus,
+  BookText
 } from 'lucide-react';
 import {
   startOfDay,
@@ -91,6 +92,7 @@ import { PharmacyManager } from './pharmacy-manager';
 import { WarehouseManager } from './warehouse-manager';
 import { DoctorsCatalog } from './doctors-catalog';
 import { SpecialtiesManager } from './specialties-manager';
+import { Cie10Manager } from './cie10-manager';
 import { Input } from '../ui/input';
 
 type AdminDashboardProps = {
@@ -246,24 +248,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const ultrasoundAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allUltrasoundAppointments)), [isClient, activeFilter, dateRange, allUltrasoundAppointments, searchTerm]);
   const vaccineAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allVaccineAppointments)), [isClient, activeFilter, dateRange, allVaccineAppointments, searchTerm]);
   
-  const groupedClinics = useMemo(() => {
-    if (!clinics) return {};
-    
-    const sortedClinics = [...clinics].sort((a, b) => a.name.localeCompare(b.name));
-
-    const groups = sortedClinics.reduce((acc, clinic) => {
-      const type = clinic.clinicType || ClinicType.ConsultaExterna;
-      if (!acc[type]) {
-        acc[type] = [];
-      }
-      acc[type].push(clinic);
-      return acc;
-    }, {} as Record<string, Clinic[]>);
-
-    return groups;
-  }, [clinics]);
-
-
   const handleSetDateRange = (range: DateRange | undefined) => {
     if (dateRange?.from && range?.from && !range.to && dateRange.from.getTime() === range.from.getTime() && !dateRange.to) {
         setDateRange(undefined);
@@ -420,11 +404,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         {/* 2. CATALOGOS */}
         <TabsContent value="catalogos" className="mt-0 animate-in fade-in duration-300">
             <Tabs defaultValue="medicos" className="w-full">
-                <TabsList className="flex w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
+                <TabsList className="flex flex-wrap w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
                     <TabsTrigger value="especialidades" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Especialidades</TabsTrigger>
                     <TabsTrigger value="medicos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Directorio Médico</TabsTrigger>
                     <TabsTrigger value="farmacia" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Farmacia</TabsTrigger>
                     <TabsTrigger value="almacen" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3">Almacén</TabsTrigger>
+                    <TabsTrigger value="cie10" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-6 py-3 flex items-center gap-2"><BookText className="h-4 w-4" /> Catálogos CIE-10</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="especialidades" className="mt-0">
@@ -441,6 +426,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 
                 <TabsContent value="almacen" className="mt-0">
                     <WarehouseManager />
+                </TabsContent>
+
+                <TabsContent value="cie10" className="mt-0">
+                    <Cie10Manager />
                 </TabsContent>
             </Tabs>
         </TabsContent>

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -60,6 +59,8 @@ import type {
   Prescription,
   Specialty,
   MedicalConsultation,
+  Cie10Glossary,
+  Cie10Record,
 } from './definitions';
 import { BookingMode, PatientStatus as PatientStatusEnum } from './definitions';
 
@@ -153,17 +154,14 @@ async function isTimeSlotTaken(
     const db = getDb();
     const dateOnly = dateIso.split('T')[0];
     
-    // Consulta base por tiempo (filtro más restrictivo primero)
     let q = query(collection(db, collectionName), where('time', '==', String(time)));
     
-    // Si es cita médica o vacuna por clínica, filtramos también por unidad
     if (clinicId && (collectionName === 'appointments' || collectionName === 'vaccineAppointments')) {
         q = query(q, where('clinicId', '==', clinicId));
     }
 
     const snap = await getDocs(q);
     
-    // Verificamos si alguna de las citas encontradas coincide con el día y no es la misma que estamos editando
     return snap.docs.some(docSnap => {
         if (excludeId && docSnap.id === excludeId) return false;
         const d = docSnap.data();
@@ -381,7 +379,6 @@ export async function getAppointmentCountOnDate(clinicId: string, dateStr: strin
   const db = getDb();
   const q = query(collection(db, 'appointments'), where('clinicId', '==', clinicId));
   const snap = await getDocs(q);
-  // Manual filtering to avoid composite index requirement
   return snap.docs.filter(doc => {
     const d = doc.data();
     return (d.date as Timestamp).toDate().toISOString().split('T')[0] === dateStr;
@@ -447,7 +444,6 @@ export async function saveLabAppointment(appointment: any, patientInput: any) {
     const taken = await isTimeSlotTaken('labAppointments', appointment.date, appointment.time);
     if (appointment.time !== "Recepción General" && taken) return { success: false, error: "Turno ya ocupado." };
     
-    // Check general reception capacity if that's the time
     if (appointment.time === "Recepción General") {
         const selectedDate = appointment.date.split('T')[0];
         const q = query(collection(db, 'labAppointments'), where('time', '==', 'Recepción General'));
@@ -554,10 +550,7 @@ export async function saveMedicalConsultation(consultation: Omit<MedicalConsulta
         const id = uuidv4();
         const data = { ...consultation, id, createdAt: Timestamp.now() };
         await setDoc(doc(db, 'medicalConsultations', id), data);
-        
-        // Mark appointment as attended
         await updateDoc(doc(db, 'appointments', consultation.appointmentId), { status: 'Atendido' });
-        
         return { success: true, id };
     } catch (e: any) {
         console.error("Save consultation error:", e);
@@ -771,9 +764,6 @@ export async function getSpecialties(): Promise<Specialty[]> {
   const db = getDb();
   const snap = await getDocs(collection(db, 'specialties'));
   let results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as Specialty);
-  if (results.length === 0) {
-      return [];
-  }
   return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -912,6 +902,123 @@ export async function getPatientPrescriptionsCountToday(patientId: string): Prom
 }
 
 // =====================================================================
+// CIE-10 CATALOGS
+// =====================================================================
+
+export async function bulkInsertCie10Glossary(chunk: any[]) {
+    const db = getDb();
+    if (!chunk || chunk.length === 0) return { success: false };
+    try {
+        const batch = writeBatch(db);
+        chunk.forEach(raw => {
+            const id = uuidv4();
+            batch.set(doc(db, 'cie10Glossary', id), {
+                id,
+                campo: String(raw['Campo'] || '').trim(),
+                descripcion: String(raw['Descripción'] || raw['DESCRIPCIÃ'] || '').trim()
+            });
+        });
+        await batch.commit();
+        return { success: true, processedCount: chunk.length };
+    } catch (e: any) { return { success: false, message: e.message }; }
+}
+
+export async function bulkInsertCie10Catalog(chunk: any[]) {
+    const db = getDb();
+    if (!chunk || chunk.length === 0) return { success: false };
+    try {
+        const batch = writeBatch(db);
+        chunk.forEach(raw => {
+            const id = uuidv4();
+            const record: Cie10Record = {
+                id,
+                consecutivo: String(raw['CONSECUTIVO'] || ''),
+                letra: String(raw['LETRA'] || ''),
+                catalogKey: String(raw['CATALOG_KEY'] || ''),
+                nombre: String(raw['NOMBRE'] || ''),
+                codigox: String(raw['CODIGOX'] || ''),
+                lsex: String(raw['LSEX'] || ''),
+                linf: String(raw['LINF'] || ''),
+                lsup: String(raw['LSUP'] || ''),
+                trivial: String(raw['TRIVIAL'] || ''),
+                erradicado: String(raw['ERRADICADO'] || ''),
+                n_inter: String(raw['N_INTER'] || ''),
+                nin: String(raw['NIN'] || ''),
+                ninmtobs: String(raw['NINMTOBS'] || ''),
+                codSitLesion: String(raw['COD_SIT_LESION'] || ''),
+                noCbd: String(raw['NO_CBD'] || ''),
+                cbd: String(raw['CBD'] || ''),
+                noAph: String(raw['NO_APH'] || ''),
+                afPrin: String(raw['AF_PRIN'] || ''),
+                diaSis: String(raw['DIA_SIS'] || ''),
+                claveProgramaSis: String(raw['CLAVE_PROGRAMA_SIS'] || ''),
+                codComplemenMorbi: String(raw['COD_COMPLEMEN_MORBI'] || ''),
+                diaFetal: String(raw['DIA_FETAL'] || ''),
+                defFetalCm: String(raw['DEF_FETAL_CM'] || ''),
+                defFetalCbd: String(raw['DEF_FETAL_CBD'] || ''),
+                claveCapitulo: String(raw['CLAVE_CAPITULO'] || ''),
+                capitulo: String(raw['CAPITULO'] || ''),
+                lista1: String(raw['LISTA1'] || ''),
+                grupo1: String(raw['GRUPO1'] || ''),
+                lista5: String(raw['LISTA5'] || ''),
+                rubricaType: String(raw['RUBRICA_TYPE'] || ''),
+                yearModifi: String(raw['YEAR_MODIFI'] || ''),
+                yearAplicacion: String(raw['YEAR_APLICACION'] || ''),
+                valid: String(raw['VALID'] || ''),
+                prinmorta: String(raw['PRINMORTA'] || ''),
+                prinmorbi: String(raw['PRINMORBI'] || ''),
+                lmMorbi: String(raw['LM_MORBI'] || ''),
+                lmMorta: String(raw['LM_MORTA'] || ''),
+                lgbd165: String(raw['LGBD165'] || ''),
+                lomsbeck: String(raw['LOMSBECK'] || ''),
+                lgbd190: String(raw['LGBD190'] || ''),
+                notdiaria: String(raw['NOTDIARIA'] || ''),
+                notsemanal: String(raw['NOTSEMANAL'] || ''),
+                sistemaEspecial: String(raw['SISTEMA_ESPECIAL'] || ''),
+                birmm: String(raw['BIRMM'] || ''),
+                cveCausaType: String(raw['CVE_CAUSA_TYPE'] || ''),
+                causaType: String(raw['CAUSA_TYPE'] || ''),
+                epiMorta: String(raw['EPI_MORTA'] || ''),
+                edasEIrasEnM5: String(raw['EDAS_E_IRAS_EN_M5'] || ''),
+                cveMaternasSeedEpid: String(raw['CVE_MATERNAS-SEED-EPID'] || ''),
+                epiMortaM5: String(raw['EPI_MORTA_M5'] || ''),
+                epiMorbi: String(raw['EPI_MORBI'] || ''),
+                defMaternas: String(raw['DEF_MATERNAS'] || ''),
+                esCauses: String(raw['ES_CAUSES'] || ''),
+                numCauses: String(raw['NUM_CAUSES'] || ''),
+                esSuiveMorta: String(raw['ES_SUIVE_MORTA'] || ''),
+                esSuiveMorb: String(raw['ES_SUIVE_MORB'] || ''),
+                epiClave: String(raw['EPI_CLAVE'] || ''),
+                epiClaveDesc: String(raw['EPI_CLAVE_DESC'] || ''),
+                esSuiveNotin: String(raw['ES_SUIVE_NOTIN'] || ''),
+                esSuiveEstEpi: String(raw['ES_SUIVE_EST_EPI'] || ''),
+                esSuiveEstBrote: String(raw['ES_SUIVE_EST_BROTE'] || ''),
+                sinac: String(raw['SINAC'] || ''),
+                prinSinac: String(raw['PRIN_SINAC'] || ''),
+                prinSinacGrupo: String(raw['PRIN_SINAC_GRUPO'] || ''),
+                descripcionSinacGrupo: String(raw['DESCRIPCION_SINAC_GRUPO'] || ''),
+                prinSinacSubgrupo: String(raw['PRIN_SINAC_SUBGRUPO'] || ''),
+                descripcionSinacSubgrupo: String(raw['DESCRIPCION_SINAC_SUBGRUPO'] || ''),
+                daga: String(raw['DAGA'] || ''),
+                asterisco: String(raw['ASTERISCO'] || ''),
+                prinMm: String(raw['PRIN_MM'] || ''),
+                prinMmGrupo: String(raw['PRIN_MM_GRUPO'] || ''),
+                descripcionMmGrupo: String(raw['DESCRIPCION_MM_GRUPO'] || ''),
+                prinMmSubgrupo: String(raw['PRIN_MM_SUBGRUPO'] || ''),
+                descripcionMmSubgrupo: String(raw['DESCRIPCION_MM_SUBGRUPO'] || ''),
+                codAdiMort: String(raw['COD_ADI_MORT'] || ''),
+            };
+            batch.set(doc(db, 'cie10Catalog', id), record);
+        });
+        await batch.commit();
+        return { success: true, processedCount: chunk.length };
+    } catch (e: any) { return { success: false, message: e.message }; }
+}
+
+export async function deleteAllCie10Glossary() { return deleteInventoryItems('cie10Glossary'); }
+export async function deleteAllCie10Catalog() { return deleteInventoryItems('cie10Catalog'); }
+
+// =====================================================================
 // MAINTENANCE
 // =====================================================================
 
@@ -1046,13 +1153,11 @@ export async function rescheduleAppointment(id: string, date: string, type: stri
     };
     const collectionName = collMap[type] || 'appointments';
     
-    // Obtener datos de la cita actual para verificar disponibilidad
     const db = getDb();
     const appSnap = await getDoc(doc(db, collectionName, id));
     if (!appSnap.exists()) return { success: false, message: 'Cita no encontrada.' };
     const appData = appSnap.data();
     
-    // Verificar si el nuevo horario está libre
     const taken = await isTimeSlotTaken(collectionName as any, date, appData.time, appData.clinicId, id);
     if (taken) return { success: false, message: 'No se puede reagendar: El horario de destino ya está ocupado.' };
 
@@ -1072,7 +1177,6 @@ export async function cloneAppointment(originalId: string, date: string, type: s
     
     const finalTime = time || data.time;
     
-    // Verificar disponibilidad para la nueva cita
     const taken = await isTimeSlotTaken(collectionName as any, date, finalTime, data.clinicId);
     if (taken) return { success: false, message: 'No se puede asignar: El horario/ficha seleccionado ya está ocupado.' };
 
