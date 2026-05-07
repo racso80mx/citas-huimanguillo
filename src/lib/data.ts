@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -571,14 +570,18 @@ export async function getConsultationByAppointmentId(appointmentId: string): Pro
 
 export async function getConsultationsByPatientId(patientId: string): Promise<MedicalConsultation[]> {
   const db = getDb();
+  // We removed orderBy from the query to avoid needing a composite index.
+  // We'll sort in memory instead since the limit is small.
   const q = query(
     collection(db, 'medicalConsultations'), 
     where('patientId', '==', patientId), 
-    orderBy('date', 'desc'),
-    limit(50)
+    limit(100) 
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
+  const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
+  
+  // Sort in memory by date descending
+  return results.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 50);
 }
 
 // =====================================================================
