@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -390,7 +389,7 @@ export function MedicalConsultationDialog({
 
                                   <section className="space-y-6">
                                       <h3 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                                          <Search className="h-5 w-5" /> Diagnósticos (CIE-10)
+                                          <Search className="h-5 w-5" /> Registro de Diagnósticos (CIE-10)
                                       </h3>
                                       <div className="grid gap-6">
                                           {[1, 2, 3].map(n => (
@@ -756,6 +755,9 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
     const [isSearching, setIsSearching] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
 
+    const isPrincipal = number === 1;
+    const diagLabel = isPrincipal ? "PRINCIPAL" : `SECUNDARIO ${number - 1}`;
+
     useEffect(() => {
         const val = form.watch(`diagnosis${number}`);
         if (val !== searchTerm && !isSearching) {
@@ -798,21 +800,18 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
         const isMujer = patient.sex === 'Mujer';
         const isHombre = patient.sex === 'Hombre';
         
-        // Letra O es exclusiva para obstetricia (mujeres)
         const isObstetricCode = record.catalogKey?.startsWith('O') || record.letra === 'O';
         
         if (isObstetricCode && isHombre) {
             return { valid: false, reason: 'Código exclusivo para mujeres (Obstetricia)' };
         }
 
-        // Si es mujer y es un código de embarazo, lo permitimos aunque el catálogo tenga 1 (por error de carga)
         if (isObstetricCode && isMujer) {
             return { valid: true };
         }
 
         const sexLimit = String(record.lsex || '3').trim();
         if (sexLimit !== '3' && sexLimit !== '0' && sexLimit !== '' && sexLimit !== 'NO') {
-            // 1=Hombre, 2=Mujer (Estándar SSA)
             if (sexLimit === '1' && isMujer) return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
             if (sexLimit === '2' && isHombre) return { valid: false, reason: `Incompatible con sexo: ${patient.sex}` };
         }
@@ -821,9 +820,9 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
             if (!limit || limit.length < 2) return null;
             const unit = limit[0];
             const val = parseInt(limit.substring(1)) || 0;
-            if (unit === '3') return val; // Años
-            if (unit === '2') return val / 12; // Meses
-            if (unit === '1') return val / 365; // Días
+            if (unit === '3') return val;
+            if (unit === '2') return val / 12;
+            if (unit === '1') return val / 365;
             return null;
         };
 
@@ -851,19 +850,29 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
     };
 
     return (
-        <div className="grid sm:grid-cols-6 gap-4 p-5 border rounded-2xl bg-background shadow-sm hover:border-primary/20 transition-all">
+        <div className={cn(
+            "grid sm:grid-cols-6 gap-4 p-5 border rounded-2xl bg-background shadow-sm hover:border-primary/20 transition-all",
+            isPrincipal ? "border-primary/20 bg-primary/5" : ""
+        )}>
+            <div className="col-span-full flex items-center justify-between mb-1">
+                <Badge variant={isPrincipal ? "default" : "secondary"} className="text-[10px] font-black tracking-widest px-3">
+                    {diagLabel}
+                </Badge>
+                {isPrincipal && <span className="text-[10px] font-bold text-primary animate-pulse italic">REQUERIDO</span>}
+            </div>
+
             <div className="sm:col-span-1 space-y-1.5">
-                <Label className="text-[10px] font-black opacity-50 uppercase">Código {number}</Label>
+                <Label className="text-[10px] font-black opacity-50 uppercase">Código {diagLabel}</Label>
                 <FormField control={form.control} name={`diagnosis${number}Code`} render={({ field }) => (
                     <Input {...field} value={field.value ?? ''} readOnly className="bg-muted/30 font-mono font-bold text-primary h-11" />
                 )} />
             </div>
             <div className="sm:col-span-3 space-y-1.5 relative">
-                <Label className="text-[10px] font-black opacity-50 uppercase">Descripción / Búsqueda {number}</Label>
+                <Label className="text-[10px] font-black opacity-50 uppercase">Descripción / Búsqueda {diagLabel}</Label>
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Escribe nombre o código CIE-10..." 
+                        placeholder={`Escribe nombre o código CIE-10 ${isPrincipal ? 'Principal' : 'Secundario'}...`}
                         value={searchTerm}
                         onChange={e => handleSearch(e.target.value.toUpperCase())}
                         className="pl-9 pr-9 h-11 font-bold uppercase"
@@ -912,7 +921,7 @@ function Cie10DiagnosisSelector({ number, form, patient }: { number: number, for
                 )}
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-                <Label className="text-[10px] font-black opacity-50 uppercase">Tipo</Label>
+                <Label className="text-[10px] font-black opacity-50 uppercase">Tipo Diagnóstico</Label>
                 <FormField control={form.control} name={`diagnosis${number}Type`} render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value || 'Subsecuente'}>
                         <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
