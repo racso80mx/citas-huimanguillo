@@ -143,6 +143,7 @@ export function MedicalConsultationDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isPrescriptionDialogOpen, setIsPrescriptionDialogOpen] = useState(false);
+  const [consultationId, setConsultationId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -189,6 +190,7 @@ export function MedicalConsultationDialog({
       setIsInitialLoading(true);
       getConsultationByAppointmentId(appointment.id).then(existing => {
         if (existing) {
+          setConsultationId(existing.id);
           form.reset({
               ...existing as any,
               vsoPackets: existing.vsoPackets || 0,
@@ -210,25 +212,34 @@ export function MedicalConsultationDialog({
         setIsInitialLoading(false);
       });
     }
-  }, [isOpen, appointment.id, clinic.clinicType, form]);
+  }, [isOpen, appointment.id, form]);
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: FormValues, isFinal: boolean) => {
     setIsSaving(true);
     try {
       const res = await saveMedicalConsultation({
         ...values,
+        id: consultationId || undefined,
         appointmentId: appointment.id,
         patientId: appointment.patientId,
         clinicId: clinic.id,
         doctorName: clinic.doctorName,
         date: new Date().toISOString(),
-        imc: imc || undefined
+        imc: imc || undefined,
+        isFinal
       });
 
       if (res.success) {
-        toast({ title: 'Consulta Guardada', description: 'El registro clínico ha sido actualizado.' });
-        onSuccess();
-        onClose();
+        setConsultationId(res.id);
+        toast({ 
+            title: isFinal ? 'Consulta Finalizada' : 'Avance Guardado', 
+            description: isFinal ? 'El registro ha sido cerrado.' : 'Los cambios han sido guardados exitosamente.' 
+        });
+        
+        if (isFinal) {
+            onSuccess();
+            onClose();
+        }
       } else {
         toast({ title: 'Error al guardar', description: res.message, variant: 'destructive' });
       }
@@ -277,7 +288,7 @@ export function MedicalConsultationDialog({
               </div>
           ) : (
               <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+              <form className="flex-1 flex flex-col min-h-0">
                   <Tabs defaultValue="externa" className="flex-1 flex flex-col min-h-0">
                       <div className="px-6 border-b bg-muted/5">
                           <TabsList className="bg-transparent h-12 w-full justify-start gap-4">
@@ -719,12 +730,29 @@ export function MedicalConsultationDialog({
                       </ScrollArea>
                   </Tabs>
 
-                  <DialogFooter className="p-6 border-t bg-muted/20 shrink-0">
+                  <DialogFooter className="p-6 border-t bg-muted/20 shrink-0 flex items-center justify-between sm:justify-between">
                     <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="h-12 px-8">Cancelar</Button>
-                    <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isSaving} className="h-12 px-12 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all">
-                      {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                      FINALIZAR Y GUARDAR CONSULTA
-                    </Button>
+                    <div className="flex gap-4">
+                        <Button 
+                            type="button" 
+                            variant="secondary"
+                            onClick={() => form.handleSubmit((vals) => onSubmit(vals, false))()} 
+                            disabled={isSaving} 
+                            className="h-12 px-8 font-bold border-primary/20"
+                        >
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            GUARDAR AVANCES
+                        </Button>
+                        <Button 
+                            type="button" 
+                            onClick={() => form.handleSubmit((vals) => onSubmit(vals, true))()} 
+                            disabled={isSaving} 
+                            className="h-12 px-10 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all"
+                        >
+                            {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+                            FINALIZAR CONSULTA
+                        </Button>
+                    </div>
                   </DialogFooter>
               </form>
               </Form>

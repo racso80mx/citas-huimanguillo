@@ -543,14 +543,29 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
 // MEDICAL CONSULTATIONS
 // =====================================================================
 
-export async function saveMedicalConsultation(consultation: Omit<MedicalConsultation, 'id'>) {
+export async function saveMedicalConsultation(consultation: any) {
     const db = getDb();
     try {
-        const id = uuidv4();
-        const data = { ...consultation, id, createdAt: Timestamp.now() };
-        await setDoc(doc(db, 'medicalConsultations', id), data);
-        await updateDoc(doc(db, 'appointments', consultation.appointmentId), { status: 'Atendido' });
-        return { success: true, id };
+        const { id, isFinal, ...rest } = consultation;
+        const docId = id || uuidv4();
+        
+        const data: any = { 
+            ...rest, 
+            id: docId, 
+            updatedAt: Timestamp.now(),
+        };
+
+        if (!id) {
+            data.createdAt = Timestamp.now();
+        }
+        
+        await setDoc(doc(db, 'medicalConsultations', docId), data, { merge: true });
+        
+        if (isFinal) {
+            await updateDoc(doc(db, 'appointments', rest.appointmentId), { status: 'Atendido' });
+        }
+        
+        return { success: true, id: docId };
     } catch (e: any) {
         console.error("Save consultation error:", e);
         return { success: false, message: e.message };
@@ -978,6 +993,11 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 noAph: String(raw['NO_APH'] || ''),
                 afPrin: String(raw['AF_PRIN'] || ''),
                 diaSis: String(raw['DIA_SIS'] || ''),
+                claveProgramaSis: String(raw['CLAVE_PROGRAMA_SIS'] || ''),
+                codComplemenMorbi: String(raw['COD_COMPLEMEN_MORBI'] || ''),
+                diaFetal: String(raw['DIA_FETAL'] || ''),
+                defFetalCm: String(raw['DEF_FETAL_CM'] || ''),
+                defFetalCbd: String(raw['DEF_FETAL_CBD'] || ''),
                 claveProgramaSis: String(raw['CLAVE_PROGRAMA_SIS'] || ''),
                 codComplemenMorbi: String(raw['COD_COMPLEMEN_MORBI'] || ''),
                 diaFetal: String(raw['DIA_FETAL'] || ''),
