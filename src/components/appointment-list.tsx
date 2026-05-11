@@ -30,7 +30,9 @@ import {
   ChevronUp,
   Stethoscope,
   Activity,
-  UserRound
+  UserRound,
+  MoreVertical,
+  Settings2
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -712,47 +714,61 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
                 </TableCell>
                 {isAdmin && app.patient && (
                   <TableCell className="text-right">
-                    <div className='flex justify-end items-center gap-0.5'>
-                      {(whatsappEnabled ?? true) && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
-                              <MessageCircle className="h-4 w-4 text-green-600" />
-                          </Button>
-                      )}
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownloadPDF(app)} title="Descargar Comprobante">
-                          <FileDown className="h-4 w-4 text-gray-500" />
-                      </Button>
-                      {onPrescribe && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPrescribe(app.patient)} title="Prescribir Medicamentos">
-                            <FileText className="h-4 w-4 text-blue-600" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 font-bold gap-1 border-primary/20">
+                          Acciones <ChevronDown className="h-3 w-3" />
                         </Button>
-                      )}
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingPatient(app.patient)} title="Editar Datos Paciente">
-                          <Pencil className="h-4 w-4 text-blue-600" />
-                      </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!onDelete} title="Eliminar Cita">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará permanentemente la cita de
-                            <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName} ` : 'este paciente '}</span>
-                            ({app.appointmentNumber}) y el espacio quedará libre.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onDelete?.(app.id)} className='bg-destructive hover:bg-destructive/90'>
-                            Eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        {(whatsappEnabled ?? true) && (
+                          <DropdownMenuItem onClick={() => handleWhatsApp(app)}>
+                            <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
+                            WhatsApp Recordatorio
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => handleDownloadPDF(app)}>
+                          <FileDown className="mr-2 h-4 w-4 text-gray-500" />
+                          Descargar Comprobante
+                        </DropdownMenuItem>
+                        {onPrescribe && (
+                          <DropdownMenuItem onClick={() => onPrescribe(app.patient)}>
+                            <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                            Prescribir Receta
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setEditingPatient(app.patient)}>
+                          <Pencil className="mr-2 h-4 w-4 text-blue-600" />
+                          Editar Datos Paciente
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Eliminar Cita
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta acción no se puede deshacer. Se eliminará permanentemente la cita de
+                                <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName} ` : 'este paciente '}</span>
+                                ({app.appointmentNumber}) y el espacio quedará libre.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => onDelete?.(app.id)} className='bg-destructive hover:bg-destructive/90'>
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 )}
               </TableRow>

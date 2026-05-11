@@ -37,7 +37,8 @@ import {
   Pencil,
   Trash2,
   FileDown,
-  Fingerprint
+  Fingerprint,
+  ChevronDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +52,12 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { v4 as uuidv4 } from 'uuid';
@@ -243,7 +250,7 @@ export function DoctorsCatalog() {
                         <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('clinicType')}>
                             <div className="flex items-center">Especialidad {getSortIcon('clinicType')}</div>
                         </TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
+                        <TableHead className="text-right pr-6">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -284,15 +291,24 @@ export function DoctorsCatalog() {
                                     {doc.clinicType}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex justify-end gap-1">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleEditDoctor(doc)}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDoctor(doc.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                            <TableCell className="text-right pr-6">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 font-bold gap-1 border-primary/20">
+                                            Acciones <ChevronDown className="h-3 w-3" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuItem onClick={() => handleEditDoctor(doc)}>
+                                            <Pencil className="mr-2 h-4 w-4 text-blue-600" />
+                                            Editar Médico
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDeleteDoctor(doc.id)} className="text-destructive focus:text-destructive">
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Eliminar Médico
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </TableCell>
                         </TableRow>
                         )) : (
@@ -485,4 +501,3 @@ function MassUploadDoctorsDialog({ isOpen, onClose, onSuccess }: { isOpen: boole
         </Dialog>
     );
 }
-
