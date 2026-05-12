@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
@@ -38,7 +39,8 @@ import {
   Stethoscope,
   Waves,
   ShieldPlus,
-  BookText
+  BookText,
+  CalendarSearch
 } from 'lucide-react';
 import {
   startOfDay,
@@ -49,6 +51,8 @@ import {
   endOfMonth,
   parseISO,
   isWithinInterval,
+  isValid,
+  parse
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
@@ -69,6 +73,7 @@ import {
     CommandSeparator,
 } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '../ui/label';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { downloadExcel } from '@/lib/report-helpers';
@@ -118,6 +123,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [selectedClinicType, setSelectedClinicType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
+  
+  // Manual date input states
+  const [manualDayMonth, setManualDayMonth] = useState('');
+  const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -198,7 +208,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           const rangeEnd = endOfDay(dateRange.to || dateRange.from);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
-            return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
+            return appDate >= rangeStart && appDate <= rangeEnd;
           };
         } else {
           return [];
@@ -255,6 +265,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
     setDateRange(range);
     setActiveFilter('range');
+  };
+
+  const handleManualDateChange = (dm: string, y: string) => {
+    setManualDayMonth(dm);
+    setManualYear(y);
+
+    if (dm.length === 5 && y.length === 4) {
+      const dateStr = `${dm}/${y}`;
+      const parsedDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+      
+      if (isValid(parsedDate)) {
+        setActiveFilter('range');
+        setDateRange({ from: parsedDate, to: parsedDate });
+      }
+    }
   };
 
   const handleDownload = async (type: string) => {
@@ -437,8 +462,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         {/* 3. CITAS POR SERVICIO */}
         <TabsContent value="citas" className="mt-0 animate-in fade-in duration-300">
             <Tabs defaultValue="citas-medicas" className="w-full">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b pb-4">
-                    <TabsList className="bg-muted/40 p-1">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 border-b pb-6">
+                    <TabsList className="bg-muted/40 p-1 shrink-0">
                         <TabsTrigger value="citas-medicas" className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> General</TabsTrigger>
                         <TabsTrigger value="laboratorio" className="flex items-center gap-2"><FlaskConical className="h-3.5 w-3.5" /> Laboratorio</TabsTrigger>
                         <TabsTrigger value="rayos-x" className="flex items-center gap-2"><Stethoscope className="h-3.5 w-3.5" /> Rayos X</TabsTrigger>
@@ -446,15 +471,49 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                         <TabsTrigger value="vacunas" className="flex items-center gap-2"><ShieldPlus className="h-3.5 w-3.5" /> Vacunación</TabsTrigger>
                     </TabsList>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button variant={activeFilter === 'today' ? 'default' : 'outline'} size="sm" onClick={() => setActiveFilter('today')}>Hoy</Button>
-                        <Button variant={activeFilter === 'week' ? 'default' : 'outline'} size="sm" onClick={() => setActiveFilter('week')}>Semana</Button>
-                        <Button variant={activeFilter === 'month' ? 'default' : 'outline'} size="sm" onClick={() => setActiveFilter('month')}>Mes</Button>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Button variant={activeFilter === 'today' ? 'default' : 'outline'} size="sm" onClick={() => { setActiveFilter('today'); setManualDayMonth(''); }}>Hoy</Button>
+                            <Button variant={activeFilter === 'week' ? 'default' : 'outline'} size="sm" onClick={() => { setActiveFilter('week'); setManualDayMonth(''); }}>Semana</Button>
+                            <Button variant={activeFilter === 'month' ? 'default' : 'outline'} size="sm" onClick={() => { setActiveFilter('month'); setManualDayMonth(''); }}>Mes</Button>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-xl border border-dashed border-primary/20">
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary">
+                                    <CalendarSearch className="h-3 w-3" /> Saltar a Día / Mes
+                                </Label>
+                                <Input 
+                                    placeholder="11/07" 
+                                    value={manualDayMonth}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, '');
+                                        if (val.length > 2) {
+                                            val = val.substring(0, 2) + '/' + val.substring(2, 4);
+                                        }
+                                        handleManualDateChange(val.substring(0, 5), manualYear);
+                                    }}
+                                    className="h-9 w-24 text-center font-bold border-primary/20 bg-background"
+                                    maxLength={5}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] font-black uppercase text-primary">Año</Label>
+                                <Input 
+                                    type="number"
+                                    value={manualYear}
+                                    onChange={(e) => handleManualDateChange(manualDayMonth, e.target.value.substring(0, 4))}
+                                    className="h-9 w-20 text-center font-bold border-primary/20 bg-background"
+                                    maxLength={4}
+                                />
+                            </div>
+                        </div>
+
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} size="sm" className="w-[180px] justify-start text-left font-normal">
+                                <Button id="date" variant={activeFilter === 'range' ? 'default' : 'outline'} size="sm" className="h-9 min-w-[180px] justify-start text-left font-normal">
                                     <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM')}</>) : (format(dateRange.from, 'dd/MM'))) : (<span>Rango</span>)}
+                                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM')}</>) : (format(dateRange.from, 'dd/MM'))) : (<span>Selector de Rango</span>)}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="end">

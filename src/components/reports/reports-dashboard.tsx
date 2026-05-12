@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia, Patient } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
@@ -38,6 +39,7 @@ import {
   CalendarPlus,
   Search,
   FileText,
+  CalendarSearch
 } from 'lucide-react';
 import {
   startOfDay,
@@ -48,6 +50,8 @@ import {
   endOfMonth,
   parseISO,
   isWithinInterval,
+  isValid,
+  parse
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
@@ -74,6 +78,7 @@ import { AvailabilityViewerDialog } from './availability-viewer-dialog';
 import { ScheduleAppointmentDialog } from '../archivo/schedule-appointment-dialog';
 import { CreatePrescriptionDialog } from './create-prescription-dialog';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
@@ -100,6 +105,10 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [selectedPatientForPrescription, setSelectedPatientForPrescription] = useState<Patient | null>(null);
   
+  // Manual date input states
+  const [manualDayMonth, setManualDayMonth] = useState('');
+  const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -233,6 +242,21 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const handleSetDateRange = (range: DateRange | undefined) => {
     setDateRange(range);
     setActiveFilter('range');
+  };
+
+  const handleManualDateChange = (dm: string, y: string) => {
+    setManualDayMonth(dm);
+    setManualYear(y);
+
+    if (dm.length === 5 && y.length === 4) {
+      const dateStr = `${dm}/${y}`;
+      const parsedDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+      
+      if (isValid(parsedDate)) {
+        setActiveFilter('range');
+        setDateRange({ from: parsedDate, to: parsedDate });
+      }
+    }
   };
 
   const handleDownload = async () => {
@@ -417,7 +441,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Citas Totales (Hoy)</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            <UserCheck className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -428,7 +452,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Atendidos</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-500" />
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
@@ -457,57 +481,83 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               {summaryCounts.notAttended}
             </div>
           </CardContent>
-        </Card>
+        </div>
       </div>
 
       <Card className="w-full shadow-lg">
         <CardHeader>
-          <div className="flex flex-wrap items-center gap-2 pt-4">
-            <Button
-              variant={activeFilter === 'today' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('today')}
-            >
-              Hoy
-            </Button>
-            <Button
-              variant={activeFilter === 'week' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('week')}
-            >
-              Esta Semana
-            </Button>
-            <Button
-              variant={activeFilter === 'month' ? 'default' : 'outline'}
-              onClick={() => setActiveFilter('month')}
-            >
-              Este Mes
-            </Button>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              disabled={isDataLoading}
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", isDataLoading && "animate-spin")} />
-              Recargar
-            </Button>
+          <div className="flex flex-wrap items-center gap-4 pt-4">
+            <div className="flex items-center gap-2">
+                <Button
+                variant={activeFilter === 'today' ? 'default' : 'outline'}
+                onClick={() => { setActiveFilter('today'); setManualDayMonth(''); }}
+                >
+                Hoy
+                </Button>
+                <Button
+                variant={activeFilter === 'week' ? 'default' : 'outline'}
+                onClick={() => { setActiveFilter('week'); setManualDayMonth(''); }}
+                >
+                Semana
+                </Button>
+                <Button
+                variant={activeFilter === 'month' ? 'default' : 'outline'}
+                onClick={() => { setActiveFilter('month'); setManualDayMonth(''); }}
+                >
+                Mes
+                </Button>
+            </div>
+
+            <div className="flex items-center gap-2 bg-muted/20 p-2 rounded-xl border border-dashed">
+                <div className="flex flex-col gap-1">
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary">
+                        <CalendarSearch className="h-3 w-3" /> Saltar a Día / Mes
+                    </Label>
+                    <Input 
+                        placeholder="11/07" 
+                        value={manualDayMonth}
+                        onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, '');
+                            if (val.length > 2) {
+                                val = val.substring(0, 2) + '/' + val.substring(2, 4);
+                            }
+                            handleManualDateChange(val.substring(0, 5), manualYear);
+                        }}
+                        className="h-9 w-24 text-center font-bold border-primary/20 bg-background"
+                        maxLength={5}
+                    />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <Label className="text-[10px] font-black uppercase text-primary">Año</Label>
+                    <Input 
+                        type="number"
+                        value={manualYear}
+                        onChange={(e) => handleManualDateChange(manualDayMonth, e.target.value.substring(0, 4))}
+                        className="h-9 w-20 text-center font-bold border-primary/20 bg-background"
+                        maxLength={4}
+                    />
+                </div>
+            </div>
+
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   id="date"
                   variant={activeFilter === 'range' ? 'default' : 'outline'}
-                  className={cn('w-[260px] justify-start text-left font-normal')}
+                  className={cn('w-[240px] justify-start text-left font-normal h-11')}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {dateRange?.from ? (
                     dateRange.to ? (
                       <>
-                        {format(dateRange.from, 'LLL dd, y', {locale: es})} -{' '}
-                        {format(dateRange.to, 'LLL dd, y', {locale: es})}
+                        {format(dateRange.from, 'dd/MM/yy')} -{' '}
+                        {format(dateRange.to, 'dd/MM/yy')}
                       </>
                     ) : (
-                      format(dateRange.from, 'LLL dd, y', {locale: es})
+                      format(dateRange.from, 'dd/MM/yy')
                     )
                   ) : (
-                    <span>Seleccionar rango</span>
+                    <span>Selector de Rango</span>
                   )}
                 </Button>
               </PopoverTrigger>
@@ -519,22 +569,34 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                   selected={dateRange}
                   onSelect={handleSetDateRange}
                   numberOfMonths={2}
+                  locale={es}
                 />
               </PopoverContent>
             </Popover>
-            <div className="relative w-full sm:w-64 ml-2">
+
+            <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                    placeholder="Nombre, CURP o Folio..." 
-                    className="pl-9 h-10"
+                    placeholder="Buscar Paciente o Folio..." 
+                    className="pl-9 h-11"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            
+            <div className="flex items-center gap-2 ml-auto">
+                <Button
+                    variant="outline"
+                    onClick={fetchData}
+                    disabled={isDataLoading}
+                    className="h-11"
+                    >
+                    <RefreshCw className={cn("h-4 w-4", isDataLoading && "animate-spin")} />
+                </Button>
                 <Button
                     onClick={handleDownload}
                     variant="secondary"
+                    className="h-11"
                     >
                     <Download className="mr-2 h-4 w-4" />
                     Descargar Excel
@@ -547,7 +609,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             <div className="flex justify-center items-center h-40">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="ml-4 text-muted-foreground">
-                Cargando citas...
+                Sincronizando con base de datos...
               </span>
             </div>
           ) : (
@@ -555,8 +617,10 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               {appointmentsToDisplay.length > 0 ? (
                 renderAppointmentList()
               ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                  No hay citas para mostrar con los filtros seleccionados.
+                <div className="text-center py-20 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5">
+                  <Search className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                  <p className="text-lg font-bold">No se encontraron citas</p>
+                  <p className="text-sm">Ajusta los filtros o busca otro periodo para visualizar datos.</p>
                 </div>
               )}
             </>

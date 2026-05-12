@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -28,7 +29,8 @@ import {
   Eye,
   Calendar as CalendarIcon,
   FileText,
-  Filter
+  Filter,
+  CalendarSearch
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -85,7 +87,9 @@ import {
   parseISO, 
   isWithinInterval, 
   addDays,
-  format
+  format,
+  isValid,
+  parse
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
@@ -130,6 +134,10 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [selectedClinicType, setSelectedClinicType] = useState<ClinicType | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  // Manual jump to date
+  const [manualDayMonth, setManualDayMonth] = useState('');
+  const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
 
   // Common states
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -277,6 +285,21 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
     );
   };
 
+  const handleManualDateChange = (dm: string, y: string) => {
+    setManualDayMonth(dm);
+    setManualYear(y);
+
+    if (dm.length === 5 && y.length === 4) {
+      const dateStr = `${dm}/${y}`;
+      const parsedDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+      
+      if (isValid(parsedDate)) {
+        setDateFilter('range');
+        setDateRange({ from: parsedDate, to: parsedDate });
+      }
+    }
+  };
+
   const filteredClinics = useMemo(() => {
     if (selectedClinicType === 'all') return clinics;
     return clinics.filter(c => c.clinicType === selectedClinicType);
@@ -331,7 +354,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
           const rangeEnd = endOfDay(dateRange.to || dateRange.from);
           filterFn = (app) => {
             const appDate = parseISO(app.date);
-            return isWithinInterval(appDate, { start: rangeStart, end: rangeEnd });
+            return appDate >= rangeStart && appDate <= rangeEnd;
           };
         } else {
           return filtered;
@@ -599,25 +622,59 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
         <TabsContent value="appointments" className="pt-4 space-y-4">
           <Card>
             <CardHeader className="pb-4 border-b bg-muted/10">
-              <div className="flex flex-col space-y-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-col space-y-6">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                     <CardTitle className="flex items-center gap-2">
                         <CalendarIcon className="h-5 w-5 text-primary" /> Reporte de Citas
                     </CardTitle>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button variant={dateFilter === 'today' ? 'default' : 'outline'} onClick={() => setDateFilter('today')} size="sm">Hoy</Button>
-                        <Button variant={dateFilter === 'tomorrow' ? 'default' : 'outline'} onClick={() => setDateFilter('tomorrow')} size="sm">Mañana</Button>
-                        <Button variant={dateFilter === 'week' ? 'default' : 'outline'} onClick={() => setDateFilter('week')} size="sm">Esta Semana</Button>
-                        <Button variant={dateFilter === 'month' ? 'default' : 'outline'} onClick={() => setDateFilter('month')} size="sm">Este Mes</Button>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Button variant={dateFilter === 'today' ? 'default' : 'outline'} onClick={() => { setDateFilter('today'); setManualDayMonth(''); }} size="sm">Hoy</Button>
+                            <Button variant={dateFilter === 'tomorrow' ? 'default' : 'outline'} onClick={() => { setDateFilter('tomorrow'); setManualDayMonth(''); }} size="sm">Mañana</Button>
+                            <Button variant={dateFilter === 'week' ? 'default' : 'outline'} onClick={() => { setDateFilter('week'); setManualDayMonth(''); }} size="sm">Esta Semana</Button>
+                            <Button variant={dateFilter === 'month' ? 'default' : 'outline'} onClick={() => { setDateFilter('month'); setManualDayMonth(''); }} size="sm">Este Mes</Button>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-background p-2 rounded-xl border border-dashed border-primary/20 shadow-sm">
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary">
+                                    <CalendarSearch className="h-3 w-3" /> Saltar a Día / Mes
+                                </Label>
+                                <Input 
+                                    placeholder="11/07" 
+                                    value={manualDayMonth}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, '');
+                                        if (val.length > 2) {
+                                            val = val.substring(0, 2) + '/' + val.substring(2, 4);
+                                        }
+                                        handleManualDateChange(val.substring(0, 5), manualYear);
+                                    }}
+                                    className="h-9 w-24 text-center font-bold border-primary/20 bg-background"
+                                    maxLength={5}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Label className="text-[10px] font-black uppercase text-primary">Año</Label>
+                                <Input 
+                                    type="number"
+                                    value={manualYear}
+                                    onChange={(e) => handleManualDateChange(manualDayMonth, e.target.value.substring(0, 4))}
+                                    className="h-9 w-20 text-center font-bold border-primary/20 bg-background"
+                                    maxLength={4}
+                                />
+                            </div>
+                        </div>
+
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button id="date" variant={dateFilter === 'range' ? 'default' : 'outline'} size="sm" className="h-9">
+                                <Button id="date" variant={dateFilter === 'range' ? 'default' : 'outline'} size="sm" className="h-9 min-w-[180px]">
                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                     {dateRange?.from ? (
                                         dateRange.to ? (
-                                            <>{format(dateRange.from, 'dd/MM')} - {format(dateRange.to, 'dd/MM')}</>
-                                        ) : format(dateRange.from, 'dd/MM')
-                                    ) : "Rango"}
+                                            <>{format(dateRange.from, 'dd/MM/yy')} - {format(dateRange.to, 'dd/MM/yy')}</>
+                                        ) : format(dateRange.from, 'dd/MM/yy')
+                                    ) : "Rango Personalizado"}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="end">
