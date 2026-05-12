@@ -38,7 +38,8 @@ import {
   CalendarPlus,
   Search,
   FileText,
-  CalendarSearch
+  CalendarSearch,
+  CheckCircle2
 } from 'lucide-react';
 import {
   startOfDay,
