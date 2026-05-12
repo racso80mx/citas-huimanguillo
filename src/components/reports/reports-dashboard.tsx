@@ -196,7 +196,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const todayEnd = endOfDay(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return isWithinInterval(appDate, { start: todayStart, end: todayEnd });
+          return appDate >= todayStart && appDate <= todayEnd;
         };
         break;
     }

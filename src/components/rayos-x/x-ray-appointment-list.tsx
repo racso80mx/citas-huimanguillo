@@ -13,7 +13,7 @@ import type { XRayAppointment, Patient, AppointmentStatus, XRayStudy, ModuleSett
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '../ui/button';
-import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle } from 'lucide-react';
+import { Trash2, Pencil, Loader2, ArrowUpDown, ArrowUp, ArrowDown, FileDown, ClipboardCopy, MessageCircle, ChevronDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -359,7 +359,7 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
                 {onEditSuccess ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-28" disabled={isUpdating}>
+                      <Button variant="outline" className="w-28 h-8 text-[10px] font-bold uppercase tracking-tighter" disabled={isUpdating}>
                         {app.status || 'Agendada'}
                       </Button>
                     </DropdownMenuTrigger>
@@ -376,76 +376,89 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : (
-                  app.status || 'Agendada'
+                  <Badge variant="outline" className="text-[10px] font-bold uppercase">{app.status || 'Agendada'}</Badge>
                 )}
               </TableCell>
-              <TableCell className="font-mono">{app.appointmentNumber}</TableCell>
-              <TableCell className="font-medium">
+              <TableCell className="font-mono text-xs">{app.appointmentNumber}</TableCell>
+              <TableCell className="font-medium text-xs">
                 {format(parseISO(app.date), 'dd/MM/yy', { locale: es })}
-                <span className='block text-xs text-muted-foreground'>{app.time}</span>
+                <span className='block text-[10px] text-muted-foreground font-bold'>{app.time}</span>
               </TableCell>
               {isAdmin && (
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-[10px] text-muted-foreground">
                   {app.createdAt ? format(parseISO(app.createdAt), 'dd/MM/yy HH:mm', { locale: es }) : 'N/A'}
                 </TableCell>
               )}
-              <TableCell>{app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A'}</TableCell>
+              <TableCell className="font-bold text-sm uppercase">{app.patient ? `${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'N/A'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <span>{app.patient?.curp || 'N/A'}</span>
+                  <span className="text-[11px] font-mono font-bold">{app.patient?.curp || 'N/A'}</span>
                   {app.patient?.curp && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-6 w-6 opacity-40 hover:opacity-100"
                       onClick={() => handleCopyCurp(app.patient!.curp)}
                     >
-                      <ClipboardCopy className="h-4 w-4" />
+                      <ClipboardCopy className="h-3.5 w-3.5" />
                       <span className="sr-only">Copiar CURP</span>
                     </Button>
                   )}
                 </div>
               </TableCell>
-              <TableCell>{app.patient?.phoneNumber || 'N/A'}</TableCell>
-              <TableCell>{app.studyName}</TableCell>
+              <TableCell className="text-xs">{app.patient?.phoneNumber || 'N/A'}</TableCell>
+              <TableCell className="text-xs uppercase font-medium">{app.studyName}</TableCell>
                {isAdmin && app.patient && (
                 <TableCell className="text-right">
-                  <div className='flex justify-end items-center'>
-                    {(settings?.rayosXWhatsAppEnabled ?? true) && (
-                        <Button variant="ghost" size="icon" onClick={() => handleWhatsApp(app)} title="Enviar recordatorio WhatsApp">
-                            <MessageCircle className="h-4 w-4 text-green-600" />
-                        </Button>
-                    )}
-                    <Button variant="ghost" size="icon" onClick={() => handleDownloadPDF(app)}>
-                        <FileDown className="h-4 w-4 text-gray-500" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setEditingPatient(app.patient)}>
-                        <Pencil className="h-4 w-4 text-blue-600" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={!onDelete}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará permanentemente la cita de Rayos X de
-                            <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'este paciente '}</span>
-                            ({app.appointmentNumber}).
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onDelete?.(app.id)} className='bg-destructive hover:bg-destructive/90'>
-                            Eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 font-bold gap-1 border-primary/20">
+                        Acciones <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {(settings?.rayosXWhatsAppEnabled ?? true) && (
+                        <DropdownMenuItem onClick={() => handleWhatsApp(app)}>
+                          <MessageCircle className="mr-2 h-4 w-4 text-green-600" />
+                          WhatsApp Recordatorio
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleDownloadPDF(app)}>
+                        <FileDown className="mr-2 h-4 w-4 text-gray-500" />
+                        Descargar Comprobante
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setEditingPatient(app.patient)}>
+                        <Pencil className="mr-2 h-4 w-4 text-blue-600" />
+                        Editar Datos Paciente
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar Cita
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción no se puede deshacer. Se eliminará permanentemente la cita de Rayos X de
+                              <span className='font-bold'>{app.patient ? ` ${app.patient.name} ${app.patient.paternalLastName} ${app.patient.maternalLastName}` : 'este paciente '}</span>
+                              ({app.appointmentNumber}).
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => onDelete?.(app.id)} className='bg-destructive hover:bg-destructive/90'>
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               )}
             </TableRow>
@@ -454,8 +467,8 @@ export function XRayAppointmentList({ appointments, isAdmin = false, onDelete, o
       </Table>
        {editingPatient && (
         <Dialog open={!!editingPatient} onOpenChange={(open) => !open && setEditingPatient(null)}>
-            <DialogContent>
-                <DialogHeader>
+            <DialogContent className="sm:max-w-5xl h-[90vh] flex flex-col p-0">
+                <DialogHeader className="p-6 pb-2 shrink-0">
                     <DialogTitle>Editar Paciente</DialogTitle>
                     <DialogDescription>
                         Modifica los datos del paciente. Los cambios se reflejarán en todas sus citas.
