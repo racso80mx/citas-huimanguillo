@@ -118,8 +118,8 @@ export function AvailabilityCalendar({
     <div className="flex flex-col items-center gap-4 w-full">
       {/* Quick Search Panel */}
       <div className="grid grid-cols-2 gap-4 w-full bg-muted/30 p-4 rounded-xl border border-dashed border-primary/20 max-w-[300px] shadow-inner">
-          <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary tracking-widest">
+          <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary tracking-widest h-4">
                   <CalendarSearch className="h-3 w-3" /> Día / Mes
               </Label>
               <Input 
@@ -136,8 +136,10 @@ export function AvailabilityCalendar({
                   maxLength={5}
               />
           </div>
-          <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase text-primary tracking-widest">Año</Label>
+          <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase flex items-center text-primary tracking-widest h-4">
+                  Año
+              </Label>
               <Input 
                   type="number"
                   placeholder="Año" 
