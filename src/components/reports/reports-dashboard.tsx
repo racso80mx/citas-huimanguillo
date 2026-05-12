@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia, Patient } from '@/lib/definitions';
@@ -481,7 +480,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
               {summaryCounts.notAttended}
             </div>
           </CardContent>
-        </div>
+        </Card>
       </div>
 
       <Card className="w-full shadow-lg">
@@ -510,7 +509,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
             <div className="flex items-center gap-2 bg-muted/20 p-2 rounded-xl border border-dashed">
                 <div className="flex flex-col gap-1">
-                    <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary">
+                    <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary h-4">
                         <CalendarSearch className="h-3 w-3" /> Saltar a Día / Mes
                     </Label>
                     <Input 
@@ -528,7 +527,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                     />
                 </div>
                 <div className="flex flex-col gap-1">
-                    <Label className="text-[10px] font-black uppercase text-primary">Año</Label>
+                    <Label className="text-[10px] font-black uppercase flex items-center text-primary h-4">Año</Label>
                     <Input 
                         type="number"
                         value={manualYear}

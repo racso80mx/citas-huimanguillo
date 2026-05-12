@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -637,7 +636,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
                         <div className="flex items-center gap-2 bg-background p-2 rounded-xl border border-dashed border-primary/20 shadow-sm">
                             <div className="flex flex-col gap-1">
-                                <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary">
+                                <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary h-4">
                                     <CalendarSearch className="h-3 w-3" /> Saltar a Día / Mes
                                 </Label>
                                 <Input 
@@ -655,7 +654,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                                 />
                             </div>
                             <div className="flex flex-col gap-1">
-                                <Label className="text-[10px] font-black uppercase text-primary">Año</Label>
+                                <Label className="text-[10px] font-black uppercase flex items-center text-primary h-4">Año</Label>
                                 <Input 
                                     type="number"
                                     value={manualYear}
