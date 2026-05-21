@@ -1,3 +1,4 @@
+
 'use server';
 
 import { 
@@ -150,6 +151,10 @@ function getTimeToMinutesInternal(t: string): number {
   return parts[0] * 60 + parts[1];
 }
 
+/**
+ * Checks if a time slot is already occupied.
+ * Re-implemented to avoid Firestore composite index errors by filtering in memory.
+ */
 async function isTimeSlotTaken(
     collectionName: 'appointments' | 'labAppointments' | 'xrayAppointments' | 'ultrasoundAppointments' | 'vaccineAppointments',
     dateIso: string,
@@ -165,31 +170,35 @@ async function isTimeSlotTaken(
     const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0);
     const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59);
 
+    // CRITICAL: We only query by date range to avoid requiring a composite index with clinicId.
+    // Range filters + Equality filters on different fields REQUIRE a composite index in Firestore.
+    // By filtering clinicId in memory, we bypass this restriction.
     let q = query(
         collection(db, collectionName), 
         where('date', '>=', Timestamp.fromDate(start)), 
         where('date', '<=', Timestamp.fromDate(end))
     );
     
-    if (clinicId) {
-        q = query(q, where('clinicId', '==', clinicId));
-    }
-
     const snap = await getDocs(q);
+    
+    // Filter by clinicId and excludeId in memory
+    const docs = snap.docs.filter(docSnap => {
+        if (excludeId && docSnap.id === excludeId) return false;
+        const d = docSnap.data();
+        if (clinicId && d.clinicId !== clinicId) return false;
+        return true;
+    });
+
     const candStart = getTimeToMinutesInternal(time);
     
     if (candStart === -1) {
-        // Handle waitlist or tokens by exact match
-        return snap.docs.some(docSnap => {
-            if (excludeId && docSnap.id === excludeId) return false;
-            return docSnap.data().time === time;
-        });
+        // Handle waitlist or tokens by exact match string comparison
+        return docs.some(docSnap => docSnap.data().time === time);
     }
     
     const candEnd = candStart + candidateDuration;
 
-    return snap.docs.some(docSnap => {
-        if (excludeId && docSnap.id === excludeId) return false;
+    return docs.some(docSnap => {
         const d = docSnap.data();
         const storedStart = getTimeToMinutesInternal(d.time);
         if (storedStart === -1) return false; 
@@ -197,6 +206,7 @@ async function isTimeSlotTaken(
         const storedEnd = storedStart + (d.duration || 30);
         
         // Overlap detection: max(start1, start2) < min(end1, end2)
+        // If the start of one is before the end of the other, there is a collision
         return Math.max(candStart, storedStart) < Math.min(candEnd, storedEnd);
     });
 }
@@ -453,6 +463,7 @@ export async function saveAppointment(appointment: any, patientInput: any, isDou
     const baseDuration = clinicData.consultationDuration || 30;
     const finalDuration = isDoubleSlot ? baseDuration * 2 : baseDuration;
 
+    // Check for collisions using the candidate duration
     const taken = await isTimeSlotTaken('appointments', appointment.date, appointment.time, finalDuration, appointment.clinicId);
     if (taken) return { success: false, error: "Horario/Ficha ya ocupado para este núcleo básico." };
 
@@ -463,13 +474,28 @@ export async function saveAppointment(appointment: any, patientInput: any, isDou
     let patientId = existingPatient ? existingPatient.id : uuidv4();
     const cleanPatient = { curp, id: patientId, name: normalizeStr(patientInput.name), paternalLastName: normalizeStr(patientInput.paternalLastName), maternalLastName: normalizeStr(patientInput.maternalLastName), sex: patientInput.sex, age: Number(patientInput.age) || 0, birthDate: patientInput.birthDate || '', birthState: String(patientInput.birthState || '').toUpperCase().trim(), phoneNumber: String(patientInput.phoneNumber || '').trim(), coloniaName: coloniaName || patientInput.coloniaName || null, status: patientInput.status || PatientStatusEnum.Vigente, fatherName: normalizeStr(patientInput.fatherName) || null, motherName: normalizeStr(patientInput.motherName) || null, fatherAge: Number(patientInput.fatherAge) || null, motherAge: Number(patientInput.motherAge) || null, registrationDate: patientInput.registrationDate || null, derechoAbiencia: String(patientInput.derechoAbiencia || '').toUpperCase().trim() || null, expediente: patientInput.expediente ? String(patientInput.expediente).trim() : null, updatedAt: Timestamp.now() };
     batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
+    
     const appRef = doc(collection(db, 'appointments'));
     const appointmentNumber = `FOLIO-${uuidv4().split('-')[0].toUpperCase()}`;
-    const cleanApp = { appointmentNumber, patientId, clinicId: appointment.clinicId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), duration: finalDuration, patientType: appointment.patientType, status: appointment.status || 'Agendada', coloniaName: coloniaName || null, createdAt: Timestamp.now() };
+    const cleanApp = { 
+        appointmentNumber, 
+        patientId, 
+        clinicId: appointment.clinicId, 
+        date: Timestamp.fromDate(new Date(appointment.date)), 
+        time: String(appointment.time), 
+        duration: finalDuration, 
+        patientType: appointment.patientType, 
+        status: appointment.status || 'Agendada', 
+        coloniaName: coloniaName || null, 
+        createdAt: Timestamp.now() 
+    };
     batch.set(appRef, cleanApp);
     await batch.commit();
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: cleanPatient }, clinic: clinicData }) };
-  } catch (e: any) { return { success: false, error: e.message }; }
+  } catch (e: any) { 
+      console.error("Save appointment error:", e);
+      return { success: false, error: e.message }; 
+  }
 }
 
 export async function saveLabAppointment(appointment: any, patientInput: any) {
@@ -620,16 +646,18 @@ export async function getConsultationsByPatientId(patientId: string): Promise<Me
   if (!patientId) return [];
 
   const colRef = collection(db, 'medicalConsultations');
+  // Simple equality query on patientId is safe from composite index requirements
   const q = query(colRef, where('patientId', '==', String(patientId)));
   
   try {
     const snap = await getDocs(q);
     const results = snap.docs.map(d => serializeData({ id: d.id, ...d.data() }) as MedicalConsultation);
     
+    // Perform chronologic sorting in memory to avoid needing composite indexes in Firestore
     return results.sort((a, b) => {
       const dateA = a.date || '';
       const dateB = b.date || '';
-      return dateB.localeCompare(dateA);
+      return dateB.localeCompare(dateA); // Most recent first
     });
   } catch (e) {
     console.error("Error fetching patient consultations history:", e);
@@ -1247,7 +1275,7 @@ export async function getAvailableSlotsForDate(clinicId: string, dateIso: string
 export async function rescheduleAppointment(id: string, date: string, type: string) {
   try {
     const collMap: Record<string, string> = { 
-        'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' 
+        'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccineAppointments': 'vaccineAppointments' 
     };
     const collectionName = collMap[type] || 'appointments';
     
@@ -1256,6 +1284,7 @@ export async function rescheduleAppointment(id: string, date: string, type: stri
     if (!appSnap.exists()) return { success: false, message: 'Cita no encontrada.' };
     const appData = appSnap.data();
     
+    // Check for collisions using memory filter path
     const taken = await isTimeSlotTaken(collectionName as any, date, appData.time, appData.duration || 30, appData.clinicId, id);
     if (taken) return { success: false, message: 'No se puede reagendar: El horario de destino ya está ocupado.' };
 
@@ -1275,6 +1304,7 @@ export async function cloneAppointment(originalId: string, date: string, type: s
     
     const finalTime = time || data.time;
     
+    // Check for collisions using memory filter path
     const taken = await isTimeSlotTaken(collectionName as any, date, finalTime, data.duration || 30, data.clinicId);
     if (taken) return { success: false, message: 'No se puede asignar: El horario/ficha seleccionado ya está ocupado.' };
 
