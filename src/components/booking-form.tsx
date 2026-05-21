@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { saveNewAppointment, getPatientByCURP, getAnnouncements, getModuleSettings } from '@/lib/actions';
-import { Loader2, ChevronDown } from 'lucide-react';
+import { Loader2, ChevronDown, Baby } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { parseCURP, calculateAge } from '@/lib/curp';
 import estados from '@/lib/data/estados.json';
@@ -79,6 +79,7 @@ type BookingFormProps = {
   selectedColoniaName: string | undefined;
   selectedTime: string | undefined;
   patientType: PatientType;
+  isDoubleSlot: boolean;
   onBookingSuccess: (reset?: boolean) => void;
   announcements: string[];
   requireColonia: boolean;
@@ -92,6 +93,7 @@ export function BookingForm({
   selectedColoniaName,
   selectedTime,
   patientType,
+  isDoubleSlot,
   onBookingSuccess,
   announcements,
   requireColonia,
@@ -242,7 +244,7 @@ export function BookingForm({
         status: isDoctorBypass ? 'Atendido' : 'Agendada',
       };
 
-      const result = await saveNewAppointment(newAppointmentData, patientToSave, selectedColoniaName);
+      const result = await saveNewAppointment(newAppointmentData, patientToSave, isDoubleSlot, selectedColoniaName);
 
       if (result.success && result.data) {
         toast({
@@ -257,8 +259,9 @@ export function BookingForm({
             const cleanPhone = data.phoneNumber.replace(/\D/g, '');
             const formattedDateText = format(selectedDate, "eeee dd 'de' MMMM", { locale: es });
             const obs = announcements.length > 0 ? `\n\nAvisos: ${announcements.join(' - ')}` : '';
+            const durationTxt = isDoubleSlot ? ` (Cita Embarazada: 2 turnos)` : '';
             
-            const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime} en el consultorio ${selectedClinic.name} con el Dr(a). ${selectedClinic.doctorName}.${obs}`);
+            const wsMessage = encodeURIComponent(`Hola ${data.name}, le contactamos del Hospital General de Huimanguillo para confirmar su cita médica con folio ${result.data.appointment.appointmentNumber} para el día ${formattedDateText} a las ${selectedTime}${durationTxt} en el consultorio ${selectedClinic.name} con el Dr(a). ${selectedClinic.doctorName}.${obs}`);
             
             window.open(`https://wa.me/52${cleanPhone}?text=${wsMessage}`, '_blank');
         }
@@ -293,6 +296,12 @@ export function BookingForm({
   return (
     <Card className="bg-transparent border-none shadow-none">
       <CardContent className='p-0'>
+        {isDoubleSlot && (
+            <div className="mb-4 p-3 bg-pink-50 border border-pink-100 rounded-xl flex items-center gap-3 animate-in slide-in-from-top-2">
+                <Baby className="h-5 w-5 text-pink-600" />
+                <p className="text-xs font-black text-pink-700 uppercase">Cita Embarazada Activada: Se reservará un horario doble.</p>
+            </div>
+        )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
              {!isNewborn && (

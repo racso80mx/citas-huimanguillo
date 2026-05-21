@@ -143,29 +143,61 @@ export async function logActivity(action: string, details: string) {
   }
 }
 
+function getTimeToMinutesInternal(t: string): number {
+  if (!t || t.includes('Espera') || t.includes('Ficha')) return -1;
+  const parts = t.split(':').map(Number);
+  if (parts.length !== 2) return -1;
+  return parts[0] * 60 + parts[1];
+}
+
 async function isTimeSlotTaken(
     collectionName: 'appointments' | 'labAppointments' | 'xrayAppointments' | 'ultrasoundAppointments' | 'vaccineAppointments',
     dateIso: string,
     time: string,
+    candidateDuration: number = 30,
     clinicId?: string,
     excludeId?: string
 ): Promise<boolean> {
     const db = getDb();
-    const dateOnly = dateIso.split('T')[0];
     
-    let q = query(collection(db, collectionName), where('time', '==', String(time)));
+    // Create day range
+    const dateObj = new Date(dateIso);
+    const start = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 0, 0, 0);
+    const end = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate(), 23, 59, 59);
+
+    let q = query(
+        collection(db, collectionName), 
+        where('date', '>=', Timestamp.fromDate(start)), 
+        where('date', '<=', Timestamp.fromDate(end))
+    );
     
-    if (clinicId && (collectionName === 'appointments' || collectionName === 'vaccineAppointments')) {
+    if (clinicId) {
         q = query(q, where('clinicId', '==', clinicId));
     }
 
     const snap = await getDocs(q);
+    const candStart = getTimeToMinutesInternal(time);
     
+    if (candStart === -1) {
+        // Handle waitlist or tokens by exact match
+        return snap.docs.some(docSnap => {
+            if (excludeId && docSnap.id === excludeId) return false;
+            return docSnap.data().time === time;
+        });
+    }
+    
+    const candEnd = candStart + candidateDuration;
+
     return snap.docs.some(docSnap => {
         if (excludeId && docSnap.id === excludeId) return false;
         const d = docSnap.data();
-        const storedDate = (d.date instanceof Timestamp) ? d.date.toDate().toISOString().split('T')[0] : String(d.date).split('T')[0];
-        return storedDate === dateOnly;
+        const storedStart = getTimeToMinutesInternal(d.time);
+        if (storedStart === -1) return false; 
+        
+        const storedEnd = storedStart + (d.duration || 30);
+        
+        // Overlap detection: max(start1, start2) < min(end1, end2)
+        return Math.max(candStart, storedStart) < Math.min(candEnd, storedEnd);
     });
 }
 
@@ -412,17 +444,20 @@ export async function getVaccineAppointments(): Promise<VaccineAppointment[]> {
   return await enrichWithPatientData(data) as VaccineAppointment[];
 }
 
-export async function saveAppointment(appointment: any, patientInput: any, coloniaName?: string) {
+export async function saveAppointment(appointment: any, patientInput: any, isDoubleSlot: boolean = false, coloniaName?: string) {
   const db = getDb();
   try {
-    const taken = await isTimeSlotTaken('appointments', appointment.date, appointment.time, appointment.clinicId);
+    const clinicData = await getClinicById(appointment.clinicId);
+    if (!clinicData) return { success: false, error: "La clínica no existe." };
+    
+    const baseDuration = clinicData.consultationDuration || 30;
+    const finalDuration = isDoubleSlot ? baseDuration * 2 : baseDuration;
+
+    const taken = await isTimeSlotTaken('appointments', appointment.date, appointment.time, finalDuration, appointment.clinicId);
     if (taken) return { success: false, error: "Horario/Ficha ya ocupado para este núcleo básico." };
 
     const curp = String(patientInput.curp).toUpperCase().trim();
     const existingPatient = await getPatientByCURP(curp);
-    
-    const clinicData = await getClinicById(appointment.clinicId);
-    if (!clinicData) return { success: false, error: "La clínica no existe." };
     
     const batch = writeBatch(db);
     let patientId = existingPatient ? existingPatient.id : uuidv4();
@@ -430,7 +465,7 @@ export async function saveAppointment(appointment: any, patientInput: any, colon
     batch.set(doc(db, 'patients', patientId), cleanPatient, { merge: true });
     const appRef = doc(collection(db, 'appointments'));
     const appointmentNumber = `FOLIO-${uuidv4().split('-')[0].toUpperCase()}`;
-    const cleanApp = { appointmentNumber, patientId, clinicId: appointment.clinicId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), duration: clinicData.consultationDuration || 30, patientType: appointment.patientType, status: appointment.status || 'Agendada', coloniaName: coloniaName || null, createdAt: Timestamp.now() };
+    const cleanApp = { appointmentNumber, patientId, clinicId: appointment.clinicId, date: Timestamp.fromDate(new Date(appointment.date)), time: String(appointment.time), duration: finalDuration, patientType: appointment.patientType, status: appointment.status || 'Agendada', coloniaName: coloniaName || null, createdAt: Timestamp.now() };
     batch.set(appRef, cleanApp);
     await batch.commit();
     return { success: true, data: serializeData({ appointment: { ...cleanApp, id: appRef.id, patient: cleanPatient }, clinic: clinicData }) };
@@ -508,7 +543,7 @@ export async function saveNewUltrasoundAppointment(appointment: any, patientInpu
 
 export async function saveNewVaccineAppointment(appointment: any, patientInput: any) {
   try {
-    const taken = await isTimeSlotTaken('vaccineAppointments', appointment.date, appointment.time, appointment.clinicId);
+    const taken = await isTimeSlotTaken('vaccineAppointments', appointment.date, appointment.time, 30, appointment.clinicId);
     if (taken) return { success: false, error: "Horario ocupado." };
 
     const db = getDb();
@@ -998,11 +1033,6 @@ export async function bulkInsertCie10Catalog(chunk: any[]) {
                 diaFetal: String(raw['DIA_FETAL'] || ''),
                 defFetalCm: String(raw['DEF_FETAL_CM'] || ''),
                 defFetalCbd: String(raw['DEF_FETAL_CBD'] || ''),
-                claveProgramaSis: String(raw['CLAVE_PROGRAMA_SIS'] || ''),
-                codComplemenMorbi: String(raw['COD_COMPLEMEN_MORBI'] || ''),
-                diaFetal: String(raw['DIA_FETAL'] || ''),
-                defFetalCm: String(raw['DEF_FETAL_CM'] || ''),
-                defFetalCbd: String(raw['DEF_FETAL_CBD'] || ''),
                 claveCapitulo: String(raw['CLAVE_CAPITULO'] || ''),
                 capitulo: String(raw['CAPITULO'] || ''),
                 lista1: String(raw['LISTA1'] || ''),
@@ -1226,7 +1256,7 @@ export async function rescheduleAppointment(id: string, date: string, type: stri
     if (!appSnap.exists()) return { success: false, message: 'Cita no encontrada.' };
     const appData = appSnap.data();
     
-    const taken = await isTimeSlotTaken(collectionName as any, date, appData.time, appData.clinicId, id);
+    const taken = await isTimeSlotTaken(collectionName as any, date, appData.time, appData.duration || 30, appData.clinicId, id);
     if (taken) return { success: false, message: 'No se puede reagendar: El horario de destino ya está ocupado.' };
 
     await updateDoc(doc(db, collectionName, id), { date: Timestamp.fromDate(new Date(date)) });
@@ -1245,7 +1275,7 @@ export async function cloneAppointment(originalId: string, date: string, type: s
     
     const finalTime = time || data.time;
     
-    const taken = await isTimeSlotTaken(collectionName as any, date, finalTime, data.clinicId);
+    const taken = await isTimeSlotTaken(collectionName as any, date, finalTime, data.duration || 30, data.clinicId);
     if (taken) return { success: false, message: 'No se puede asignar: El horario/ficha seleccionado ya está ocupado.' };
 
     const newRef = doc(collection(db, collectionName));

@@ -92,8 +92,8 @@ export async function getXRayAppointments() { return data.getXRayAppointments();
 export async function getUltrasoundAppointments() { return data.getUltrasoundAppointments(); }
 export async function getVaccineAppointments() { return data.getVaccineAppointments(); }
 
-export async function saveNewAppointment(appointment: any, patient: any, colonia: any) {
-  const res = await data.saveAppointment(appointment, patient, colonia);
+export async function saveNewAppointment(appointment: any, patient: any, isDoubleSlot: boolean = false, colonia: any) {
+  const res = await data.saveAppointment(appointment, patient, isDoubleSlot, colonia);
   if (res.success) { revalidatePath('/citas-medicas'); revalidatePath('/admin'); revalidatePath('/reports'); }
   return res;
 }
@@ -125,9 +125,10 @@ export async function deleteUltrasoundAppointment(id: string) { const folio = aw
 export async function deleteVaccineAppointment(id: string) { const folio = await data.deleteVaccineAppointment(id); revalidatePath('/admin'); revalidatePath('/reports'); return { success: true, folio }; }
 
 export async function updateAppointmentStatus(id: string, status: AppointmentStatus, type: string) {
-  const res = await data.updateAppointmentStatus(id, status, type);
-  revalidatePath('/admin'); revalidatePath('/reports');
-  return res;
+  const db = getDb();
+  const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
+  await updateDoc(doc(db, collMap[type] || 'appointments', id), { status });
+  return { success: true };
 }
 export async function rescheduleAppointment(id: string, date: string, type: string) {
   const res = await data.rescheduleAppointment(id, date, type);
@@ -307,8 +308,8 @@ export async function bulkInsertPatients(chunk: any[]) {
   return res;
 }
 
-export async function getAppointmentCountOnDate(clinicId: string, date: string) {
-    return data.getAppointmentCountOnDate(clinicId, date);
+export async function getAppointmentCountOnDate(clinicId: string, dateStr: string) {
+    return data.getAppointmentCountOnDate(clinicId, dateStr);
 }
 
 export async function saveMedicalConsultation(consultation: Omit<MedicalConsultation, 'id'>) {

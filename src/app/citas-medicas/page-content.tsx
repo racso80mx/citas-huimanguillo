@@ -17,7 +17,7 @@ import { PatientType, BookingMode, ClinicType } from '@/lib/definitions';
 import { getAppointments, getClinics, getHolidays, getSpecialActionDays, verifyCitasMedicasPassword } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital } from 'lucide-react';
+import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital, Baby } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -30,6 +30,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { Combobox } from '@/components/ui/combobox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -45,6 +47,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
+  const [isDoubleSlot, setIsDoubleSlot] = React.useState(false);
   const [selectedClinicId, setSelectedClinicId] = React.useState<string | undefined>();
   const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
@@ -224,6 +227,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             setSelectedColoniaId(undefined);
             setSelectedTime(undefined);
             setPatientType(PatientType.General);
+            setIsDoubleSlot(false);
         } else {
             setSelectedTime(undefined);
         }
@@ -359,7 +363,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     const isToday = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    return allTimeSlots.filter(candidate => {
+    return allTimeSlots.filter((candidate, index) => {
         if (candidate === selectedClinic.breakTime) return false;
         
         if (candidate.includes('Espera')) {
@@ -371,6 +375,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
         if (isToday && candStart < currentMinutes) return false;
 
+        // Check first slot overlap
         const hasCollision = takenInfo.some(ti => {
             if (ti.time.includes('Espera')) return false;
             const appStart = timeToMinutes(ti.time);
@@ -378,9 +383,29 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
             return Math.max(candStart, appStart) < Math.min(candEnd, appEnd);
         });
 
-        return !hasCollision;
+        if (hasCollision) return false;
+
+        // If double slot requested, ensure next slot is also free and available
+        if (isDoubleSlot) {
+            const nextCandidate = allTimeSlots[index + 1];
+            if (!nextCandidate || nextCandidate.includes('Espera') || nextCandidate === selectedClinic.breakTime) return false;
+            
+            const nextStart = timeToMinutes(nextCandidate);
+            const nextEnd = nextStart + duration;
+            
+            const hasNextCollision = takenInfo.some(ti => {
+                if (ti.time.includes('Espera')) return false;
+                const appStart = timeToMinutes(ti.time);
+                const appEnd = appStart + (appStart === -1 ? 0 : (ti.duration || 30));
+                return Math.max(nextStart, appStart) < Math.min(nextEnd, appEnd);
+            });
+            
+            if (hasNextCollision) return false;
+        }
+
+        return true;
     });
-  }, [selectedDayAvailability, selectedClinic, allTimeSlots, selectedDate]);
+  }, [selectedDayAvailability, selectedClinic, allTimeSlots, selectedDate, isDoubleSlot]);
 
   const availableTokens = React.useMemo(() => {
     if (!selectedDayAvailability || !selectedClinic || selectedClinic.bookingMode !== BookingMode.Token) return [];
@@ -393,8 +418,16 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
     const takenTimes = (selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || []).map(ti => ti.time);
     
-    return allOptions.filter(token => !takenTimes.includes(token));
-  }, [selectedDayAvailability, selectedClinic]);
+    // For tokens, "double slot" just blocks 2 sequential tokens
+    return allOptions.filter((token, index) => {
+        if (takenTimes.includes(token)) return false;
+        if (isDoubleSlot && !token.includes('Espera')) {
+            const nextToken = allOptions[index + 1];
+            if (!nextToken || nextToken.includes('Espera') || takenTimes.includes(nextToken)) return false;
+        }
+        return true;
+    });
+  }, [selectedDayAvailability, selectedClinic, isDoubleSlot]);
 
   if (!isAuthenticated) {
     return (
@@ -482,7 +515,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
               )}
 
               {selectedDate && (
-                  <div>
+                  <div className="space-y-4">
                       <h3 className="text-2xl font-semibold font-headline text-foreground mb-4">
                           Indica tu tipo de paciente
                       </h3>
@@ -494,8 +527,14 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                               </CardTitle>
                               <CardDescription>Esto nos ayuda a dirigir tu cita correctamente.</CardDescription>
                           </CardHeader>
-                          <CardContent>
-                              <Select onValueChange={(value: PatientType) => setPatientType(value)} value={patientType}>
+                          <CardContent className="space-y-4">
+                              <Select 
+                                onValueChange={(value: PatientType) => {
+                                    setPatientType(value);
+                                    if (value !== PatientType.Embarazada) setIsDoubleSlot(false);
+                                }} 
+                                value={patientType}
+                              >
                                   <SelectTrigger>
                                       <SelectValue placeholder="Selecciona un tipo" />
                                   </SelectTrigger>
@@ -507,6 +546,25 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                   <SelectItem value={PatientType.RecienNacido}>Recién Nacido (sin CURP)</SelectItem>
                                   </SelectContent>
                               </Select>
+
+                              {patientType === PatientType.Embarazada && (
+                                <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-lg animate-in fade-in zoom-in duration-200">
+                                    <Checkbox 
+                                        id="embarazada-check" 
+                                        checked={isDoubleSlot} 
+                                        onCheckedChange={(checked) => {
+                                            setIsDoubleSlot(!!checked);
+                                            setSelectedTime(undefined); // Reset time when changing duration requirement
+                                        }} 
+                                    />
+                                    <div className="grid gap-1.5 leading-none">
+                                        <Label htmlFor="embarazada-check" className="text-sm font-black text-pink-700 flex items-center gap-2 cursor-pointer">
+                                            <Baby className="h-4 w-4" /> Cita Embarazada (2 horarios)
+                                        </Label>
+                                        <p className="text-[10px] text-pink-600 font-medium">Asigna dos espacios consecutivos para una atención completa.</p>
+                                    </div>
+                                </div>
+                              )}
                           </CardContent>
                       </Card>
                   </div>
@@ -592,7 +650,9 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                               <Clock className="h-5 w-5 text-primary" />
                               Horarios para {selectedClinic?.name}
                               </CardTitle>
-                              <CardDescription>Selecciona un horario disponible o un turno en espera.</CardDescription>
+                              <CardDescription>
+                                  {isDoubleSlot ? "Se mostrarán solo los espacios con 2 horarios seguidos disponibles." : "Selecciona un horario disponible o un turno en espera."}
+                              </CardDescription>
                           </CardHeader>
                           <CardContent className="grid grid-cols-3 gap-2">
                           {availableTimeSlots.length > 0 ? availableTimeSlots.map(time => (
@@ -602,7 +662,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                               >
                                   {time}
                               </button>
-                          )) : <p className="col-span-3 text-center text-muted-foreground">No hay horarios disponibles.</p>}
+                          )) : <p className="col-span-3 text-center text-muted-foreground italic py-4">No hay horarios disponibles {isDoubleSlot ? 'con espacios consecutivos' : ''}.</p>}
                           </CardContent>
                       </Card>
                   </div>
@@ -656,6 +716,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                   selectedColoniaName={selectedColonia?.name}
                   selectedTime={selectedTime}
                   patientType={patientType}
+                  isDoubleSlot={isDoubleSlot}
                   onBookingSuccess={refreshData}
                   announcements={announcements}
                   requireColonia={clinicHasColonias}
