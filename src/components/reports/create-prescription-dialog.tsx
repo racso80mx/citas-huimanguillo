@@ -69,7 +69,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   // Medical Directory selection
   const [allDoctors, setAllDoctors] = useState<Clinic[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(clinic.id);
-  const [manualDoctor, setManualDoctor] = setManualDoctor({ name: '', license: '', unit: '' });
+  const [manualDoctor, setManualDoctor] = useState({ name: '', license: '', unit: '' });
   const [isManualDoctor, setIsManualDoctor] = useState(false);
   
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);

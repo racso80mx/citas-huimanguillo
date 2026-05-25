@@ -132,7 +132,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   
   // History states
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [patientHistory, setPatientHistory] = setPatientHistory<MedicalConsultation[]>([]);
+  const [patientHistory, setPatientHistory] = useState<MedicalConsultation[]>([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historySearchTerm, setHistorySearchTerm] = useState('');
