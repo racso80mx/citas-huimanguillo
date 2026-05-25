@@ -17,7 +17,8 @@ import {
   getAttendedPatientsForClinic,
   getConsultationsByPatientId,
   getPrescriptionsByPatientId,
-  getPatients
+  getPatients,
+  deletePrescription
 } from '@/lib/actions';
 import {
   Card,
@@ -50,7 +51,9 @@ import {
   ArrowRight,
   UserRound,
   Stethoscope,
-  X
+  X,
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import {
   startOfDay,
@@ -72,6 +75,17 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -129,6 +143,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [selectedPatientForPrescription, setSelectedPatientForPrescription] = useState<Patient | null>(null);
+  const [editingPrescription, setEditingPrescription] = useState<Prescription | null>(null);
   
   const [manualDayMonth, setManualDayMonth] = useState('');
   const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
@@ -225,6 +240,18 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   };
 
+  const handleDeletePrescription = async (id: string) => {
+    try {
+        const res = await deletePrescription(id);
+        if (res.success) {
+            toast({ title: "Receta Eliminada" });
+            if (selectedPatientId) loadPatientDetail(selectedPatientId);
+        }
+    } catch (e) {
+        toast({ title: "Error al eliminar", variant: "destructive" });
+    }
+  };
+
   const loadPatientDetail = async (patientId: string) => {
       setSelectedPatientId(patientId);
       setIsLoadingHistory(true);
@@ -289,7 +316,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return isWithinInterval(appDate, { start: weekStart, end: weekEnd });
+          return appDate >= weekStart && appDate <= weekEnd;
         };
         break;
       case 'month':
@@ -297,7 +324,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const monthEnd = endOfMonth(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return isWithinInterval(appDate, { start: monthStart, end: monthEnd });
+          return appDate >= monthStart && appDate <= monthEnd;
         };
         break;
       case 'range':
@@ -318,7 +345,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const todayEnd = endOfDay(now);
         filterFn = (app) => {
           const appDate = parseISO(app.date);
-          return isWithinInterval(appDate, { start: todayStart, end: todayEnd });
+          return appDate >= todayStart && appDate <= todayEnd;
         };
         break;
     }
@@ -359,6 +386,13 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
   const handleOpenPrescription = (patient: Patient) => {
     setSelectedPatientForPrescription(patient);
+    setEditingPrescription(null);
+    setIsPrescriptionOpen(true);
+  }
+
+  const handleEditPrescription = (presc: Prescription) => {
+    setEditingPrescription(presc);
+    setSelectedPatientForPrescription(null);
     setIsPrescriptionOpen(true);
   }
 
@@ -804,7 +838,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                                                       {patientPrescriptions.map(presc => (
                                                           <Card key={presc.id} className="hover:border-primary/30 transition-all shadow-sm">
                                                               <CardContent className="p-4">
-                                                                  <div className="flex items-center justify-between">
+                                                                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                                                       <div className="flex items-center gap-4">
                                                                           <div className="bg-blue-50 p-2.5 rounded-lg"><FileText className="h-5 w-5 text-blue-600" /></div>
                                                                           <div>
@@ -832,6 +866,41 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                                                                           >
                                                                               <Download className="h-3 w-3 mr-2" /> PDF
                                                                           </Button>
+                                                                          
+                                                                          {presc.status === 'pendiente' && (
+                                                                              <div className="flex gap-1">
+                                                                                  <Button 
+                                                                                      variant="ghost" 
+                                                                                      size="icon" 
+                                                                                      className="h-9 w-9 text-blue-600 hover:bg-blue-50"
+                                                                                      onClick={() => handleEditPrescription(presc)}
+                                                                                  >
+                                                                                      <Pencil className="h-4 w-4" />
+                                                                                  </Button>
+                                                                                  
+                                                                                  <AlertDialog>
+                                                                                      <AlertDialogTrigger asChild>
+                                                                                        <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-red-50">
+                                                                                            <Trash2 className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                      </AlertDialogTrigger>
+                                                                                      <AlertDialogContent>
+                                                                                        <AlertDialogHeader>
+                                                                                            <AlertDialogTitle>¿Eliminar Receta?</AlertDialogTitle>
+                                                                                            <AlertDialogDescription>
+                                                                                                Esta acción eliminará la receta <span className="font-bold">{presc.folio}</span> permanentemente. Solo puedes eliminar recetas que no han sido surtidas.
+                                                                                            </AlertDialogDescription>
+                                                                                        </AlertDialogHeader>
+                                                                                        <AlertDialogFooter>
+                                                                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                            <AlertDialogAction onClick={() => handleDeletePrescription(presc.id)} className="bg-destructive hover:bg-destructive/90">
+                                                                                                Sí, Eliminar
+                                                                                            </AlertDialogAction>
+                                                                                        </AlertDialogFooter>
+                                                                                      </AlertDialogContent>
+                                                                                  </AlertDialog>
+                                                                              </div>
+                                                                          )}
                                                                       </div>
                                                                   </div>
                                                               </CardContent>
@@ -899,9 +968,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             onClose={() => {
               setIsPrescriptionOpen(false);
               setSelectedPatientForPrescription(null);
+              setEditingPrescription(null);
+              if (selectedPatientId) loadPatientDetail(selectedPatientId);
             }} 
             clinic={entity}
             initialPatient={selectedPatientForPrescription}
+            initialPrescription={editingPrescription}
           />
       )}
     </div>

@@ -964,6 +964,25 @@ export async function createPrescription(data: Omit<Prescription, 'id' | 'folio'
     } catch (e: any) { return { success: false, message: e.message }; }
 }
 
+export async function updatePrescription(id: string, data: Partial<Prescription>) {
+    const db = getDb();
+    try {
+        await updateDoc(doc(db, 'prescriptions', id), {
+            ...data,
+            updatedAt: new Date().toISOString()
+        });
+        return { success: true };
+    } catch (e: any) { return { success: false, message: e.message }; }
+}
+
+export async function deletePrescription(id: string) {
+    const db = getDb();
+    try {
+        await deleteDoc(doc(db, 'prescriptions', id));
+        return { success: true };
+    } catch (e: any) { return { success: false, message: e.message }; }
+}
+
 export async function getPendingPrescriptions(filter?: { folio?: string, clinicId?: string }) {
     const db = getDb();
     let q = query(collection(db, 'prescriptions'), where('status', '==', 'pendiente'));

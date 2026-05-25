@@ -145,6 +145,17 @@ export async function createPrescription(prescription: Omit<Prescription, 'id' |
     if (res.success) { revalidatePath('/reports'); revalidatePath('/farmacia'); }
     return res;
 }
+export async function updatePrescription(id: string, prescription: Partial<Prescription>) {
+    const res = await data.updatePrescription(id, prescription);
+    if (res.success) { revalidatePath('/reports'); revalidatePath('/farmacia'); }
+    return res;
+}
+export async function deletePrescription(id: string) {
+    const res = await data.deletePrescription(id);
+    if (res.success) { revalidatePath('/reports'); revalidatePath('/farmacia'); }
+    return res;
+}
+
 export async function getPendingPrescriptions(filter?: any) { return data.getPendingPrescriptions(filter); }
 export async function getPrescriptionHistory(filter: any) { return data.getPrescriptionHistory(filter); }
 export async function dispensePrescription(prescriptionId: string, itemsToDispense?: any) {
