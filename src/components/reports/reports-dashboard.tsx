@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia, Patient, MedicalConsultation, Prescription } from '@/lib/definitions';
@@ -16,7 +17,8 @@ import {
   getColonias,
   getAttendedPatientsForClinic,
   getConsultationsByPatientId,
-  getPrescriptionsByPatientId
+  getPrescriptionsByPatientId,
+  getPatients
 } from '@/lib/actions';
 import {
   Card,
@@ -48,7 +50,8 @@ import {
   Activity,
   ArrowRight,
   UserRound,
-  Stethoscope
+  Stethoscope,
+  X
 } from 'lucide-react';
 import {
   startOfDay,
@@ -119,7 +122,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   const [patientHistory, setPatientHistory] = useState<MedicalConsultation[]>([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [historySearchTerm, setHistoryHistorySearchTerm] = useState('');
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
+  const [isSearchingArchive, setIsSearchingArchive] = useState(false);
 
   const [isMedicationDialogOpen, setIsMedicationDialogOpen] = useState(false);
   const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
@@ -152,7 +156,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         if (reportType === 'clinic') {
             appointmentsData = await getAppointmentsForClinic(entity.id);
         } else if (reportType === 'x-ray') {
-            appointmentsData = await getXRayAppointments();
+            appointmentsData = await getLabAppointments();
         } else if (reportType === 'ultrasound') {
             appointmentsData = await getUltrasoundAppointments();
         } else if (reportType === 'laboratorio') {
@@ -191,6 +195,39 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       } finally {
           setIsLoadingHistory(false);
       }
+  };
+
+  const handleGlobalSearch = async () => {
+    if (!historySearchTerm.trim()) {
+        fetchData(); // Reload clinic patients
+        return;
+    }
+    
+    setIsSearchingArchive(true);
+    try {
+        const searchOptions: any = {};
+        const term = historySearchTerm.toUpperCase().trim();
+        
+        // Detect if it's a CURP (18 chars)
+        if (term.length === 18) {
+            searchOptions.searchCurp = term;
+        } else if (/^\d+$/.test(term)) {
+            searchOptions.searchExpediente = term;
+        } else {
+            searchOptions.searchName = term;
+        }
+        
+        const results = await getPatients(searchOptions);
+        setAttendedPatients(results);
+        
+        if (results.length === 0) {
+            toast({ title: "Sin coincidencias", description: "No se encontró ningún paciente en el padrón con ese criterio.", variant: "destructive" });
+        }
+    } catch (e) {
+        console.error("Search error", e);
+    } finally {
+        setIsSearchingArchive(false);
+    }
   };
 
   const appointmentsToDisplay = useMemo(() => {
@@ -249,147 +286,13 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             const patientName = `${app.patient?.name || ''} ${app.patient?.paternalLastName || ''} ${app.patient?.maternalLastName || ''}`.toUpperCase();
             const curp = (app.patient?.curp || '').toUpperCase();
             const folio = (app.appointmentNumber || '').toUpperCase();
-            return patientName.includes(term) || curp.includes(term) || folio.includes(term);
+            return patientName.includes(term) || curp.includes(term) || folio.items?.some((i: any) => i.name.toUpperCase().includes(term));
         });
     }
 
     return filtered.sort((a, b) => a.time.localeCompare(b.time));
   }, [isClient, appointments, activeFilter, dateRange, searchTerm]);
 
-  const filteredAttendedPatients = useMemo(() => {
-      if (!historySearchTerm) return attendedPatients;
-      const term = historySearchTerm.toUpperCase();
-      return attendedPatients.filter(p => 
-          p.name.includes(term) || 
-          p.paternalLastName.includes(term) || 
-          p.maternalLastName.includes(term) || 
-          p.curp.includes(term) ||
-          (p.expediente && p.expediente.includes(term))
-      );
-  }, [attendedPatients, historySearchTerm]);
-
-  const handleDelete = async (id: string) => {
-    try {
-      if (reportType === 'clinic') await deleteAppointment(id);
-      if (reportType === 'laboratorio') await deleteLabAppointment(id);
-      if (reportType === 'x-ray') await deleteXRayAppointment(id);
-      if (reportType === 'ultrasound') await deleteUltrasoundAppointment(id);
-      if (reportType === 'vacunas') await deleteVaccineAppointment(id);
-
-      toast({
-        title: 'Cita Eliminada',
-        description: 'La cita ha sido eliminada correctamente.',
-      });
-      fetchData(); 
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la cita.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-
-  const handleSetDateRange = (range: DateRange | undefined) => {
-    setDateRange(range);
-    setActiveFilter('range');
-  };
-
-  const handleManualDateChange = (dm: string, y: string) => {
-    setManualDayMonth(dm);
-    setManualYear(y);
-
-    if (dm.length === 5 && y.length === 4) {
-      const dateStr = `${dm}/${y}`;
-      const parsedDate = parse(dateStr, 'dd/MM/yyyy', new Date());
-      
-      if (isValid(parsedDate)) {
-        setActiveFilter('range');
-        setDateRange({ from: parsedDate, to: parsedDate });
-      }
-    }
-  };
-
-  const handleDownload = async () => {
-    if (appointmentsToDisplay.length === 0) {
-      toast({
-        title: 'No hay datos',
-        description: 'No hay citas para descargar en el filtro actual.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    let filename = '';
-    if (reportType === 'clinic') filename = `reporte_${entity.name}_${activeFilter}`;
-    if (reportType === 'x-ray') filename = `reporte_rayos_x_${activeFilter}`;
-    if (reportType === 'ultrasound') filename = `reporte_ultrasonidos_${activeFilter}`;
-    if (reportType === 'laboratorio') filename = `reporte_laboratorio_${activeFilter}`;
-    if (reportType === 'vacunas') filename = `reporte_vacunas_${activeFilter}`;
-
-    const enrichedData = appointmentsToDisplay.map(app => {
-      const clinic = clinics.find(c => c.id === app.clinicId);
-      return {
-        ...app,
-        clinicName: clinic?.name || 'N/A'
-      };
-    });
-
-    const xlsx = await import('xlsx');
-    
-    const worksheetData = enrichedData.map(
-        (item: any) => {
-            const baseData: any = {
-                'Folio': item.appointmentNumber,
-                'Fecha': format(parseISO(item.date), 'dd/MM/yyyy'),
-                'Hora': item.time,
-                'Estado': item.status,
-                'Paciente': item.patient ? `${item.patient.name} ${item.patient.paternalLastName} ${item.patient.maternalLastName}`: 'N/A',
-                'CURP': item.patient?.curp || 'N/A',
-                'Teléfono': item.patient?.phoneNumber || 'N/A',
-            };
-
-            if (reportType === 'laboratorio') {
-                const labItem = item as LabAppointment;
-                baseData['Estudios'] = labItem.studies.map(s => `${s.code ? `${s.code} - ` : ''}${s.name}`).join(', ');
-            } else if (reportType === 'x-ray') {
-                 const xrayItem = item as XRayAppointment;
-                 baseData['Estudio'] = xrayItem.studyName;
-            } else if (reportType === 'ultrasound') {
-                 const ultrasoundItem = item as UltrasoundAppointment;
-                 baseData['Estudio'] = ultrasoundItem.studyName;
-            } else if (reportType === 'vacunas') {
-                const vaccineItem = item as VaccineAppointment;
-                baseData['Municipio'] = vaccineItem.coloniaName || 'N/A';
-                baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
-                baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
-            } else { // clinic
-                const regularItem = item as Appointment;
-                if (regularItem.time.includes('Ficha')) {
-                    baseData['Ficha'] = regularItem.time.split(' ')[1];
-                }
-                baseData['Núcleo'] = (item as any).clinicName;
-                baseData['Municipio'] = regularItem.coloniaName || 'N/A';
-                baseData['Tipo Paciente'] = regularItem.patientType;
-            }
-            return baseData;
-        }
-    );
-
-  const worksheet = xlsx.utils.json_to_sheet(worksheetData);
-  const workbook = xlsx.utils.book_new();
-  xlsx.utils.book_append_sheet(workbook, worksheet, 'Citas');
-
-  if (worksheetData.length > 0) {
-    const cols = Object.keys(worksheetData[0]);
-    const colWidths = cols.map(col => ({
-        wch: Math.max(...worksheetData.map(row => (row[col as keyof typeof row] ?? '').toString().length), col.length) + 1
-    }));
-    worksheet['!cols'] = colWidths;
-  }
-
-  xlsx.writeFile(workbook, `${filename}.xlsx`);
-  };
 
   const summaryCounts = useMemo(() => {
     if (!isClient) {
@@ -451,7 +354,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             return null;
     }
   }
-
 
   return (
     <div className="space-y-8 px-4 sm:px-6 lg:px-8 py-8 md:py-12">
@@ -653,7 +555,19 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                             <RefreshCw className={cn("h-4 w-4", isDataLoading && "animate-spin")} />
                         </Button>
                         <Button
-                            onClick={handleDownload}
+                            onClick={async () => {
+                                if (appointmentsToDisplay.length === 0) {
+                                    toast({ title: 'No hay datos para exportar', variant: 'destructive' });
+                                    return;
+                                }
+                                const filename = `reporte_${entity.name}_${activeFilter}`;
+                                const { downloadExcel } = await import('@/lib/report-helpers');
+                                const enrichedData = appointmentsToDisplay.map(app => ({
+                                    ...app,
+                                    clinicName: clinics.find(c => c.id === app.clinicId)?.name || 'N/A'
+                                }));
+                                downloadExcel(enrichedData, filename);
+                            }}
                             variant="secondary"
                             className="h-11"
                             >
@@ -695,26 +609,40 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                       <Card className="shadow-lg h-[calc(100vh-350px)] flex flex-col">
                           <CardHeader className="bg-muted/10 pb-4">
                               <CardTitle className="text-lg flex items-center gap-2">
-                                  <Users className="h-5 w-5 text-primary" /> Pacientes Registrados
+                                  <Users className="h-5 w-5 text-primary" /> Buscador de Expedientes
                               </CardTitle>
-                              <CardDescription>Selecciona un paciente para ver su historial.</CardDescription>
-                              <div className="relative mt-2">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                  <Input 
-                                      placeholder="Buscar por nombre o CURP..." 
-                                      className="pl-9 h-10"
-                                      value={historySearchTerm}
-                                      onChange={e => setHistoryHistorySearchTerm(e.target.value)}
-                                  />
+                              <CardDescription>Busca cualquier paciente en el padrón del hospital.</CardDescription>
+                              <div className="flex gap-2 mt-2">
+                                  <div className="relative flex-1">
+                                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                      <Input 
+                                          placeholder="CURP, Nombre o Expediente..." 
+                                          className="pl-9 h-11 uppercase"
+                                          value={historySearchTerm}
+                                          onChange={e => setHistorySearchTerm(e.target.value)}
+                                          onKeyDown={e => e.key === 'Enter' && handleGlobalSearch()}
+                                      />
+                                  </div>
+                                  <Button size="icon" className="h-11 w-11" onClick={handleGlobalSearch} disabled={isSearchingArchive}>
+                                      {isSearchingArchive ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
+                                  </Button>
+                                  {historySearchTerm && (
+                                      <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => { setHistorySearchTerm(''); fetchData(); }}>
+                                          <X className="h-4 w-4" />
+                                      </Button>
+                                  )}
                               </div>
                           </CardHeader>
                           <CardContent className="p-0 flex-1 overflow-hidden">
                               <ScrollArea className="h-full">
-                                  {isDataLoading ? (
-                                      <div className="p-10 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
-                                  ) : filteredAttendedPatients.length > 0 ? (
+                                  {isSearchingArchive ? (
+                                      <div className="p-10 flex flex-col items-center gap-2">
+                                          <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Consultando Padrón...</p>
+                                      </div>
+                                  ) : attendedPatients.length > 0 ? (
                                       <div className="divide-y">
-                                          {filteredAttendedPatients.map(p => (
+                                          {attendedPatients.map(p => (
                                               <button 
                                                   key={p.id}
                                                   onClick={() => loadPatientDetail(p.id)}
@@ -725,8 +653,11 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                                               >
                                                   <div className="flex justify-between items-start">
                                                       <div>
-                                                          <p className="font-bold text-sm uppercase leading-tight group-hover:text-primary">{p.name} {p.paternalLastName}</p>
-                                                          <p className="text-[10px] font-mono text-muted-foreground mt-1">{p.curp}</p>
+                                                          <p className="font-bold text-sm uppercase leading-tight group-hover:text-primary">{p.name} {p.paternalLastName} {p.maternalLastName}</p>
+                                                          <div className="flex items-center gap-2 mt-1">
+                                                              <code className="text-[9px] font-mono bg-muted px-1 rounded">{p.curp}</code>
+                                                              {p.expediente && <Badge variant="outline" className="text-[8px] h-3.5 px-1 font-bold">EXP: {p.expediente}</Badge>}
+                                                          </div>
                                                       </div>
                                                       <ArrowRight className={cn("h-4 w-4 text-muted-foreground transition-transform", selectedPatientId === p.id && "translate-x-1 text-primary")} />
                                                   </div>
@@ -734,7 +665,9 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                                           ))}
                                       </div>
                                   ) : (
-                                      <div className="p-10 text-center text-muted-foreground italic text-xs">No hay pacientes que coincidan con la búsqueda.</div>
+                                      <div className="p-10 text-center text-muted-foreground italic text-xs">
+                                          {historySearchTerm ? "No se encontraron coincidencias." : "Usa el buscador para localizar un expediente."}
+                                      </div>
                                   )}
                               </ScrollArea>
                           </CardContent>
@@ -814,8 +747,8 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                                               )) : (
                                                   <div className="text-center py-20 bg-muted/20 rounded-2xl border-2 border-dashed opacity-50">
                                                       <History className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                                                      <p className="font-bold">Sin consultas previas en este núcleo</p>
-                                                      <p className="text-xs">Este paciente no tiene notas médicas registradas todavía.</p>
+                                                      <p className="font-bold">Sin consultas previas registradas</p>
+                                                      <p className="text-xs">Este paciente no tiene notas médicas en el sistema todavía.</p>
                                                   </div>
                                               )}
                                           </TabsContent>
@@ -876,7 +809,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                           <div className="h-[500px] flex flex-col items-center justify-center text-center p-10 border-2 border-dashed rounded-3xl opacity-30">
                               <Users className="h-20 w-16 mb-6" />
                               <h2 className="text-2xl font-black uppercase tracking-widest">Expediente Digital</h2>
-                              <p className="max-w-xs mt-2 font-medium">Selecciona un paciente del listado izquierdo para visualizar su trayectoria clínica y recetas emitidas.</p>
+                              <p className="max-w-xs mt-2 font-medium">Usa el buscador izquierdo para localizar a un paciente por su CURP o nombre completo y visualizar su trayectoria clínica.</p>
                           </div>
                       )}
                   </div>
