@@ -93,7 +93,7 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
         app.patient.curp,
         app.patientType,
         app.clinicName || 'N/A',
-        '' // Column for "Observaciones" (Blank space for manual writing)
+        '' // Column for "Observaciones"
     ]);
 
     doc.autoTable({
@@ -111,14 +111,13 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
             4: { cellWidth: 40 },
             5: { cellWidth: 25 },
             6: { cellWidth: 40 },
-            7: { cellWidth: 45 } // Space for manual notes
+            7: { cellWidth: 45 }
         }
     });
 
     const finalY = doc.lastAutoTable.finalY + 25;
     
-    // Signature lines at the end of the document
-    if (finalY < 180) { // Check if we have enough space on the same page
+    if (finalY < 180) {
         doc.line(100, finalY, 190, finalY);
         doc.setFontSize(10);
         doc.setTextColor(0);
@@ -279,7 +278,7 @@ export async function generateLabAppointmentPDF(appointmentData: LabAppointment,
         head: [['Estudio', 'Tipo de Muestra', 'Horas de Ayuno']],
         body: tableBody,
         theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+        headStyles: { fillColor: [0, 102, 51] },
     });
 
     let finalY = doc.lastAutoTable.finalY || 200;
@@ -358,7 +357,7 @@ export async function generateXRayAppointmentPDF(appointmentData: XRayAppointmen
         head: [['Estudio', 'Indicaciones']],
         body: [[study.name, study.indications]],
         theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+        headStyles: { fillColor: [0, 102, 51] },
     });
 
     let finalY = doc.lastAutoTable.finalY || 200;
@@ -437,7 +436,7 @@ export async function generateUltrasoundAppointmentPDF(appointmentData: Ultrasou
         head: [['Estudio', 'Indicaciones']],
         body: [[study.name, study.indications]],
         theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+        headStyles: { fillColor: [0, 102, 51] },
     });
 
     let finalY = doc.lastAutoTable.finalY || 200;
@@ -509,7 +508,7 @@ export async function generateVaccineAppointmentPDF(appointmentData: VaccineAppo
             detailsY += 10;
         }
     }
-    detailsY += 10; // Extra space
+    detailsY += 10;
 
     doc.setFontSize(16);
     doc.setFont('Helvetica', 'bold');
@@ -536,7 +535,7 @@ export async function generateVaccineAppointmentPDF(appointmentData: VaccineAppo
         head: [['Vacuna', 'Protege contra', 'Edad recomendada']],
         body: tableBody,
         theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51] }, // Primary color
+        headStyles: { fillColor: [0, 102, 51] },
     });
 
     let finalY = doc.lastAutoTable.finalY || detailsY + 30;
@@ -572,50 +571,53 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
 
     // Logo
     try {
-        doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
-    } catch (e) {}
+        // Se añade el logotipo con mayor presencia y alineado al encabezado
+        doc.addImage(logoBase64, 'PNG', 15, 12, 22, 22);
+    } catch (e) {
+        console.error("No se pudo cargar el logotipo en la receta:", e);
+    }
 
     // Header
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(18);
-    doc.setTextColor(0, 102, 51); // Primary green
-    doc.text('HOSPITAL GENERAL DE HUIMANGUILLO', 105, 20, { align: 'center' });
+    doc.setTextColor(0, 102, 51); // Verde Institucional
+    doc.text('HOSPITAL GENERAL DE HUIMANGUILLO', 110, 20, { align: 'center' });
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text('SECRETARÍA DE SALUD DEL ESTADO DE TABASCO', 105, 26, { align: 'center' });
+    doc.text('SECRETARÍA DE SALUD DEL ESTADO DE TABASCO', 110, 26, { align: 'center' });
     
     doc.setDrawColor(0, 102, 51);
-    doc.setLineWidth(1);
-    doc.line(20, 32, 190, 32);
+    doc.setLineWidth(0.8);
+    doc.line(20, 34, 190, 34);
 
     // Folio and Date
     doc.setFontSize(11);
     doc.setTextColor(0);
-    doc.text(`FOLIO: ${prescription.folio}`, 20, 42);
-    doc.text(`FECHA: ${format(parseISO(prescription.date), 'dd/MM/yyyy HH:mm')}`, 190, 42, { align: 'right' });
+    doc.text(`FOLIO: ${prescription.folio}`, 20, 44);
+    doc.text(`FECHA: ${format(parseISO(prescription.date), 'dd/MM/yyyy HH:mm')}`, 190, 44, { align: 'right' });
 
-    // Patient Info
-    doc.setFillColor(240, 240, 240);
-    doc.rect(20, 48, 170, 22, 'F');
+    // Patient and Doctor Boxes
+    doc.setFillColor(245, 245, 245);
+    doc.rect(20, 50, 170, 24, 'F');
+    
     doc.setFontSize(9);
     doc.setFont('Helvetica', 'bold');
-    doc.text('DATOS DEL PACIENTE', 25, 54);
+    doc.text('DATOS DEL PACIENTE', 25, 56);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(11);
-    doc.text(`NOMBRE: ${prescription.patientName.toUpperCase()}`, 25, 62);
+    doc.text(`NOMBRE: ${prescription.patientName.toUpperCase()}`, 25, 64);
     
-    // Doctor Info
     doc.setFontSize(9);
     doc.setFont('Helvetica', 'bold');
-    doc.text('MÉDICO QUE PRESCRIBE', 110, 54);
+    doc.text('MÉDICO QUE PRESCRIBE', 115, 56);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`DR(A): ${prescription.doctorName.toUpperCase()}`, 110, 62);
-    doc.text(`CED: ${prescription.doctorLicense || 'S/C'}`, 110, 67);
+    doc.text(`DR(A): ${prescription.doctorName.toUpperCase()}`, 115, 64);
+    doc.text(`CED: ${prescription.doctorLicense || 'S/C'}`, 115, 69);
 
     // Diagnosis
-    let currentY = 80;
+    let currentY = 85;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
     doc.text('DIAGNÓSTICO:', 20, currentY);
@@ -641,22 +643,22 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
 
         doc.autoTable({
             startY: currentY,
-            head: [['Insumo', 'Cant.', 'Frecuencia/Vía', 'Indicaciones']],
+            head: [['Insumo / Medicamento', 'Cant.', 'Frecuencia/Vía', 'Indicaciones']],
             body: tableBody,
             theme: 'grid',
             headStyles: { fillColor: [0, 102, 51], fontSize: 9 },
             styles: { fontSize: 8 },
             columnStyles: { 
-                0: { cellWidth: 90 }, // Wider Insumo column
-                1: { cellWidth: 12, halign: 'center' }, // Narrower quantity
-                2: { cellWidth: 30 }, // Smaller Frecuencia column
+                0: { cellWidth: 85 },
+                1: { cellWidth: 15, halign: 'center' },
+                2: { cellWidth: 25 },
                 3: { cellWidth: 'auto' } 
             }
         });
         currentY = doc.lastAutoTable.finalY + 10;
     }
 
-    // Other medications
+    // External medications
     if (prescription.otherMedications) {
         doc.setFont('Helvetica', 'bold');
         doc.text('OTROS MEDICAMENTOS (ADQUISICIÓN EXTERNA):', 20, currentY);
@@ -687,16 +689,15 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         currentY += (studiesLines.length * 5) + 15;
     }
 
-    // Footer / Signature - Add more space for stamp and sign
+    // Signature Area
     currentY += 25; 
-    
     if (currentY > 250) {
         doc.addPage();
         currentY = 40;
     }
     
     doc.setDrawColor(0, 102, 51);
-    doc.setLineWidth(1);
+    doc.setLineWidth(0.5);
     doc.line(70, currentY, 140, currentY);
     doc.setFontSize(10);
     doc.setTextColor(0);
