@@ -1,4 +1,3 @@
-
 'use server';
 
 import { 
@@ -671,6 +670,24 @@ export async function deleteMedicalConsultation(id: string) {
     return { success: true };
 }
 
+export async function getAttendedPatientsForClinic(clinicId: string): Promise<Patient[]> {
+  const db = getDb();
+  const q = query(collection(db, 'medicalConsultations'), where('clinicId', '==', clinicId));
+  const snap = await getDocs(q);
+  
+  const patientIds = Array.from(new Set(snap.docs.map(d => d.data().patientId)));
+  if (patientIds.length === 0) return [];
+  
+  const patients: Patient[] = [];
+  const chunks = chunkArray(patientIds, 10);
+  for (const chunk of chunks) {
+    const pq = query(collection(db, 'patients'), where(documentId(), 'in', chunk));
+    const psnap = await getDocs(pq);
+    psnap.forEach(d => patients.push(serializeData({ id: d.id, ...d.data() }) as Patient));
+  }
+  return patients.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 // =====================================================================
 // SETTINGS
 // =====================================================================
@@ -973,6 +990,13 @@ export async function getPrescriptionHistory(filter: { startDate?: string, endDa
         results = results.filter(p => p.clinicId === filter.clinicId);
     }
     return results.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function getPrescriptionsByPatientId(patientId: string): Promise<Prescription[]> {
+    const db = getDb();
+    const q = query(collection(db, 'prescriptions'), where('patientId', '==', patientId));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => serializeData(d.data()) as Prescription).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export async function dispensePrescription(prescriptionId: string, itemsToDispense?: { medicationId: string, quantity: number }[]) {

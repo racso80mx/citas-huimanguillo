@@ -125,10 +125,8 @@ export async function deleteUltrasoundAppointment(id: string) { const folio = aw
 export async function deleteVaccineAppointment(id: string) { const folio = await data.deleteVaccineAppointment(id); revalidatePath('/admin'); revalidatePath('/reports'); return { success: true, folio }; }
 
 export async function updateAppointmentStatus(id: string, status: AppointmentStatus, type: string) {
-  const db = getDb();
-  const collMap: Record<string, string> = { 'medical': 'appointments', 'lab': 'labAppointments', 'xray': 'xrayAppointments', 'ultrasound': 'ultrasoundAppointments', 'vaccine': 'vaccineAppointments' };
-  await updateDoc(doc(db, collMap[type] || 'appointments', id), { status });
-  return { success: true };
+  const res = await data.updateAppointmentStatus(id, status, type);
+  return res;
 }
 export async function rescheduleAppointment(id: string, date: string, type: string) {
   const res = await data.rescheduleAppointment(id, date, type);
@@ -333,6 +331,14 @@ export async function deleteMedicalConsultation(id: string) {
     return res;
 }
 
+export async function getAttendedPatientsForClinic(clinicId: string) {
+    return data.getAttendedPatientsForClinic(clinicId);
+}
+
+export async function getPrescriptionsByPatientId(patientId: string) {
+    return data.getPrescriptionsByPatientId(patientId);
+}
+
 export async function bulkInsertCie10Glossary(chunk: any[]) {
     return data.bulkInsertCie10Glossary(chunk);
 }
@@ -351,4 +357,8 @@ export async function deleteAllCie10Catalog() {
 
 export async function searchCie10(term: string) {
     return data.searchCie10(term);
+}
+
+export async function getBIData() {
+    return data.getBIData();
 }
