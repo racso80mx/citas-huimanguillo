@@ -132,7 +132,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
   
   // History states
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [patientHistory, setPatientHistory] = useState<MedicalConsultation[]>([]);
+  const [patientHistory, setPatientHistory] = setPatientHistory<MedicalConsultation[]>([]);
   const [patientPrescriptions, setPatientPrescriptions] = useState<Prescription[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historySearchTerm, setHistorySearchTerm] = useState('');
@@ -392,7 +392,9 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
   const handleEditPrescription = (presc: Prescription) => {
     setEditingPrescription(presc);
-    setSelectedPatientForPrescription(null);
+    // Important: Find the patient in the current context to ensure the dialog has a valid Patient object
+    const patient = attendedPatients.find(p => p.id === presc.patientId);
+    setSelectedPatientForPrescription(patient || null);
     setIsPrescriptionOpen(true);
   }
 

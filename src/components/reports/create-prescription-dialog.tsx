@@ -69,7 +69,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
   // Medical Directory selection
   const [allDoctors, setAllDoctors] = useState<Clinic[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(clinic.id);
-  const [manualDoctor, setManualDoctor] = useState({ name: '', license: '', unit: '' });
+  const [manualDoctor, setManualDoctor] = setManualDoctor({ name: '', license: '', unit: '' });
   const [isManualDoctor, setIsManualDoctor] = useState(false);
   
   const [isSearchingPatients, setIsSearchingPatients] = useState(false);
@@ -88,8 +88,9 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         setAllDoctors(docs);
         
         if (initialPrescription) {
+            // Populate form for editing
             setDiagnosis(initialPrescription.diagnosis || '');
-            setPrescriptionItems(initialPrescription.items);
+            setPrescriptionItems(initialPrescription.items || []);
             setOtherMedications(initialPrescription.otherMedications || '');
             setSelectedLabStudies(initialPrescription.labStudies || []);
             setOtherStudies(initialPrescription.otherStudies || '');
@@ -102,23 +103,29 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                     unit: initialPrescription.unitName || ''
                 });
             } else {
+                setIsManualDoctor(false);
                 setSelectedDoctorId(initialPrescription.clinicId);
             }
         } else {
+            // Reset for new creation
             setDiagnosis('');
             setPrescriptionItems([]);
             setOtherMedications('');
             setSelectedLabStudies([]);
             setOtherStudies('');
-            setSelectedDoctorId(clinic.id);
+            setSelectedDoctorId(clinic.id || '');
             setIsManualDoctor(false);
         }
         
+        // Ensure patient is selected even in edit mode if we have the object
+        if (initialPatient) {
+            setSelectedPatient(initialPatient);
+        }
+
         setIsLoadingInitialData(false);
       });
       
       if (initialPatient) {
-          setSelectedPatient(initialPatient);
           getPatientPrescriptionsCountTodayAction(initialPatient.id).then(setPrescriptionsTodayCount);
       }
       setSavedPrescription(null);
@@ -189,7 +196,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
         toast({ title: "Paciente requerido", variant: "destructive" });
         return;
     }
-    if (!diagnosis.trim()) {
+    if (!diagnosis || !diagnosis.trim()) {
         toast({ title: "Diagnóstico requerido", variant: "destructive" });
         return;
     }
@@ -310,6 +317,8 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
     }));
   }, [allLabStudies]);
 
+  const isFormValid = !!selectedPatient && !!diagnosis.trim() && (isManualDoctor || !!selectedDoctor);
+
   if (savedPrescription) {
       return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -350,7 +359,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                 </DialogDescription>
             </div>
             <div className="text-right">
-                <Badge variant="outline" className="font-mono text-xs uppercase bg-background">{clinic.name}</Badge>
+                <Badge variant="outline" className="font-mono text-xs uppercase bg-background">{clinic.name || 'HOSPITAL GENERAL'}</Badge>
             </div>
           </div>
         </DialogHeader>
@@ -434,7 +443,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                                 onChange={setSelectedDoctorId}
                                 placeholder="Selecciona el médico del directorio..."
                                 searchPlaceholder="Buscar por nombre o unidad..."
-                                disabled={isLoadingInitialData || !!clinic.id} // Lock if we're in a specific clinic session
+                                disabled={isLoadingInitialData}
                             />
                             {selectedDoctor && (
                                 <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-xl border bg-muted/30 animate-in fade-in">
@@ -448,7 +457,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
                                     </div>
                                 </div>
                             )}
-                            {!clinic.id && !initialPrescription && (
+                            {!initialPrescription && (
                                 <Button variant="link" size="sm" className="px-0" onClick={() => setIsManualDoctor(true)}>
                                     ¿No está en el directorio? Capturar manualmente
                                 </Button>
@@ -632,7 +641,7 @@ export function CreatePrescriptionDialog({ isOpen, onClose, clinic, initialPatie
           <Button variant="outline" onClick={onClose} disabled={isSaving} className="h-12 px-8">Cancelar</Button>
           <Button 
             onClick={handleSave} 
-            disabled={isSaving || !selectedPatient || !diagnosis || (!selectedDoctor && !isManualDoctor)} 
+            disabled={isSaving || isLoadingInitialData || !isFormValid} 
             className="h-12 px-10 font-bold bg-primary hover:bg-primary/90 shadow-lg transition-all"
           >
             {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
