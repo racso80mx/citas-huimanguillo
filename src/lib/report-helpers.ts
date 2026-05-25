@@ -2,6 +2,7 @@
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine, Prescription } from "./definitions";
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { logoBase64 } from './logo-data';
 
 type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment | VaccineAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string };
 
@@ -72,12 +73,17 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
     await import('jspdf-autotable');
     const doc = new jsPDF('landscape') as any;
 
-    doc.setFont('Helvetica');
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 14, 10, 15, 15);
+    } catch (e) {}
+
+    doc.setFont('Helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text(title, 14, 15);
+    doc.text(title, 35, 18);
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text(subtitle, 14, 22);
+    doc.text(subtitle, 35, 24);
 
     const tableBody = appointments.map(app => [
         app.time,
@@ -91,7 +97,7 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
     ]);
 
     doc.autoTable({
-        startY: 30,
+        startY: 32,
         head: [['Hora', 'Folio', 'Nombre del Paciente', 'Expediente', 'CURP', 'Tipo', 'Consultorio/Núcleo', 'Observaciones']],
         body: tableBody,
         theme: 'grid',
@@ -137,13 +143,18 @@ export async function generateAppointmentPDF(appointmentData: Appointment, clini
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, patientType } = appointmentData;
 
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 20, 15, 20, 20);
+    } catch (e) {}
+
     doc.setFont('Helvetica');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
     
-    let currentY = 50;
+    let currentY = 55;
     doc.setFontSize(14);
     doc.setFont('Helvetica', 'bold');
     doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
@@ -223,8 +234,13 @@ export async function generateLabAppointmentPDF(appointmentData: LabAppointment,
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, studies } = appointmentData;
 
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 20, 15, 20, 20);
+    } catch (e) {}
+
     doc.setFont('Helvetica');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.text('Confirmación de Cita de Laboratorio', 105, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
@@ -298,8 +314,13 @@ export async function generateXRayAppointmentPDF(appointmentData: XRayAppointmen
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber } = appointmentData;
 
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 20, 15, 20, 20);
+    } catch (e) {}
+
     doc.setFont('Helvetica');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.text('Confirmación de Cita de Rayos X', 105, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
@@ -372,8 +393,13 @@ export async function generateUltrasoundAppointmentPDF(appointmentData: Ultrasou
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber } = appointmentData;
 
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 20, 15, 20, 20);
+    } catch (e) {}
+
     doc.setFont('Helvetica');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.text('Confirmación de Cita de Ultrasonido', 105, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
@@ -449,8 +475,13 @@ export async function generateVaccineAppointmentPDF(appointmentData: VaccineAppo
     const isNewborn = patientType === 'Recién Nacido';
     let detailsY = 85;
 
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 20, 15, 20, 20);
+    } catch (e) {}
+
     doc.setFont('Helvetica');
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.text('Confirmación de Cita de Vacunación', 105, 25, { align: 'center' });
     doc.setFontSize(10);
     doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
@@ -538,6 +569,11 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
     const { jsPDF } = await import('jspdf');
     await import('jspdf-autotable');
     const doc = new jsPDF() as any;
+
+    // Logo
+    try {
+        doc.addImage(logoBase64, 'PNG', 20, 12, 20, 20);
+    } catch (e) {}
 
     // Header
     doc.setFont('Helvetica', 'bold');
