@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia, Patient, MedicalConsultation, Prescription } from '@/lib/definitions';
@@ -180,6 +179,52 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     fetchData();
   }, [fetchData]);
 
+  const handleSetDateRange = (range: DateRange | undefined) => {
+    if (dateRange?.from && range?.from && !range.to && dateRange.from.getTime() === range.from.getTime() && !dateRange.to) {
+        setDateRange(undefined);
+        return;
+    }
+    setDateRange(range);
+    setActiveFilter('range');
+  };
+
+  const handleManualDateChange = (dm: string, y: string) => {
+    setManualDayMonth(dm);
+    setManualYear(y);
+
+    if (dm.length === 5 && y.length === 4) {
+      const dateStr = `${dm}/${y}`;
+      const parsedDate = parse(dateStr, 'dd/MM/yyyy', new Date());
+      
+      if (isValid(parsedDate)) {
+        setActiveFilter('range');
+        setDateRange({ from: parsedDate, to: parsedDate });
+      }
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      if (reportType === 'laboratorio') await deleteLabAppointment(id);
+      else if (reportType === 'x-ray') await deleteXRayAppointment(id);
+      else if (reportType === 'ultrasound') await deleteUltrasoundAppointment(id);
+      else if (reportType === 'vacunas') await deleteVaccineAppointment(id);
+      else await deleteAppointment(id);
+
+      toast({
+        title: 'Cita Eliminada',
+        description: 'La cita ha sido eliminada correctamente.',
+      });
+      fetchData(); 
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la cita.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const loadPatientDetail = async (patientId: string) => {
       setSelectedPatientId(patientId);
       setIsLoadingHistory(true);
@@ -286,7 +331,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
             const patientName = `${app.patient?.name || ''} ${app.patient?.paternalLastName || ''} ${app.patient?.maternalLastName || ''}`.toUpperCase();
             const curp = (app.patient?.curp || '').toUpperCase();
             const folio = (app.appointmentNumber || '').toUpperCase();
-            return patientName.includes(term) || curp.includes(term) || folio.items?.some((i: any) => i.name.toUpperCase().includes(term));
+            return patientName.includes(term) || curp.includes(term) || folio.includes(term);
         });
     }
 
@@ -321,7 +366,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     const props = {
       isAdmin: true,
       onEditSuccess: fetchData,
-      onDelete: reportType === 'clinic' ? undefined : handleDelete,
+      onDelete: handleDelete,
       onPrescribe: reportType === 'clinic' ? handleOpenPrescription : undefined,
     };
     switch(reportType) {
