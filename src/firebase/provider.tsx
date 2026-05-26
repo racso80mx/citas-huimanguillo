@@ -5,7 +5,7 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -76,10 +76,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 export const useFirebase = (): FirebaseServicesAndUser => {
   const context = useContext(FirebaseContext);
   if (context === undefined) {
-    throw new Error('useFirebase must be used within a FirebaseProvider.');
+    throw new Error('useFirebase debe usarse dentro de un FirebaseProvider.');
   }
   if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth || !context.storage) {
-    throw new Error('Firebase core services not available.');
+    throw new Error('Los servicios de Firebase no están disponibles.');
   }
   return {
     firebaseApp: context.firebaseApp,
