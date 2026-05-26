@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { DependencyList, createContext, useContext, ReactNode, useMemo } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User } from 'firebase/auth';
@@ -37,12 +36,6 @@ export interface FirebaseServicesAndUser {
   userError: Error | null;
 }
 
-export interface UserHookResult {
-  user: User | null;
-  isUserLoading: boolean;
-  userError: Error | null;
-}
-
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
@@ -52,7 +45,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   auth,
   storage,
 }) => {
-  const [userAuthState, setUserAuthState] = useState<{user: User | null, isUserLoading: boolean, userError: Error | null}>({
+  const [userAuthState, setUserAuthState] = React.useState<{user: User | null, isUserLoading: boolean, userError: Error | null}>({
     user: null,
     isUserLoading: false,
     userError: null,
