@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment } from '@/lib/definitions';
-import { ClinicType } from '@/lib/definitions';
-import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment } from '@/lib/actions';
+import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Specialty } from '@/lib/definitions';
+import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment, getSpecialties } from '@/lib/actions';
 import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics, getColonias } from '@/lib/data';
 import {
   Card,
@@ -113,6 +112,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [allVaccineAppointments, setAllVaccineAppointments] = useState<VaccineAppointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
 
   const [isPending, startTransition] = useTransition();
   const [mainTab, setMainTab] = useState("configuracion");
@@ -123,7 +123,6 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
   
-  // Manual date input states
   const [manualDayMonth, setManualDayMonth] = useState('');
   const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
 
@@ -144,6 +143,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           vaccineAppointmentsData,
           clinicsData,
           coloniasData,
+          specialtiesData
         ] = await Promise.all([
           getAppointments(),
           getLabAppointments(),
@@ -152,6 +152,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           getVaccineAppointments(),
           getClinics(),
           getColonias(),
+          getSpecialties()
         ]);
         setAllAppointments(appointmentsData);
         setAllLabAppointments(labAppointmentsData);
@@ -160,6 +161,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
         setAllVaccineAppointments(vaccineAppointmentsData);
         setClinics(clinicsData);
         setColonias(coloniasData);
+        setSpecialties(specialtiesData);
       } catch (error) {
         console.error('Error fetching admin dashboard data:', error);
         toast({
@@ -257,7 +259,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const ultrasoundAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allUltrasoundAppointments)), [isClient, activeFilter, dateRange, allUltrasoundAppointments, searchTerm]);
   const vaccineAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allVaccineAppointments)), [isClient, activeFilter, dateRange, allVaccineAppointments, searchTerm]);
   
-  const handleSetDateRange = (range: DateRange | undefined) => {
+  const handleSetDateRangeState = (range: DateRange | undefined) => {
     if (dateRange?.from && range?.from && !range.to && dateRange.from.getTime() === range.from.getTime() && !dateRange.to) {
         setDateRange(undefined);
         return;
@@ -266,7 +268,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     setActiveFilter('range');
   };
 
-  const handleManualDateChange = (dm: string, y: string) => {
+  const handleManualDateChangeState = (dm: string, y: string) => {
     setManualDayMonth(dm);
     setManualYear(y);
 
@@ -323,7 +325,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     await downloadExcel(enrichedAppointments, `${filename}_${activeFilter}`);
   };
 
-  const handleDelete = async (id: string, type: string) => {
+  const handleDeleteState = async (id: string, type: string) => {
     try {
       if (type === 'medical') await deleteAppointment(id);
       else if (type === 'lab') await deleteLabAppointment(id);
@@ -345,7 +347,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
   
-  const handleClinicSelect = (clinicId: string) => {
+  const handleClinicSelectState = (clinicId: string) => {
     setSelectedClinics(prev => 
         prev.includes(clinicId) 
             ? prev.filter(id => id !== clinicId)
@@ -490,7 +492,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                         if (val.length > 2) {
                                             val = val.substring(0, 2) + '/' + val.substring(2, 4);
                                         }
-                                        handleManualDateChange(val.substring(0, 5), manualYear);
+                                        handleManualDateChangeState(val.substring(0, 5), manualYear);
                                     }}
                                     className="h-9 w-24 text-center font-bold border-primary/20 bg-background"
                                     maxLength={5}
@@ -501,7 +503,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 <Input 
                                     type="number"
                                     value={manualYear}
-                                    onChange={(e) => handleManualDateChange(manualDayMonth, e.target.value.substring(0, 4))}
+                                    onChange={(e) => handleManualDateChangeState(manualDayMonth, e.target.value.substring(0, 4))}
                                     className="h-9 w-20 text-center font-bold border-primary/20 bg-background"
                                     maxLength={4}
                                 />
@@ -516,7 +518,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="end">
-                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRange} numberOfMonths={2} locale={es} />
+                                <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={handleSetDateRangeState} numberOfMonths={2} locale={es} />
                             </PopoverContent>
                         </Popover>
                     </div>
@@ -559,12 +561,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                                         </div>
                                                         <span>Todos</span>
                                                     </CommandItem>
-                                                    {Object.values(ClinicType).map(type => (
-                                                        <CommandItem key={type} onSelect={() => { setSelectedClinicType(type); setSelectedClinics([]); }}>
-                                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === type ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
+                                                    {specialties.map(spec => (
+                                                        <CommandItem key={spec.id} onSelect={() => { setSelectedClinicType(spec.name); setSelectedClinics([]); }}>
+                                                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinicType === spec.name ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible")}>
                                                                 <Check className="h-4 w-4" />
                                                             </div>
-                                                            <span>{type}</span>
+                                                            <span>{spec.name}</span>
                                                         </CommandItem>
                                                     ))}
                                                 </CommandGroup>
@@ -598,7 +600,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                                                             return (
                                                                 <CommandItem
                                                                     key={clinic.id}
-                                                                    onSelect={() => handleClinicSelect(clinic.id)}
+                                                                    onSelect={() => handleClinicSelectState(clinic.id)}
                                                                 >
                                                                     <div
                                                                         className={cn(
@@ -637,7 +639,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </div>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <AppointmentList appointments={appointmentsToDisplay} onDelete={(id) => handleDelete(id, 'medical')} onEditSuccess={fetchData} isAdmin clinics={clinics} />
+                            <AppointmentList appointments={appointmentsToDisplay} onDelete={(id) => handleDeleteState(id, 'medical')} onEditSuccess={fetchData} isAdmin clinics={clinics} />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -650,7 +652,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Button onClick={() => handleDownload('laboratorio')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'lab')} onEditSuccess={fetchData} isAdmin />
+                            <LabAppointmentList appointments={labAppointmentsToDisplay} onDelete={(id) => handleDeleteState(id, 'lab')} onEditSuccess={fetchData} isAdmin />
                         </CardContent>
                     </Card>
                     <LabSettingsManager />
@@ -664,7 +666,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Button onClick={() => handleDownload('rayos-x')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'xray')} onEditSuccess={fetchData} isAdmin />
+                            <XRayAppointmentList appointments={xRayAppointmentsToDisplay} onDelete={(id) => handleDeleteState(id, 'xray')} onEditSuccess={fetchData} isAdmin />
                         </CardContent>
                     </Card>
                     <XRaySettingsManager />
@@ -678,7 +680,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Button onClick={() => handleDownload('ultrasonidos')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'us')} onEditSuccess={fetchData} isAdmin />
+                            <UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} onDelete={(id) => handleDeleteState(id, 'us')} onEditSuccess={fetchData} isAdmin />
                         </CardContent>
                     </Card>
                     <UltrasoundSettingsManager />
@@ -692,7 +694,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             <Button onClick={() => handleDownload('vacunas')} variant="secondary" size="sm"><Download className="mr-2 h-4 w-4" />Excel</Button>
                         </CardHeader>
                         <CardContent className="pt-6">
-                            <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={(id) => handleDelete(id, 'vaccine')} onEditSuccess={fetchData} isAdmin />
+                            <VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} onDelete={(id) => handleDeleteState(id, 'vaccine')} onEditSuccess={fetchData} isAdmin />
                         </CardContent>
                     </Card>
                     <VaccineSettingsManager />

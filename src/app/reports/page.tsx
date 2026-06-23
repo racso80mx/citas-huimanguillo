@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import type { Clinic } from '@/lib/definitions';
-import { ClinicType } from '@/lib/definitions';
-import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, verifyVaccinePassword, getClinics } from '@/lib/actions';
+import type { Clinic, Specialty } from '@/lib/definitions';
+import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, verifyVaccinePassword, getClinics, getSpecialties } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,9 +17,10 @@ type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
 export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('clinic');
-  const [selectedClinicType, setSelectedClinicType] = useState<ClinicType | 'all'>('all');
+  const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('all');
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,9 +36,12 @@ export default function ReportsPage() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const clinicsData = await getClinics();
-        const sortedClinics = clinicsData.sort((a, b) => a.name.localeCompare(b.name));
-        setClinics(sortedClinics);
+        const [clinicsData, specialtiesData] = await Promise.all([
+            getClinics(),
+            getSpecialties()
+        ]);
+        setClinics(clinicsData.sort((a, b) => a.name.localeCompare(b.name)));
+        setSpecialties(specialtiesData);
       } catch (error) {
         toast({
           title: 'Error',
@@ -72,16 +75,16 @@ export default function ReportsPage() {
         entityToAuth = selectedClinic;
     } else if (selectedReportType === 'x-ray') {
         result = await verifyXRayPassword(password);
-        entityToAuth = { id: 'rayos-x', name: 'Rayos X', doctorName: 'Responsable de Rayos X' };
+        entityToAuth = { id: 'rayos-x', name: 'Rayos X', doctorName: 'Responsable de Rayos X', dailySlots: 10 };
     } else if (selectedReportType === 'ultrasound') {
         result = await verifyUltrasoundPassword(password);
-        entityToAuth = { id: 'ultrasonidos', name: 'Ultrasonidos', doctorName: 'Responsable de Ultrasonidos' };
+        entityToAuth = { id: 'ultrasonidos', name: 'Ultrasonidos', doctorName: 'Responsable de Ultrasonidos', dailySlots: 10 };
     } else if (selectedReportType === 'laboratorio') {
         result = await verifyLabPassword(password);
-        entityToAuth = { id: 'laboratorio', name: 'Laboratorio', doctorName: 'Responsable de Laboratorio' };
+        entityToAuth = { id: 'laboratorio', name: 'Laboratorio', doctorName: 'Responsable de Laboratorio', dailySlots: 10 };
     } else if (selectedReportType === 'vacunas') {
         result = await verifyVaccinePassword(password);
-        entityToAuth = { id: 'vacunas', name: 'Vacunación', doctorName: 'Responsable de Vacunación' };
+        entityToAuth = { id: 'vacunas', name: 'Vacunación', doctorName: 'Responsable de Vacunación', dailySlots: 10 };
     }
 
     if (result?.success && entityToAuth) {
@@ -109,7 +112,7 @@ export default function ReportsPage() {
     setPassword('');
   };
 
-  const handleClinicTypeChange = (type: ClinicType | 'all') => {
+  const handleClinicTypeChange = (type: string | 'all') => {
     setSelectedClinicType(type);
     setSelectedClinic(null);
     setPassword('');
@@ -175,14 +178,14 @@ export default function ReportsPage() {
                 <>
                     <div className="space-y-2">
                         <Label htmlFor="clinic-type">Tipo de Núcleo</Label>
-                        <Select onValueChange={(value: ClinicType | 'all') => handleClinicTypeChange(value)} value={selectedClinicType}>
+                        <Select onValueChange={(value: string | 'all') => handleClinicTypeChange(value)} value={selectedClinicType}>
                             <SelectTrigger id="clinic-type" className="w-full h-11">
                                 <SelectValue placeholder="Filtrar por especialidad..." />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos los Tipos</SelectItem>
-                                {Object.values(ClinicType).map(type => (
-                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                {specialties.map(spec => (
+                                    <SelectItem key={spec.id} value={spec.name}>{spec.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>

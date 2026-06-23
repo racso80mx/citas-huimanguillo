@@ -12,8 +12,8 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay } from '@/lib/definitions';
-import { PatientType, BookingMode, ClinicType } from '@/lib/definitions';
+import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay, Specialty } from '@/lib/definitions';
+import { PatientType, BookingMode } from '@/lib/definitions';
 import { getAppointments, getClinics, getHolidays, getSpecialActionDays, verifyCitasMedicasPassword } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
@@ -39,12 +39,20 @@ type PageContentProps = {
     initialClinics: Clinic[];
     initialHolidays: Holiday[];
     initialSpecialActionDays: SpecialActionDay[];
+    initialSpecialties: Specialty[];
 };
 
-export default function PageContent({ initialAnnouncements, initialColonias, initialClinics, initialHolidays, initialSpecialActionDays }: PageContentProps) {
+export default function PageContent({ 
+    initialAnnouncements, 
+    initialColonias, 
+    initialClinics, 
+    initialHolidays, 
+    initialSpecialActionDays,
+    initialSpecialties
+}: PageContentProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  const [selectedClinicType, setSelectedClinicType] = React.useState<ClinicType | undefined>();
+  const [selectedClinicType, setSelectedClinicType] = React.useState<string | undefined>();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
   const [isDoubleSlot, setIsDoubleSlot] = React.useState(false);
@@ -58,6 +66,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
   const [clinics, setClinics] = React.useState<Clinic[]>(initialClinics);
   const [holidays, setHolidays] = React.useState<Holiday[]>(initialHolidays);
   const [specialActionDays, setSpecialActionDays] = React.useState<SpecialActionDay[]>(initialSpecialActionDays);
+  const [specialties] = React.useState<Specialty[]>(initialSpecialties);
   
   const [currentMonth, setCurrentMonth] = React.useState(new Date());
   const [isPending, startTransition] = React.useTransition();
@@ -118,7 +127,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
         for (const clinic of freshClinics) {
             const dayOfWeekName = dayNames[day.getUTCDay()];
             
-            // Check for Special Action Days (Regionalized blocking by service type)
             const isBlockedBySpecialAction = freshSpecialActionDays.some(
                 s => s.date === dateString && s.clinicType === clinic.clinicType
             );
@@ -138,7 +146,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                 if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                     const duration = clinic.consultationDuration;
                     
-                    // Respect custom end time if exists
                     const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
                     const effectiveEndTime = customSchedule ? customSchedule.endTime : clinic.endTime;
 
@@ -242,7 +249,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
     });
   };
 
-  const handleClinicTypeSelect = (value: ClinicType) => {
+  const handleClinicTypeSelect = (value: string) => {
     setSelectedClinicType(value);
     setSelectedDate(undefined);
     setSelectedClinicId(undefined);
@@ -375,7 +382,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
         if (isToday && candStart < currentMinutes) return false;
 
-        // Check first slot overlap
         const hasCollision = takenInfo.some(ti => {
             if (ti.time.includes('Espera')) return false;
             const appStart = timeToMinutes(ti.time);
@@ -385,7 +391,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
         if (hasCollision) return false;
 
-        // If double slot requested, ensure next slot is also free and available
         if (isDoubleSlot) {
             const nextCandidate = allTimeSlots[index + 1];
             if (!nextCandidate || nextCandidate.includes('Espera') || nextCandidate === selectedClinic.breakTime) return false;
@@ -418,7 +423,6 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
 
     const takenTimes = (selectedDayAvailability.takenTimesByClinic?.[selectedClinic.id] || []).map(ti => ti.time);
     
-    // For tokens, "double slot" just blocks 2 sequential tokens
     return allOptions.filter((token, index) => {
         if (takenTimes.includes(token)) return false;
         if (isDoubleSlot && !token.includes('Espera')) {
@@ -488,11 +492,9 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                 <SelectValue placeholder="Selecciona un tipo de consulta" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={ClinicType.ConsultaExterna}>Consulta Externa</SelectItem>
-                                <SelectItem value={ClinicType.Especializada}>Consulta Externa Especializada</SelectItem>
-                                <SelectItem value={ClinicType.Nutricion}>Nutrición</SelectItem>
-                                <SelectItem value={ClinicType.Odontologia}>Odontología</SelectItem>
-                                <SelectItem value={ClinicType.Psicologia}>Psicología</SelectItem>
+                                {specialties.map(spec => (
+                                    <SelectItem key={spec.id} value={spec.name}>{spec.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </CardContent>
@@ -554,7 +556,7 @@ export default function PageContent({ initialAnnouncements, initialColonias, ini
                                         checked={isDoubleSlot} 
                                         onCheckedChange={(checked) => {
                                             setIsDoubleSlot(!!checked);
-                                            setSelectedTime(undefined); // Reset time when changing duration requirement
+                                            setSelectedTime(undefined); 
                                         }} 
                                     />
                                     <div className="grid gap-1.5 leading-none">
