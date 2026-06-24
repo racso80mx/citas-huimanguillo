@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Specialty, ServiceType } from '@/lib/definitions';
@@ -67,9 +68,7 @@ import {
   startOfMonth,
   endOfMonth,
   parseISO,
-  isWithinInterval,
-  isValid,
-  parse
+  isWithinInterval
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
@@ -113,7 +112,6 @@ import { PharmacyManager } from './pharmacy-manager';
 import { WarehouseManager } from './warehouse-manager';
 import { DoctorsCatalog } from './doctors-catalog';
 import { SpecialtiesManager } from './specialties-manager';
-import { Cie10Manager } from './cie10-manager';
 import { Input } from '../ui/input';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -189,7 +187,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
-  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
 
   const [isPending, startTransition] = useTransition();
   const [mainTab, setMainTab] = useState("configuracion");
@@ -205,8 +202,8 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const fetchData = useCallback(() => {
     startTransition(async () => {
       try {
-        const [ apps, labApps, xrApps, usApps, vacApps, clins, cols, specs, types ] = await Promise.all([
-          getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics(), getColonias(), getSpecialties(), getServiceTypes()
+        const [ apps, labApps, xrApps, usApps, vacApps, clins, cols, specs ] = await Promise.all([
+          getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics(), getColonias(), getSpecialties()
         ]);
         setAllAppointments(apps);
         setAllLabAppointments(labApps);
@@ -216,7 +213,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         setClinics(clins);
         setColonias(cols);
         setSpecialties(specs);
-        setServiceTypes(types);
       } catch (error) {
         console.error(error);
       }
