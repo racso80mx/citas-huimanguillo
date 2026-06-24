@@ -41,6 +41,7 @@ export async function getServiceTypes() { return data.getServiceTypesData(); }
 export async function updateServiceTypes(types: ServiceType[]) { 
     const res = await data.updateServiceTypes(types);
     revalidatePath('/admin');
+    revalidatePath('/citas-medicas');
     return res;
 }
 export async function getSpecialties() { return data.getSpecialtiesData(); }
@@ -188,6 +189,7 @@ export async function bulkInsertPatients(patients: any[]) {
 export async function bulkInsertDoctors(doctors: any[]) { 
     const res = await data.bulkInsertDoctors(doctors);
     revalidatePath('/admin');
+    revalidatePath('/citas-medicas');
     return res;
 }
 export async function scanDuplicates(criteria: string) { return data.scanDuplicates(criteria); }

@@ -49,7 +49,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 /** 
  * SERIALIZACIÓN
- * Convierte Timestamps de Firestore a strings ISO para evitar errores de hidratación/Next.js.
+ * Convierte Timestamps de Firestore a strings ISO para evitar errores de Next.js.
  */
 export function serializeData(data: any): any {
   if (!data) return data;
@@ -68,8 +68,8 @@ export function serializeData(data: any): any {
 
 /**
  * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE
- * Descarga la colección completa para procesar filtros y ordenamiento en memoria (JavaScript).
- * Esto evita el error "The query requires an index".
+ * Descarga la colección completa para procesar filtros y ordenamiento en memoria.
+ * NUNCA usar where, orderBy o query aquí para evitar el error de Firebase Index.
  */
 async function getRawCollection(name: string) {
     try {
@@ -129,7 +129,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PACIENTES (FILTRADO EN MEMORIA) ---
+// --- PACIENTES ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
@@ -155,8 +155,8 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
   }
   
   results.sort((a, b) => {
-      const nameA = `${a.paternalLastName || ''} ${a.name || ''}`.toUpperCase();
-      const nameB = `${b.paternalLastName || ''} ${b.name || ''}`.toUpperCase();
+      const nameA = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.toUpperCase();
+      const nameB = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.toUpperCase();
       return nameA.localeCompare(nameB);
   });
 
@@ -209,11 +209,46 @@ export async function getPatientByCURP(curp: string) {
 }
 
 // --- CITAS ---
-export async function getAppointmentsData() { return getRawCollection('appointments'); }
-export async function getLabAppointmentsData() { return getRawCollection('labAppointments'); }
-export async function getXRayAppointmentsData() { return getRawCollection('xrayAppointments'); }
-export async function getUltrasoundAppointmentsData() { return getRawCollection('ultrasoundAppointments'); }
-export async function getVaccineAppointmentsData() { return getRawCollection('vaccineAppointments'); }
+export async function getAppointmentsData() { 
+    const all = await getRawCollection('appointments') as Appointment[];
+    const patients = await getRawCollection('patients') as Patient[];
+    return all.map(app => ({
+        ...app,
+        patient: patients.find(p => p.id === app.patientId)
+    }));
+}
+export async function getLabAppointmentsData() {
+    const all = await getRawCollection('labAppointments') as LabAppointment[];
+    const patients = await getRawCollection('patients') as Patient[];
+    return all.map(app => ({
+        ...app,
+        patient: patients.find(p => p.id === app.patientId)
+    }));
+}
+export async function getXRayAppointmentsData() {
+    const all = await getRawCollection('xrayAppointments') as XRayAppointment[];
+    const patients = await getRawCollection('patients') as Patient[];
+    return all.map(app => ({
+        ...app,
+        patient: patients.find(p => p.id === app.patientId)
+    }));
+}
+export async function getUltrasoundAppointmentsData() {
+    const all = await getRawCollection('ultrasoundAppointments') as UltrasoundAppointment[];
+    const patients = await getRawCollection('patients') as Patient[];
+    return all.map(app => ({
+        ...app,
+        patient: patients.find(p => p.id === app.patientId)
+    }));
+}
+export async function getVaccineAppointmentsData() {
+    const all = await getRawCollection('vaccineAppointments') as VaccineAppointment[];
+    const patients = await getRawCollection('patients') as Patient[];
+    return all.map(app => ({
+        ...app,
+        patient: patients.find(p => p.id === app.patientId)
+    }));
+}
 
 export async function updateAppointmentStatus(appointmentId: string, status: string, type: string) {
     const colMap: Record<string, string> = {
@@ -265,7 +300,11 @@ export async function getAppointmentsForCalendar(month: number, year: number) {
 
 export async function getAppointmentsForClinic(clinicId: string) {
     const all = await getRawCollection('appointments') as Appointment[];
-    return all.filter(a => a.clinicId === clinicId);
+    const patients = await getRawCollection('patients') as Patient[];
+    return all.filter(a => a.clinicId === clinicId).map(app => ({
+        ...app,
+        patient: patients.find(p => p.id === app.patientId)
+    }));
 }
 
 export async function getAvailableSlotsForDate(clinicId: string, date: string) {
