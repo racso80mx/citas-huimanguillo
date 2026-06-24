@@ -326,9 +326,18 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
             <Tabs defaultValue="citas-medicas">
-                <TabsList className="bg-muted/40 p-1 mb-4"><TabsTrigger value="citas-medicas">General</TabsTrigger><TabsTrigger value="laboratorio">Laboratorio</TabsTrigger></TabsList>
+                <TabsList className="bg-muted/40 p-1 mb-4">
+                  <TabsTrigger value="citas-medicas">General</TabsTrigger>
+                  <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
+                  <TabsTrigger value="rayosx">Rayos X</TabsTrigger>
+                  <TabsTrigger value="ultrasound">Ultrasonidos</TabsTrigger>
+                  <TabsTrigger value="vaccine">Vacunas</TabsTrigger>
+                </TabsList>
                 <TabsContent value="citas-medicas"><AppointmentList appointments={appointmentsToDisplay} clinics={clinics} isAdmin onEditSuccess={fetchData} /></TabsContent>
                 <TabsContent value="laboratorio"><LabAppointmentList appointments={labAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="rayosx"><XRayAppointmentList appointments={xRayAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="ultrasound"><UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="vaccine"><VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
             </Tabs>
         </TabsContent>
       </Tabs>
