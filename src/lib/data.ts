@@ -146,6 +146,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
 
 // --- PATIENTS (IN-MEMORY FILTERING TO AVOID INDEX ERRORS) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
+  // Fetch all to avoid composite index requirements in prototype
   const snap = await getDocs(collection(adminDb, 'patients'));
   let results = snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id } as Patient));
   
@@ -164,7 +165,7 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente));
   }
   
-  // Always sort in-memory to ensure reliability without custom indices
+  // Sort in memory
   results.sort((a, b) => (a.paternalLastName || '').localeCompare(b.paternalLastName || ''));
 
   return results.slice(0, options?.limitNum || 2000);
