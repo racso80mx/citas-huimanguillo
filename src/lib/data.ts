@@ -10,7 +10,9 @@ import {
   updateDoc,
   deleteDoc,
   increment,
-  addDoc
+  addDoc,
+  query,
+  limit
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -47,7 +49,10 @@ import type {
 import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
-/** Utility to convert Firestore Timestamps to ISO strings for Next.js Serializability. */
+/** 
+ * CRITICAL: SERIALIZATION UTILITY
+ * Converts Firestore Timestamps to ISO strings to prevent Next.js serializability errors.
+ */
 export function serializeData(data: any): any {
   if (!data) return data;
   const serialized = { ...data };
@@ -63,10 +68,19 @@ export function serializeData(data: any): any {
   return serialized;
 }
 
-// Helper to get raw collection data with IDs (No indexing needed)
+/**
+ * STRATEGY: NO-INDEX DATA FETCHING
+ * This helper retrieves an entire collection without any 'where' or 'orderBy' clauses.
+ * This guarantees that Firestore will NEVER request an index.
+ */
 async function getRawCollection(name: string) {
-    const snap = await getDocs(collection(adminDb, name));
-    return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
+    try {
+        const snap = await getDocs(collection(adminDb, name));
+        return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
+    } catch (e) {
+        console.error(`Error fetching collection ${name}:`, e);
+        return [];
+    }
 }
 
 // --- MODULE SETTINGS ---
@@ -145,7 +159,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PATIENTS (IN-MEMORY FILTERING TO AVOID INDEX ERRORS) ---
+// --- PATIENTS (IN-MEMORY LOGIC - NO INDEX REQUIRED) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
@@ -167,8 +181,12 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente));
   }
   
-  // Sorting in JS
-  results.sort((a, b) => (a.paternalLastName || '').localeCompare(b.paternalLastName || ''));
+  // Sorting in JS - This is the part that usually triggers the index error in Firestore
+  results.sort((a, b) => {
+      const nameA = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.toUpperCase();
+      const nameB = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.toUpperCase();
+      return nameA.localeCompare(nameB);
+  });
 
   return results.slice(0, options?.limitNum || 2000);
 }
@@ -406,7 +424,7 @@ export async function bulkInsertDoctors(doctors: any[]) {
 }
 
 export async function scanDuplicates(criteria: string) {
-    const all = await getPatientsData({ limitNum: 10000 });
+    const all = await getRawCollection('patients') as Patient[];
     const groups: Record<string, Patient[]> = {};
     all.forEach(p => {
         let key = criteria === 'expediente' ? (p.expediente || 'none') : criteria === 'curp' ? p.curp : `${p.name} ${p.paternalLastName}`;
@@ -450,9 +468,9 @@ export async function normalizeExpedientesAction() {
 
 export async function downloadBackupAction() {
     const [apps, lab, xray, us, vac, pats, clins] = await Promise.all([
-        getAppointmentsData(), getLabAppointmentsData(), getXRayAppointmentsData(),
-        getUltrasoundAppointmentsData(), getVaccineAppointmentsData(),
-        getPatientsData(), getClinicsData()
+        getAppointmentsData(), getRawCollection('labAppointments'), getRawCollection('xrayAppointments'),
+        getRawCollection('ultrasoundAppointments'), getRawCollection('vaccineAppointments'),
+        getRawCollection('patients'), getRawCollection('clinics')
     ]);
     return { success: true, data: { appointments: apps, labAppointments: lab, xRayAppointments: xray, ultrasoundAppointments: us, vaccineAppointments: vac, patients: pats, clinics: clins } };
 }
