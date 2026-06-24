@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -32,6 +33,38 @@
         "status": { "type": "string", "enum": ["Vigente", "Baja", "Baja Definitiva"] }
       },
       "required": ["curp", "name", "paternalLastName", "maternalLastName", "phoneNumber"]
+    },
+    "ServiceType": {
+      "title": "Tipo de Consulta",
+      "type": "object",
+      "description": "Categoría general de atención médica (ej. Consulta Externa, Psicología).",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "available": { "type": "boolean" }
+      },
+      "required": ["id", "name", "available"]
+    },
+    "Specialty": {
+      "title": "Especialidad",
+      "type": "object",
+      "description": "Especialidad médica específica para distinguir entre especialistas.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "available": { "type": "boolean" }
+      },
+      "required": ["id", "name", "available"]
+    }
+  },
+  "firestore": {
+    "/serviceTypes/{id}": {
+      "schema": "#/entities/ServiceType",
+      "description": "Catálogo de tipos de consulta general."
+    },
+    "/specialties/{id}": {
+      "schema": "#/entities/Specialty",
+      "description": "Catálogo de especialidades médicas para especialistas."
     }
   },
   "storage": {

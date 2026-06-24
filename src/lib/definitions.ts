@@ -81,6 +81,12 @@ export enum ClinicType {
     Externo = 'Médico Externo / Otra Área'
 }
 
+export type ServiceType = {
+    id: string;
+    name: string;
+    available: boolean;
+};
+
 export type Specialty = {
     id: string;
     name: string;
@@ -117,21 +123,13 @@ export const ClinicSchema = z.object({
       date: z.string(),
       endTime: z.string()
   })).optional(),
-  clinicType: z.string(), 
+  serviceTypeId: z.string().min(1, "El tipo de consulta es requerido."),
+  specialtyId: z.string().optional(),
   bookingMode: z.nativeEnum(BookingMode),
   consultationDuration: z.number().min(1).optional(),
-}).refine(data => {
-    if (data.bookingMode === BookingMode.Time && (data.consultationDuration ?? 0) <= 0) {
-        return false;
-    }
-    return true;
-}, {
-    message: "La duración de la consulta es requerida para el modo de horario.",
-    path: ["consultationDuration"],
 });
 
 export type Clinic = z.infer<typeof ClinicSchema>;
-
 
 export type Colonia = {
   id: string; // UUID
@@ -167,7 +165,6 @@ export const LabStudySchema = z.object({
 });
 export type LabStudy = z.infer<typeof LabStudySchema>;
 
-
 export type LabAppointment = {
     id: string;
     appointmentNumber: string;
@@ -198,7 +195,6 @@ export const XRayStudySchema = z.object({
   available: z.boolean(),
 });
 export type XRayStudy = z.infer<typeof XRayStudySchema>;
-
 
 export type XRayAppointment = {
     id: string;
@@ -266,7 +262,6 @@ export const VaccineSchema = z.object({
 });
 export type Vaccine = z.infer<typeof VaccineSchema>;
 
-
 export type VaccineAppointment = {
   id: string;
   appointmentNumber: string;
@@ -291,7 +286,6 @@ export type VaccineSettings = {
   password?: string;
   breakTime?: string;
 };
-
 
 export type ModuleSettings = {
   citasMedicasEnabled: boolean;
