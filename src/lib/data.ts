@@ -102,7 +102,8 @@ export async function updateModuleSettings(settings: ModuleSettings) {
 
 // --- CATÁLOGOS ---
 export async function getServiceTypesData(): Promise<ServiceType[]> {
-    return getRawCollection('serviceTypes') as Promise<ServiceType[]>;
+    const all = await getRawCollection('serviceTypes') as ServiceType[];
+    return all.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function updateServiceTypes(types: ServiceType[]) {
@@ -115,7 +116,8 @@ export async function updateServiceTypes(types: ServiceType[]) {
 }
 
 export async function getSpecialtiesData(): Promise<Specialty[]> {
-    return getRawCollection('specialties') as Promise<Specialty[]>;
+    const all = await getRawCollection('specialties') as Specialty[];
+    return all.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function updateSpecialties(specialties: Specialty[]) {
@@ -338,7 +340,10 @@ export async function saveNewVaccineAppointment(appointment: any, patient: any) 
 }
 
 // --- CLÍNICAS Y COLONIAS ---
-export async function getClinicsData() { return getRawCollection('clinics'); }
+export async function getClinicsData(): Promise<Clinic[]> { 
+    const all = await getRawCollection('clinics') as Clinic[];
+    return all.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+}
 export async function updateClinics(clinics: Clinic[]) {
     const batch = writeBatch(adminDb);
     clinics.forEach(c => batch.set(doc(adminDb, 'clinics', c.id), c));
@@ -369,7 +374,13 @@ export async function bulkInsertDoctors(doctors: any[]) {
     const batch = writeBatch(adminDb);
     doctors.forEach(d => {
         const id = uuidv4();
-        batch.set(doc(adminDb, 'clinics', id), { ...d, id, name: d.Unidad || d.name, doctorName: d.Médico || d.doctorName });
+        batch.set(doc(adminDb, 'clinics', id), { 
+            ...d, 
+            id, 
+            name: d.Unidad || d.name, 
+            doctorName: d.Médico || d.doctorName,
+            serviceTypeId: d.serviceTypeId || d.Categoría || '' 
+        });
     });
     await batch.commit();
     return { success: true, processedCount: doctors.length };
