@@ -146,7 +146,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
 
 // --- PACIENTES ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
-  // Query all patients to avoid composite index requirements for simple prototyping
+  // Fetch all to perform memory filtering and sorting (avoids composite index requirements)
   const snap = await getDocs(collection(adminDb, 'patients'));
   let results = snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id } as Patient));
   
@@ -155,7 +155,7 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     results = results.filter(p => (p.status || PatientStatus.Vigente) === options.status);
   }
 
-  // Search filters
+  // Search filters in memory
   if (options?.searchName) {
     const term = options.searchName.toUpperCase();
     results = results.filter(p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase().includes(term));
