@@ -81,17 +81,61 @@ async function getRawCollection(name: string) {
     }
 }
 
+// --- MÓDULOS ---
+export async function getModuleSettings(): Promise<ModuleSettings> {
+  const snap = await getDoc(doc(adminDb, 'settings', 'moduleSettings'));
+  if (snap.exists()) return serializeData(snap.data()) as ModuleSettings;
+  const def: ModuleSettings = {
+    citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true,
+    archivoEnabled: true, farmaciaEnabled: true, almacenEnabled: true, archivoConsultaEnabled: true,
+    citasMedicasWhatsAppEnabled: true, laboratorioWhatsAppEnabled: true, rayosXWhatsAppEnabled: true, ultrasoundWhatsAppEnabled: true, vacunasWhatsAppEnabled: true, archivoWhatsAppEnabled: true,
+    citasMedicasPassword: 'Citas', archivoConsultaPassword: 'Consulta'
+  };
+  await setDoc(doc(adminDb, 'settings', 'moduleSettings'), def);
+  return def;
+}
+
+export async function updateModuleSettings(settings: ModuleSettings) {
+    await setDoc(doc(adminDb, 'settings', 'moduleSettings'), settings);
+    return { success: true };
+}
+
+// --- CATÁLOGOS ---
+export async function getServiceTypesData(): Promise<ServiceType[]> {
+    return getRawCollection('serviceTypes') as Promise<ServiceType[]>;
+}
+
+export async function updateServiceTypes(types: ServiceType[]) {
+    const batch = writeBatch(adminDb);
+    const snap = await getDocs(collection(adminDb, 'serviceTypes'));
+    snap.docs.forEach(d => batch.delete(d.ref));
+    types.forEach(t => batch.set(doc(adminDb, 'serviceTypes', t.id), t));
+    await batch.commit();
+    return { success: true };
+}
+
+export async function getSpecialtiesData(): Promise<Specialty[]> {
+    return getRawCollection('specialties') as Promise<Specialty[]>;
+}
+
+export async function updateSpecialties(specialties: Specialty[]) {
+    const batch = writeBatch(adminDb);
+    const snap = await getDocs(collection(adminDb, 'specialties'));
+    snap.docs.forEach(d => batch.delete(d.ref));
+    specialties.forEach(s => batch.set(doc(adminDb, 'specialties', s.id), s));
+    await batch.commit();
+    return { success: true };
+}
+
 // --- PACIENTES (FILTRADO Y ORDENAMIENTO 100% EN MEMORIA) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
   
-  // 1. Filtrado por estatus en memoria
   if (options?.status && options.status !== 'Total') {
     results = results.filter(p => (p.status || PatientStatus.Vigente) === options.status);
   }
 
-  // 2. Búsqueda por nombre en memoria
   if (options?.searchName) {
     const term = options.searchName.toUpperCase();
     results = results.filter(p => 
@@ -99,18 +143,15 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     );
   }
   
-  // 3. Búsqueda por CURP en memoria
   if (options?.searchCurp) {
     const term = options.searchCurp.toUpperCase();
     results = results.filter(p => (p.curp || '').toUpperCase().includes(term));
   }
   
-  // 4. Búsqueda por Expediente en memoria
   if (options?.searchExpediente) {
     results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente));
   }
   
-  // 5. Ordenamiento por Apellidos en memoria (Evita error de índice compuesto)
   results.sort((a, b) => {
       const nameA = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.toUpperCase();
       const nameB = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.toUpperCase();
@@ -131,7 +172,7 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
 }
 
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) {
-    const patientId = id || patient.curp;
+    const patientId = id || patient.curp || uuidv4();
     await setDoc(doc(adminDb, 'patients', patientId), { ...patient, id: patientId });
     return { success: true };
 }
@@ -313,86 +354,7 @@ export async function updateColonias(colonias: Colonia[]) {
     await batch.commit(); return { success: true };
 }
 
-// --- MÓDULOS Y SEGURIDAD ---
-export async function getModuleSettings(): Promise<ModuleSettings> {
-  const snap = await getDoc(doc(adminDb, 'settings', 'moduleSettings'));
-  if (snap.exists()) return serializeData(snap.data()) as ModuleSettings;
-  const def: ModuleSettings = {
-    citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true,
-    archivoEnabled: true, farmaciaEnabled: true, almacenEnabled: true, archivoConsultaEnabled: true,
-    citasMedicasWhatsAppEnabled: true, laboratorioWhatsAppEnabled: true, rayosXWhatsAppEnabled: true, ultrasoundWhatsAppEnabled: true, vacunasWhatsAppEnabled: true, archivoWhatsAppEnabled: true,
-    citasMedicasPassword: 'Citas', archivoConsultaPassword: 'Consulta'
-  };
-  await setDoc(doc(adminDb, 'settings', 'moduleSettings'), def);
-  return def;
-}
-
-export async function updateModuleSettings(settings: ModuleSettings) {
-    await setDoc(doc(adminDb, 'settings', 'moduleSettings'), settings);
-    return { success: true };
-}
-
-export async function verifyAdminPassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'admin'));
-    const s = snap.exists() ? snap.data() : { password: 'Hu1m4ngu1ll0' };
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyArchivePassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'archive'));
-    const s = snap.exists() ? snap.data() : { password: 'ArchivoPassword' };
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyPharmacyPassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy'));
-    const s = snap.exists() ? snap.data() : { password: 'PharmacyPassword' };
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyWarehousePassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'warehouse'));
-    const s = snap.exists() ? snap.data() : { password: 'WarehousePassword' };
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyBIPassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'bi'));
-    const s = snap.exists() ? snap.data() : { password: 'BIPassword' };
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyCitasMedicasPassword(p: string) {
-    const s = await getModuleSettings();
-    return s.citasMedicasPassword === p ? { success: true } : { success: false };
-}
-
-export async function verifyLabPassword(p: string) {
-    const s = await getLabSettings();
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyXRayPassword(p: string) {
-    const s = await getXRaySettings();
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyUltrasoundPassword(p: string) {
-    const s = await getUltrasoundSettings();
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyVaccinePassword(p: string) {
-    const s = await getVaccineSettings();
-    return s.password === p ? { success: true } : { success: false };
-}
-
-export async function verifyClinicPassword(id: string, p: string) {
-    const snap = await getDoc(doc(adminDb, 'clinics', id));
-    return snap.exists() && snap.data()?.password === p ? { success: true } : { success: false };
-}
-
-// --- MANTENIMIENTO ---
+// --- BULK INSERTS & MANTENIMIENTO ---
 export async function bulkInsertPatients(patients: any[]) {
     const batch = writeBatch(adminDb);
     patients.forEach(p => {
@@ -481,6 +443,87 @@ export async function cleanupOldRecords() {
     return { success: true, deletedCount: total };
 }
 
+// --- SEGURIDAD ---
+export async function getAdminSettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'admin')); return snap.exists() ? serializeData(snap.data()) : { password: 'Hu1m4ngu1ll0' }; }
+export async function updateAdminSettings(settings: AdminSettings) { await setDoc(doc(adminDb, 'settings', 'admin'), settings); return { success: true }; }
+export async function getArchiveSettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'archive')); return snap.exists() ? serializeData(snap.data()) : { password: 'ArchivoPassword' }; }
+export async function updateArchiveSettings(settings: ArchiveSettings) { await setDoc(doc(adminDb, 'settings', 'archive'), settings); return { success: true }; }
+export async function getPharmacySettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy')); return snap.exists() ? serializeData(snap.data()) : { password: 'PharmacyPassword' }; }
+export async function updatePharmacySettings(settings: PharmacySettings) { await setDoc(doc(adminDb, 'settings', 'pharmacy'), settings); return { success: true }; }
+export async function getWarehouseSettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'warehouse')); return snap.exists() ? serializeData(snap.data()) : { password: 'WarehousePassword' }; }
+export async function updateWarehouseSettings(settings: WarehouseSettings) { await setDoc(doc(adminDb, 'settings', 'warehouse'), settings); return { success: true }; }
+export async function getBISettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'bi')); return snap.exists() ? serializeData(snap.data()) : { password: 'BIPassword' }; }
+export async function updateBISettings(settings: BISettings) { await setDoc(doc(adminDb, 'settings', 'bi'), settings); return { success: true }; }
+
+export async function verifyAdminPassword(p: string) {
+    const snap = await getDoc(doc(adminDb, 'settings', 'admin'));
+    const s = snap.exists() ? snap.data() : { password: 'Hu1m4ngu1ll0' };
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyArchivePassword(p: string) {
+    const snap = await getDoc(doc(adminDb, 'settings', 'archive'));
+    const s = snap.exists() ? snap.data() : { password: 'ArchivoPassword' };
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyPharmacyPassword(p: string) {
+    const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy'));
+    const s = snap.exists() ? snap.data() : { password: 'PharmacyPassword' };
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyWarehousePassword(p: string) {
+    const snap = await getDoc(doc(adminDb, 'settings', 'warehouse'));
+    const s = snap.exists() ? snap.data() : { password: 'WarehousePassword' };
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyBIPassword(p: string) {
+    const snap = await getDoc(doc(adminDb, 'settings', 'bi'));
+    const s = snap.exists() ? snap.data() : { password: 'BIPassword' };
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyCitasMedicasPassword(p: string) {
+    const s = await getModuleSettings();
+    return s.citasMedicasPassword === p ? { success: true } : { success: false };
+}
+
+export async function verifyLabPassword(p: string) {
+    const s = await getLabSettings();
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyXRayPassword(p: string) {
+    const s = await getXRaySettings();
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyUltrasoundPassword(p: string) {
+    const s = await getUltrasoundSettings();
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyVaccinePassword(p: string) {
+    const s = await getVaccineSettings();
+    return s.password === p ? { success: true } : { success: false };
+}
+
+export async function verifyClinicPassword(id: string, p: string) {
+    const snap = await getDoc(doc(adminDb, 'clinics', id));
+    return snap.exists() && snap.data()?.password === p ? { success: true } : { success: false };
+}
+
+// --- LOGS ---
+export async function getLogsData() {
+    const all = await getRawCollection('activityLog') as ActivityLog[];
+    return all.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 500);
+}
+export async function logActivity(action: string, details: string) {
+    await addDoc(collection(adminDb, 'activityLog'), { action, details, timestamp: new Date().toISOString() });
+}
+
 // --- CONSULTAS Y RECETAS ---
 export async function getConsultationsByPatientId(patientId: string) {
     const all = await getRawCollection('medicalConsultations') as MedicalConsultation[];
@@ -558,11 +601,12 @@ export async function getPatientPrescriptionsCountTodayAction(patientId: string)
     return all.filter(d => d.patientId === patientId && d.date >= today.toISOString()).length;
 }
 
-// --- OTROS ---
+// --- OTROS SETTINGS ---
 export async function getAnnouncementsData() {
     const snap = await getDoc(doc(adminDb, 'settings', 'announcements'));
     return snap.exists() ? snap.data()?.messages || [] : [];
 }
+
 export async function updateAnnouncements(messages: string[]) { await setDoc(doc(adminDb, 'settings', 'announcements'), { messages }); return { success: true }; }
 
 export async function getHolidaysData() { return getRawCollection('holidays'); }
@@ -615,7 +659,6 @@ export async function deleteAllCie10Catalog() {
     await batch.commit(); return { success: true }; 
 }
 
-// --- SETTINGS MÓDULOS ---
 export async function getLabSettings() { const snap = await getDoc(doc(adminDb, 'settings', 'labSettings')); return snap.exists() ? serializeData(snap.data()) : { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false }; }
 export async function updateLabSettings(s: LabSettings) { await setDoc(doc(adminDb, 'settings', 'labSettings'), s); return { success: true }; }
 export async function getXRaySettings() { const snap = await getDoc(doc(adminDb, 'settings', 'xraySettings')); return snap.exists() ? serializeData(snap.data()) : { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false }; }
@@ -658,7 +701,6 @@ export async function updateVaccines(v: Vaccine[]) {
     await batch.commit(); return { success: true };
 }
 
-// --- FARMACIA / ALMACÉN ---
 export async function getMedications() { return getRawCollection('medications'); }
 export async function bulkInsertMedications(meds: any[]) {
     const batch = writeBatch(adminDb);
@@ -685,7 +727,6 @@ export async function deleteAllSupplies() {
     await batch.commit(); return { success: true }; 
 }
 
-// --- OTROS ---
 export async function getAttendedPatientsForClinic(clinicId: string) {
     const allApps = await getRawCollection('appointments') as Appointment[];
     const ids = Array.from(new Set(allApps.filter(d => d.clinicId === clinicId && d.status === 'Atendido').map(d => d.patientId)));
@@ -698,22 +739,3 @@ export async function getAppointmentCountOnDate(clinicId: string, date: string) 
     const all = await getRawCollection('appointments') as Appointment[];
     return all.filter(d => d.clinicId === clinicId && d.date.startsWith(date)).length;
 }
-
-export async function getLogsData() {
-    const all = await getRawCollection('activityLog') as ActivityLog[];
-    return all.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 500);
-}
-export async function logActivity(action: string, details: string) {
-    await addDoc(collection(adminDb, 'activityLog'), { action, details, timestamp: new Date().toISOString() });
-}
-
-export async function getAdminSettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'admin')); return snap.exists() ? serializeData(snap.data()) : { password: 'Hu1m4ngu1ll0' }; }
-export async function updateAdminSettings(settings: AdminSettings) { await setDoc(doc(adminDb, 'settings', 'admin'), settings); return { success: true }; }
-export async function getArchiveSettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'archive')); return snap.exists() ? serializeData(snap.data()) : { password: 'ArchivoPassword' }; }
-export async function updateArchiveSettings(settings: ArchiveSettings) { await setDoc(doc(adminDb, 'settings', 'archive'), settings); return { success: true }; }
-export async function getPharmacySettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy')); return snap.exists() ? serializeData(snap.data()) : { password: 'PharmacyPassword' }; }
-export async function updatePharmacySettings(settings: PharmacySettings) { await setDoc(doc(adminDb, 'settings', 'pharmacy'), settings); return { success: true }; }
-export async function getWarehouseSettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'warehouse')); return snap.exists() ? serializeData(snap.data()) : { password: 'WarehousePassword' }; }
-export async function updateWarehouseSettings(settings: WarehouseSettings) { await setDoc(doc(adminDb, 'settings', 'warehouse'), settings); return { success: true }; }
-export async function getBISettingsData() { const snap = await getDoc(doc(adminDb, 'settings', 'bi')); return snap.exists() ? serializeData(snap.data()) : { password: 'BIPassword' }; }
-export async function updateBISettings(settings: BISettings) { await setDoc(doc(adminDb, 'settings', 'bi'), settings); return { success: true }; }
