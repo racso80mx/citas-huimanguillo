@@ -165,7 +165,7 @@ export async function getLabStudies() { return data.getLabStudies(); }
 export async function updateLabStudies(s: LabStudy[]) { return data.updateLabStudies(s); }
 export async function getXRayStudies() { return data.getXRayStudies(); }
 export async function updateXRayStudies(s: XRayStudy[]) { return data.updateXRayStudies(s); }
-export async function getUltrasoundStudies() { return getRawCollection('ultrasoundStudies'); }
+export async function getUltrasoundStudies() { return data.getUltrasoundStudies(); }
 export async function updateUltrasoundStudies(s: UltrasoundStudy[]) { return data.updateUltrasoundStudies(s); }
 export async function getVaccines() { return data.getVaccines(); }
 export async function updateVaccines(v: Vaccine[]) { return data.updateVaccines(v); }

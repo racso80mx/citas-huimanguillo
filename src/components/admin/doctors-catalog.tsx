@@ -1,9 +1,10 @@
+
 'use client';
 
-import { useState, useEffect, useMemo, useTransition } from 'react';
-import { getClinics, updateClinics, bulkInsertDoctors, deleteClinic, getSpecialties } from '@/lib/actions';
-import type { Clinic, Specialty } from '@/lib/definitions';
-import { ClinicType, BookingMode } from '@/lib/definitions';
+import { useState, useEffect, useMemo } from 'react';
+import { getClinics, updateClinics, bulkInsertDoctors, deleteClinic, getSpecialties, getServiceTypes } from '@/lib/actions';
+import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
+import { BookingMode } from '@/lib/definitions';
 import {
   Card,
   CardContent,
@@ -36,7 +37,6 @@ import {
   Upload,
   Pencil,
   Trash2,
-  FileDown,
   Fingerprint,
   ChevronDown
 } from 'lucide-react';
@@ -50,7 +50,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose
 } from '@/components/ui/dialog';
 import {
     DropdownMenu,
@@ -66,6 +65,7 @@ import { Progress } from '../ui/progress';
 export function DoctorsCatalog() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Clinic; direction: 'asc' | 'desc' } | null>({ key: 'doctorName', direction: 'asc' });
@@ -79,12 +79,14 @@ export function DoctorsCatalog() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [doctorsData, specialtiesData] = await Promise.all([
+      const [doctorsData, specialtiesData, servicesData] = await Promise.all([
           getClinics(),
-          getSpecialties()
+          getSpecialties(),
+          getServiceTypes()
       ]);
       setClinics(doctorsData.filter(c => c.doctorName && c.doctorName.trim() !== ''));
       setSpecialties(specialtiesData);
+      setServiceTypes(servicesData);
     } catch (e) {
       toast({ title: 'Error al cargar médicos', variant: 'destructive' });
     } finally {
@@ -143,7 +145,7 @@ export function DoctorsCatalog() {
         'CURP': d.doctorCurp || 'S/C',
         'Cédula Profesional': d.professionalLicense || 'S/C',
         'Unidad de Adscripción': d.name,
-        'Servicio': d.clinicType
+        'Categoría': serviceTypes.find(t => t.id === d.serviceTypeId)?.name || 'N/A'
     }));
     const ws = xlsx.utils.json_to_sheet(data);
     const wb = xlsx.utils.book_new();
@@ -163,7 +165,7 @@ export function DoctorsCatalog() {
         startTime: '08:00',
         endTime: '13:00',
         weekendBookingEnabled: false,
-        clinicType: specialties[0]?.name || 'Consulta Externa',
+        serviceTypeId: serviceTypes[0]?.id || '',
         bookingMode: BookingMode.Time,
         consultationDuration: 30
     });
@@ -247,8 +249,8 @@ export function DoctorsCatalog() {
                         <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('name')}>
                             <div className="flex items-center">Unidad / Área {getSortIcon('name')}</div>
                         </TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('clinicType')}>
-                            <div className="flex items-center">Especialidad {getSortIcon('clinicType')}</div>
+                        <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('serviceTypeId')}>
+                            <div className="flex items-center">Categoría {getSortIcon('serviceTypeId')}</div>
                         </TableHead>
                         <TableHead className="text-right pr-6">Acciones</TableHead>
                         </TableRow>
@@ -288,7 +290,7 @@ export function DoctorsCatalog() {
                             </TableCell>
                             <TableCell>
                                 <Badge variant="outline" className="text-[10px] font-black uppercase tracking-tighter bg-background">
-                                    {doc.clinicType}
+                                    {serviceTypes.find(t => t.id === doc.serviceTypeId)?.name || 'N/A'}
                                 </Badge>
                             </TableCell>
                             <TableCell className="text-right pr-6">
@@ -332,6 +334,7 @@ export function DoctorsCatalog() {
                 onClose={() => { setIsEditOpen(false); setSelectedDoctor(null); }} 
                 doctor={selectedDoctor}
                 specialties={specialties}
+                serviceTypes={serviceTypes}
                 onSave={async (data) => {
                     const existing = clinics.map(c => c.id === data.id ? data : c);
                     if (!clinics.some(c => c.id === data.id)) existing.push(data);
@@ -352,7 +355,21 @@ export function DoctorsCatalog() {
   );
 }
 
-function EditDoctorDialog({ isOpen, onClose, doctor, specialties, onSave }: { isOpen: boolean, onClose: () => void, doctor: Clinic, specialties: Specialty[], onSave: (d: Clinic) => Promise<void> }) {
+function EditDoctorDialog({ 
+    isOpen, 
+    onClose, 
+    doctor, 
+    specialties, 
+    serviceTypes,
+    onSave 
+}: { 
+    isOpen: boolean, 
+    onClose: () => void, 
+    doctor: Clinic, 
+    specialties: Specialty[], 
+    serviceTypes: ServiceType[],
+    onSave: (d: Clinic) => Promise<void> 
+}) {
     const [formData, setFormData] = useState<Clinic>(doctor);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -388,13 +405,25 @@ function EditDoctorDialog({ isOpen, onClose, doctor, specialties, onSave }: { is
                         <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})} placeholder="Ej. URGENCIAS, NÚCLEO 1, HOSPITAL..." />
                     </div>
                     <div className="space-y-2">
-                        <Label>Especialidad / Servicio</Label>
-                        <Select value={formData.clinicType} onValueChange={(v: string) => setFormData({...formData, clinicType: v})}>
+                        <Label>Tipo de Consulta (Categoría)</Label>
+                        <Select value={formData.serviceTypeId} onValueChange={(v: string) => setFormData({...formData, serviceTypeId: v})}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {specialties.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
+                                {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Especialidad Médica (Opcional)</Label>
+                        <Select value={formData.specialtyId || 'none'} onValueChange={(v: string) => setFormData({...formData, specialtyId: v === 'none' ? undefined : v})}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Sin Especialidad / General</SelectItem>
+                                {specialties.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -420,8 +449,8 @@ function MassUploadDoctorsDialog({ isOpen, onClose, onSuccess }: { isOpen: boole
     const handleDownloadTemplate = async () => {
         const xlsx = await import('xlsx');
         const ws = xlsx.utils.json_to_sheet([
-            { 'Médico': 'DR. JUAN PEREZ', 'CURP': 'ABCD010101HXXXXXXX', 'Cédula': '1234567', 'Unidad': 'URGENCIAS', 'Servicio': 'Médico Externo / Otra Área' },
-            { 'Médico': 'DRA. MARIA GARCIA', 'CURP': 'EFGH010101MXXXXXXX', 'Cédula': '7654321', 'Unidad': 'NUCLEO BASICO 5', 'Servicio': 'Consulta Externa' }
+            { 'Médico': 'DR. JUAN PEREZ', 'CURP': 'ABCD010101HXXXXXXX', 'Cédula': '1234567', 'Unidad': 'URGENCIAS', 'Categoría': 'CONSULTA EXTERNA' },
+            { 'Médico': 'DRA. MARIA GARCIA', 'CURP': 'EFGH010101MXXXXXXX', 'Cédula': '7654321', 'Unidad': 'NUCLEO BASICO 5', 'Categoría': 'CONSULTA EXTERNA' }
         ]);
         const wb = xlsx.utils.book_new();
         xlsx.utils.book_append_sheet(wb, ws, 'Médicos');

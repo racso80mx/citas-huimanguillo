@@ -67,7 +67,7 @@ export function serializeData(data: any): any {
 }
 
 /**
- * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE
+ * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE (Aislamiento Total)
  * Esta función descarga la colección COMPLETA para procesar en memoria.
  * NO USA query(), where() ni orderBy() para evitar requerir índices.
  */
@@ -77,7 +77,7 @@ async function getRawCollection(name: string) {
         return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
     } catch (e) {
         console.error(`Error crítico al leer la colección ${name}:`, e);
-        throw e;
+        return [];
     }
 }
 
@@ -127,7 +127,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PACIENTES (FILTRADO Y ORDENAMIENTO 100% EN MEMORIA) ---
+// --- PACIENTES (PROCESAMIENTO 100% EN MEMORIA) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
