@@ -3,6 +3,13 @@
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Specialty, ServiceType } from '@/lib/definitions';
 import { 
+  getAppointments,
+  getLabAppointments,
+  getXRayAppointments,
+  getUltrasoundAppointments,
+  getVaccineAppointments,
+  getClinics,
+  getColonias,
   deleteAppointment, 
   deleteLabAppointment, 
   deleteXRayAppointment, 
@@ -10,14 +17,7 @@ import {
   deleteVaccineAppointment, 
   getSpecialties, 
   getServiceTypes, 
-  updateServiceTypes,
-  getAppointments,
-  getLabAppointments,
-  getXRayAppointments,
-  getUltrasoundAppointments,
-  getVaccineAppointments,
-  getClinics,
-  getColonias
+  updateServiceTypes
 } from '@/lib/actions';
 import {
   Card,
@@ -35,27 +35,13 @@ import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointmen
 import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
 import {
   LogOut,
-  Download,
   Loader2,
-  Calendar as CalendarIcon,
   RefreshCw,
   PlusCircle,
-  DatabaseZap,
-  ShieldCheck,
   Search,
   UserRound,
-  Tags,
   Settings,
   ClipboardList,
-  Pill,
-  Package,
-  FlaskConical,
-  Stethoscope,
-  Waves,
-  ShieldPlus,
-  BookText,
-  CalendarSearch,
-  Stethoscope as StethoscopeIcon,
   LayoutList,
   Plus,
   Trash2
@@ -71,50 +57,22 @@ import {
   isWithinInterval
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
-import { Calendar } from '../ui/calendar';
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from '@/components/ui/popover';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-} from '@/components/ui/command';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
-import { cn } from '@/lib/utils';
-import { downloadExcel } from '@/lib/report-helpers';
 import { useToast } from '@/hooks/use-toast';
-import { AnnouncementsManager } from './announcements-manager';
 import { ClinicsManager } from './clinics-manager';
-import { LabSettingsManager } from './lab-settings-manager';
-import { XRaySettingsManager } from './x-ray-settings-manager';
-import { UltrasoundSettingsManager } from './ultrasound-settings-manager';
-import { VaccineSettingsManager } from './vaccine-settings-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModuleManager } from './module-manager';
-import { BackupManager } from './backup-manager';
 import { ActivityLogViewer } from './activity-log-viewer';
-import { AdminPasswordManager } from './admin-password-manager';
 import { HolidaysManager } from './holidays-manager';
 import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
-import { PharmacyManager } from './pharmacy-manager';
-import { WarehouseManager } from './warehouse-manager';
 import { DoctorsCatalog } from './doctors-catalog';
 import { SpecialtiesManager } from './specialties-manager';
 import { Input } from '../ui/input';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '../ui/switch';
+import { cn } from '@/lib/utils';
 
 function ServiceTypesManager() {
   const [types, setTypes] = useState<ServiceType[]>([]);
@@ -217,7 +175,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         console.error(error);
       }
     });
-  }, [toast]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
