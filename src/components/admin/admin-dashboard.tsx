@@ -1,8 +1,23 @@
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Specialty, ServiceType } from '@/lib/definitions';
-import { deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment, getSpecialties, getServiceTypes, updateServiceTypes } from '@/lib/actions';
-import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics, getColonias } from '@/lib/data';
+import { 
+  deleteAppointment, 
+  deleteLabAppointment, 
+  deleteXRayAppointment, 
+  deleteUltrasoundAppointment, 
+  deleteVaccineAppointment, 
+  getSpecialties, 
+  getServiceTypes, 
+  updateServiceTypes,
+  getAppointments,
+  getLabAppointments,
+  getXRayAppointments,
+  getUltrasoundAppointments,
+  getVaccineAppointments,
+  getClinics,
+  getColonias
+} from '@/lib/actions';
 import {
   Card,
   CardHeader,
@@ -23,7 +38,6 @@ import {
   Loader2,
   Calendar as CalendarIcon,
   RefreshCw,
-  Check,
   PlusCircle,
   DatabaseZap,
   ShieldCheck,
@@ -184,9 +198,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isClient, setIsClient] = useState(false);
   
-  const [manualDayMonth, setManualDayMonth] = useState('');
-  const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
-
   const { toast } = useToast();
 
   useEffect(() => { setIsClient(true); }, []);
@@ -328,3 +339,5 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
+
+type FilterType = 'today' | 'week' | 'month' | 'range';
