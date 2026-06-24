@@ -146,13 +146,16 @@ export async function updateSpecialties(specialties: Specialty[]) {
 
 // --- PACIENTES ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
-  let q = query(collection(adminDb, 'patients'), orderBy('paternalLastName'));
-  if (options?.status && options.status !== 'Total') {
-    q = query(collection(adminDb, 'patients'), where('status', '==', options.status), orderBy('paternalLastName'));
-  }
-  const snap = await getDocs(q);
+  // Query all patients to avoid composite index requirements for simple prototyping
+  const snap = await getDocs(collection(adminDb, 'patients'));
   let results = snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id } as Patient));
   
+  // Filter by status in memory
+  if (options?.status && options.status !== 'Total') {
+    results = results.filter(p => (p.status || PatientStatus.Vigente) === options.status);
+  }
+
+  // Search filters
   if (options?.searchName) {
     const term = options.searchName.toUpperCase();
     results = results.filter(p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase().includes(term));
@@ -164,6 +167,9 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente));
   }
   
+  // Sort in memory to avoid Index errors
+  results.sort((a, b) => (a.paternalLastName || '').localeCompare(b.paternalLastName || ''));
+
   return results.slice(0, options?.limitNum || 2000);
 }
 
@@ -731,8 +737,8 @@ export async function getPendingPrescriptions(filters: any) {
 }
 
 export async function getPatientPrescriptionsCountTodayAction(patientId: string) {
-    const today = startOfDay(new Date()).toISOString();
-    const q = query(collection(adminDb, 'prescriptions'), where('patientId', '==', patientId), where('date', '>=', today));
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const q = query(collection(adminDb, 'prescriptions'), where('patientId', '==', patientId), where('date', '>=', todayStart.toISOString()));
     const snap = await getDocs(q);
     return snap.size;
 }
