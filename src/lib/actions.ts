@@ -135,6 +135,7 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const res = await data.saveNewAppointment(appointment, patient, isDouble, colonia);
     revalidatePath('/citas-medicas');
+    revalidatePath('/archivo');
     return res;
 }
 export async function saveNewLabAppointment(appointment: any, patient: any) { 
@@ -361,7 +362,3 @@ export async function deleteAllSupplies() {
 }
 
 export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
-export async function getPrescriptionHistory(filters: any) { return data.getPrescriptionHistory(filters); }
-export async function getPendingPrescriptions(filters: any) { return data.getPendingPrescriptions(filters); }
-export async function getPatientPrescriptionsCountTodayAction(patientId: string) { return data.getPatientPrescriptionsCountTodayAction(patientId); }
-export async function getAppointmentCountOnDate(clinicId: string, date: string) { return data.getAppointmentCountOnDate(clinicId, date); }

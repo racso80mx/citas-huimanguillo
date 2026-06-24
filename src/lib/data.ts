@@ -48,8 +48,8 @@ import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 /** 
- * SERIALIZACIÓN CRÍTICA
- * Convierte Timestamps de Firestore a strings ISO para evitar errores de Next.js.
+ * SERIALIZACIÓN
+ * Convierte Timestamps de Firestore a strings ISO para evitar errores de hidratación/Next.js.
  */
 export function serializeData(data: any): any {
   if (!data) return data;
@@ -67,16 +67,16 @@ export function serializeData(data: any): any {
 }
 
 /**
- * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE (Aislamiento Total)
- * Esta función descarga la colección COMPLETA para procesar en memoria.
- * NO USA query(), where() ni orderBy() para evitar requerir índices.
+ * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE
+ * Descarga la colección completa para procesar filtros y ordenamiento en memoria (JavaScript).
+ * Esto evita el error "The query requires an index".
  */
 async function getRawCollection(name: string) {
     try {
         const snap = await getDocs(collection(adminDb, name));
         return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
     } catch (e) {
-        console.error(`Error crítico al leer la colección ${name}:`, e);
+        console.error(`Error al leer colección ${name}:`, e);
         return [];
     }
 }
@@ -103,7 +103,7 @@ export async function updateModuleSettings(settings: ModuleSettings) {
 // --- CATÁLOGOS ---
 export async function getServiceTypesData(): Promise<ServiceType[]> {
     const all = await getRawCollection('serviceTypes') as ServiceType[];
-    return all.sort((a, b) => a.name.localeCompare(b.name));
+    return all.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }
 
 export async function updateServiceTypes(types: ServiceType[]) {
@@ -117,7 +117,7 @@ export async function updateServiceTypes(types: ServiceType[]) {
 
 export async function getSpecialtiesData(): Promise<Specialty[]> {
     const all = await getRawCollection('specialties') as Specialty[];
-    return all.sort((a, b) => a.name.localeCompare(b.name));
+    return all.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }
 
 export async function updateSpecialties(specialties: Specialty[]) {
@@ -129,7 +129,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PACIENTES (PROCESAMIENTO 100% EN MEMORIA) ---
+// --- PACIENTES (FILTRADO EN MEMORIA) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
@@ -155,8 +155,8 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
   }
   
   results.sort((a, b) => {
-      const nameA = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.toUpperCase();
-      const nameB = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.toUpperCase();
+      const nameA = `${a.paternalLastName || ''} ${a.name || ''}`.toUpperCase();
+      const nameB = `${b.paternalLastName || ''} ${b.name || ''}`.toUpperCase();
       return nameA.localeCompare(nameB);
   });
 
@@ -390,9 +390,9 @@ export async function scanDuplicates(criteria: string) {
     const all = await getRawCollection('patients') as Patient[];
     const groups: Record<string, Patient[]> = {};
     all.forEach(p => {
-        let key = criteria === 'expediente' ? (p.expediente || 'none') : criteria === 'curp' ? p.curp : `${p.name} ${p.paternalLastName}`;
-        if (key && key !== 'none') {
-            if (!groups[key]) groups[key] = [];
+        const key = criteria === 'expediente' ? String(p.expediente) : criteria === 'curp' ? p.curp : `${p.name}_${p.paternalLastName}`;
+        if (key) {
+            groups[key] = groups[key] || [];
             groups[key].push(p);
         }
     });
@@ -430,7 +430,7 @@ export async function normalizeExpedientesAction() {
 
 export async function downloadBackupAction() {
     const [apps, lab, xray, us, vac, pats, clins] = await Promise.all([
-        getAppointmentsData(), getRawCollection('labAppointments'), getRawCollection('xrayAppointments'),
+        getRawCollection('appointments'), getRawCollection('labAppointments'), getRawCollection('xrayAppointments'),
         getRawCollection('ultrasoundAppointments'), getRawCollection('vaccineAppointments'),
         getRawCollection('patients'), getRawCollection('clinics')
     ]);
@@ -467,60 +467,45 @@ export async function getBISettingsData() { const snap = await getDoc(doc(adminD
 export async function updateBISettings(settings: BISettings) { await setDoc(doc(adminDb, 'settings', 'bi'), settings); return { success: true }; }
 
 export async function verifyAdminPassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'admin'));
-    const s = snap.exists() ? snap.data() : { password: 'Hu1m4ngu1ll0' };
+    const s = await getAdminSettingsData();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyArchivePassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'archive'));
-    const s = snap.exists() ? snap.data() : { password: 'ArchivoPassword' };
+    const s = await getArchiveSettingsData();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyPharmacyPassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy'));
-    const s = snap.exists() ? snap.data() : { password: 'PharmacyPassword' };
+    const s = await getPharmacySettingsData();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyWarehousePassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'warehouse'));
-    const s = snap.exists() ? snap.data() : { password: 'WarehousePassword' };
+    const s = await getWarehouseSettingsData();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyBIPassword(p: string) {
-    const snap = await getDoc(doc(adminDb, 'settings', 'bi'));
-    const s = snap.exists() ? snap.data() : { password: 'BIPassword' };
+    const s = await getBISettingsData();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyCitasMedicasPassword(p: string) {
     const s = await getModuleSettings();
     return s.citasMedicasPassword === p ? { success: true } : { success: false };
 }
-
 export async function verifyLabPassword(p: string) {
     const s = await getLabSettings();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyXRayPassword(p: string) {
     const s = await getXRaySettings();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyUltrasoundPassword(p: string) {
     const s = await getUltrasoundSettings();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyVaccinePassword(p: string) {
     const s = await getVaccineSettings();
     return s.password === p ? { success: true } : { success: false };
 }
-
 export async function verifyClinicPassword(id: string, p: string) {
     const snap = await getDoc(doc(adminDb, 'clinics', id));
     return snap.exists() && snap.data()?.password === p ? { success: true } : { success: false };
@@ -595,7 +580,7 @@ export async function getPendingPrescriptions(filters: any) {
     let res = all.filter(d => d.status === 'pendiente');
     if (filters?.folio) res = res.filter(r => r.folio.toUpperCase() === filters.folio.toUpperCase());
     if (filters?.clinicId && filters.clinicId !== 'all') res = res.filter(r => r.clinicId === filters.clinicId);
-    return res.sort((a, b) => b.date.localeCompare(a.date));
+    return res.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 
 export async function getPrescriptionHistory(filters: any) {
@@ -603,7 +588,7 @@ export async function getPrescriptionHistory(filters: any) {
     let res = all.filter(d => d.status === 'surtida');
     if (filters?.startDate) res = res.filter(r => r.date >= filters.startDate);
     if (filters?.endDate) res = res.filter(r => r.date <= filters.endDate);
-    return res.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 100);
+    return res.sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 100);
 }
 
 export async function getPatientPrescriptionsCountTodayAction(patientId: string) {
