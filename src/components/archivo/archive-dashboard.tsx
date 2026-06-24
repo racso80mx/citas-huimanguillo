@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -153,7 +154,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
           searchName: searchName.trim() || undefined,
           searchCurp: searchCurp.trim() || undefined,
           searchExpediente: searchExpediente.trim() || undefined,
-          limitNum: (searchName || searchCurp || searchExpediente) ? 100 : 2000 
+          limitNum: (searchName || searchCurp || searchExpediente) ? 200 : 2000 
       };
 
       const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
@@ -170,6 +171,9 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
       setCurrentPage(1); 
     } catch (error: any) {
       console.error("Dashboard error:", error);
+      // Log the specific error to help the user identify it
+      console.error("DETALLE ERROR:", error.message, error.stack);
+      
       toast({
         title: 'Error de Consulta',
         description: 'No se pudieron recuperar los registros. Por favor, intenta con una búsqueda más específica.',
