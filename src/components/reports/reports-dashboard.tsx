@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Colonia, Patient, MedicalConsultation, Prescription } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Patient, MedicalConsultation, Prescription } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
   getLabAppointments,
@@ -108,8 +108,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { generatePrescriptionPDF } from '@/lib/report-helpers';
-
-type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
 type ReportsDashboardProps = {
   entity: any;
