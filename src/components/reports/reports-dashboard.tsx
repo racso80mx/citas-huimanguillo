@@ -109,6 +109,8 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { generatePrescriptionPDF } from '@/lib/report-helpers';
 
+type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
+
 type ReportsDashboardProps = {
   entity: any;
   onLogout: () => void;
@@ -168,7 +170,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         if (reportType === 'clinic') {
             appointmentsData = await getAppointmentsForClinic(entity.id);
         } else if (reportType === 'x-ray') {
-            appointmentsData = await getLabAppointments();
+            appointmentsData = await getXRayAppointments();
         } else if (reportType === 'ultrasound') {
             appointmentsData = await getUltrasoundAppointments();
         } else if (reportType === 'laboratorio') {
@@ -230,6 +232,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       });
       fetchData(); 
     } catch (error) {
+      console.error('Error deleting appointment', error);
       toast({
         title: 'Error',
         description: 'No se pudo eliminar la cita.',
@@ -291,10 +294,10 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         setAttendedPatients(results);
         
         if (results.length === 0) {
-            toast({ title: "Sin coincidencias", description: "No se encontró ningún paciente en el padrón con ese criterio.", variant: "destructive" });
+            toast({ title: "Sin coincidencias", description: "No se encontró ningún paciente con ese criterio.", variant: "destructive" });
         }
     } catch (e) {
-        console.error("Search error", e);
+        console.error('Search error', e);
     } finally {
         setIsSearchingArchive(false);
     }
@@ -390,13 +393,12 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
   const handleEditPrescription = (presc: Prescription) => {
     setEditingPrescription(presc);
-    // Important: Find the patient in the current context to ensure the dialog has a valid Patient object
     const patient = attendedPatients.find(p => p.id === presc.patientId);
     setSelectedPatientForPrescription(patient || null);
     setIsPrescriptionOpen(true);
   }
 
-  const renderAppointmentList = () => {
+  const renderAppointmentListContent = () => {
     const props = {
       isAdmin: true,
       onEditSuccess: fetchData,
@@ -419,7 +421,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   }
 
-  const renderSettingsManager = () => {
+  const renderSettingsManagerContent = () => {
     switch(reportType) {
         case 'laboratorio':
             return <LabSettingsManager />;
@@ -666,15 +668,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                     </div>
                 ) : (
                     <>
-                    {appointmentsToDisplay.length > 0 ? (
-                        renderAppointmentList()
-                    ) : (
-                        <div className="text-center py-20 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/5">
-                        <Search className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="text-lg font-bold">No se encontraron citas</p>
-                        <p className="text-sm">Ajusta los filtros o busca otro periodo para visualizar datos.</p>
-                        </div>
-                    )}
+                    {renderAppointmentListContent()}
                     </>
                 )}
                 </CardContent>
@@ -683,7 +677,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
           <TabsContent value="pacientes" className="mt-0">
               <div className="grid lg:grid-cols-12 gap-8">
-                  {/* Pacientes List */}
                   <div className="lg:col-span-4 space-y-4">
                       <Card className="shadow-lg h-[calc(100vh-350px)] flex flex-col">
                           <CardHeader className="bg-muted/10 pb-4">
@@ -753,7 +746,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
                       </Card>
                   </div>
 
-                  {/* Detalle Histórico */}
                   <div className="lg:col-span-8">
                       {selectedPatientId ? (
                           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
