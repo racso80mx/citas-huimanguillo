@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useCallback } from 'react';
 import {
   Card,
   CardHeader,
@@ -18,7 +18,9 @@ import {
   LayoutList,
   Plus,
   Trash2,
-  Loader2
+  Loader2,
+  Search,
+  LayoutGrid
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -34,15 +36,13 @@ import { Input } from '../ui/input';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '../ui/switch';
-import { cn } from '@/lib/utils';
-import { getServiceTypes, updateServiceTypes } from '@/lib/actions';
+import { getServiceTypes, updateServiceTypes, getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics, deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment } from '@/lib/actions';
 import React from 'react';
 import { AppointmentList } from '../appointment-list';
 import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
 import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
 import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
-import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics } from '@/lib/actions';
 
 function ServiceTypesManager() {
   const [types, setTypes] = useState<any[]>([]);
@@ -50,7 +50,7 @@ function ServiceTypesManager() {
   const [saving, startSaving] = useTransition();
   const { toast } = useToast();
 
-  React.useEffect(() => {
+  useEffect(() => {
     getServiceTypes().then(data => {
       setTypes(data);
       setLoading(false);
@@ -111,23 +111,36 @@ function AppointmentsViewer() {
     const [data, setData] = useState<any>({ apps: [], lab: [], xr: [], us: [], vac: [], clinics: [] });
     const [loading, setLoading] = useState(true);
 
-    const fetchData = React.useCallback(async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
-        const [apps, lab, xr, us, vac, clinics] = await Promise.all([
-            getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics()
-        ]);
-        setData({ apps, lab, xr, us, vac, clinics });
-        setLoading(false);
+        try {
+            const [apps, lab, xr, us, vac, clinics] = await Promise.all([
+                getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics()
+            ]);
+            setData({ apps, lab, xr, us, vac, clinics });
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    React.useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const handlePatientDelete = async (id: string, type: string) => {
+        let res;
+        if (type === 'medical') res = await deleteAppointment(id);
+        if (type === 'lab') res = await deleteLabAppointment(id);
+        if (type === 'xr') res = await deleteXRayAppointment(id);
+        if (type === 'us') res = await deleteUltrasoundAppointment(id);
+        if (type === 'vac') res = await deleteVaccineAppointment(id);
+        if (res?.success) fetchData();
+    };
 
     const filter = (list: any[]) => {
         if (!searchTerm) return list;
         const t = searchTerm.toUpperCase();
         return list.filter(a => {
-            const name = `${a.patient?.name} ${a.patient?.paternalLastName}`.toUpperCase();
-            return name.includes(t) || String(a.appointmentNumber).toUpperCase().includes(t) || String(a.patient?.curp).toUpperCase().includes(t);
+            const name = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
+            return name.includes(t) || String(a.appointmentNumber).toUpperCase().includes(t) || String(a.patient?.curp || '').toUpperCase().includes(t);
         });
     };
 
@@ -147,11 +160,11 @@ function AppointmentsViewer() {
                   <TabsTrigger value="us">Ultrasonidos</TabsTrigger>
                   <TabsTrigger value="vac">Vacunas</TabsTrigger>
                 </TabsList>
-                <TabsContent value="medical"><AppointmentList appointments={filter(data.apps)} clinics={data.clinics} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="lab"><LabAppointmentList appointments={filter(data.lab)} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="xr"><XRayAppointmentList appointments={filter(data.xr)} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="us"><UltrasoundAppointmentList appointments={filter(data.us)} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="vac"><VaccineAppointmentList appointments={filter(data.vac)} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="medical"><AppointmentList appointments={filter(data.apps)} clinics={data.clinics} isAdmin onDelete={(id) => handlePatientDelete(id, 'medical')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="lab"><LabAppointmentList appointments={filter(data.lab)} isAdmin onDelete={(id) => handlePatientDelete(id, 'lab')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="xr"><XRayAppointmentList appointments={filter(data.xr)} isAdmin onDelete={(id) => handlePatientDelete(id, 'xr')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="us"><UltrasoundAppointmentList appointments={filter(data.us)} isAdmin onDelete={(id) => handlePatientDelete(id, 'us')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="vac"><VaccineAppointmentList appointments={filter(data.vac)} isAdmin onDelete={(id) => handlePatientDelete(id, 'vac')} onEditSuccess={fetchData} /></TabsContent>
             </Tabs>
         </div>
     );
