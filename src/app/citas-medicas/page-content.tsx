@@ -120,11 +120,8 @@ export default function PageContent({
             let takenInfo: any[] = [];
 
             // REGLAS DE NEGOCIO PARA BLOQUEO:
-            // 1. Días Inhábiles (Vacaciones)
             const isDateBlocked = clinic.unavailableDates?.includes(dateString);
-            // 2. Días de Acción (Laborales)
             const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
-            // 3. Fines de Semana (si no están habilitados)
             const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
 
             const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked;
@@ -132,12 +129,13 @@ export default function PageContent({
             if (!isBlocked) {
                 const booked = dayMap?.get(clinic.id) || [];
                 if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
-                    // 4. Salidas Tempranas (Horarios especiales)
                     const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
                     const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
                     
-                    const slots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
-                    availableSlotsForClinic = slots.filter(s => !booked.some(a => a.time === s)).length;
+                    const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
+                    // Filter out break time
+                    const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
+                    availableSlotsForClinic = filteredSlots.filter(s => !booked.some(a => a.time === s)).length;
                 } else {
                     availableSlotsForClinic = Math.max(0, clinic.dailySlots - booked.length);
                 }
@@ -229,13 +227,14 @@ export default function PageContent({
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
     
-    const slots = allSlots.filter(s => !booked.some(a => a.time === s));
+    // Filter out break time AND booked slots
+    const slots = allSlots.filter(s => s !== selectedClinic.breakTime && !booked.some(a => a.time === s));
 
     if (patientType === PatientType.Embarazada && isDoubleSlot) {
         return slots.filter((slot) => {
             const slotIndex = allSlots.indexOf(slot);
             const nextSlot = allSlots[slotIndex + 1];
-            return nextSlot && !booked.some(a => a.time === nextSlot);
+            return nextSlot && nextSlot !== selectedClinic.breakTime && !booked.some(a => a.time === nextSlot);
         });
     }
 

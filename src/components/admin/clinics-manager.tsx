@@ -124,8 +124,24 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
         }
     };
 
+    const dynamicBreakSlots = useMemo(() => {
+        if (!editedClinic.startTime || !editedClinic.endTime) return [];
+        const slots: string[] = [];
+        try {
+            const startParts = editedClinic.startTime.split(':').map(Number);
+            const endParts = editedClinic.endTime.split(':').map(Number);
+            let current = new Date(1970, 0, 1, startParts[0], startParts[1]);
+            const end = new Date(1970, 0, 1, endParts[0], endParts[1]);
+            while (current < end) {
+                slots.push(current.toTimeString().substring(0, 5));
+                current = new Date(current.getTime() + (editedClinic.consultationDuration || 30) * 60000);
+            }
+        } catch (e) {}
+        return slots;
+    }, [editedClinic.startTime, editedClinic.endTime, editedClinic.consultationDuration]);
+
     return (
-        <DialogContent className="sm:max-w-[80%] h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[85%] h-[90vh] flex flex-col p-0 overflow-hidden">
             <DialogHeader className="p-6 pb-2 shrink-0">
                 <DialogTitle>Editar Configuración: {clinic.name || "Nueva Unidad"}</DialogTitle>
                 <DialogDescription>Modifica los horarios, días laborales y capacidad de atención.</DialogDescription>
@@ -179,7 +195,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                         </div>
                     </div>
 
-                    <div className='grid sm:grid-cols-3 lg:grid-cols-6 gap-6'>
+                    <div className='grid sm:grid-cols-3 lg:grid-cols-7 gap-4'>
                         <div className='space-y-2'>
                             <Label className="text-[10px] font-bold uppercase opacity-60">Modo</Label>
                             <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
@@ -213,6 +229,16 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                                 <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label className="text-[10px] font-bold uppercase text-primary">Hora Descanso</Label>
+                            <Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}>
+                                <SelectTrigger className="h-10 border-primary/20"><SelectValue placeholder="---" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Sin Descanso</SelectItem>
+                                    {dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
