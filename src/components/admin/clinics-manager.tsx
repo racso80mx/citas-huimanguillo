@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
@@ -32,7 +31,9 @@ import {
     Clock,
     CheckCircle2,
     CalendarDays,
-    Search
+    Search,
+    Fingerprint,
+    ShieldCheck
 } from 'lucide-react';
 import type { Clinic, Colonia, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -67,25 +68,35 @@ import { Checkbox } from '../ui/checkbox';
 
 const DAYS_OF_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
-function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSave, onCancel }: { 
+function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel }: { 
     clinic: Clinic, 
     allColonias: Colonia[], 
     specialties: Specialty[], 
     serviceTypes: ServiceType[],
-    onSave: (clinic: Clinic, colonias: Colonia[]) => void, 
+    onSave: (clinic: Clinic) => void, 
     onCancel: () => void 
 }) {
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
     const [showPassword, setShowPassword] = useState(false);
-    const [clinicColonias, setClinicColonias] = useState<Colonia[]>(() => allColonias.filter(c => c.clinicId === clinic.id));
     
     const [newScheduleDate, setNewScheduleDate] = useState<Date | undefined>();
     const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     useEffect(() => {
-        setEditedClinic(clinic);
-        setClinicColonias(allColonias.filter(c => c.clinicId === clinic.id));
-    }, [clinic, allColonias]);
+        // Normalizar fechas bloqueadas para asegurar que sean strings únicos y evitar errores de key
+        const normalizedDates = Array.from(new Set(clinic.unavailableDates?.map(d => {
+            if (typeof d === 'string') return d;
+            if (d && typeof d === 'object' && 'seconds' in d) {
+                return new Date((d as any).seconds * 1000).toISOString().split('T')[0];
+            }
+            return String(d);
+        }).filter(d => !!d && d !== "[object Object]") || []));
+
+        setEditedClinic({
+            ...clinic,
+            unavailableDates: normalizedDates
+        });
+    }, [clinic]);
 
     const handleFieldChange = (field: keyof Omit<Clinic, 'id'>, value: any) => {
         setEditedClinic(prev => ({...prev, [field]: value}));
@@ -123,7 +134,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
 
     const formatBadgeDate = (d: string) => {
         try {
-            if (!d) return "---";
+            if (!d || d === "[object Object]") return "---";
             const dateObj = new Date(d + 'T12:00:00');
             if (!isValid(dateObj)) return d;
             return format(dateObj, 'dd/MM/yy', { locale: es });
@@ -134,19 +145,22 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
 
     const dynamicBreakSlots = useMemo(() => {
         if (!editedClinic.startTime || !editedClinic.endTime) return [];
-        const slots: string[] = [];
+        const slots: Set<string> = new Set();
         try {
             const startParts = editedClinic.startTime.split(':').map(Number);
             const endParts = editedClinic.endTime.split(':').map(Number);
             let current = new Date(1970, 0, 1, startParts[0], startParts[1]);
             const end = new Date(1970, 0, 1, endParts[0], endParts[1]);
             while (current < end) {
-                slots.push(current.toTimeString().substring(0, 5));
+                slots.add(current.toTimeString().substring(0, 5));
                 current = new Date(current.getTime() + (editedClinic.consultationDuration || 30) * 60000);
             }
+            if (editedClinic.breakTime) {
+                slots.add(editedClinic.breakTime);
+            }
         } catch (e) {}
-        return slots;
-    }, [editedClinic.startTime, editedClinic.endTime, editedClinic.consultationDuration]);
+        return Array.from(slots).sort();
+    }, [editedClinic.startTime, editedClinic.endTime, editedClinic.consultationDuration, editedClinic.breakTime]);
 
     return (
         <DialogContent className="sm:max-w-[90vw] h-[95vh] flex flex-col p-0 overflow-hidden">
@@ -160,33 +174,47 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
             </DialogHeader>
             <ScrollArea className="flex-1">
                  <div className="p-8 space-y-10 pb-20">
-                    <div className='grid sm:grid-cols-2 gap-8'>
+                    <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-8'>
                         <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Nombre de la Unidad / Consultorio</Label>
-                            <Input value={editedClinic.name} onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())} placeholder="Ej. CONSULTORIO 1" className="h-12 text-lg font-bold" />
+                            <Label className="font-black text-xs uppercase opacity-60">Nombre de la Unidad</Label>
+                            <Input value={editedClinic.name} onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())} placeholder="Ej. NB1" className="h-12 text-lg font-bold" />
                         </div>
                         <div className='space-y-2'>
                             <Label className="font-black text-xs uppercase opacity-60">Médico Responsable</Label>
-                            <Input value={editedClinic.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())} placeholder="Ej. DR. JUAN PEREZ" className="h-12 text-lg font-bold" />
+                            <Input value={editedClinic.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())} placeholder="DR. NOMBRE" className="h-12 text-lg font-bold" />
+                        </div>
+                        <div className='space-y-2'>
+                            <Label className="font-black text-xs uppercase opacity-60">CURP Médico</Label>
+                            <div className="relative">
+                                <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input value={editedClinic.doctorCurp || ''} onChange={(e) => handleFieldChange('doctorCurp', e.target.value.toUpperCase())} placeholder="CURP..." className="h-12 pl-9 font-mono uppercase" maxLength={18} />
+                            </div>
                         </div>
                     </div>
 
-                    <div className='grid sm:grid-cols-2 gap-8'>
+                    <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-8'>
                         <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Categoría de Atención</Label>
+                            <Label className="font-black text-xs uppercase opacity-60">Cédula Profesional</Label>
+                            <div className="relative">
+                                <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input value={editedClinic.professionalLicense || ''} onChange={(e) => handleFieldChange('professionalLicense', e.target.value.toUpperCase())} placeholder="Cédula..." className="h-12 pl-9 uppercase" />
+                            </div>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label className="font-black text-xs uppercase opacity-60">Categoría</Label>
                             <Select value={editedClinic.serviceTypeId} onValueChange={(v) => handleFieldChange('serviceTypeId', v)}>
-                                <SelectTrigger className="h-12 font-bold"><SelectValue placeholder="Selecciona el tipo..." /></SelectTrigger>
+                                <SelectTrigger className="h-12 font-bold"><SelectValue placeholder="Tipo de consulta..." /></SelectTrigger>
                                 <SelectContent>
                                     {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Especialidad (Opcional)</Label>
+                            <Label className="font-black text-xs uppercase opacity-60">Especialidad</Label>
                             <Select value={editedClinic.specialtyId || 'none'} onValueChange={(v) => handleFieldChange('specialtyId', v === 'none' ? undefined : v)}>
-                                <SelectTrigger className="h-12 font-bold"><SelectValue placeholder="General / Familiar" /></SelectTrigger>
+                                <SelectTrigger className="h-12 font-bold"><SelectValue placeholder="Sin especialidad" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">Medicina General / Familiar</SelectItem>
+                                    <SelectItem value="none">Sin Especialidad / General</SelectItem>
                                     {specialties.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -207,7 +235,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                         </div>
                     </div>
 
-                    <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
+                    <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
                         <div className='space-y-2'>
                             <Label className="text-[10px] font-black uppercase text-primary">Modo</Label>
                             <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
@@ -223,6 +251,10 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             <Input type="number" value={editedClinic.dailySlots} onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center border-primary/20" />
                         </div>
                         <div className='space-y-2'>
+                            <Label className="text-[10px] font-black uppercase text-primary">Lista Espera</Label>
+                            <Input type="number" value={editedClinic.waitlistSlots || 0} onChange={(e) => handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center border-primary/20" />
+                        </div>
+                        <div className='space-y-2'>
                             <Label className="text-[10px] font-black uppercase text-primary">Duración (m)</Label>
                             <Input type="number" value={editedClinic.consultationDuration || ''} onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center border-primary/20" />
                         </div>
@@ -231,7 +263,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             <Select value={editedClinic.startTime} onValueChange={(v) => handleFieldChange('startTime', v)}>
                                 <SelectTrigger className="h-11 font-bold border-primary/20"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label} hrs</SelectItem>)}
+                                    {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -240,17 +272,17 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             <Select value={editedClinic.endTime} onValueChange={(v) => handleFieldChange('endTime', v)}>
                                 <SelectTrigger className="h-11 font-bold border-primary/20"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label} hrs</SelectItem>)}
+                                    {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-accent-foreground">Hora Descanso</Label>
+                            <Label className="text-[10px] font-black uppercase text-accent-foreground">Descanso</Label>
                             <Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}>
                                 <SelectTrigger className="h-11 border-accent/40 bg-accent/10 font-bold"><SelectValue placeholder="SIN DESCANSO" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">Sin Descanso</SelectItem>
-                                    {dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t} hrs</SelectItem>)}
+                                    {dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -269,32 +301,32 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                         <div className='space-y-6'>
                             <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
                                 <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                    <Clock className="h-5 w-5" /> Salidas Tempranas (Cierres por Fecha)
+                                    <Clock className="h-5 w-5" /> Salidas Tempranas
                                 </h4>
                                 <Badge className="bg-primary text-white h-5">{editedClinic.customSchedules?.length || 0}</Badge>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase opacity-50">Día del Cierre</Label>
+                                    <Label className="text-[10px] font-bold uppercase opacity-50">Día</Label>
                                     <Popover>
                                         <PopoverTrigger asChild><Button variant="outline" className="w-full h-11 text-xs font-bold">{newScheduleDate ? format(newScheduleDate, 'dd/MM/yyyy') : 'Elegir Fecha'}</Button></PopoverTrigger>
                                         <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
                                     </Popover>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase opacity-50">Hora de Fin</Label>
+                                    <Label className="text-[10px] font-bold uppercase opacity-50">Fin</Label>
                                     <Select value={newScheduleTime} onValueChange={setNewScheduleTime}>
                                         <SelectTrigger className="h-11 font-black"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label} hrs</SelectItem>)}</SelectContent>
+                                        <SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                                 <Button onClick={handleAddCustomSchedule} className="h-11 font-bold" disabled={!newScheduleDate}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> AGREGAR CIERRE
+                                    <PlusCircle className="mr-2 h-4 w-4" /> AGREGAR
                                 </Button>
                             </div>
-                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 scrollbar-thin">
+                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
                                 {editedClinic.customSchedules?.length ? editedClinic.customSchedules.map(s => (
-                                    <div key={s.date} className="flex items-center justify-between p-4 bg-background border-2 rounded-2xl shadow-sm hover:border-primary/20 transition-all">
+                                    <div key={s.date} className="flex items-center justify-between p-4 bg-background border-2 rounded-2xl shadow-sm">
                                         <div className="flex items-center gap-3">
                                             <CalendarIcon className="h-4 w-4 text-primary" />
                                             <span className="font-black text-sm uppercase">{formatBadgeDate(s.date)}</span>
@@ -302,27 +334,30 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                                         <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 font-black h-7 px-4">CIERRE: {s.endTime} HRS</Badge>
                                         <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => handleRemoveCustomSchedule(s.date)}><X className="h-5 w-5" /></Button>
                                     </div>
-                                )) : <div className="text-center py-10 border-2 border-dashed rounded-3xl opacity-30 italic text-xs">No hay cierres anticipados programados.</div>}
+                                )) : <div className="text-center py-10 border-2 border-dashed rounded-3xl opacity-30 italic text-xs">No hay cierres anticipados.</div>}
                             </div>
                         </div>
 
                         <div className='space-y-6'>
                             <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
                                 <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                    <CalendarDays className="h-5 w-5" /> Vacaciones y Bloqueos de Día Completo
+                                    <CalendarDays className="h-5 w-5" /> Vacaciones y Bloqueos
                                 </h4>
                                 <Badge className="bg-destructive text-white h-5">{editedClinic.unavailableDates?.length || 0}</Badge>
                             </div>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className='w-full h-12 font-black bg-destructive/5 border-destructive/20 text-destructive hover:bg-destructive/10'>
-                                        <CalendarIcon className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS DE VACACIONES
+                                        <CalendarIcon className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className='w-auto p-0' align="end">
                                     <Calendar 
                                         mode="multiple" 
-                                        selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00')).filter(d => isValid(d))} 
+                                        selected={editedClinic.unavailableDates?.map(d => {
+                                            const dateObj = new Date(typeof d === 'string' ? d + 'T12:00:00' : (d as any).seconds ? (d as any).seconds * 1000 : d);
+                                            return dateObj;
+                                        }).filter(d => isValid(d))} 
                                         onSelect={handleDateSelection} 
                                         locale={es} 
                                         disabled={{ before: new Date() }} 
@@ -331,14 +366,14 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             </Popover>
                             <ScrollArea className="h-[300px] border-2 border-dashed rounded-3xl bg-muted/5 p-4 shadow-inner">
                                 <div className="grid grid-cols-1 gap-2">
-                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.filter(d => !!d).sort().map(d => (
-                                        <div key={d} className="flex items-center justify-between p-3 bg-background border rounded-xl shadow-sm hover:shadow-md transition-shadow group">
+                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.filter(d => !!d && String(d) !== "[object Object]").sort().map(d => (
+                                        <div key={String(d)} className="flex items-center justify-between p-3 bg-background border rounded-xl shadow-sm hover:shadow-md transition-shadow group">
                                             <div className="flex items-center gap-3">
                                                 <Badge className="bg-destructive/10 text-destructive border-destructive/20 font-black">BLOQUEADO</Badge>
-                                                <span className="text-sm font-bold uppercase">{formatBadgeDate(d)}</span>
+                                                <span className="text-sm font-bold uppercase">{formatBadgeDate(String(d))}</span>
                                             </div>
                                             <button 
-                                                onClick={() => handleRemoveUnavailableDate(d)}
+                                                onClick={() => handleRemoveUnavailableDate(String(d))}
                                                 className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition-colors"
                                             >
                                                 <X className="h-4 w-4" />
@@ -347,7 +382,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                                     )) : (
                                         <div className="text-center py-20 opacity-30 flex flex-col items-center gap-3">
                                             <CalendarDays className="h-10 w-10" />
-                                            <p className="text-xs font-bold uppercase">No hay días bloqueados registrados</p>
+                                            <p className="text-xs font-bold uppercase">Sin días bloqueados</p>
                                         </div>
                                     )}
                                 </div>
@@ -358,8 +393,8 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
             </ScrollArea>
             <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
                 <DialogClose asChild><Button variant="outline" className="h-12 px-8">Cancelar</Button></DialogClose>
-                <Button onClick={() => onSave(editedClinic, clinicColonias)} className="h-12 px-10 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all">
-                    GUARDAR CONFIGURACIÓN DE UNIDAD
+                <Button onClick={() => onSave(editedClinic)} className="h-12 px-10 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all">
+                    GUARDAR CAMBIOS
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -368,7 +403,6 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
 
 export function ClinicsManager() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [colonias, setColonias] = useState<Colonia[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -382,11 +416,10 @@ export function ClinicsManager() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [clinicsData, coloniasData, specialtiesData, servicesData] = await Promise.all([
-          getClinics(), getColonias(), getSpecialties(), getServiceTypes()
+      const [clinicsData, specialtiesData, servicesData] = await Promise.all([
+          getClinics(), getSpecialties(), getServiceTypes()
       ]);
       setClinics(clinicsData);
-      setColonias(coloniasData);
       setSpecialties(specialtiesData);
       setServiceTypes(servicesData);
     } catch (error) {
@@ -398,23 +431,30 @@ export function ClinicsManager() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleEditClick = (clinic: Clinic) => { setSelectedClinic(clinic); setIsDialogOpen(true); }
+  const handleEditClick = (clinic: Clinic) => { 
+      setSelectedClinic(clinic); 
+      setIsDialogOpen(true); 
+  }
+  
   const handleAddNewClick = () => {
       if (serviceTypes.length === 0) {
           toast({ title: "Atención", description: "Configura los Tipos de Consulta primero.", variant: "destructive" });
           return;
       }
       const newClinic: Clinic = { 
-        id: uuidv4(), name: '', doctorName: '', professionalLicense: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, daysOfAction: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], unavailableDates: [], customSchedules: [], serviceTypeId: serviceTypes[0].id, bookingMode: BookingMode.Time, consultationDuration: 30,
+        id: uuidv4(), name: '', doctorName: '', doctorCurp: '', professionalLicense: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', breakTime: '', weekendBookingEnabled: false, daysOfAction: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], unavailableDates: [], customSchedules: [], serviceTypeId: serviceTypes[0].id, bookingMode: BookingMode.Time, consultationDuration: 30,
     };
     setSelectedClinic(newClinic);
     setIsDialogOpen(true);
   }
   
-  const handleDialogSave = (updatedClinic: Clinic, updatedClinicColonias: Colonia[]) => {
+  const handleDialogSave = (updatedClinic: Clinic) => {
     const clinicExists = clinics.some(c => c.id === updatedClinic.id);
-    if (clinicExists) { setClinics(clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c)); }
-    else { setClinics(prev => [...prev, updatedClinic].sort((a, b) => a.name.localeCompare(b.name))); }
+    if (clinicExists) { 
+        setClinics(clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c)); 
+    } else { 
+        setClinics(prev => [...prev, updatedClinic].sort((a, b) => a.name.localeCompare(b.name))); 
+    }
     setIsDialogOpen(false);
     setSelectedClinic(null);
   }
@@ -422,7 +462,7 @@ export function ClinicsManager() {
   const handleSave = () => {
     startSavingTransition(async () => {
       await updateClinics(clinics);
-      toast({ title: 'Configuración Guardada' });
+      toast({ title: 'Estructura Sincronizada' });
       await fetchData();
     });
   };
@@ -436,7 +476,7 @@ export function ClinicsManager() {
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4 border-b pb-6">
               <div>
                   <CardTitle className="text-2xl font-black uppercase flex items-center gap-2"><Hospital className="h-7 w-7 text-primary" /> Estructura de Atención</CardTitle>
-                  <CardDescription>Configura los consultorios, sus categorías y días laborales.</CardDescription>
+                  <CardDescription>Configura los consultorios, horarios y bloqueos de agenda.</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={fetchData} className="h-11"><RefreshCw className="h-4 w-4" /></Button>
@@ -488,7 +528,7 @@ export function ClinicsManager() {
           </CardContent>
           <CardFooter className="bg-muted/5 border-t pt-6"><Button onClick={handleSave} disabled={isSaving} className="w-full h-12 text-lg font-black uppercase shadow-lg">SINCRONIZAR TODA LA ESTRUCTURA</Button></CardFooter>
           </Card>
-          {selectedClinic && <ClinicEditDialog clinic={selectedClinic} allColonias={colonias} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
+          {selectedClinic && <ClinicEditDialog clinic={selectedClinic} allColonias={[]} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
       </Dialog>
     </div>
   );

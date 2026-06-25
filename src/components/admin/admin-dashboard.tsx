@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition, useEffect, useCallback, useMemo } from 'react';
+import { useState, useTransition, useEffect, useCallback } from 'react';
 import {
   Card,
   CardHeader,
@@ -20,11 +20,9 @@ import {
   Trash2,
   Loader2,
   Search,
-  LayoutGrid,
-  Calendar as CalendarIcon,
-  CalendarSearch,
   Filter,
-  Check
+  Check,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
