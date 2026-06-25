@@ -2,22 +2,22 @@
 'use client';
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
-import { getAppointmentsForCalendar, getAnnouncements, getHolidays, getSpecialActionDays, getServiceTypes } from '@/lib/actions';
-import { Stethoscope, Hospital, Clock, Ticket, UserCheck, Bell, Baby } from 'lucide-react';
-import type { DailyAvailability, Clinic, Patient, Holiday, SpecialActionDay, ServiceType } from '@/lib/definitions';
+import { getHolidays, getServiceTypes, getAppointments } from '@/lib/actions';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import type { DailyAvailability, Clinic, Patient, Holiday, ServiceType, Colonia } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 
 type ScheduleAppointmentDialogProps = {
     patient: Patient;
@@ -25,20 +25,21 @@ type ScheduleAppointmentDialogProps = {
     onClose: () => void;
     onBookingSuccess: () => void;
     clinics: Clinic[];
+    colonias: Colonia[];
     isDoctorBypass?: boolean;
 };
 
-export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingSuccess, clinics, isDoctorBypass = false }: ScheduleAppointmentDialogProps) {
+export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingSuccess, clinics, colonias, isDoctorBypass = false }: ScheduleAppointmentDialogProps) {
     const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
     const [selectedServiceTypeId, setSelectedServiceTypeId] = useState<string | undefined>();
     const [selectedDate, setSelectedDate] = useState<Date | undefined>();
     const [patientType, setPatientType] = useState<PatientType>(PatientType.General);
     const [isDoubleSlot, setIsDoubleSlot] = useState(false);
     const [selectedClinicId, setSelectedClinicId] = useState<string | undefined>();
+    const [selectedColoniaId, setSelectedColoniaId] = useState<string | undefined>();
     const [selectedTime, setSelectedTime] = useState<string | undefined>();
     
     const [availability, setAvailability] = useState<DailyAvailability[]>([]);
-    const [announcements, setAnnouncements] = useState<string[]>([]);
     
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [isPending, startTransition] = useTransition();
@@ -47,7 +48,6 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     useEffect(() => {
         if (isOpen) {
             getServiceTypes().then(setServiceTypes);
-            getAnnouncements().then(setAnnouncements);
             if (patient.age && patient.age > 60) setPatientType(PatientType.TerceraEdad);
         }
     }, [isOpen, patient]);
@@ -69,18 +69,19 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        const [monthAppointments, holidays, specialActionDays] = await Promise.all([
-            getAppointmentsForCalendar(month, year),
-            getHolidays(),
-            getSpecialActionDays()
+        const [allAppointments, freshHolidays] = await Promise.all([
+            getAppointments(),
+            getHolidays()
         ]);
         
-        // Optimización: Mapa de citas por fecha
-        const appMap = new Map<string, any[]>();
-        monthAppointments.forEach(a => {
-            const d = a.date.split('T')[0];
-            if (!appMap.has(d)) appMap.set(d, []);
-            appMap.get(d)!.push(a);
+        const holidaySet = new Set(freshHolidays.map(h => h.date));
+        const groupedApps = new Map<string, Map<string, any[]>>();
+        allAppointments.forEach(app => {
+            const d = app.date.split('T')[0];
+            if (!groupedApps.has(d)) groupedApps.set(d, new Map());
+            const dayMap = groupedApps.get(d)!;
+            if (!dayMap.has(app.clinicId)) dayMap.set(app.clinicId, []);
+            dayMap.get(app.clinicId)!.push(app);
         });
 
         const availabilityResult: DailyAvailability[] = [];
@@ -88,12 +89,13 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
-            const appointmentsOnDate = appMap.get(dateString) || [];
+            const dayMap = groupedApps.get(dateString);
+            
             let totalAvailableSlots = 0;
             const availabilityByClinic: { [key: string]: number } = {};
             const takenTimesByClinic: { [key: string]: any[] } = {};
 
-            const isHoliday = holidays.some(h => h.date === dateString);
+            const isHoliday = holidaySet.has(dateString);
             const isWeekend = isSaturday(day) || isSunday(day);
             const isSpecialDay = isWeekend || isHoliday;
 
@@ -104,7 +106,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 let takenInfo: any[] = [];
 
                 if (!isBlocked) {
-                    const booked = appointmentsOnDate.filter(a => a.clinicId === clinic.id);
+                    const booked = dayMap?.get(clinic.id) || [];
                     if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                         const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
                         const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
@@ -139,19 +141,28 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         }
         setSelectedDate(date);
         setSelectedClinicId(undefined);
+        setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
     };
 
     const handleClinicSelect = (clinicId: string) => {
         setSelectedClinicId(clinicId);
+        setSelectedColoniaId(undefined);
         setSelectedTime(undefined);
     };
+
+    const handleColoniaSelect = (coloniaId: string) => {
+        setSelectedColoniaId(coloniaId);
+        setSelectedTime(undefined);
+    }
 
     const handleMonthChange = (month: Date) => {
         setCurrentMonth(month);
     };
 
     const selectedClinic = useMemo(() => clinics.find(c => c.id === selectedClinicId), [selectedClinicId, clinics]);
+    const selectedColonia = useMemo(() => colonias.find(c => c.id === selectedColoniaId), [selectedColoniaId, colonias]);
+    
     const selectedDayAvailability = useMemo(() => {
         if (!selectedDate) return null;
         const dateString = format(selectedDate, 'yyyy-MM-dd');
@@ -164,9 +175,19 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             .filter(c => c.serviceTypeId === selectedServiceTypeId)
             .map(clinic => {
                 const slots = selectedDayAvailability.availabilityByClinic[clinic.id] ?? 0;
-                return { value: clinic.id, label: `${clinic.name} (${slots} disponibles)`, disabled: !isDoctorBypass && slots === 0 };
+                return { 
+                    value: clinic.id, 
+                    label: clinic.name, 
+                    disabled: !isDoctorBypass && slots === 0,
+                    slots: slots
+                };
             }).sort((a,b) => a.label.localeCompare(b.label));
     }, [clinics, selectedDayAvailability, selectedServiceTypeId, isDoctorBypass]);
+
+    const filteredColonias = useMemo(() => {
+        if (!selectedClinicId) return [];
+        return colonias.filter(c => c.clinicId === selectedClinicId).sort((a,b) => a.name.localeCompare(b.name));
+    }, [colonias, selectedClinicId]);
 
     const availableTimeSlots = useMemo(() => {
         if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Time) return [];
@@ -191,7 +212,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
         const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
         const allTokens = Array.from({ length: selectedClinic.dailySlots }, (_, i) => `Ficha ${i + 1}`);
-        const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
+        const freeTokens = allTokens.filter(t => !booked.includes(t));
 
         if (patientType === PatientType.Embarazada && isDoubleSlot) {
             return freeTokens.filter((token) => {
@@ -219,7 +240,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                 <CardHeader><CardTitle className="text-lg">1. Categoría</CardTitle></CardHeader>
                                 <CardContent>
                                     <Select onValueChange={setSelectedServiceTypeId} value={selectedServiceTypeId}>
-                                        <SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger>
+                                        <SelectTrigger className="h-11"><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger>
                                         <SelectContent>
                                             {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                                         </SelectContent>
@@ -240,7 +261,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     <CardHeader><CardTitle className="text-lg">2. Tipo de Paciente</CardTitle></CardHeader>
                                     <CardContent className="space-y-4">
                                         <Select onValueChange={(v: PatientType) => setPatientType(v)} value={patientType}>
-                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectTrigger className="h-11"><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger>
                                             <SelectContent>
                                                 {Object.values(PatientType).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                             </SelectContent>
@@ -261,11 +282,27 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     <CardHeader><CardTitle className="text-lg">3. Consultorio</CardTitle></CardHeader>
                                     <CardContent>
                                         <Select onValueChange={handleClinicSelect} value={selectedClinicId}>
-                                            <SelectTrigger><SelectValue placeholder="Elige el consultorio..." /></SelectTrigger>
+                                            <SelectTrigger className="h-11"><SelectValue placeholder="Elige el consultorio..." /></SelectTrigger>
                                             <SelectContent>
                                                 {clinicOptions.map(o => (
-                                                    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
-                                                        {o.label}
+                                                    <SelectItem 
+                                                        key={o.value} 
+                                                        value={o.value} 
+                                                        disabled={o.disabled}
+                                                        className={cn(
+                                                            "font-bold h-12",
+                                                            o.slots > 0 ? "text-emerald-700 bg-emerald-50/20" : "text-rose-500 opacity-60 bg-rose-50/5"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center justify-between w-full min-w-[200px] gap-4">
+                                                            <div className="flex items-center gap-2">
+                                                                {o.slots > 0 ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                                                <span>{o.label}</span>
+                                                            </div>
+                                                            <Badge variant={o.slots > 0 ? "secondary" : "destructive"} className="text-[9px] font-black uppercase">
+                                                                {o.slots > 0 ? `${o.slots} LIBRES` : "AGOTADO"}
+                                                            </Badge>
+                                                        </div>
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -273,19 +310,38 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     </CardContent>
                                 </Card>
                             )}
+                            
                             {selectedClinicId && (
-                                <Card>
-                                    <CardHeader><CardTitle className="text-lg">4. Horario</CardTitle></CardHeader>
+                                <Card className="animate-in fade-in">
+                                    <CardHeader><CardTitle className="text-lg">4. Municipio / Colonia</CardTitle></CardHeader>
+                                    <CardContent>
+                                        <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
+                                            <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Busca la colonia..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {filteredColonias.length > 0 ? (
+                                                    filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
+                                                ) : (
+                                                    <div className="p-4 text-center text-sm text-muted-foreground italic">No hay colonias vinculadas.</div>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {selectedColoniaId && selectedClinic && (
+                                <Card className="animate-in fade-in">
+                                    <CardHeader><CardTitle className="text-lg">5. Horario</CardTitle></CardHeader>
                                     <CardContent>
                                         {selectedClinic?.bookingMode === BookingMode.Time ? (
                                             <div className="grid grid-cols-3 gap-2">
-                                                {availableTimeSlots.map(t => <Button key={t} variant={selectedTime === t ? 'default' : 'outline'} onClick={() => setSelectedTime(t)} size="sm">{t}</Button>)}
+                                                {availableTimeSlots.map(t => <Button key={t} variant={selectedTime === t ? 'default' : 'outline'} onClick={() => setSelectedTime(t)} size="sm" className="font-bold">{t}</Button>)}
                                                 {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic text-xs">No hay espacios consecutivos disponibles.</p>}
                                             </div>
                                         ) : (
                                             <Select onValueChange={setSelectedTime} value={selectedTime}>
-                                                <SelectTrigger><SelectValue placeholder="Seleccionar ficha..." /></SelectTrigger>
-                                                <SelectContent>{availableTokens.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                                <SelectTrigger className="h-11 font-bold"><SelectValue placeholder="Seleccionar ficha..." /></SelectTrigger>
+                                                <SelectContent>{availableTokens.map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}</SelectContent>
                                             </Select>
                                         )}
                                     </CardContent>
@@ -296,12 +352,13 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     initialPatientData={patient.id ? patient : undefined}
                                     selectedDate={selectedDate}
                                     selectedClinic={selectedClinic}
+                                    selectedColoniaName={selectedColonia?.name}
                                     selectedTime={selectedTime}
                                     patientType={patientType}
                                     isDoubleSlot={isDoubleSlot}
                                     onBookingSuccess={() => { onBookingSuccess(); onClose(); }}
-                                    announcements={announcements}
-                                    requireColonia={false}
+                                    announcements={[]}
+                                    requireColonia={true}
                                     isDoctorBypass={isDoctorBypass}
                                 />
                             )}
