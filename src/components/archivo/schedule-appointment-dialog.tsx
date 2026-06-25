@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -6,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
-import { getAppointmentsForCalendar, getAnnouncements, getHolidays, getSpecialActionDays, getServiceTypes, getAvailableSlotsForDate } from '@/lib/actions';
+import { getAppointmentsForCalendar, getAnnouncements, getHolidays, getSpecialActionDays, getServiceTypes } from '@/lib/actions';
 import { Stethoscope, Hospital, Clock, Ticket, UserCheck, Bell, Baby } from 'lucide-react';
 import type { DailyAvailability, Clinic, Patient, Holiday, SpecialActionDay, ServiceType } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
@@ -74,12 +75,20 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             getSpecialActionDays()
         ]);
         
+        // Optimización: Mapa de citas por fecha
+        const appMap = new Map<string, any[]>();
+        monthAppointments.forEach(a => {
+            const d = a.date.split('T')[0];
+            if (!appMap.has(d)) appMap.set(d, []);
+            appMap.get(d)!.push(a);
+        });
+
         const availabilityResult: DailyAvailability[] = [];
         const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
-            const appointmentsOnDate = monthAppointments.filter(a => a.date.split('T')[0] === dateString);
+            const appointmentsOnDate = appMap.get(dateString) || [];
             let totalAvailableSlots = 0;
             const availabilityByClinic: { [key: string]: number } = {};
             const takenTimesByClinic: { [key: string]: any[] } = {};

@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   doc, 
@@ -225,7 +226,8 @@ export async function saveNewAppointment(appointment: any, patient: any, isDoubl
 
     if (isDouble && appointment.time && !appointment.time.includes('Ficha')) {
         const [h, m] = appointment.time.split(':').map(Number);
-        const nextTime = new Date(1970, 0, 1, h, m + 30).toTimeString().substring(0, 5);
+        const nextTimeDate = new Date(1970, 0, 1, h, m + 30);
+        const nextTime = nextTimeDate.toTimeString().substring(0, 5);
         const sid = uuidv4();
         batch.set(doc(adminDb, 'appointments', sid), { ...data, id: sid, time: nextTime, status: 'Atendido', appointmentNumber: `${folio}-B` });
     }
@@ -286,19 +288,6 @@ export async function getAvailableSlotsForDate(cid: string, d: string) {
     if (c.bookingMode === BookingMode.Token) return { tokens: Array.from({ length: c.dailySlots }, (_, i) => i + 1).filter(t => !booked.includes(`Ficha ${t}`)) };
     return { timeSlots: ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00"].filter(t => !booked.includes(t)) };
 }
-
-// --- LABORATORIO, RX, US, VACUNAS SAVE ---
-export async function saveNewLabAppointment(a: any, p: any) { const batch = writeBatch(adminDb); batch.set(doc(adminDb, 'patients', p.curp), p, { merge: true }); const id = uuidv4(); const data = { ...a, id, patientId: p.curp, createdAt: new Date().toISOString() }; batch.set(doc(adminDb, 'labAppointments', id), data); await batch.commit(); return { success: true, data: { ...data, patient: p } }; }
-export async function saveNewXRayAppointment(a: any, p: any) { const batch = writeBatch(adminDb); batch.set(doc(adminDb, 'patients', p.curp), p, { merge: true }); const id = uuidv4(); const data = { ...a, id, patientId: p.curp, createdAt: new Date().toISOString() }; batch.set(doc(adminDb, 'xrayAppointments', id), data); await batch.commit(); const ssnap = await getDoc(doc(adminDb, 'xRayStudies', a.studyId)); return { success: true, data: { appointment: { ...data, patient: p }, study: serializeData(ssnap.data()) } }; }
-export async function saveNewUltrasoundAppointment(a: any, p: any) { const batch = writeBatch(adminDb); batch.set(doc(adminDb, 'patients', p.curp), p, { merge: true }); const id = uuidv4(); const data = { ...a, id, patientId: p.curp, createdAt: new Date().toISOString() }; batch.set(doc(adminDb, 'ultrasoundAppointments', id), data); await batch.commit(); const ssnap = await getDoc(doc(adminDb, 'ultrasoundStudies', a.studyId)); return { success: true, data: { appointment: { ...data, patient: p }, study: serializeData(ssnap.data()) } }; }
-export async function saveNewVaccineAppointment(a: any, p: any) { const batch = writeBatch(adminDb); batch.set(doc(adminDb, 'patients', p.curp), p, { merge: true }); const id = uuidv4(); const data = { ...a, id, patientId: p.curp, createdAt: new Date().toISOString() }; batch.set(doc(adminDb, 'vaccineAppointments', id), data); await batch.commit(); return { success: true, data: { ...data, patient: p } }; }
-
-// --- CLÍNICAS Y COLONIAS ---
-export async function getClinicsData() { return getRawCollection('clinics'); }
-export async function updateClinics(clinics: Clinic[]) { const batch = writeBatch(adminDb); clinics.forEach(c => batch.set(doc(adminDb, 'clinics', c.id), c)); await batch.commit(); return { success: true }; }
-export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
-export async function getColoniasData() { return getRawCollection('colonias'); }
-export async function updateColonias(cols: Colonia[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'colonias')); snap.docs.forEach(d => batch.delete(d.ref)); cols.forEach(c => batch.set(doc(adminDb, 'colonias', c.id), c)); await batch.commit(); return { success: true }; }
 
 // --- MANTENIMIENTO ---
 export async function bulkInsertPatients(pats: any[]) { const batch = writeBatch(adminDb); pats.forEach(p => { const id = p.CURP || p.curp || uuidv4(); batch.set(doc(adminDb, 'patients', id), { ...p, id }); }); await batch.commit(); return { success: true, processedCount: pats.length }; }

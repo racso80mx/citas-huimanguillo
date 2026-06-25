@@ -1,3 +1,4 @@
+
 'use client';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
@@ -48,17 +49,24 @@ export function AvailabilityCalendar({
     }
   }, [selectedDate, monthToDisplay]);
 
+  // OPTIMIZACIÓN: Crear un Set de fechas deshabilitadas para búsqueda instantánea
+  const availabilityMap = useMemo(() => {
+      const map = new Map<string, number>();
+      availability.forEach(d => {
+          map.set(d.date, d.availableSlots);
+      });
+      return map;
+  }, [availability]);
+
   const handleManualDateChange = (dm: string, y: string) => {
     setDayMonth(dm);
     setYear(y);
 
-    // Try to parse: dd/MM/yyyy when inputs have the right length
     if (dm.length === 5 && y.length === 4) {
       const dateStr = `${dm}/${y}`;
       const parsedDate = parse(dateStr, 'dd/MM/yyyy', new Date());
       
       if (isValid(parsedDate)) {
-        // If valid, jump to that month and select the date
         setMonthToDisplay(parsedDate);
         onMonthChange(parsedDate);
         onDateSelect(parsedDate);
@@ -71,7 +79,6 @@ export function AvailabilityCalendar({
       .filter((d) => d.availableSlots === 0)
       .map((d) => parseISO(d.date));
 
-    // Only add the 'before' rule on the client side to prevent hydration mismatch
     if (isClient) {
         return [{ before: startOfToday() }, ...disabledByAvailability];
     }
@@ -83,8 +90,8 @@ export function AvailabilityCalendar({
   const modifiers = {
     available: (date: Date) => {
       const dateString = format(date, 'yyyy-MM-dd');
-      const dayAvailability = availability.find((d) => d.date === dateString);
-      return dayAvailability ? dayAvailability.availableSlots > 0 : false;
+      const slots = availabilityMap.get(dateString);
+      return slots !== undefined && slots > 0;
     },
   };
 
@@ -116,7 +123,6 @@ export function AvailabilityCalendar({
 
   return (
     <div className="flex flex-col items-center gap-4 w-full">
-      {/* Quick Search Panel */}
       <div className="grid grid-cols-2 gap-4 w-full bg-muted/30 p-4 rounded-xl border border-dashed border-primary/20 max-w-[300px] shadow-inner">
           <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase flex items-center gap-1 text-primary tracking-widest h-4">
@@ -149,7 +155,6 @@ export function AvailabilityCalendar({
                   maxLength={4}
               />
           </div>
-          <p className="col-span-2 text-[9px] text-muted-foreground italic text-center font-medium">Escribe la fecha completa para saltar en el calendario.</p>
       </div>
 
       <div className="relative border rounded-xl p-3 bg-card shadow-sm w-fit">
