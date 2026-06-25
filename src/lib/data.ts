@@ -51,6 +51,9 @@ import type {
 import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Normalizes Firestore data into plain JS objects, handling Timestamps and References.
+ */
 export function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
   if (data instanceof Timestamp) return data.toDate().toISOString();
