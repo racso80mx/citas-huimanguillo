@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -48,8 +47,9 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         if (isOpen) {
             getServiceTypes().then(setServiceTypes);
             getAnnouncements().then(setAnnouncements);
+            if (patient.age && patient.age > 60) setPatientType(PatientType.TerceraEdad);
         }
-    }, [isOpen]);
+    }, [isOpen, patient]);
 
     const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
         if (!startTimeStr || !endTimeStr || !duration) return [];
@@ -174,14 +174,34 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const customSchedule = selectedClinic.customSchedules?.find(s => s.date === format(selectedDate!, 'yyyy-MM-dd'));
         const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
         const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
-        return allSlots.filter(s => !booked.some(a => a.time === s));
-    }, [selectedClinic, selectedDayAvailability, selectedDate]);
+        
+        const slots = allSlots.filter(s => !booked.some(a => a.time === s));
+
+        if (patientType === PatientType.Embarazada && isDoubleSlot) {
+            return slots.filter((slot) => {
+                const slotIndex = allSlots.indexOf(slot);
+                const nextSlot = allSlots[slotIndex + 1];
+                return nextSlot && !booked.some(a => a.time === nextSlot);
+            });
+        }
+        return slots;
+    }, [selectedClinic, selectedDayAvailability, selectedDate, patientType, isDoubleSlot]);
 
     const availableTokens = useMemo(() => {
         if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
         const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
-        return Array.from({ length: selectedClinic.dailySlots }, (_, i) => `Ficha ${i + 1}`).filter(t => !booked.some(a => a.time === t));
-    }, [selectedClinic, selectedDayAvailability]);
+        const allTokens = Array.from({ length: selectedClinic.dailySlots }, (_, i) => `Ficha ${i + 1}`);
+        const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
+
+        if (patientType === PatientType.Embarazada && isDoubleSlot) {
+            return freeTokens.filter((token) => {
+                const tokenNum = parseInt(token.split(' ')[1]);
+                const nextToken = `Ficha ${tokenNum + 1}`;
+                return freeTokens.includes(nextToken);
+            });
+        }
+        return freeTokens;
+    }, [selectedClinic, selectedDayAvailability, patientType, isDoubleSlot]);
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -218,9 +238,9 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                             </SelectContent>
                                         </Select>
                                         {patientType === PatientType.Embarazada && (
-                                            <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-lg">
+                                            <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-lg animate-in slide-in-from-top-2">
                                                 <Checkbox id="diag-double" checked={isDoubleSlot} onCheckedChange={(v) => setIsDoubleSlot(!!v)} />
-                                                <Label htmlFor="diag-double" className="text-xs font-bold text-pink-700">Horario Doble</Label>
+                                                <Label htmlFor="diag-double" className="text-xs font-bold text-pink-700 uppercase">Horario Doble (Consecutivo)</Label>
                                             </div>
                                         )}
                                     </CardContent>
@@ -252,6 +272,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                         {selectedClinic?.bookingMode === BookingMode.Time ? (
                                             <div className="grid grid-cols-3 gap-2">
                                                 {availableTimeSlots.map(t => <Button key={t} variant={selectedTime === t ? 'default' : 'outline'} onClick={() => setSelectedTime(t)} size="sm">{t}</Button>)}
+                                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic text-xs">No hay espacios consecutivos disponibles.</p>}
                                             </div>
                                         ) : (
                                             <Select onValueChange={setSelectedTime} value={selectedTime}>

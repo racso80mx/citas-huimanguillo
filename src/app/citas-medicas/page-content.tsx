@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useCallback, useEffect, useTransition, useMemo } from 'react';
 import React from 'react';
@@ -188,16 +187,36 @@ export default function PageContent({
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
     
-    return allSlots.filter(s => !booked.some(a => a.time === s));
-  }, [selectedClinic, selectedDayAvailability, selectedDate, generateDynamicTimeSlots]);
+    const slots = allSlots.filter(s => !booked.some(a => a.time === s));
+
+    if (patientType === PatientType.Embarazada && isDoubleSlot) {
+        return slots.filter((slot) => {
+            const slotIndex = allSlots.indexOf(slot);
+            const nextSlot = allSlots[slotIndex + 1];
+            return nextSlot && !booked.some(a => a.time === nextSlot);
+        });
+    }
+
+    return slots;
+  }, [selectedClinic, selectedDayAvailability, selectedDate, generateDynamicTimeSlots, patientType, isDoubleSlot]);
 
   const availableTokens = React.useMemo(() => {
     if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
     const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
     const totalSlots = selectedClinic.dailySlots;
     const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
-    return allTokens.filter(t => !booked.some(a => a.time === t));
-  }, [selectedClinic, selectedDayAvailability]);
+    const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
+
+    if (patientType === PatientType.Embarazada && isDoubleSlot) {
+        return freeTokens.filter((token) => {
+            const tokenNum = parseInt(token.split(' ')[1]);
+            const nextToken = `Ficha ${tokenNum + 1}`;
+            return freeTokens.includes(nextToken);
+        });
+    }
+
+    return freeTokens;
+  }, [selectedClinic, selectedDayAvailability, patientType, isDoubleSlot]);
 
   if (!isAuthenticated) return <ModuleLoginForm title="Citas Médicas" onVerify={verifyCitasMedicasPassword} onSuccess={() => setIsAuthenticated(true)} />;
 
@@ -229,11 +248,7 @@ export default function PageContent({
                         <Select onValueChange={(v: PatientType) => setPatientType(v)} value={patientType}>
                             <SelectTrigger><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={PatientType.General}>General</SelectItem>
-                                <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
-                                <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
-                                <SelectItem value={PatientType.Cronico}>Crónico</SelectItem>
-                                <SelectItem value={PatientType.RecienNacido}>Recién Nacido</SelectItem>
+                                {Object.values(PatientType).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         {patientType === PatientType.Embarazada && (
@@ -272,7 +287,7 @@ export default function PageContent({
                                         {time}
                                     </Button>
                                 ))}
-                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic">No hay horarios disponibles.</p>}
+                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic">No hay horarios disponibles para esta configuración.</p>}
                             </div>
                         ) : (
                             <Select onValueChange={setSelectedTime} value={selectedTime}>

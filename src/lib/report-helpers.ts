@@ -1,4 +1,3 @@
-
 'use client';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine, Prescription } from "./definitions";
 import { format, parseISO } from 'date-fns';

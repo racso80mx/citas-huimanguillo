@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -240,6 +239,11 @@ export async function createPrescription(p: any) {
 }
 export async function dispensePrescription(id: string, items: any[]) { 
     const res = await data.dispensePrescription(id, items);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function deletePrescription(id: string) { 
+    const res = await data.deletePrescription(id);
     revalidatePath('/', 'layout');
     return res;
 }
