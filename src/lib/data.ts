@@ -219,15 +219,20 @@ export async function getAppointmentsData() {
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const batch = writeBatch(adminDb);
     const pId = patient.curp.toUpperCase();
-    batch.set(doc(adminDb, 'patients', pId), { ...patient, curp: pId }, { merge: true });
+    batch.set(doc(adminDb, 'patients', pId), { ...patient, id: pId, curp: pId }, { merge: true });
+    
     const id = uuidv4();
     const folio = `MED-${uuidv4().split('-')[0].toUpperCase()}`;
     const data = { ...appointment, id, appointmentNumber: folio, patientId: pId, coloniaName: colonia || null, createdAt: new Date().toISOString() };
     batch.set(doc(adminDb, 'appointments', id), data);
 
     if (isDouble && appointment.time && !appointment.time.includes('Ficha')) {
+        const csnap = await getDoc(doc(adminDb, 'clinics', appointment.clinicId));
+        const clinic = csnap.data() as Clinic;
+        const duration = clinic?.consultationDuration || 30;
+        
         const [h, m] = appointment.time.split(':').map(Number);
-        const nextTimeDate = new Date(1970, 0, 1, h, m + 30);
+        const nextTimeDate = new Date(1970, 0, 1, h, m + duration);
         const nextTime = nextTimeDate.toTimeString().substring(0, 5);
         const sid = uuidv4();
         batch.set(doc(adminDb, 'appointments', sid), { ...data, id: sid, time: nextTime, status: 'Agendada', appointmentNumber: `${folio}-B` });
@@ -246,7 +251,7 @@ export async function getVaccineAppointmentsData() { const [apps, pats] = await 
 export async function saveNewLabAppointment(appointment: any, patient: any) {
     const batch = writeBatch(adminDb);
     const pId = patient.curp.toUpperCase();
-    batch.set(doc(adminDb, 'patients', pId), { ...patient, curp: pId }, { merge: true });
+    batch.set(doc(adminDb, 'patients', pId), { ...patient, id: pId, curp: pId }, { merge: true });
     const id = uuidv4();
     batch.set(doc(adminDb, 'labAppointments', id), { ...appointment, id, patientId: pId, createdAt: new Date().toISOString() });
     await batch.commit(); return { success: true, data: { ...appointment, patient } };
@@ -255,7 +260,7 @@ export async function saveNewLabAppointment(appointment: any, patient: any) {
 export async function saveNewXRayAppointment(appointment: any, patient: any) {
     const batch = writeBatch(adminDb);
     const pId = patient.curp.toUpperCase();
-    batch.set(doc(adminDb, 'patients', pId), { ...patient, curp: pId }, { merge: true });
+    batch.set(doc(adminDb, 'patients', pId), { ...patient, id: pId, curp: pId }, { merge: true });
     const id = uuidv4();
     batch.set(doc(adminDb, 'xrayAppointments', id), { ...appointment, id, patientId: pId, createdAt: new Date().toISOString() });
     await batch.commit(); 
@@ -266,7 +271,7 @@ export async function saveNewXRayAppointment(appointment: any, patient: any) {
 export async function saveNewUltrasoundAppointment(appointment: any, patient: any) {
     const batch = writeBatch(adminDb);
     const pId = patient.curp.toUpperCase();
-    batch.set(doc(adminDb, 'patients', pId), { ...patient, curp: pId }, { merge: true });
+    batch.set(doc(adminDb, 'patients', pId), { ...patient, id: pId, curp: pId }, { merge: true });
     const id = uuidv4();
     batch.set(doc(adminDb, 'ultrasoundAppointments', id), { ...appointment, id, patientId: pId, createdAt: new Date().toISOString() });
     await batch.commit();
@@ -277,7 +282,7 @@ export async function saveNewUltrasoundAppointment(appointment: any, patient: an
 export async function saveNewVaccineAppointment(appointment: any, patient: any) {
     const batch = writeBatch(adminDb);
     const pId = patient.curp.toUpperCase();
-    batch.set(doc(adminDb, 'patients', pId), { ...patient, curp: pId }, { merge: true });
+    batch.set(doc(adminDb, 'patients', pId), { ...patient, id: pId, curp: pId }, { merge: true });
     const id = uuidv4();
     batch.set(doc(adminDb, 'vaccineAppointments', id), { ...appointment, id, patientId: pId, createdAt: new Date().toISOString() });
     await batch.commit(); return { success: true, data: { ...appointment, patient } };
