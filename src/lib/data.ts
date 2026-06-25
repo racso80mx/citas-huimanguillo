@@ -67,9 +67,9 @@ export function serializeData(data: any): any {
 }
 
 /**
- * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE
+ * ESTRATEGIA: AISLAMIENTO TOTAL DE ÍNDICES
  * Esta función es la ÚNICA forma de leer datos. Descarga la colección completa.
- * Elimina la necesidad de crear índices compuestos en la consola de Firebase.
+ * AL NO USAR "where" NI "orderBy", FIRESTORE NUNCA SOLICITARÁ ÍNDICES COMPUESTOS.
  */
 async function getRawCollection(name: string) {
     try {
@@ -154,6 +154,7 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente));
   }
   
+  // Ordenamiento por apellido paterno en memoria
   results.sort((a, b) => {
       const nameA = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.toUpperCase();
       const nameB = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.toUpperCase();
