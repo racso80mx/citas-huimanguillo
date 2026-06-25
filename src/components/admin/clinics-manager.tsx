@@ -14,7 +14,7 @@ import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { 
     updateClinics, getClinics, 
-    updateColonias, getColonias, 
+    getColonias, 
     getSpecialties, getServiceTypes
 } from '@/lib/actions';
 import { 
@@ -38,7 +38,7 @@ import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Calendar } from '../ui/calendar';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { timeSlots30Min } from '@/lib/time-slots';
 import { Badge } from '../ui/badge';
@@ -109,8 +109,19 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
     };
 
     const handleDateSelection = (dates: Date[] | undefined) => {
-        const newDateStrings = Array.from(new Set(dates?.map(d => d.toISOString().split('T')[0]) || []));
+        const newDateStrings = Array.from(new Set(dates?.map(d => format(d, 'yyyy-MM-dd')) || []));
         handleFieldChange('unavailableDates', newDateStrings);
+    };
+
+    const formatBadgeDate = (d: string) => {
+        try {
+            if (!d || d.length < 10) return "---";
+            const dateObj = new Date(d + 'T12:00:00');
+            if (!isValid(dateObj)) return "---";
+            return format(dateObj, 'dd/MM/yy', { locale: es });
+        } catch (e) {
+            return "---";
+        }
     };
 
     return (
@@ -233,7 +244,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             <div className="max-h-48 overflow-y-auto space-y-2 mt-4 bg-background p-3 rounded-xl border shadow-inner">
                                 {editedClinic.customSchedules?.length ? editedClinic.customSchedules.map(s => (
                                     <div key={s.date} className="flex items-center justify-between p-2.5 bg-muted/10 border rounded-lg text-xs hover:bg-muted/20 transition-colors">
-                                        <span className="font-bold uppercase">{format(new Date(s.date + 'T12:00:00'), 'eeee dd MMM', { locale: es })}</span>
+                                        <span className="font-bold uppercase">{formatBadgeDate(s.date)}</span>
                                         <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 font-black">CIERRE: {s.endTime} HRS</Badge>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemoveCustomSchedule(s.date)}><X className="h-4 w-4" /></Button>
                                     </div>
@@ -248,7 +259,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                                 <PopoverContent className='w-auto p-0' align="end">
                                     <Calendar 
                                         mode="multiple" 
-                                        selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00'))} 
+                                        selected={editedClinic.unavailableDates?.filter(d => !!d && d.length >= 10).map(d => new Date(d + 'T12:00:00'))} 
                                         onSelect={handleDateSelection} 
                                         locale={es} 
                                         disabled={{ before: new Date() }} 
@@ -257,9 +268,9 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             </Popover>
                             <div className="bg-background p-4 rounded-xl border shadow-inner min-h-[120px] max-h-48 overflow-y-auto">
                                 <div className="flex flex-wrap gap-2">
-                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.sort().map(d => (
+                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.filter(d => !!d && d.length >= 10).sort().map(d => (
                                         <Badge key={d} variant="secondary" className="px-3 py-1 font-bold text-[10px] uppercase">
-                                            {format(new Date(d + 'T12:00:00'), 'dd/MM/yy', { locale: es })}
+                                            {formatBadgeDate(d)}
                                         </Badge>
                                     )) : <p className="text-[10px] text-muted-foreground italic">Selecciona días en el calendario para bloquearlos.</p>}
                                 </div>
