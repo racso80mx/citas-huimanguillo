@@ -1,24 +1,5 @@
-
 'use client';
-import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, Colonia, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Specialty, ServiceType } from '@/lib/definitions';
-import { 
-  getAppointments,
-  getLabAppointments,
-  getXRayAppointments,
-  getUltrasoundAppointments,
-  getVaccineAppointments,
-  getClinics,
-  getColonias,
-  deleteAppointment, 
-  deleteLabAppointment, 
-  deleteXRayAppointment, 
-  deleteUltrasoundAppointment, 
-  deleteVaccineAppointment, 
-  getSpecialties, 
-  getServiceTypes, 
-  updateServiceTypes
-} from '@/lib/actions';
+import { useState, useTransition } from 'react';
 import {
   Card,
   CardHeader,
@@ -28,36 +9,17 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AppointmentList } from '../appointment-list';
-import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
-import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
-import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
-import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
 import {
   LogOut,
-  Loader2,
   RefreshCw,
-  PlusCircle,
-  Search,
-  UserRound,
   Settings,
+  UserRound,
   ClipboardList,
   LayoutList,
   Plus,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
-import {
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  parseISO,
-  isWithinInterval
-} from 'date-fns';
-import { es } from 'date-fns/locale';
-import { DateRange } from 'react-day-picker';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,14 +35,22 @@ import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '../ui/switch';
 import { cn } from '@/lib/utils';
+import { getServiceTypes, updateServiceTypes } from '@/lib/actions';
+import React from 'react';
+import { AppointmentList } from '../appointment-list';
+import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
+import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
+import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
+import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
+import { getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics } from '@/lib/actions';
 
 function ServiceTypesManager() {
-  const [types, setTypes] = useState<ServiceType[]>([]);
+  const [types, setTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, startSaving] = useTransition();
   const { toast } = useToast();
 
-  useEffect(() => {
+  React.useEffect(() => {
     getServiceTypes().then(data => {
       setTypes(data);
       setLoading(false);
@@ -89,7 +59,7 @@ function ServiceTypesManager() {
 
   const handleAdd = () => setTypes([...types, { id: uuidv4(), name: '', available: true }]);
   const handleRemove = (id: string) => setTypes(types.filter(t => t.id !== id));
-  const handleUpdate = (id: string, field: keyof ServiceType, val: any) => {
+  const handleUpdate = (id: string, field: string, val: any) => {
     setTypes(types.map(t => t.id === id ? { ...t, [field]: val } : t));
   };
 
@@ -100,14 +70,14 @@ function ServiceTypesManager() {
     });
   };
 
-  if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin h-8 w-8" /></div>;
+  if (loading) return <div className="p-10 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
     <Card className="shadow-lg border-primary/20">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="flex items-center gap-2"><LayoutList /> Tipos de Consulta</CardTitle>
-          <CardDescription>Define las categorías generales de atención (Externa, Psicología, etc.)</CardDescription>
+          <CardDescription>Define las categorías generales de atención.</CardDescription>
         </div>
         <Button onClick={handleAdd} variant="outline"><Plus className="mr-2 h-4 w-4" /> Agregar Tipo</Button>
       </CardHeader>
@@ -123,7 +93,7 @@ function ServiceTypesManager() {
           <TableBody>
             {types.map(t => (
               <TableRow key={t.id}>
-                <TableCell><Input value={t.name} onChange={e => handleUpdate(t.id, 'name', e.target.value.toUpperCase())} placeholder="Nombre del tipo..." /></TableCell>
+                <TableCell><Input value={t.name} onChange={e => handleUpdate(t.id, 'name', e.target.value.toUpperCase())} placeholder="Nombre..." /></TableCell>
                 <TableCell><Switch checked={t.available} onCheckedChange={v => handleUpdate(t.id, 'available', v)} /></TableCell>
                 <TableCell><Button variant="ghost" size="icon" onClick={() => handleRemove(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
               </TableRow>
@@ -136,110 +106,69 @@ function ServiceTypesManager() {
   );
 }
 
-export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
-  const [allLabAppointments, setAllLabAppointments] = useState<LabAppointment[]>([]);
-  const [allXRayAppointments, setAllXRayAppointments] = useState<XRayAppointment[]>([]);
-  const [allUltrasoundAppointments, setAllUltrasoundAppointments] = useState<UltrasoundAppointment[]>([]);
-  const [allVaccineAppointments, setAllVaccineAppointments] = useState<VaccineAppointment[]>([]);
-  const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [colonias, setColonias] = useState<Colonia[]>([]);
-  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+function AppointmentsViewer() {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [data, setData] = useState<any>({ apps: [], lab: [], xr: [], us: [], vac: [], clinics: [] });
+    const [loading, setLoading] = useState(true);
 
-  const [isPending, startTransition] = useTransition();
-  const [mainTab, setMainTab] = useState("configuracion");
-  const [activeFilter, setActiveFilter] = useState<FilterType>('today');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isClient, setIsClient] = useState(false);
-  
-  const { toast } = useToast();
-
-  useEffect(() => { setIsClient(true); }, []);
-
-  const fetchData = useCallback(() => {
-    startTransition(async () => {
-      try {
-        const [ apps, labApps, xrApps, usApps, vacApps, clins, cols, specs ] = await Promise.all([
-          getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics(), getColonias(), getSpecialties()
+    const fetchData = React.useCallback(async () => {
+        setLoading(true);
+        const [apps, lab, xr, us, vac, clinics] = await Promise.all([
+            getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics()
         ]);
-        setAllAppointments(apps);
-        setAllLabAppointments(labApps);
-        setAllXRayAppointments(xrApps);
-        setAllUltrasoundAppointments(usApps);
-        setAllVaccineAppointments(vacApps);
-        setClinics(clins);
-        setColonias(cols);
-        setSpecialties(specs);
-      } catch (error) {
-        console.error(error);
-      }
-    });
-  }, []);
+        setData({ apps, lab, xr, us, vac, clinics });
+        setLoading(false);
+    }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+    React.useEffect(() => { fetchData(); }, [fetchData]);
 
-  const getFilteredData = (appointments: any[]) => {
-    if (!isClient || !appointments || appointments.length === 0) return [];
-    const now = new Date();
-    let filterFn: (app: any) => boolean;
-    switch (activeFilter) {
-      case 'week':
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-        const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: weekStart, end: weekEnd });
-        break;
-      case 'month':
-        const monthStart = startOfMonth(now);
-        const monthEnd = endOfMonth(now);
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: monthStart, end: monthEnd });
-        break;
-      case 'range':
-        if (dateRange?.from) {
-          const rangeStart = startOfDay(dateRange.from);
-          const rangeEnd = endOfDay(dateRange.to || dateRange.from);
-          filterFn = (app) => { const d = parseISO(app.date); return d >= rangeStart && d <= rangeEnd; };
-        } else return [];
-        break;
-      case 'today':
-      default:
-        const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd });
-        break;
-    }
-    return appointments.filter(filterFn);
-  };
+    const filter = (list: any[]) => {
+        if (!searchTerm) return list;
+        const t = searchTerm.toUpperCase();
+        return list.filter(a => {
+            const name = `${a.patient?.name} ${a.patient?.paternalLastName}`.toUpperCase();
+            return name.includes(t) || String(a.appointmentNumber).toUpperCase().includes(t) || String(a.patient?.curp).toUpperCase().includes(t);
+        });
+    };
 
-  const applySearch = (appointments: any[]) => {
-      if (!searchTerm) return appointments;
-      const term = searchTerm.toUpperCase();
-      return appointments.filter(app => {
-          const patientName = `${app.patient?.name || ''} ${app.patient?.paternalLastName || ''} ${app.patient?.maternalLastName || ''}`.toUpperCase();
-          const curp = (app.patient?.curp || '').toUpperCase();
-          const folio = (app.appointmentNumber || '').toUpperCase();
-          return patientName.includes(term) || curp.includes(term) || folio.includes(term);
-      });
-  };
+    if (loading) return <div className="p-20 flex flex-col items-center gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary" /><p className='text-xs font-bold uppercase animate-pulse'>Sincronizando Agenda...</p></div>;
 
-  const appointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allAppointments)), [isClient, activeFilter, dateRange, allAppointments, searchTerm]);
-  const labAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allLabAppointments)), [isClient, activeFilter, dateRange, allLabAppointments, searchTerm]);
-  const xRayAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allXRayAppointments)), [isClient, activeFilter, dateRange, allXRayAppointments, searchTerm]);
-  const ultrasoundAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allUltrasoundAppointments)), [isClient, activeFilter, dateRange, allUltrasoundAppointments, searchTerm]);
-  const vaccineAppointmentsToDisplay = useMemo(() => applySearch(getFilteredData(allVaccineAppointments)), [isClient, activeFilter, dateRange, allVaccineAppointments, searchTerm]);
+    return (
+        <div className="space-y-6">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </div>
+            <Tabs defaultValue="medical">
+                <TabsList className="bg-muted/40 p-1 mb-4">
+                  <TabsTrigger value="medical">General</TabsTrigger>
+                  <TabsTrigger value="lab">Laboratorio</TabsTrigger>
+                  <TabsTrigger value="xr">Rayos X</TabsTrigger>
+                  <TabsTrigger value="us">Ultrasonidos</TabsTrigger>
+                  <TabsTrigger value="vac">Vacunas</TabsTrigger>
+                </TabsList>
+                <TabsContent value="medical"><AppointmentList appointments={filter(data.apps)} clinics={data.clinics} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="lab"><LabAppointmentList appointments={filter(data.lab)} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="xr"><XRayAppointmentList appointments={filter(data.xr)} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="us"><UltrasoundAppointmentList appointments={filter(data.us)} isAdmin onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="vac"><VaccineAppointmentList appointments={filter(data.vac)} isAdmin onEditSuccess={fetchData} /></TabsContent>
+            </Tabs>
+        </div>
+    );
+}
+
+export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
+  const [mainTab, setMainTab] = useState("configuracion");
 
   return (
     <div className="space-y-8">
-      <Card className="shadow-lg">
+      <Card className="shadow-lg border-primary/10">
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
           <div>
-            <CardTitle className="text-3xl font-bold font-headline">Administración Central</CardTitle>
-            <CardDescription>Gestión de catálogos y configuración.</CardDescription>
+            <CardTitle className="text-3xl font-bold font-headline">Panel Administrativo</CardTitle>
+            <CardDescription>Control global del hospital y sus servicios.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={fetchData} disabled={isPending}><RefreshCw className={cn('mr-2 h-4 w-4', isPending && 'animate-spin')} /> Sincronizar</Button>
-            <Button variant="outline" onClick={onLogout}><LogOut className="mr-2 h-4 w-4" /> Salir</Button>
-          </div>
+          <Button variant="outline" onClick={onLogout}><LogOut className="mr-2 h-4 w-4" /> Salir</Button>
         </CardHeader>
       </Card>
       
@@ -265,7 +194,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             <ActivityLogViewer />
         </TabsContent>
 
-        <TabsContent value="catalogos" className="animate-in fade-in">
+        <TabsContent value="catalogos" className="animate-in fade-in space-y-8">
             <Tabs defaultValue="service-types" className="w-full">
                 <TabsList className="flex flex-wrap w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
                     <TabsTrigger value="service-types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Tipos de Consulta</TabsTrigger>
@@ -278,29 +207,10 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </Tabs>
         </TabsContent>
 
-        <TabsContent value="citas" className="space-y-6">
-            <div className="relative w-full mb-6">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
-            <Tabs defaultValue="citas-medicas">
-                <TabsList className="bg-muted/40 p-1 mb-4">
-                  <TabsTrigger value="citas-medicas">General</TabsTrigger>
-                  <TabsTrigger value="laboratorio">Laboratorio</TabsTrigger>
-                  <TabsTrigger value="rayosx">Rayos X</TabsTrigger>
-                  <TabsTrigger value="ultrasound">Ultrasonidos</TabsTrigger>
-                  <TabsTrigger value="vaccine">Vacunas</TabsTrigger>
-                </TabsList>
-                <TabsContent value="citas-medicas"><AppointmentList appointments={appointmentsToDisplay} clinics={clinics} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="laboratorio"><LabAppointmentList appointments={labAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="rayosx"><XRayAppointmentList appointments={xRayAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="ultrasound"><UltrasoundAppointmentList appointments={ultrasoundAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="vaccine"><VaccineAppointmentList appointments={vaccineAppointmentsToDisplay} isAdmin onEditSuccess={fetchData} /></TabsContent>
-            </Tabs>
+        <TabsContent value="citas" className="animate-in fade-in">
+            <AppointmentsViewer />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-type FilterType = 'today' | 'week' | 'month' | 'range';
