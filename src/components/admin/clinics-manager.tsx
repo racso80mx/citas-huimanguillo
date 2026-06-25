@@ -29,20 +29,19 @@ import {
     Pencil, 
     RefreshCw, 
     Clock,
-    CheckCircle2,
     CalendarDays,
     Search,
     Fingerprint,
     ShieldCheck
 } from 'lucide-react';
-import type { Clinic, Colonia, Specialty, ServiceType } from '@/lib/definitions';
+import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Calendar } from '../ui/calendar';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { timeSlots30Min } from '@/lib/time-slots';
 import { Badge } from '../ui/badge';
@@ -82,7 +81,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     useEffect(() => {
-        // Normalizar fechas bloqueadas para asegurar que sean strings únicos y evitar errores de key
         const normalizedDates = Array.from(new Set(clinic.unavailableDates?.map(d => {
             if (typeof d === 'string') return d;
             if (d && typeof d === 'object' && 'seconds' in d) {

@@ -11,6 +11,8 @@ import {
   increment,
   addDoc,
   DocumentReference,
+  query,
+  where
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -47,9 +49,6 @@ import type {
 import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
-/**
- * Normalizes Firestore data into plain JS objects, handling Timestamps and References.
- */
 export function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
   if (data instanceof Timestamp) return data.toDate().toISOString();
@@ -75,7 +74,7 @@ async function getRawCollection(name: string) {
     }
 }
 
-// --- CONFIGURACIÓN Y SEGURIDAD ---
+// --- CONFIGURACIÓN ---
 export async function getModuleSettings(): Promise<ModuleSettings> {
   const snap = await getDoc(doc(adminDb, 'settings', 'moduleSettings'));
   if (snap.exists()) return serializeData(snap.data()) as ModuleSettings;
@@ -92,7 +91,7 @@ export async function updateModuleSettings(settings: ModuleSettings) {
     return { success: true };
 }
 
-export async function getAdminSettingsData() { 
+export async function getAdminSettingsData(): Promise<AdminSettings> { 
     const snap = await getDoc(doc(adminDb, 'settings', 'admin')); 
     return snap.exists() ? serializeData(snap.data()) : { password: 'Hu1m4ngu1ll0' }; 
 }
@@ -102,7 +101,7 @@ export async function updateAdminSettings(settings: AdminSettings) {
     return { success: true }; 
 }
 
-export async function getArchiveSettingsData() { 
+export async function getArchiveSettingsData(): Promise<ArchiveSettings> { 
     const snap = await getDoc(doc(adminDb, 'settings', 'archive')); 
     return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
@@ -112,7 +111,7 @@ export async function updateArchiveSettings(settings: ArchiveSettings) {
     return { success: true }; 
 }
 
-export async function getPharmacySettingsData() { 
+export async function getPharmacySettingsData(): Promise<PharmacySettings> { 
     const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy')); 
     return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
@@ -122,7 +121,7 @@ export async function updatePharmacySettings(settings: PharmacySettings) {
     return { success: true }; 
 }
 
-export async function getWarehouseSettingsData() { 
+export async function getWarehouseSettingsData(): Promise<WarehouseSettings> { 
     const snap = await getDoc(doc(adminDb, 'settings', 'warehouse')); 
     return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
@@ -132,7 +131,7 @@ export async function updateWarehouseSettings(settings: WarehouseSettings) {
     return { success: true }; 
 }
 
-export async function getBISettingsData() { 
+export async function getBISettingsData(): Promise<BISettings> { 
     const snap = await getDoc(doc(adminDb, 'settings', 'bi')); 
     return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
@@ -193,6 +192,13 @@ export async function getAppointmentsData() {
     const [apps, patients] = await Promise.all([getRawCollection('appointments'), getRawCollection('patients')]);
     return apps.map(a => ({ ...a, patient: patients.find(p => p.id === a.patientId) }));
 }
+
+export async function updateAppointmentStatus(id: string, status: string, t: string) {
+    const m: Record<string, string> = { medical: 'appointments', lab: 'labAppointments', xray: 'xrayAppointments', ultrasound: 'ultrasoundAppointments', vaccine: 'vaccineAppointments' };
+    await updateDoc(doc(adminDb, m[t], id), { status }); return { success: true };
+}
+
+export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
 
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const batch = writeBatch(adminDb);
@@ -265,11 +271,6 @@ export async function saveNewVaccineAppointment(appointment: any, patient: any) 
     const folio = `VAC-${uuidv4().split('-')[0].toUpperCase()}`;
     batch.set(doc(adminDb, 'vaccineAppointments', id), { ...appointment, id, appointmentNumber: folio, patientId: pId, createdAt: new Date().toISOString() });
     await batch.commit(); return { success: true, data: { ...appointment, id, appointmentNumber: folio, patient } };
-}
-
-export async function updateAppointmentStatus(id: string, status: string, t: string) {
-    const m: Record<string, string> = { medical: 'appointments', lab: 'labAppointments', xray: 'xrayAppointments', ultrasound: 'ultrasoundAppointments', vaccine: 'vaccineAppointments' };
-    await updateDoc(doc(adminDb, m[t], id), { status }); return { success: true };
 }
 
 export async function rescheduleAppointment(id: string, date: string, t: string) {
@@ -373,7 +374,6 @@ export async function updateSpecialties(specialties: Specialty[]) {
 }
 export async function getClinicsData() { return getRawCollection('clinics'); }
 export async function updateClinics(clinics: Clinic[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'clinics')); snap.docs.forEach(d => batch.delete(d.ref)); clinics.forEach(c => batch.set(doc(adminDb, 'clinics', c.id), c)); await batch.commit(); return { success: true }; }
-export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
 export async function getColoniasData() { return getRawCollection('colonias'); }
 export async function updateColonias(colonias: Colonia[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'colonias')); snap.docs.forEach(d => batch.delete(d.ref)); colonias.forEach(c => batch.set(doc(adminDb, 'colonias', c.id), c)); await batch.commit(); return { success: true }; }
 

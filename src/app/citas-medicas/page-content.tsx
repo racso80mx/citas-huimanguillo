@@ -14,11 +14,11 @@ import {
 import { Button } from '@/components/ui/button';
 import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay, ServiceType, Specialty } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
-import { getAppointments, getClinics, getHolidays, getServiceTypes, verifyCitasMedicasPassword, getColonias } from '@/lib/actions';
+import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, CheckCircle2, XCircle, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus, Check, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday, addDays, isToday, isSameDay } from 'date-fns';
+import { Bell, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus, Check, Loader2 } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Select,
@@ -34,7 +34,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -359,7 +358,7 @@ export default function PageContent({
               ) : (
                   <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
                       {/* 3. GRID DE DISPONIBILIDAD PROYECTADA (2 SEMANAS) */}
-                      <Card className="shadow-xl border-primary/10 overflow-hidden rounded-[2.5rem]">
+                      <Card className="shadow-xl border-primary/10 overflow-hidden rounded-[2.5rem] relative">
                           <CardHeader className="bg-primary/5 pb-4 border-b border-primary/5">
                                <div className="flex items-center justify-between">
                                     <CardTitle className="text-xl font-black uppercase text-primary tracking-wider flex items-center gap-2">
@@ -368,7 +367,13 @@ export default function PageContent({
                                     <Badge variant="outline" className="font-bold bg-background">Cupo en {selectedClinic?.name}</Badge>
                                </div>
                           </CardHeader>
-                          <CardContent className="p-8">
+                          <CardContent className="p-8 min-h-[300px] relative">
+                              {isPending && (
+                                  <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-[2rem] animate-in fade-in">
+                                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                                      <p className="text-xs font-black uppercase tracking-widest mt-4 text-primary animate-pulse">Sincronizando Agenda...</p>
+                                  </div>
+                              )}
                               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
                                   {projectedGridData.map((item) => (
                                       <button
@@ -404,9 +409,6 @@ export default function PageContent({
                                           )}
                                           {item.isClosed && (
                                               <Badge variant="ghost" className="mt-2 text-[9px] font-black text-muted-foreground">CERRADO</Badge>
-                                          )}
-                                          {isToday(item.date) && !isSameDay(selectedDate || new Date(0), item.date) && (
-                                              <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white animate-pulse" />
                                           )}
                                       </button>
                                   ))}
