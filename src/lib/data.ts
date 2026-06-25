@@ -68,15 +68,15 @@ export function serializeData(data: any): any {
 
 /**
  * ESTRATEGIA: CERO ÍNDICES EN FIRESTORE
- * Descarga la colección completa para procesar filtros y ordenamiento en memoria.
- * NUNCA usar where, orderBy o query aquí para evitar el error de Firebase Index.
+ * Esta función es la ÚNICA forma de leer datos. Descarga la colección completa.
+ * Elimina la necesidad de crear índices compuestos en la consola de Firebase.
  */
 async function getRawCollection(name: string) {
     try {
         const snap = await getDocs(collection(adminDb, name));
         return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
     } catch (e) {
-        console.error(`Error al leer colección ${name}:`, e);
+        console.error(`Error crítico al leer colección ${name}:`, e);
         return [];
     }
 }
@@ -129,7 +129,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PACIENTES ---
+// --- PACIENTES (FILTRADO 100% EN MEMORIA) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
