@@ -299,21 +299,61 @@ export async function getVaccines() { return data.getVaccines(); }
 export async function getMedications() { return data.getMedications(); }
 export async function getSupplies() { return data.getSupplies(); }
 export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
-export async function updatePrescription(id: string, p: any) { return data.updatePrescription(id, p); }
+export async function updatePrescription(id: string, p: any) { 
+    const res = await data.updatePrescription(id, p);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function getAdminSettings() { return data.getAdminSettingsData(); }
-export async function updateAdminSettings(s: AdminSettings) { return data.updateAdminSettings(s); }
+export async function updateAdminSettings(s: AdminSettings) { 
+    const res = await data.updateAdminSettings(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
-export async function updateArchiveSettings(s: ArchiveSettings) { return data.updateArchiveSettings(s); }
+export async function updateArchiveSettings(s: ArchiveSettings) { 
+    const res = await data.updateArchiveSettings(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
-export async function updatePharmacySettings(s: PharmacySettings) { return data.updatePharmacySettings(s); }
+export async function updatePharmacySettings(s: PharmacySettings) { 
+    const res = await data.updatePharmacySettings(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
-export async function updateWarehouseSettings(s: WarehouseSettings) { return data.updateWarehouseSettings(s); }
+export async function updateWarehouseSettings(s: WarehouseSettings) { 
+    const res = await data.updateWarehouseSettings(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function getBISettings() { return data.getBISettingsData(); }
-export async function updateBISettings(s: BISettings) { return data.updateBISettings(s); }
-export async function updateLabStudies(s: LabStudy[]) { return data.updateLabStudies(s); }
-export async function updateXRayStudies(s: XRayStudy[]) { return data.updateXRayStudies(s); }
-export async function updateUltrasoundStudies(s: UltrasoundStudy[]) { return data.updateUltrasoundStudies(s); }
-export async function updateVaccines(v: Vaccine[]) { return data.updateVaccines(v); }
+export async function updateBISettings(s: BISettings) { 
+    const res = await data.updateBISettings(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function updateLabStudies(s: LabStudy[]) { 
+    const res = await data.updateLabStudies(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function updateXRayStudies(s: XRayStudy[]) { 
+    const res = await data.updateXRayStudies(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function updateUltrasoundStudies(s: UltrasoundStudy[]) { 
+    const res = await data.updateUltrasoundStudies(s);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function updateVaccines(v: Vaccine[]) { 
+    const res = await data.updateVaccines(v);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function bulkInsertCie10Glossary(i: any[]) { return data.bulkInsertCie10Glossary(i); }
 export async function bulkInsertCie10Catalog(i: any[]) { return data.bulkInsertCie10Catalog(i); }
 export async function deleteAllCie10Glossary() { return data.deleteAllCie10Glossary(); }

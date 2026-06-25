@@ -53,23 +53,22 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export function serializeData(data: any): any {
   if (!data) return data;
-  const serialized = { ...data };
-  for (const key in serialized) {
-    if (serialized[key] instanceof Timestamp) {
-      serialized[key] = serialized[key].toDate().toISOString();
-    } else if (Array.isArray(serialized[key])) {
-      serialized[key] = serialized[key].map(item => serializeData(item));
-    } else if (typeof serialized[key] === 'object' && serialized[key] !== null) {
-      serialized[key] = serializeData(serialized[key]);
+  if (data instanceof Timestamp) return data.toDate().toISOString();
+  if (Array.isArray(data)) return data.map(item => serializeData(item));
+  if (typeof data === 'object' && data !== null) {
+    const serialized: any = {};
+    for (const key in data) {
+      serialized[key] = serializeData(data[key]);
     }
+    return serialized;
   }
-  return serialized;
+  return data;
 }
 
 /**
  * ESTRATEGIA: AISLAMIENTO TOTAL DE ÍNDICES
  * Descarga la colección completa y procesa en memoria.
- * NUNCA se usa query(), where() ni orderBy().
+ * NUNCA se usa query(), where() ni orderBy() para evitar errores de índices.
  */
 async function getRawCollection(name: string) {
     try {
