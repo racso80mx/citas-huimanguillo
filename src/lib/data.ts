@@ -65,7 +65,6 @@ export function serializeData(data: any): any {
 
 /**
  * PROCESAMIENTO EN MEMORIA (AISLAMIENTO DE ÍNDICES)
- * Garantiza que Firestore nunca solicite un índice compuesto.
  */
 async function getRawCollection(name: string) {
     try {
