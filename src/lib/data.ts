@@ -327,9 +327,26 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const batch = writeBatch(adminDb);
     batch.set(doc(adminDb, 'patients', patient.curp), patient, { merge: true });
+    
     const id = uuidv4();
     const data = { ...appointment, id, patientId: patient.curp, coloniaName: colonia || null, createdAt: new Date().toISOString() };
     batch.set(doc(adminDb, 'appointments', id), data);
+
+    // Lógica para cita doble: Bloquea el siguiente horario si es por tiempo
+    if (isDouble && appointment.time && !appointment.time.includes('Ficha')) {
+        const [h, m] = appointment.time.split(':').map(Number);
+        const nextDate = new Date(1970, 0, 1, h, m + 30);
+        const nextTime = nextDate.toTimeString().substring(0, 5);
+        const secondId = uuidv4();
+        batch.set(doc(adminDb, 'appointments', secondId), {
+            ...data,
+            id: secondId,
+            time: nextTime,
+            status: 'Atendido', // Se marca como atendido para que no aparezca como cita extra en reportes pero bloquee el espacio
+            appointmentNumber: `${data.appointmentNumber}-B`
+        });
+    }
+
     await batch.commit();
     const clinicSnap = await getDoc(doc(adminDb, 'clinics', appointment.clinicId));
     return { success: true, data: { appointment: { ...data, patient }, clinic: serializeData(clinicSnap.data()) } };

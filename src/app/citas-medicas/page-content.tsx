@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -93,7 +95,6 @@ export default function PageContent({
       
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
-      const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
       for (const day of daysInMonth) {
         const dateString = day.toISOString().split('T')[0];
@@ -213,7 +214,7 @@ export default function PageContent({
                 <div>
                     <h3 className="text-2xl font-semibold font-headline mb-4">1. Tipo de Consulta</h3>
                     <Select onValueChange={setSelectedServiceTypeId} value={selectedServiceTypeId}>
-                        <SelectTrigger><SelectValue placeholder="Selecciona un tipo de consulta" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger>
                         <SelectContent>
                             {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                         </SelectContent>
@@ -231,8 +232,16 @@ export default function PageContent({
                                 <SelectItem value={PatientType.General}>General</SelectItem>
                                 <SelectItem value={PatientType.Embarazada}>Embarazada</SelectItem>
                                 <SelectItem value={PatientType.TerceraEdad}>Tercera Edad</SelectItem>
+                                <SelectItem value={PatientType.Cronico}>Crónico</SelectItem>
+                                <SelectItem value={PatientType.RecienNacido}>Recién Nacido</SelectItem>
                             </SelectContent>
                         </Select>
+                        {patientType === PatientType.Embarazada && (
+                            <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-lg animate-in slide-in-from-top-2">
+                                <Checkbox id="double-slot" checked={isDoubleSlot} onCheckedChange={(v) => setIsDoubleSlot(!!v)} />
+                                <Label htmlFor="double-slot" className="text-xs font-bold text-pink-700 uppercase">Solicitar Horario Doble (Consecutivo)</Label>
+                            </div>
+                        )}
                     </div>
                 )}
                 {selectedDate && (

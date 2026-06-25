@@ -360,4 +360,3 @@ export async function deleteAllCie10Glossary() { return data.deleteAllCie10Gloss
 export async function deleteAllCie10Catalog() { return data.deleteAllCie10Catalog(); }
 export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
 export async function getLogs() { return data.getLogsData(); }
-export async function getBIData() { return data.downloadBackupAction().then(res => res.data); }
