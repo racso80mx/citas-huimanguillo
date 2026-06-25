@@ -31,7 +31,8 @@ import {
     RefreshCw, 
     Clock,
     CheckCircle2,
-    CalendarDays
+    CalendarDays,
+    Search
 } from 'lucide-react';
 import type { Clinic, Colonia, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -153,7 +154,7 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                 <div className="flex items-center justify-between">
                     <div>
                         <DialogTitle className="text-2xl font-black uppercase">Configuración de Unidad</DialogTitle>
-                        <DialogDescription className="font-bold text-primary">{clinic.name || "Nueva Unidad Médica"}</DialogDescription>
+                        <DialogDescription className="font-bold text-primary">{editedClinic.name || "Nueva Unidad Médica"}</DialogDescription>
                     </div>
                 </div>
             </DialogHeader>
@@ -265,7 +266,6 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                     </div>
 
                     <div className="grid lg:grid-cols-2 gap-10">
-                        {/* SALIDAS TEMPRANAS */}
                         <div className='space-y-6'>
                             <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
                                 <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
@@ -306,7 +306,6 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             </div>
                         </div>
 
-                        {/* VACACIONES / BLOQUEOS TOTALES */}
                         <div className='space-y-6'>
                             <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
                                 <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">

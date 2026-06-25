@@ -425,3 +425,4 @@ export async function getSupplies() { return getRawCollection('supplies'); }
 export async function bulkInsertSupplies(supplies: any[]) { const batch = writeBatch(adminDb); supplies.forEach(s => batch.set(doc(adminDb, 'supplies', uuidv4()), s)); await batch.commit(); return { success: true, processedCount: supplies.length }; }
 export async function deleteAllSupplies() { const snap = await getDocs(collection(adminDb, 'supplies')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
 export async function getAttendedPatientsForClinic(cid: string) { const allApps = await getRawCollection('appointments') as Appointment[]; const ids = Array.from(new Set(allApps.filter(d => d.clinicId === cid && d.status === 'Atendido').map(d => d.patientId))); if (ids.length === 0) return []; const pats = await getRawCollection('patients') as Patient[]; return pats.filter(d => ids.includes(d.id)); }
+
