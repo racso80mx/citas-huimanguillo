@@ -16,7 +16,7 @@ import { PatientType, BookingMode } from '@/lib/definitions';
 import { getAppointments, getClinics, getHolidays, getServiceTypes, verifyCitasMedicasPassword, getColonias } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, CheckCircle2, XCircle } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, MapPin } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import {
   Select,

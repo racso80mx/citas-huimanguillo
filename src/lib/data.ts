@@ -51,7 +51,7 @@ import { v4 as uuidv4 } from 'uuid';
  * SERIALIZACIÓN OPTIMIZADA
  */
 export function serializeData(data: any): any {
-  if (!data) return data;
+  if (data === null || data === undefined) return data;
   if (data instanceof Timestamp) return data.toDate().toISOString();
   if (Array.isArray(data)) return data.map(serializeData);
   if (typeof data === 'object' && data.constructor === Object) {
@@ -264,7 +264,7 @@ export async function saveNewLabAppointment(appointment: any, patient: any) {
     batch.set(doc(adminDb, 'patients', patient.curp), patient, { merge: true });
     const id = uuidv4();
     batch.set(doc(adminDb, 'labAppointments', id), { ...appointment, id, patientId: patient.curp, createdAt: new Date().toISOString() });
-    await batch.commit(); return { success: true, data: appointment };
+    await batch.commit(); return { success: true, data: { ...appointment, patient } };
 }
 
 export async function saveNewXRayAppointment(appointment: any, patient: any) {
@@ -274,7 +274,7 @@ export async function saveNewXRayAppointment(appointment: any, patient: any) {
     batch.set(doc(adminDb, 'xrayAppointments', id), { ...appointment, id, patientId: patient.curp, createdAt: new Date().toISOString() });
     await batch.commit(); 
     const snap = await getDoc(doc(adminDb, 'xRayStudies', appointment.studyId));
-    return { success: true, data: { appointment, study: serializeData(snap.data()) } };
+    return { success: true, data: { appointment: { ...appointment, patient }, study: serializeData(snap.data()) } };
 }
 
 export async function saveNewUltrasoundAppointment(appointment: any, patient: any) {
@@ -284,7 +284,7 @@ export async function saveNewUltrasoundAppointment(appointment: any, patient: an
     batch.set(doc(adminDb, 'ultrasoundAppointments', id), { ...appointment, id, patientId: patient.curp, createdAt: new Date().toISOString() });
     await batch.commit();
     const snap = await getDoc(doc(adminDb, 'ultrasoundStudies', appointment.studyId));
-    return { success: true, data: { appointment, study: serializeData(snap.data()) } };
+    return { success: true, data: { appointment: { ...appointment, patient }, study: serializeData(snap.data()) } };
 }
 
 export async function saveNewVaccineAppointment(appointment: any, patient: any) {
@@ -292,7 +292,7 @@ export async function saveNewVaccineAppointment(appointment: any, patient: any) 
     batch.set(doc(adminDb, 'patients', patient.curp), patient, { merge: true });
     const id = uuidv4();
     batch.set(doc(adminDb, 'vaccineAppointments', id), { ...appointment, id, patientId: patient.curp, createdAt: new Date().toISOString() });
-    await batch.commit(); return { success: true, data: appointment };
+    await batch.commit(); return { success: true, data: { ...appointment, patient } };
 }
 
 export async function updateAppointmentStatus(aid: string, s: string, t: string) {
