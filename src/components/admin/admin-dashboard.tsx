@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition, useEffect, useCallback } from 'react';
+import { useState, useTransition, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardHeader,
@@ -20,7 +20,11 @@ import {
   Trash2,
   Loader2,
   Search,
-  LayoutGrid
+  LayoutGrid,
+  Calendar as CalendarIcon,
+  CalendarSearch,
+  Filter,
+  Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -36,13 +40,28 @@ import { Input } from '../ui/input';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '../ui/switch';
-import { getServiceTypes, updateServiceTypes, getAppointments, getLabAppointments, getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, getClinics, deleteAppointment, deleteLabAppointment, deleteXRayAppointment, deleteUltrasoundAppointment, deleteVaccineAppointment } from '@/lib/actions';
+import { 
+    getServiceTypes, updateServiceTypes, getAppointments, getLabAppointments, 
+    getXRayAppointments, getUltrasoundAppointments, getVaccineAppointments, 
+    getClinics, deleteAppointment, deleteLabAppointment, deleteXRayAppointment, 
+    deleteUltrasoundAppointment, deleteVaccineAppointment 
+} from '@/lib/actions';
 import React from 'react';
 import { AppointmentList } from '../appointment-list';
 import { LabAppointmentList } from '../laboratorio/lab-appointment-list';
 import { XRayAppointmentList } from '../rayos-x/x-ray-appointment-list';
 import { UltrasoundAppointmentList } from '../ultrasonidos/ultrasound-appointment-list';
 import { VaccineAppointmentList } from '../vacunas/vaccine-appointment-list';
+import { format, parseISO, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, parse, isValid } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Badge } from '../ui/badge';
+import { Label } from '../ui/label';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '../ui/command';
+import { cn } from '@/lib/utils';
 
 function ServiceTypesManager() {
   const [types, setTypes] = useState<any[]>([]);
@@ -106,18 +125,29 @@ function ServiceTypesManager() {
   );
 }
 
+type DateFilterType = 'today' | 'tomorrow' | 'week' | 'month' | 'range';
+
 function AppointmentsViewer() {
     const [searchTerm, setSearchTerm] = useState('');
-    const [data, setData] = useState<any>({ apps: [], lab: [], xr: [], us: [], vac: [], clinics: [] });
+    const [data, setData] = useState<any>({ apps: [], lab: [], xr: [], us: [], vac: [], clinics: [], services: [] });
     const [loading, setLoading] = useState(true);
+    
+    // Advanced Filters
+    const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [selectedServiceType, setSelectedServiceType] = useState<string | 'all'>('all');
+    const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
+    
+    const [manualDayMonth, setManualDayMonth] = useState('');
+    const [manualYear, setManualYear] = useState(new Date().getFullYear().toString());
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [apps, lab, xr, us, vac, clinics] = await Promise.all([
-                getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics()
+            const [apps, lab, xr, us, vac, clinics, services] = await Promise.all([
+                getAppointments(), getLabAppointments(), getXRayAppointments(), getUltrasoundAppointments(), getVaccineAppointments(), getClinics(), getServiceTypes()
             ]);
-            setData({ apps, lab, xr, us, vac, clinics });
+            setData({ apps, lab, xr, us, vac, clinics, services });
         } finally {
             setLoading(false);
         }
@@ -135,36 +165,184 @@ function AppointmentsViewer() {
         if (res?.success) fetchData();
     };
 
-    const filter = (list: any[]) => {
-        if (!searchTerm) return list;
-        const t = searchTerm.toUpperCase();
-        return list.filter(a => {
-            const name = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
-            return name.includes(t) || String(a.appointmentNumber).toUpperCase().includes(t) || String(a.patient?.curp || '').toUpperCase().includes(t);
-        });
+    const handleManualDateChange = (dm: string, y: string) => {
+        setManualDayMonth(dm);
+        setManualYear(y);
+        if (dm.length === 5 && y.length === 4) {
+            const parsed = parse(`${dm}/${y}`, 'dd/MM/yyyy', new Date());
+            if (isValid(parsed)) {
+                setDateFilter('range');
+                setDateRange({ from: parsed, to: parsed });
+            }
+        }
+    };
+
+    const filterList = (list: any[]) => {
+        let results = [...list];
+        const now = new Date();
+
+        // 1. Date Filter
+        let dateFilterFn: (app: any) => boolean;
+        switch (dateFilter) {
+            case 'tomorrow':
+                dateFilterFn = (a) => isWithinInterval(parseISO(a.date), { start: startOfDay(addDays(now, 1)), end: endOfDay(addDays(now, 1)) });
+                break;
+            case 'week':
+                dateFilterFn = (a) => isWithinInterval(parseISO(a.date), { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) });
+                break;
+            case 'month':
+                dateFilterFn = (a) => isWithinInterval(parseISO(a.date), { start: startOfMonth(now), end: endOfMonth(now) });
+                break;
+            case 'range':
+                if (dateRange?.from) {
+                    dateFilterFn = (a) => {
+                        const d = parseISO(a.date);
+                        return d >= startOfDay(dateRange.from!) && d <= endOfDay(dateRange.to || dateRange.from!);
+                    };
+                } else dateFilterFn = () => true;
+                break;
+            case 'today':
+            default:
+                dateFilterFn = (a) => isWithinInterval(parseISO(a.date), { start: startOfDay(now), end: endOfDay(now) });
+                break;
+        }
+        results = results.filter(dateFilterFn);
+
+        // 2. Service Type Filter
+        if (selectedServiceType !== 'all') {
+            results = results.filter(a => a.clinicId && data.clinics.find((c: any) => c.id === a.clinicId)?.serviceTypeId === selectedServiceType);
+        }
+
+        // 3. Clinic Filter
+        if (selectedClinics.length > 0) {
+            results = results.filter(a => selectedClinics.includes(a.clinicId));
+        }
+
+        // 4. Text Search
+        if (searchTerm) {
+            const t = searchTerm.toUpperCase();
+            results = results.filter(a => {
+                const name = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
+                return name.includes(t) || String(a.appointmentNumber).toUpperCase().includes(t) || String(a.patient?.curp || '').toUpperCase().includes(t);
+            });
+        }
+
+        return results.sort((a,b) => a.time.localeCompare(b.time));
     };
 
     if (loading) return <div className="p-20 flex flex-col items-center gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary" /><p className='text-xs font-bold uppercase animate-pulse'>Sincronizando Agenda...</p></div>;
 
     return (
         <div className="space-y-6">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-            </div>
-            <Tabs defaultValue="medical">
-                <TabsList className="bg-muted/40 p-1 mb-4">
-                  <TabsTrigger value="medical">General</TabsTrigger>
-                  <TabsTrigger value="lab">Laboratorio</TabsTrigger>
-                  <TabsTrigger value="xr">Rayos X</TabsTrigger>
-                  <TabsTrigger value="us">Ultrasonidos</TabsTrigger>
-                  <TabsTrigger value="vac">Vacunas</TabsTrigger>
+            <Card className="shadow-md border-primary/10">
+                <CardHeader className="pb-4 bg-muted/10">
+                    <div className="flex flex-col space-y-6">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                            <CardTitle className="flex items-center gap-2">
+                                <Filter className="h-5 w-5 text-primary" /> Filtros de Agenda
+                            </CardTitle>
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex items-center gap-1 bg-background p-1 border rounded-lg">
+                                    <Button variant={dateFilter === 'today' ? 'default' : 'ghost'} onClick={() => setDateFilter('today')} size="sm">Hoy</Button>
+                                    <Button variant={dateFilter === 'tomorrow' ? 'default' : 'ghost'} onClick={() => setDateFilter('tomorrow')} size="sm">Mañana</Button>
+                                    <Button variant={dateFilter === 'week' ? 'default' : 'ghost'} onClick={() => setDateFilter('week')} size="sm">Semana</Button>
+                                    <Button variant={dateFilter === 'month' ? 'default' : 'ghost'} onClick={() => setDateFilter('month')} size="sm">Mes</Button>
+                                </div>
+
+                                <div className="flex items-center gap-2 bg-background p-2 rounded-xl border border-dashed border-primary/20 shadow-sm">
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-[9px] font-black uppercase text-primary h-3">Día/Mes</Label>
+                                        <Input placeholder="11/07" value={manualDayMonth} onChange={e => {
+                                            let v = e.target.value.replace(/\D/g, '');
+                                            if (v.length > 2) v = v.substring(0,2) + '/' + v.substring(2,4);
+                                            handleManualDateChange(v.substring(0,5), manualYear);
+                                        }} className="h-8 w-20 text-center font-bold text-xs" maxLength={5} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-[9px] font-black uppercase text-primary h-3">Año</Label>
+                                        <Input type="number" value={manualYear} onChange={e => handleManualDateChange(manualDayMonth, e.target.value.substring(0,4))} className="h-8 w-16 text-center font-bold text-xs" />
+                                    </div>
+                                </div>
+
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={dateFilter === 'range' ? 'default' : 'outline'} size="sm" className="h-9 min-w-[160px]">
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, 'dd/MM')} - ${format(dateRange.to, 'dd/MM')}` : format(dateRange.from, 'dd/MM')) : "Rango"}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="end">
+                                        <Calendar mode="range" selected={dateRange} onSelect={r => { setDateRange(r); setDateFilter('range'); }} numberOfMonths={2} locale={es} />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-xs font-bold uppercase text-muted-foreground">Categoría:</Label>
+                                <Select value={selectedServiceType} onValueChange={v => { setSelectedServiceType(v); setSelectedClinics([]); }}>
+                                    <SelectTrigger className="h-9 w-[180px] bg-background">
+                                        <SelectValue placeholder="Todas" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todas las Categorías</SelectItem>
+                                        {data.services.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="h-9 border-dashed bg-background">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Filtrar Consultorio
+                                        {selectedClinics.length > 0 && <Badge className="ml-2 px-1">{selectedClinics.length}</Badge>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[250px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar consultorio..." />
+                                        <CommandList>
+                                            <CommandEmpty>No hay resultados.</CommandEmpty>
+                                            <CommandGroup>
+                                                {data.clinics.filter((c: any) => selectedServiceType === 'all' || c.serviceTypeId === selectedServiceType).map((c: any) => (
+                                                    <CommandItem key={c.id} onSelect={() => setSelectedClinics(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}>
+                                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinics.includes(c.id) ? "bg-primary text-white" : "opacity-50 [&_svg]:invisible")}><Check className="h-4 w-4" /></div>
+                                                        <span className="text-xs uppercase font-bold">{c.name}</span>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                            {selectedClinics.length > 0 && <><CommandSeparator /><CommandGroup><CommandItem onSelect={() => setSelectedClinics([])} className="justify-center text-center">Limpiar filtro</CommandItem></CommandGroup></>}
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+
+                            <div className="relative flex-1 min-w-[250px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11 bg-background" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            </div>
+
+                            <Button variant="outline" size="icon" onClick={fetchData} className="h-11 w-11"><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /></Button>
+                        </div>
+                    </div>
+                </CardHeader>
+            </Card>
+
+            <Tabs defaultValue="medical" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <TabsList className="bg-muted/40 p-1 mb-4 h-auto">
+                  <TabsTrigger value="medical" className="py-2 px-6">General</TabsTrigger>
+                  <TabsTrigger value="lab" className="py-2 px-6">Laboratorio</TabsTrigger>
+                  <TabsTrigger value="xr" className="py-2 px-6">Rayos X</TabsTrigger>
+                  <TabsTrigger value="us" className="py-2 px-6">Ultrasonidos</TabsTrigger>
+                  <TabsTrigger value="vac" className="py-2 px-6">Vacunas</TabsTrigger>
                 </TabsList>
-                <TabsContent value="medical"><AppointmentList appointments={filter(data.apps)} clinics={data.clinics} isAdmin onDelete={(id) => handlePatientDelete(id, 'medical')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="lab"><LabAppointmentList appointments={filter(data.lab)} isAdmin onDelete={(id) => handlePatientDelete(id, 'lab')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="xr"><XRayAppointmentList appointments={filter(data.xr)} isAdmin onDelete={(id) => handlePatientDelete(id, 'xr')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="us"><UltrasoundAppointmentList appointments={filter(data.us)} isAdmin onDelete={(id) => handlePatientDelete(id, 'us')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="vac"><VaccineAppointmentList appointments={filter(data.vac)} isAdmin onDelete={(id) => handlePatientDelete(id, 'vac')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="medical"><AppointmentList appointments={filterList(data.apps)} clinics={data.clinics} isAdmin onDelete={(id) => handlePatientDelete(id, 'medical')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="lab"><LabAppointmentList appointments={filterList(data.lab)} isAdmin onDelete={(id) => handlePatientDelete(id, 'lab')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="xr"><XRayAppointmentList appointments={filterList(data.xr)} isAdmin onDelete={(id) => handlePatientDelete(id, 'xr')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="us"><UltrasoundAppointmentList appointments={filterList(data.us)} isAdmin onDelete={(id) => handlePatientDelete(id, 'us')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="vac"><VaccineAppointmentList appointments={filterList(data.vac)} isAdmin onDelete={(id) => handlePatientDelete(id, 'vac')} onEditSuccess={fetchData} /></TabsContent>
             </Tabs>
         </div>
     );
@@ -189,7 +367,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         <TabsList className="grid w-full grid-cols-3 h-auto mb-8 bg-muted/20 p-1">
           <TabsTrigger value="configuracion" className="py-3 font-bold flex items-center gap-2"><Settings className="h-4 w-4" /> 1. Configuración</TabsTrigger>
           <TabsTrigger value="catalogos" className="py-3 font-bold flex items-center gap-2"><UserRound className="h-4 w-4" /> 2. Catálogos</TabsTrigger>
-          <TabsTrigger value="citas" className="py-3 font-bold flex items-center gap-2"><ClipboardList className="h-4 w-4" /> 3. Citas por Servicio</TabsTrigger>
+          <TabsTrigger value="citas" className="py-3 font-bold flex items-center gap-2"><ClipboardList className="h-4 w-4" /> 3. Registro de Citas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="configuracion" className="space-y-8 animate-in fade-in">

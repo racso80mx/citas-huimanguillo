@@ -65,7 +65,6 @@ export function serializeData(data: any): any {
 
 /**
  * RECUPERACIÓN SEGURA DE COLECCIONES (PROCESAMIENTO EN MEMORIA)
- * Esto evita el error de "The query requires an index".
  */
 async function getRawCollection(name: string) {
     try {
