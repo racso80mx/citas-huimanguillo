@@ -131,14 +131,15 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
         handleFieldChange('unavailableDates', newDates);
     };
 
-    const formatBadgeDate = (d: string) => {
+    const formatBadgeDate = (d: any) => {
         try {
-            if (!d || d === "[object Object]") return "---";
-            const dateObj = new Date(d + 'T12:00:00');
-            if (!isValid(dateObj)) return d;
+            if (!d) return "---";
+            const dateStr = typeof d === 'string' ? d : (d.seconds ? new Date(d.seconds * 1000).toISOString().split('T')[0] : String(d));
+            const dateObj = new Date(dateStr + 'T12:00:00');
+            if (!isValid(dateObj)) return dateStr;
             return format(dateObj, 'dd/MM/yy', { locale: es });
         } catch (e) {
-            return d;
+            return String(d);
         }
     };
 
@@ -240,8 +241,8 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                             <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
                                 <SelectTrigger className="h-11 font-bold border-primary/20"><SelectValue/></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={BookingMode.Time}>Por Horario</SelectItem>
-                                    <SelectItem value={BookingMode.Token}>Por Ficha</SelectItem>
+                                    <SelectItem value="time">Por Horario</SelectItem>
+                                    <SelectItem value="token">Por Ficha</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -325,7 +326,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                             </div>
                             <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
                                 {editedClinic.customSchedules?.length ? editedClinic.customSchedules.map(s => (
-                                    <div key={s.date} className="flex items-center justify-between p-4 bg-background border-2 rounded-2xl shadow-sm">
+                                    <div key={String(s.date)} className="flex items-center justify-between p-4 bg-background border-2 rounded-2xl shadow-sm">
                                         <div className="flex items-center gap-3">
                                             <CalendarIcon className="h-4 w-4 text-primary" />
                                             <span className="font-black text-sm uppercase">{formatBadgeDate(s.date)}</span>

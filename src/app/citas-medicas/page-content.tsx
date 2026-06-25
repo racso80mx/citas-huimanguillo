@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -124,7 +125,6 @@ export default function PageContent({
         let availableSlotsForClinic = 0;
         let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));
 
-        // DB RULES: Respect blocked dates, days of action, weekend config and break time
         const isDateBlocked = clinic.unavailableDates?.includes(dateString);
         const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
         const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
@@ -252,7 +252,6 @@ export default function PageContent({
   const projectedGridData = useMemo(() => {
     if (!selectedClinicId || availability.length === 0) return [];
     
-    // We want to show today + next 13 days (2 weeks)
     const today = startOfToday();
     const range = Array.from({ length: 14 }, (_, i) => addDays(today, i));
     
@@ -551,4 +550,3 @@ export default function PageContent({
     </div>
   );
 }
-

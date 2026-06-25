@@ -11,10 +11,6 @@ import {
   increment,
   addDoc,
   DocumentReference,
-  query,
-  where,
-  orderBy,
-  limit
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -349,7 +345,7 @@ export async function saveMedicalConsultation(c: any) { const id = c.id || uuidv
 export async function getConsultationByAppointmentId(aid: string) { const all = await getRawCollection('medicalConsultations') as MedicalConsultation[]; return all.find(a => a.appointmentId === aid) || null; }
 export async function deleteMedicalConsultation(id: string) { await deleteDoc(doc(adminDb, 'medicalConsultations', id)); return { success: true }; }
 export async function getPrescriptionsByPatientId(pid: string) { const all = await getRawCollection('prescriptions') as Prescription[]; return all.filter(a => a.patientId === pid).sort((a, b) => b.date.localeCompare(a.date)); }
-export async function createPrescription(p: any) { const id = uuidv4(); const folio = `REC-${uuidv4().split('-')[0].toUpperCase()}`; const expAt = new Date(new Date().getTime() + 24 * 60 * 1000).toISOString(); const data = { ...p, id, folio, expiresAt: expAt, status: 'pendiente', createdAt: new Date().toISOString() }; await setDoc(doc(adminDb, 'prescriptions', id), data); return { success: true, folio, prescription: data }; }
+export async function createPrescription(p: any) { const id = uuidv4(); const folio = `REC-${uuidv4().split('-')[0].toUpperCase()}`; const expAt = new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString(); const data = { ...p, id, folio, expiresAt: expAt, status: 'pendiente', createdAt: new Date().toISOString() }; await setDoc(doc(adminDb, 'prescriptions', id), data); return { success: true, folio, prescription: data }; }
 export async function updatePrescription(id: string, p: any) { await updateDoc(doc(adminDb, 'prescriptions', id), p); return { success: true }; }
 export async function deletePrescription(id: string) { await deleteDoc(doc(adminDb, 'prescriptions', id)); return { success: true }; }
 export async function dispensePrescription(id: string, items: any[]) { const batch = writeBatch(adminDb); items.forEach(i => batch.update(doc(adminDb, 'medications', i.medicationId), { existencia: increment(-i.quantity) })); batch.update(doc(adminDb, 'prescriptions', id), { status: 'surtida', dispensedDate: new Date().toISOString() }); await batch.commit(); return { success: true }; }
@@ -413,4 +409,11 @@ export async function getVaccines() { return getRawCollection('vaccines'); }
 export async function updateVaccines(v: Vaccine[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'vaccines')); snap.docs.forEach(d => batch.delete(d.ref)); v.forEach(i => batch.set(doc(adminDb, 'vaccines', i.id), i)); await batch.commit(); return { success: true }; }
 export async function getMedications() { return getRawCollection('medications'); }
 export async function getSupplies() { return getRawCollection('supplies'); }
-export async function getAttendedPatientsForClinic(cid: string) { const allApps = await getRawCollection('appointments') as Appointment[]; const ids = Array.from(new Set(allApps.filter(d => d.clinicId === cid && d.status === 'Atendido').map(d => d.patientId))); if (ids.length === 0) return []; const pats = await getRawCollection('patients') as Patient[]; return pats.filter(d => ids.includes(d.id)); }
+
+export async function getAttendedPatientsForClinic(cid: string) { 
+    const allApps = await getRawCollection('appointments') as Appointment[]; 
+    const ids = Array.from(new Set(allApps.filter(d => d.clinicId === cid && d.status === 'Atendido').map(d => d.patientId))); 
+    if (ids.length === 0) return []; 
+    const pats = await getRawCollection('patients') as Patient[]; 
+    return pats.filter(d => ids.includes(d.id)); 
+}
