@@ -40,14 +40,13 @@ export async function updateModuleSettings(settings: ModuleSettings) {
 export async function getServiceTypes() { return data.getServiceTypesData(); }
 export async function updateServiceTypes(types: ServiceType[]) { 
     const res = await data.updateServiceTypes(types);
-    revalidatePath('/admin');
-    revalidatePath('/citas-medicas');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getSpecialties() { return data.getSpecialtiesData(); }
 export async function updateSpecialties(specialties: Specialty[]) { 
     const res = await data.updateSpecialties(specialties);
-    revalidatePath('/admin');
+    revalidatePath('/', 'layout');
     return res;
 }
 
@@ -190,8 +189,7 @@ export async function bulkInsertPatients(patients: any[]) {
 }
 export async function bulkInsertDoctors(doctors: any[]) { 
     const res = await data.bulkInsertDoctors(doctors);
-    revalidatePath('/admin');
-    revalidatePath('/citas-medicas');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function scanDuplicates(criteria: string) { return data.scanDuplicates(criteria); }
@@ -306,11 +304,6 @@ export async function getMedications() { return data.getMedications(); }
 export async function getSupplies() { return data.getSupplies(); }
 export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
 export async function updatePrescription(id: string, p: any) { return data.updatePrescription(id, p); }
-export async function deletePrescription(id: string) { return data.deletePrescription(id); }
-export async function bulkInsertMedications(meds: any[]) { return data.bulkInsertMedications(meds); }
-export async function deleteAllMedications() { return data.deleteAllMedications(); }
-export async function bulkInsertSupplies(supplies: any[]) { return data.bulkInsertSupplies(supplies); }
-export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
 export async function getAdminSettings() { return data.getAdminSettingsData(); }
 export async function updateAdminSettings(s: AdminSettings) { return data.updateAdminSettings(s); }
 export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
@@ -331,3 +324,4 @@ export async function deleteAllCie10Glossary() { return data.deleteAllCie10Gloss
 export async function deleteAllCie10Catalog() { return data.deleteAllCie10Catalog(); }
 export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
 export async function getLogs() { return data.getLogsData(); }
+export async function getBIData() { return data.downloadBackupAction().then(res => res.data); }

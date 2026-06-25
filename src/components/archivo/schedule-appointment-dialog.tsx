@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
+import { Button } from '../ui/button';
 
 type ScheduleAppointmentDialogProps = {
     patient: Patient;
@@ -180,7 +181,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 <DialogHeader>
                     <DialogTitle>Asignar Cita Médica</DialogTitle>
                     <DialogDescription>
-                        Cita para: <span className="font-bold">{patient.name} {patient.paternalLastName}</span>.
+                        Cita para: <span className="font-bold">{patient.name || 'Paciente'} {patient.paternalLastName || ''}</span>.
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[80vh]">
@@ -226,7 +227,11 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                         <Select onValueChange={setSelectedClinicId} value={selectedClinicId}>
                                             <SelectTrigger><SelectValue placeholder="Elige el consultorio..." /></SelectTrigger>
                                             <SelectContent>
-                                                {clinicOptions.map(o => <SelectItem key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</SelectItem>)}
+                                                {clinicOptions.map(o => (
+                                                    <SelectItem key={o.value} value={o.value} disabled={o.disabled}>
+                                                        {o.label}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                     </CardContent>
@@ -251,7 +256,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             )}
                             {selectedTime && selectedClinic && (
                                 <BookingForm
-                                    initialPatientData={patient}
+                                    initialPatientData={patient.id ? patient : undefined}
                                     selectedDate={selectedDate}
                                     selectedClinic={selectedClinic}
                                     selectedTime={selectedTime}
