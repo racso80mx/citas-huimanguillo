@@ -47,7 +47,7 @@ import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 /** 
- * SERIALIZACIÓN OPTIMIZADA
+ * SERIALIZACIÓN PARA NEXT.JS
  */
 export function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
@@ -64,7 +64,8 @@ export function serializeData(data: any): any {
 }
 
 /**
- * PROCESAMIENTO EN MEMORIA (AISLAMIENTO DE ÍNDICES)
+ * RECUPERACIÓN SEGURA DE COLECCIONES (PROCESAMIENTO EN MEMORIA)
+ * Esto evita el error de "The query requires an index".
  */
 async function getRawCollection(name: string) {
     try {
@@ -183,7 +184,7 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
   if (options?.searchCurp) { const t = options.searchCurp.toUpperCase(); results = results.filter(p => (p.curp || '').toUpperCase().includes(t)); }
   if (options?.searchExpediente) { results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente)); }
   results.sort((a, b) => (a.paternalLastName || '').localeCompare(b.paternalLastName || ''));
-  return results.slice(0, options?.limitNum || 1000);
+  return results.slice(0, options?.limitNum || 2000);
 }
 
 export async function getPatientCounts(): Promise<ArchiveCounts> {
@@ -207,23 +208,6 @@ export async function updatePatientStatus(id: string, s: string) { await updateD
 export async function deletePatient(id: string) { await deleteDoc(doc(adminDb, 'patients', id)); return { success: true }; }
 export async function deletePatients(ids: string[]) { const batch = writeBatch(adminDb); ids.forEach(id => batch.delete(doc(adminDb, 'patients', id))); await batch.commit(); return { success: true }; }
 export async function getPatientByCURP(curp: string) { const all = await getRawCollection('patients') as Patient[]; const m = all.find(p => p.curp?.toUpperCase() === curp.toUpperCase()); return m ? { success: true, data: m } : { success: false }; }
-
-// --- CLÍNICAS Y COLONIAS ---
-export async function getClinicsData() { return getRawCollection('clinics'); }
-export async function updateClinics(clinics: Clinic[]) {
-    const batch = writeBatch(adminDb);
-    clinics.forEach(c => batch.set(doc(adminDb, 'clinics', c.id), c));
-    await batch.commit(); return { success: true };
-}
-export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
-export async function getColoniasData() { return getRawCollection('colonias'); }
-export async function updateColonias(colonias: Colonia[]) {
-    const batch = writeBatch(adminDb);
-    const snap = await getDocs(collection(adminDb, 'colonias'));
-    snap.docs.forEach(d => batch.delete(d.ref));
-    colonias.forEach(c => batch.set(doc(adminDb, 'colonias', c.id || uuidv4()), c));
-    await batch.commit(); return { success: true };
-}
 
 // --- CITAS ---
 export async function getAppointmentsData() {
