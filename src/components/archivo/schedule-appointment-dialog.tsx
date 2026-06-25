@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -84,12 +83,14 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             dayMap.get(app.clinicId)!.push(app);
         });
 
+        const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
         const availabilityResult: DailyAvailability[] = [];
         const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
             const dayMap = groupedApps.get(dateString);
+            const dayName = dayNames[day.getDay()];
             
             let totalAvailableSlots = 0;
             const availabilityByClinic: { [key: string]: number } = {};
@@ -100,7 +101,12 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const isSpecialDay = isWeekend || isHoliday;
 
             for (const clinic of clinics) {
-                const isBlocked = !isDoctorBypass && ((isSpecialDay && !clinic.weekendBookingEnabled) || clinic.unavailableDates?.includes(dateString));
+                // REGLAS DE NEGOCIO PARA BLOQUEO:
+                const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
+                const isDateBlocked = clinic.unavailableDates?.includes(dateString);
+                const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
+
+                const isBlocked = !isDoctorBypass && (isDateBlocked || !worksOnThisDay || isWeekendBlocked);
 
                 let availableSlotsForClinic = 0;
                 let takenInfo: any[] = [];
@@ -212,7 +218,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
         const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
         const allTokens = Array.from({ length: selectedClinic.dailySlots }, (_, i) => `Ficha ${i + 1}`);
-        const freeTokens = allTokens.filter(t => !booked.includes(t));
+        const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
 
         if (patientType === PatientType.Embarazada && isDoubleSlot) {
             return freeTokens.filter((token) => {

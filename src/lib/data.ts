@@ -9,7 +9,8 @@ import {
   updateDoc,
   deleteDoc,
   increment,
-  addDoc
+  addDoc,
+  DocumentReference
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -52,6 +53,7 @@ import { v4 as uuidv4 } from 'uuid';
 export function serializeData(data: any): any {
   if (data === null || data === undefined) return data;
   if (data instanceof Timestamp) return data.toDate().toISOString();
+  if (data instanceof DocumentReference) return data.id;
   if (Array.isArray(data)) return data.map(serializeData);
   if (typeof data === 'object' && data.constructor === Object) {
     const serialized: any = {};

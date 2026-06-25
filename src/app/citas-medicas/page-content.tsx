@@ -99,12 +99,14 @@ export default function PageContent({
           dayMap.get(app.clinicId)!.push(app);
       });
 
+      const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       const availabilityResult: DailyAvailability[] = [];
       const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
       for (const day of daysInMonth) {
         const dateString = day.toISOString().split('T')[0];
         const dayMap = groupedApps.get(dateString);
+        const dayName = dayNames[day.getDay()];
         
         let totalAvailableSlots = 0;
         const availabilityByClinic: { [key: string]: number } = {};
@@ -117,13 +119,23 @@ export default function PageContent({
             let availableSlotsForClinic = 0;
             let takenInfo: any[] = [];
 
-            const isBlocked = clinic.unavailableDates?.includes(dateString) || (isSpecialDay && !clinic.weekendBookingEnabled);
+            // REGLAS DE NEGOCIO PARA BLOQUEO:
+            // 1. Días Inhábiles (Vacaciones)
+            const isDateBlocked = clinic.unavailableDates?.includes(dateString);
+            // 2. Días de Acción (Laborales)
+            const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
+            // 3. Fines de Semana (si no están habilitados)
+            const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
+
+            const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked;
 
             if (!isBlocked) {
                 const booked = dayMap?.get(clinic.id) || [];
                 if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
+                    // 4. Salidas Tempranas (Horarios especiales)
                     const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
                     const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
+                    
                     const slots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
                     availableSlotsForClinic = slots.filter(s => !booked.some(a => a.time === s)).length;
                 } else {

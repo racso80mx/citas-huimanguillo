@@ -28,7 +28,8 @@ import {
     X, 
     Pencil, 
     RefreshCw, 
-    Clock
+    Clock,
+    CheckCircle2
 } from 'lucide-react';
 import type { Clinic, Colonia, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -58,6 +59,9 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import { Checkbox } from '../ui/checkbox';
+
+const DAYS_OF_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSave, onCancel }: { 
     clinic: Clinic, 
@@ -83,6 +87,12 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
         setEditedClinic(prev => ({...prev, [field]: value}));
     }
 
+    const toggleDay = (day: string) => {
+        const current = editedClinic.daysOfAction || [];
+        const updated = current.includes(day) ? current.filter(d => d !== day) : [...current, day];
+        handleFieldChange('daysOfAction', updated);
+    };
+
     const handleAddCustomSchedule = () => {
         if (!newScheduleDate || !newScheduleTime) return;
         const dateStr = format(newScheduleDate, 'yyyy-MM-dd');
@@ -106,103 +116,118 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
         <DialogContent className="sm:max-w-[70%]">
             <DialogHeader>
                 <DialogTitle>Editar Configuración: {clinic.name || "Nueva Unidad"}</DialogTitle>
-                <DialogDescription>Modifica los horarios y capacidad de atención.</DialogDescription>
+                <DialogDescription>Modifica los horarios, días laborales y capacidad de atención.</DialogDescription>
             </DialogHeader>
-            <div className="max-h-[75vh] overflow-y-auto p-4 space-y-8">
-                 <div className='grid sm:grid-cols-2 gap-4'>
-                    <div className='space-y-2'>
-                        <Label>Nombre de la Unidad / Consultorio</Label>
-                        <Input value={editedClinic.name} onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())} placeholder="Ej. CONSULTORIO 1" />
-                    </div>
-                    <div className='space-y-2'>
-                        <Label>Médico Responsable</Label>
-                        <Input value={editedClinic.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())} placeholder="Ej. DR. JUAN PEREZ" />
-                    </div>
-                </div>
-
-                <div className='grid sm:grid-cols-2 gap-4'>
-                    <div className='space-y-2'>
-                        <Label>Tipo de Consulta (Categoría General)</Label>
-                        <Select value={editedClinic.serviceTypeId} onValueChange={(v) => handleFieldChange('serviceTypeId', v)}>
-                            <SelectTrigger><SelectValue placeholder="Selecciona el tipo..." /></SelectTrigger>
-                            <SelectContent>
-                                {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className='space-y-2'>
-                        <Label>Especialidad Médica (Solo si aplica)</Label>
-                        <Select value={editedClinic.specialtyId || 'none'} onValueChange={(v) => handleFieldChange('specialtyId', v === 'none' ? undefined : v)}>
-                            <SelectTrigger><SelectValue placeholder="Selecciona la especialidad..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Sin Especialidad / General</SelectItem>
-                                {specialties.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
-                    <div className='space-y-2'>
-                        <Label>Modo de Agendar</Label>
-                        <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
-                            <SelectTrigger><SelectValue/></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={BookingMode.Time}>Por Horario</SelectItem>
-                                <SelectItem value={BookingMode.Token}>Por Ficha</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className='space-y-2'>
-                        <Label>Citas por día</Label>
-                        <Input type="number" value={editedClinic.dailySlots} onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)} />
-                    </div>
-                    <div className='space-y-2'>
-                        <Label>Duración (min)</Label>
-                        <Input type="number" value={editedClinic.consultationDuration || ''} onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Contraseña de Reportes</Label>
-                        <div className="relative">
-                            <Input type={showPassword ? 'text' : 'password'} value={editedClinic.password} onChange={(e) => handleFieldChange('password', e.target.value)} />
-                            <Button type="button" variant="ghost" size="icon" className="absolute inset-y-0 right-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
-                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
+            <ScrollArea className="max-h-[75vh] p-4">
+                 <div className="space-y-8">
+                    <div className='grid sm:grid-cols-2 gap-4'>
+                        <div className='space-y-2'>
+                            <Label>Nombre de la Unidad / Consultorio</Label>
+                            <Input value={editedClinic.name} onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())} placeholder="Ej. CONSULTORIO 1" />
+                        </div>
+                        <div className='space-y-2'>
+                            <Label>Médico Responsable</Label>
+                            <Input value={editedClinic.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())} placeholder="Ej. DR. JUAN PEREZ" />
                         </div>
                     </div>
-                </div>
 
-                <div className="grid lg:grid-cols-2 gap-8 bg-muted/20 p-6 rounded-xl border border-dashed border-primary/20">
-                    <div className='space-y-4'>
-                        <Label className="text-base font-bold flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Salidas Tempranas</Label>
-                        <div className="grid grid-cols-3 gap-2 items-end">
-                            <Popover>
-                                <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 text-xs">{newScheduleDate ? format(newScheduleDate, 'dd/MM') : 'Fecha'}</Button></PopoverTrigger>
-                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
-                            </Popover>
-                            <Select value={newScheduleTime} onValueChange={setNewScheduleTime}><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger><SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select>
-                            <Button size="sm" onClick={handleAddCustomSchedule} className="h-9" disabled={!newScheduleDate}><PlusCircle className="h-4 w-4" /></Button>
+                    <div className='grid sm:grid-cols-2 gap-4'>
+                        <div className='space-y-2'>
+                            <Label>Tipo de Consulta (Categoría General)</Label>
+                            <Select value={editedClinic.serviceTypeId} onValueChange={(v) => handleFieldChange('serviceTypeId', v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecciona el tipo..." /></SelectTrigger>
+                                <SelectContent>
+                                    {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <div className="max-h-32 overflow-y-auto space-y-1 mt-4">
-                            {editedClinic.customSchedules?.map(s => (
-                                <div key={s.date} className="flex items-center justify-between p-2 bg-background border rounded text-xs">
-                                    <span className="font-bold">{format(new Date(s.date + 'T12:00:00'), 'dd/MM/yy')}</span>
-                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-black">Cierre: {s.endTime}</span>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveCustomSchedule(s.date)}><X className="h-3 w-3" /></Button>
+                        <div className='space-y-2'>
+                            <Label>Especialidad Médica (Solo si aplica)</Label>
+                            <Select value={editedClinic.specialtyId || 'none'} onValueChange={(v) => handleFieldChange('specialtyId', v === 'none' ? undefined : v)}>
+                                <SelectTrigger><SelectValue placeholder="Selecciona la especialidad..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Sin Especialidad / General</SelectItem>
+                                    {specialties.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <Label className="text-sm font-bold flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" /> Días de Acción (Laborales)</Label>
+                        <div className="flex flex-wrap gap-3 p-4 bg-muted/20 border rounded-xl">
+                            {DAYS_OF_WEEK.map(day => (
+                                <div key={day} className="flex items-center space-x-2">
+                                    <Checkbox id={`day-${day}`} checked={editedClinic.daysOfAction?.includes(day)} onCheckedChange={() => toggleDay(day)} />
+                                    <Label htmlFor={`day-${day}`} className="text-xs cursor-pointer">{day}</Label>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className='space-y-4'>
-                        <Label className="text-base font-bold flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" /> Días Inhábiles</Label>
-                        <Popover>
-                            <PopoverTrigger asChild><Button variant="outline" className='w-full h-11'>{editedClinic.unavailableDates?.length || 0} días seleccionados</Button></PopoverTrigger>
-                            <PopoverContent className='w-auto p-0' align="end"><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00'))} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
-                        </Popover>
+                    <div className='grid sm:grid-cols-2 lg:grid-cols-4 gap-4'>
+                        <div className='space-y-2'>
+                            <Label>Modo de Agendar</Label>
+                            <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={BookingMode.Time}>Por Horario</SelectItem>
+                                    <SelectItem value={BookingMode.Token}>Por Ficha</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className='space-y-2'>
+                            <Label>Citas por día</Label>
+                            <Input type="number" value={editedClinic.dailySlots} onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)} />
+                        </div>
+                        <div className='space-y-2'>
+                            <Label>Duración (min)</Label>
+                            <Input type="number" value={editedClinic.consultationDuration || ''} onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Contraseña de Reportes</Label>
+                            <div className="relative">
+                                <Input type={showPassword ? 'text' : 'password'} value={editedClinic.password} onChange={(e) => handleFieldChange('password', e.target.value)} />
+                                <Button type="button" variant="ghost" size="icon" className="absolute inset-y-0 right-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid lg:grid-cols-2 gap-8 bg-muted/20 p-6 rounded-xl border border-dashed border-primary/20">
+                        <div className='space-y-4'>
+                            <Label className="text-base font-bold flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Salidas Tempranas (Cierres Especiales)</Label>
+                            <div className="grid grid-cols-3 gap-2 items-end">
+                                <Popover>
+                                    <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 text-xs">{newScheduleDate ? format(newScheduleDate, 'dd/MM') : 'Fecha'}</Button></PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
+                                </Popover>
+                                <Select value={newScheduleTime} onValueChange={setNewScheduleTime}><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger><SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select>
+                                <Button size="sm" onClick={handleAddCustomSchedule} className="h-9" disabled={!newScheduleDate}><PlusCircle className="h-4 w-4" /></Button>
+                            </div>
+                            <div className="max-h-32 overflow-y-auto space-y-1 mt-4">
+                                {editedClinic.customSchedules?.map(s => (
+                                    <div key={s.date} className="flex items-center justify-between p-2 bg-background border rounded text-xs">
+                                        <span className="font-bold">{format(new Date(s.date + 'T12:00:00'), 'dd/MM/yy')}</span>
+                                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-black">Cierre: {s.endTime}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveCustomSchedule(s.date)}><X className="h-3 w-3" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className='space-y-4'>
+                            <Label className="text-base font-bold flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" /> Días Inhábiles (Vacaciones / Bloqueos)</Label>
+                            <Popover>
+                                <PopoverTrigger asChild><Button variant="outline" className='w-full h-11'>{editedClinic.unavailableDates?.length || 0} días seleccionados</Button></PopoverTrigger>
+                                <PopoverContent className='w-auto p-0' align="end"><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00'))} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
+                            </Popover>
+                            <div className="text-[10px] text-muted-foreground italic">Las fechas seleccionadas aparecerán bloqueadas en el portal público.</div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </ScrollArea>
             <DialogFooter className="p-6 border-t bg-muted/5">
                 <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                 <Button onClick={() => onSave(editedClinic, clinicColonias)} className="font-bold">Guardar Todo</Button>
@@ -250,7 +275,7 @@ export function ClinicsManager() {
           return;
       }
       const newClinic: Clinic = { 
-        id: uuidv4(), name: '', doctorName: '', professionalLicense: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, daysOfAction: [], unavailableDates: [], customSchedules: [], serviceTypeId: serviceTypes[0].id, bookingMode: BookingMode.Time, consultationDuration: 30,
+        id: uuidv4(), name: '', doctorName: '', professionalLicense: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, daysOfAction: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], unavailableDates: [], customSchedules: [], serviceTypeId: serviceTypes[0].id, bookingMode: BookingMode.Time, consultationDuration: 30,
     };
     setSelectedClinic(newClinic);
     setIsDialogOpen(true);
@@ -281,7 +306,7 @@ export function ClinicsManager() {
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
               <div>
                   <CardTitle className="flex items-center gap-2"><Hospital /> Estructura de Atención</CardTitle>
-                  <CardDescription>Configura los consultorios y sus categorías.</CardDescription>
+                  <CardDescription>Configura los consultorios, sus categorías y días laborales.</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
