@@ -68,8 +68,8 @@ export function serializeData(data: any): any {
 
 /**
  * ESTRATEGIA: AISLAMIENTO TOTAL DE ÍNDICES
- * Esta función es la ÚNICA forma de leer datos. Descarga la colección completa.
- * AL NO USAR "where" NI "orderBy", FIRESTORE NUNCA SOLICITARÁ ÍNDICES COMPUESTOS.
+ * Descarga la colección completa y procesa en memoria.
+ * NUNCA se usa query(), where() ni orderBy().
  */
 async function getRawCollection(name: string) {
     try {
@@ -129,7 +129,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PACIENTES (FILTRADO 100% EN MEMORIA) ---
+// --- PACIENTES (FILTRADO EN MEMORIA) ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;
@@ -154,7 +154,6 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
     results = results.filter(p => String(p.expediente || '').includes(options.searchExpediente));
   }
   
-  // Ordenamiento por apellido paterno en memoria
   results.sort((a, b) => {
       const nameA = `${a.paternalLastName || ''} ${a.maternalLastName || ''} ${a.name || ''}`.toUpperCase();
       const nameB = `${b.paternalLastName || ''} ${b.maternalLastName || ''} ${b.name || ''}`.toUpperCase();
@@ -334,7 +333,7 @@ export async function saveNewAppointment(appointment: any, patient: any, isDoubl
     batch.set(doc(adminDb, 'appointments', id), data);
     await batch.commit();
     const clinicSnap = await getDoc(doc(adminDb, 'clinics', appointment.clinicId));
-    return { success: true, data: { appointment: data, clinic: serializeData(clinicSnap.data()) } };
+    return { success: true, data: { appointment: { ...data, patient }, clinic: serializeData(clinicSnap.data()) } };
 }
 
 export async function saveNewLabAppointment(appointment: any, patient: any) {
@@ -344,7 +343,7 @@ export async function saveNewLabAppointment(appointment: any, patient: any) {
     const data = { ...appointment, id, patientId: patient.curp, createdAt: new Date().toISOString() };
     batch.set(doc(adminDb, 'labAppointments', id), data);
     await batch.commit();
-    return { success: true, data };
+    return { success: true, data: { ...data, patient } };
 }
 
 export async function saveNewXRayAppointment(appointment: any, patient: any) {
@@ -355,7 +354,7 @@ export async function saveNewXRayAppointment(appointment: any, patient: any) {
     batch.set(doc(adminDb, 'xrayAppointments', id), data);
     await batch.commit();
     const studySnap = await getDoc(doc(adminDb, 'xRayStudies', appointment.studyId));
-    return { success: true, data: { appointment: data, study: serializeData(studySnap.data()) } };
+    return { success: true, data: { appointment: { ...data, patient }, study: serializeData(studySnap.data()) } };
 }
 
 export async function saveNewUltrasoundAppointment(appointment: any, patient: any) {
@@ -366,7 +365,7 @@ export async function saveNewUltrasoundAppointment(appointment: any, patient: an
     batch.set(doc(adminDb, 'ultrasoundAppointments', id), data);
     await batch.commit();
     const studySnap = await getDoc(doc(adminDb, 'ultrasoundStudies', appointment.studyId));
-    return { success: true, data: { appointment: data, study: serializeData(studySnap.data()) } };
+    return { success: true, data: { appointment: { ...data, patient }, study: serializeData(studySnap.data()) } };
 }
 
 export async function saveNewVaccineAppointment(appointment: any, patient: any) {
@@ -376,7 +375,7 @@ export async function saveNewVaccineAppointment(appointment: any, patient: any) 
     const data = { ...appointment, id, patientId: patient.curp, createdAt: new Date().toISOString() };
     batch.set(doc(adminDb, 'vaccineAppointments', id), data);
     await batch.commit();
-    return { success: true, data };
+    return { success: true, data: { ...data, patient } };
 }
 
 // --- CLÍNICAS Y COLONIAS ---
@@ -403,7 +402,7 @@ export async function updateColonias(colonias: Colonia[]) {
 export async function bulkInsertPatients(patients: any[]) {
     const batch = writeBatch(adminDb);
     patients.forEach(p => {
-        const id = p.CURP || uuidv4();
+        const id = p.CURP || p.curp || uuidv4();
         batch.set(doc(adminDb, 'patients', id), { ...p, id });
     });
     await batch.commit();

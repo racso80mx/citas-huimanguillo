@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay, ServiceType, Specialty } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
-import { getAppointments, getClinics, getHolidays, getSpecialActionDays, getServiceTypes, getSpecialties, verifyCitasMedicasPassword } from '@/lib/actions';
+import { getAppointments, getClinics, getHolidays, getSpecialActionDays, getServiceTypes, verifyCitasMedicasPassword } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Clock, MapPin, UserCheck, Ticket, Stethoscope, Hospital, Baby } from 'lucide-react';
@@ -61,7 +61,6 @@ export default function PageContent({
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
   const [isDoubleSlot, setIsDoubleSlot] = React.useState(false);
   const [selectedClinicId, setSelectedClinicId] = React.useState<string | undefined>();
-  const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
@@ -170,8 +169,6 @@ export default function PageContent({
   }, [currentMonth, fetchAvailability]);
 
   const selectedClinic = useMemo(() => clinics.find(c => c.id === selectedClinicId), [selectedClinicId, clinics]);
-  const selectedColonia = useMemo(() => colonias.find(c => c.id === selectedColoniaId), [selectedColoniaId, colonias]);
-
   const selectedDayAvailability = React.useMemo(() => {
     if (!selectedDate) return null;
     const dateString = format(selectedDate, 'yyyy-MM-dd');
@@ -289,7 +286,7 @@ export default function PageContent({
                     <BookingForm
                         selectedDate={selectedDate}
                         selectedClinic={selectedClinic}
-                        selectedColoniaName={selectedColonia?.name}
+                        selectedColoniaName={undefined}
                         selectedTime={selectedTime}
                         patientType={patientType}
                         isDoubleSlot={isDoubleSlot}

@@ -55,27 +55,27 @@ export async function getPatients(options?: any) { return data.getPatientsData(o
 export async function getPatientCounts() { return data.getPatientCounts(); }
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { 
     const res = await data.savePatient(patient, id);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function updatePatient(id: string, patient: Partial<Patient>) { 
     const res = await data.updatePatient(id, patient);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function updatePatientStatus(id: string, status: string) { 
     const res = await data.updatePatientStatus(id, status);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deletePatient(id: string) { 
     const res = await data.deletePatient(id);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deletePatients(ids: string[]) { 
     const res = await data.deletePatients(ids);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getPatientByCURP(curp: string) { return data.getPatientByCURP(curp); }
@@ -89,43 +89,43 @@ export async function getVaccineAppointments() { return data.getVaccineAppointme
 
 export async function updateAppointmentStatus(appointmentId: string, status: string, type: any) {
     const res = await data.updateAppointmentStatus(appointmentId, status, type);
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deleteAppointment(id: string) { 
     const res = await data.deleteAppointment(id);
-    revalidatePath('/');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deleteLabAppointment(id: string) { 
     const res = await data.deleteLabAppointment(id);
-    revalidatePath('/laboratorio');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deleteXRayAppointment(id: string) { 
     const res = await data.deleteXRayAppointment(id);
-    revalidatePath('/rayos-x');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deleteUltrasoundAppointment(id: string) { 
     const res = await data.deleteUltrasoundAppointment(id);
-    revalidatePath('/ultrasonidos');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deleteVaccineAppointment(id: string) { 
     const res = await data.deleteVaccineAppointment(id);
-    revalidatePath('/vacunas');
+    revalidatePath('/', 'layout');
     return res;
 }
 
 export async function rescheduleAppointment(id: string, date: string, type: any) { 
     const res = await data.rescheduleAppointment(id, date, type);
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function cloneAppointment(id: string, date: string, type: any, time?: string) { 
     const res = await data.cloneAppointment(id, date, type, time);
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getAppointmentsForCalendar(month: number, year: number) { return data.getAppointmentsForCalendar(month, year); }
@@ -134,28 +134,27 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
 
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const res = await data.saveNewAppointment(appointment, patient, isDouble, colonia);
-    revalidatePath('/citas-medicas');
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function saveNewLabAppointment(appointment: any, patient: any) { 
     const res = await data.saveNewLabAppointment(appointment, patient);
-    revalidatePath('/laboratorio');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function saveNewXRayAppointment(appointment: any, patient: any) { 
     const res = await data.saveNewXRayAppointment(appointment, patient);
-    revalidatePath('/rayos-x');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function saveNewUltrasoundAppointment(appointment: any, patient: any) { 
     const res = await data.saveNewUltrasoundAppointment(appointment, patient);
-    revalidatePath('/ultrasonidos');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function saveNewVaccineAppointment(appointment: any, patient: any) { 
     const res = await data.saveNewVaccineAppointment(appointment, patient);
-    revalidatePath('/vacunas');
+    revalidatePath('/', 'layout');
     return res;
 }
 
@@ -164,27 +163,24 @@ export async function getClinics() { return data.getClinicsData(); }
 export async function updateClinics(clinics: Clinic[]) { 
     const res = await data.updateClinics(clinics);
     revalidatePath('/', 'layout');
-    revalidatePath('/admin');
-    revalidatePath('/citas-medicas');
     return res;
 }
 export async function deleteClinic(id: string) { 
     const res = await data.deleteClinic(id);
-    revalidatePath('/admin');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getColonias() { return data.getColoniasData(); }
 export async function updateColonias(colonias: Colonia[]) { 
     const res = await data.updateColonias(colonias);
-    revalidatePath('/admin');
-    revalidatePath('/citas-medicas');
+    revalidatePath('/', 'layout');
     return res;
 }
 
 // --- MANTENIMIENTO ---
 export async function bulkInsertPatients(patients: any[]) { 
     const res = await data.bulkInsertPatients(patients);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function bulkInsertDoctors(doctors: any[]) { 
@@ -195,12 +191,12 @@ export async function bulkInsertDoctors(doctors: any[]) {
 export async function scanDuplicates(criteria: string) { return data.scanDuplicates(criteria); }
 export async function applyStatusUpdateChunk(expedientes: string[], status: string) { 
     const res = await data.applyStatusUpdateChunk(expedientes, status);
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function normalizeExpedientesAction() { 
     const res = await data.normalizeExpedientesAction();
-    revalidatePath('/archivo');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function downloadBackupAction() { return data.downloadBackupAction(); }
@@ -227,24 +223,24 @@ export async function verifyClinicPassword(id: string, p: string) { return data.
 export async function getConsultationsByPatientId(patientId: string) { return data.getConsultationsByPatientId(patientId); }
 export async function saveMedicalConsultation(consultation: any) { 
     const res = await data.saveMedicalConsultation(consultation);
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function deleteMedicalConsultation(id: string) { 
     const res = await data.deleteMedicalConsultation(id);
-    revalidatePath('/reports');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getConsultationByAppointmentId(appId: string) { return data.getConsultationByAppointmentId(appId); }
 export async function getPrescriptionsByPatientId(patientId: string) { return data.getPrescriptionsByPatientId(patientId); }
 export async function createPrescription(p: any) { 
     const res = await data.createPrescription(p);
-    revalidatePath('/farmacia');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function dispensePrescription(id: string, items: any[]) { 
     const res = await data.dispensePrescription(id, items);
-    revalidatePath('/farmacia');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getPendingPrescriptions(filters: any) { return data.getPendingPrescriptions(filters); }
@@ -275,25 +271,25 @@ export async function searchCie10(term: string) { return data.searchCie10Data(te
 export async function getLabSettings() { return data.getLabSettings(); }
 export async function updateLabSettings(s: LabSettings) { 
     const res = await data.updateLabSettings(s);
-    revalidatePath('/laboratorio');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getXRaySettings() { return data.getXRaySettings(); }
 export async function updateXRaySettings(s: XRaySettings) { 
     const res = await data.updateXRaySettings(s);
-    revalidatePath('/rayos-x');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getUltrasoundSettings() { return data.getUltrasoundSettings(); }
 export async function updateUltrasoundSettings(s: UltrasoundSettings) { 
     const res = await data.updateUltrasoundSettings(s);
-    revalidatePath('/ultrasonidos');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getVaccineSettings() { return data.getVaccineSettings(); }
 export async function updateVaccineSettings(s: VaccineSettings) { 
     const res = await data.updateVaccineSettings(s);
-    revalidatePath('/vacunas');
+    revalidatePath('/', 'layout');
     return res;
 }
 export async function getLabStudies() { return data.getLabStudies(); }

@@ -1,3 +1,4 @@
+
 'use client';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine, Prescription } from "./definitions";
 import { format, parseISO } from 'date-fns';
@@ -88,9 +89,9 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
     const tableBody = appointments.map(app => [
         app.time,
         app.appointmentNumber,
-        `${app.patient.paternalLastName} ${app.patient.maternalLastName} ${app.patient.name}`,
-        app.patient.expediente || 'S/E',
-        app.patient.curp,
+        app.patient ? `${app.patient.paternalLastName} ${app.patient.maternalLastName} ${app.patient.name}` : 'PACIENTE NO DEFINIDO',
+        app.patient?.expediente || 'S/E',
+        app.patient?.curp || 'S/C',
         app.patientType,
         app.clinicName || 'N/A',
         '' // Column for "Observaciones"
@@ -170,13 +171,15 @@ export async function generateAppointmentPDF(appointmentData: Appointment, clini
     currentY += 10;
     doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
-    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, currentY);
+    
+    const pName = patient ? `${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}` : 'DATOS NO DISPONIBLES';
+    doc.text(`Nombre: ${pName}`, 20, currentY);
     currentY += 10;
     doc.text(`Tipo de Paciente: ${patientType}`, 20, currentY);
     currentY += 10;
-    doc.text(`CURP: ${patient.curp}`, 20, currentY);
+    doc.text(`CURP: ${patient?.curp || 'N/A'}`, 20, currentY);
     currentY += 10;
-    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, currentY);
+    doc.text(`Teléfono: ${patient?.phoneNumber || 'N/A'}`, 20, currentY);
     currentY += 20;
 
     doc.setFontSize(16);
@@ -224,7 +227,7 @@ export async function generateAppointmentPDF(appointmentData: Appointment, clini
     doc.text('Presentarse con identificación personal (INE).', 20, finalY + 5)
     doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
 
-    doc.save(`recibo_cita_${patient.curp}.pdf`);
+    doc.save(`recibo_cita_${patient?.curp || 'sin_curp'}.pdf`);
 }
 
 export async function generatePrescriptionPDF(prescription: Prescription) {
@@ -232,7 +235,6 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
     await import('jspdf-autotable');
     const doc = new jsPDF() as any;
 
-    // Logo (Safe Handling)
     try {
         if (logoBase64) {
             doc.addImage(logoBase64, 'PNG', 15, 12, 22, 22);
@@ -241,10 +243,9 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         console.warn("Logo loading failed:", e);
     }
 
-    // Header
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(18);
-    doc.setTextColor(0, 102, 51); // Institutional Green
+    doc.setTextColor(0, 102, 51);
     doc.text('HOSPITAL GENERAL DE HUIMANGUILLO', 110, 20, { align: 'center' });
     
     doc.setFontSize(10);
@@ -255,13 +256,11 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
     doc.setLineWidth(0.8);
     doc.line(20, 34, 190, 34);
 
-    // Folio and Date
     doc.setFontSize(11);
     doc.setTextColor(0);
     doc.text(`FOLIO: ${prescription.folio}`, 20, 44);
     doc.text(`FECHA: ${format(parseISO(prescription.date), 'dd/MM/yyyy HH:mm')}`, 190, 44, { align: 'right' });
 
-    // Patient and Doctor Boxes
     doc.setFillColor(245, 245, 245);
     doc.rect(20, 50, 170, 24, 'F');
     
@@ -280,7 +279,6 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
     doc.text(`DR(A): ${prescription.doctorName.toUpperCase()}`, 115, 64);
     doc.text(`CED: ${prescription.doctorLicense || 'S/C'}`, 115, 69);
 
-    // Diagnosis
     let currentY = 85;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
@@ -292,7 +290,6 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
     doc.text(diagnosisLines, 20, currentY);
     currentY += (diagnosisLines.length * 5) + 10;
 
-    // Medications Table
     if (prescription.items.length > 0) {
         doc.setFont('Helvetica', 'bold');
         doc.text('MEDICAMENTOS (SURTIDO EN FARMACIA):', 20, currentY);
@@ -322,7 +319,6 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         currentY = doc.lastAutoTable.finalY + 10;
     }
 
-    // External medications
     if (prescription.otherMedications) {
         doc.setFont('Helvetica', 'bold');
         doc.text('OTROS MEDICAMENTOS (ADQUISICIÓN EXTERNA):', 20, currentY);
@@ -333,7 +329,6 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         currentY += (otherMedLines.length * 5) + 10;
     }
 
-    // Studies
     if (prescription.labStudies?.length || prescription.otherStudies) {
         doc.setFont('Helvetica', 'bold');
         doc.text('SOLICITUD DE ESTUDIOS:', 20, currentY);
@@ -353,7 +348,6 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         currentY += (studiesLines.length * 5) + 15;
     }
 
-    // Signature Area
     currentY += 25; 
     if (currentY > 250) {
         doc.addPage();

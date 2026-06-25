@@ -44,7 +44,6 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
 
-    // Fetch dynamic categories
     useEffect(() => {
         if (isOpen) {
             getServiceTypes().then(setServiceTypes);
