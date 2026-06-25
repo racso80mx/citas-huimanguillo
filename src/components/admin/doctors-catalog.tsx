@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import { getClinics, updateClinics, bulkInsertDoctors, deleteClinic, getSpecialties, getServiceTypes } from '@/lib/actions';
 import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -38,7 +37,8 @@ import {
   Pencil,
   Trash2,
   Fingerprint,
-  ChevronDown
+  ChevronDown,
+  FileDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -290,7 +290,9 @@ export function DoctorsCatalog() {
                             </TableCell>
                             <TableCell>
                                 <Badge variant="outline" className="text-[10px] font-black uppercase tracking-tighter bg-background">
-                                    {serviceTypes.find(t => t.id === doc.serviceTypeId)?.name || 'N/A'}
+                                    {serviceTypes.find(t => t.id === doc.serviceTypeId)?.name || 
+                                     serviceTypes.find(t => t.name.toUpperCase() === String(doc.serviceTypeId || '').toUpperCase())?.name || 
+                                     'N/A'}
                                 </Badge>
                             </TableCell>
                             <TableCell className="text-right pr-6">
@@ -336,9 +338,10 @@ export function DoctorsCatalog() {
                 specialties={specialties}
                 serviceTypes={serviceTypes}
                 onSave={async (data) => {
-                    const existing = clinics.map(c => c.id === data.id ? data : c);
-                    if (!clinics.some(c => c.id === data.id)) existing.push(data);
-                    await updateClinics(existing);
+                    const existing = await getClinics();
+                    const updated = existing.map(c => c.id === data.id ? data : c);
+                    if (!existing.some(c => c.id === data.id)) updated.push(data);
+                    await updateClinics(updated);
                     fetchData();
                     setIsEditOpen(false);
                     setSelectedDoctor(null);
@@ -408,7 +411,7 @@ function EditDoctorDialog({
                         <Label>Tipo de Consulta (Categoría)</Label>
                         <Select value={formData.serviceTypeId} onValueChange={(v: string) => setFormData({...formData, serviceTypeId: v})}>
                             <SelectTrigger>
-                                <SelectValue />
+                                <SelectValue placeholder="Seleccionar categoría..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}

@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
-import { getAppointmentsForCalendar, getAnnouncements, getHolidays, getSpecialActionDays, getServiceTypes } from '@/lib/actions';
+import { getAppointmentsForCalendar, getAnnouncements, getHolidays, getSpecialActionDays, getServiceTypes, getAvailableSlotsForDate } from '@/lib/actions';
 import { Stethoscope, Hospital, Clock, Ticket, UserCheck, Bell, Baby } from 'lucide-react';
 import type { DailyAvailability, Clinic, Patient, Holiday, SpecialActionDay, ServiceType } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
@@ -74,20 +74,12 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             getSpecialActionDays()
         ]);
         
-        const appsByDateMap = new Map<string, any[]>();
-        monthAppointments.forEach(app => {
-            const dateKey = app.date.split('T')[0];
-            if (!appsByDateMap.has(dateKey)) appsByDateMap.set(dateKey, []);
-            appsByDateMap.get(dateKey)!.push(app);
-        });
-
         const availabilityResult: DailyAvailability[] = [];
         const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
-        const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
         for (const day of daysInMonth) {
             const dateString = day.toISOString().split('T')[0];
-            const appointmentsOnDate = appsByDateMap.get(dateString) || [];
+            const appointmentsOnDate = monthAppointments.filter(a => a.date.split('T')[0] === dateString);
             let totalAvailableSlots = 0;
             const availabilityByClinic: { [key: string]: number } = {};
             const takenTimesByClinic: { [key: string]: any[] } = {};
@@ -97,7 +89,6 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const isSpecialDay = isWeekend || isHoliday;
 
             for (const clinic of clinics) {
-                const dayOfWeekName = dayNames[day.getUTCDay()];
                 const isBlocked = !isDoctorBypass && ((isSpecialDay && !clinic.weekendBookingEnabled) || clinic.unavailableDates?.includes(dateString));
 
                 let availableSlotsForClinic = 0;
@@ -226,7 +217,15 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     </Select>
                                 </CardContent>
                             </Card>
-                            {selectedServiceTypeId && <AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={handleMonthChange} isLoading={isPending} />}
+                            {selectedServiceTypeId && (
+                                <AvailabilityCalendar 
+                                    selectedDate={selectedDate} 
+                                    onDateSelect={handleDateSelect} 
+                                    availability={availability} 
+                                    onMonthChange={handleMonthChange} 
+                                    isLoading={isPending} 
+                                />
+                            )}
                             {selectedDate && (
                                 <Card>
                                     <CardHeader><CardTitle className="text-lg">2. Tipo de Paciente</CardTitle></CardHeader>
