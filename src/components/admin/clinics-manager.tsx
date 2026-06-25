@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -333,7 +334,6 @@ export function ClinicsManager() {
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -416,7 +416,9 @@ export function ClinicsManager() {
                   </TableHeader>
                   <TableBody>
                       {clinics.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(clinic => {
-                          const sType = serviceTypes.find(t => t.id === clinic.serviceTypeId);
+                          const sType = serviceTypes.find(t => t.id === clinic.serviceTypeId) || 
+                                       serviceTypes.find(t => t.name.toUpperCase() === String(clinic.serviceTypeId || '').toUpperCase());
+                          
                           const spec = specialties.find(s => s.id === clinic.specialtyId);
                           return (
                             <TableRow key={clinic.id}>
@@ -424,7 +426,7 @@ export function ClinicsManager() {
                                 <TableCell className="text-xs uppercase">{clinic.doctorName}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-col gap-1">
-                                        <Badge variant="outline" className="text-[9px] w-fit font-black">{sType?.name || 'N/A'}</Badge>
+                                        <Badge variant="outline" className="text-[9px] w-fit font-black uppercase">{sType?.name || 'N/A'}</Badge>
                                         {spec && <span className="text-[9px] text-primary font-bold">{spec.name}</span>}
                                     </div>
                                 </TableCell>

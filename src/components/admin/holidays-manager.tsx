@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -59,7 +60,7 @@ export function HolidaysManager() {
   };
 
   const handleNameChange = (dateStr: string, name: string) => {
-    setHolidays(holidays.map(h => h.date === dateStr ? { ...h, name } : h));
+    setHolidays(holidays.map(h => h.date === dateStr ? { ...h, name: name.toUpperCase() } : h));
   };
 
   const handleSave = () => {
@@ -68,7 +69,7 @@ export function HolidaysManager() {
       if (result.success) {
         toast({
           title: 'Días Festivos Guardados',
-          description: 'La configuración ha sido actualizada. Estos días se considerarán como fin de semana para las citas.',
+          description: 'La configuración ha sido actualizada exitosamente.',
           className: 'bg-accent text-accent-foreground',
         });
         await fetchData();
@@ -101,14 +102,14 @@ export function HolidaysManager() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><CalendarIcon /> Gestión de Días Festivos</CardTitle>
         <CardDescription>
-          Los días festivos agregados aquí se tratarán como fines de semana. Solo los núcleos con "Citas en Fin de Semana" habilitado permitirán agendar en estas fechas.
+          Los días festivos agregados aquí se tratarán como fines de semana para el sistema de citas.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center gap-4">
             <Popover>
                 <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full sm:w-auto h-11">
                         <PlusCircle className="mr-2 h-4 w-4" /> Seleccionar Fecha Festiva
                     </Button>
                 </PopoverTrigger>
@@ -126,17 +127,17 @@ export function HolidaysManager() {
         <div className="grid gap-4">
             {holidays.length > 0 ? (
                 holidays.map((holiday) => (
-                    <div key={holiday.date} className="flex items-center gap-4 p-3 rounded-lg border bg-muted/30">
+                    <div key={holiday.date} className="flex items-center gap-4 p-3 rounded-lg border bg-muted/30 shadow-sm">
                         <div className="min-w-[140px]">
-                            <Badge variant="secondary" className="text-sm font-bold">
+                            <Badge variant="secondary" className="text-sm font-bold bg-background text-primary">
                                 {format(new Date(holiday.date + 'T12:00:00'), "dd MMM yyyy", { locale: es })}
                             </Badge>
                         </div>
                         <Input
-                            placeholder="Nombre del festivo (ej. Navidad)"
+                            placeholder="Nombre del festivo (ej. NAVIDAD)"
                             value={holiday.name}
                             onChange={(e) => handleNameChange(holiday.date, e.target.value)}
-                            className="flex-1"
+                            className="flex-1 uppercase font-bold"
                         />
                         <Button
                             variant="ghost"
@@ -149,15 +150,15 @@ export function HolidaysManager() {
                 ))
             ) : (
                 <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                    No hay días festivos configurados. Los fines de semana son automáticos.
+                    No hay días festivos configurados.
                 </div>
             )}
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving} className="w-full h-12 text-lg font-bold">
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {isSaving ? 'Guardando...' : 'Guardar Días Festivos'}
+          {isSaving ? 'Guardando...' : 'Guardar Festivos'}
         </Button>
       </CardFooter>
     </Card>

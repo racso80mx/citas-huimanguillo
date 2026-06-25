@@ -128,7 +128,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
     return { success: true };
 }
 
-// --- PACIENTES (FILTRADO EN MEMORIA) ---
+// --- PACIENTES ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const all = await getRawCollection('patients') as Patient[];
   let results = all;

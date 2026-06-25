@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -31,7 +32,7 @@ export function SpecialActionDaysManager() {
   const { toast } = useToast();
 
   const [newDate, setNewDate] = useState<Date | undefined>();
-  const [newType, setNewType] = useState<ClinicType>(ClinicType.ConsultaExterna);
+  const [newType, setNewType] = useState<string>('Consulta Externa');
   const [newName, setNewName] = useState('');
 
   const fetchData = async () => {
@@ -65,7 +66,7 @@ export function SpecialActionDaysManager() {
     setNewDate(undefined);
   };
 
-  const handleRemove = (dateStr: string, type: ClinicType) => {
+  const handleRemove = (dateStr: string, type: string) => {
     setItems(items.filter(h => !(h.date === dateStr && h.clinicType === type)));
   };
 
@@ -107,7 +108,7 @@ export function SpecialActionDaysManager() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Settings2 /> Gestión de Días por Tipo de Consulta</CardTitle>
         <CardDescription>
-          Configura días específicos (mensuales o únicos) donde un servicio completo no dará citas por labores administrativas o informes.
+          Configura días específicos donde un servicio completo no dará citas por labores administrativas o informes.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -133,27 +134,31 @@ export function SpecialActionDaysManager() {
                 </Popover>
             </div>
             <div className="space-y-2">
-                <Label>Tipo de Consulta</Label>
-                <Select value={newType} onValueChange={(v: ClinicType) => setNewType(v)}>
+                <Label>Servicio</Label>
+                <Select value={newType} onValueChange={setNewType}>
                     <SelectTrigger className="h-11">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {Object.values(ClinicType).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        <SelectItem value="Consulta Externa">Consulta Externa</SelectItem>
+                        <SelectItem value="Laboratorio">Laboratorio</SelectItem>
+                        <SelectItem value="Rayos X">Rayos X</SelectItem>
+                        <SelectItem value="Ultrasonidos">Ultrasonidos</SelectItem>
+                        <SelectItem value="Vacunas">Vacunación</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
             <div className="space-y-2">
-                <Label>Motivo (Ej. Entrega de Informes)</Label>
+                <Label>Motivo</Label>
                 <Input 
                     value={newName} 
-                    onChange={e => setNewName(e.target.value)} 
-                    placeholder="Descripción breve..." 
+                    onChange={e => setNewName(e.target.value.toUpperCase())} 
+                    placeholder="Descripción..." 
                     className="h-11"
                 />
             </div>
             <Button onClick={handleAdd} className="h-11 bg-primary text-primary-foreground font-bold">
-                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Bloqueo
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar
             </Button>
         </div>
 
