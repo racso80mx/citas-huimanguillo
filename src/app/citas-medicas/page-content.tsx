@@ -15,7 +15,7 @@ import { PatientType, BookingMode } from '@/lib/definitions';
 import { getAppointments, getClinics, getHolidays, getServiceTypes, verifyCitasMedicasPassword, getColonias } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, CheckCircle2, XCircle, MapPin } from 'lucide-react';
+import { Bell, CheckCircle2, XCircle, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
 import {
   Select,
@@ -29,6 +29,7 @@ import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -50,11 +51,11 @@ export default function PageContent({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [selectedServiceTypeId, setSelectedServiceTypeId] = React.useState<string | undefined>();
+  const [selectedClinicId, setSelectedClinicId] = React.useState<string | undefined>();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
+  const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
   const [patientType, setPatientType] = React.useState<PatientType>(PatientType.General);
   const [isDoubleSlot, setIsDoubleSlot] = React.useState(false);
-  const [selectedClinicId, setSelectedClinicId] = React.useState<string | undefined>();
-  const [selectedColoniaId, setSelectedColoniaId] = React.useState<string | undefined>();
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   
   const [availability, setAvailability] = React.useState<DailyAvailability[]>([]);
@@ -81,6 +82,8 @@ export default function PageContent({
   }, []);
 
   const fetchAvailability = React.useCallback(async (year: number, month: number) => {
+      if (!selectedClinicId) return;
+      
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
       
@@ -88,15 +91,17 @@ export default function PageContent({
         getAppointments(), getHolidays()
       ]);
       
+      const clinic = clinics.find(c => c.id === selectedClinicId);
+      if (!clinic) return;
+
       const holidaySet = new Set(freshHolidays.map(h => h.date));
-      const groupedApps = new Map<string, Map<string, any[]>>();
+      const clinicAppointments = allAppointments.filter(app => app.clinicId === selectedClinicId);
       
-      allAppointments.forEach(app => {
+      const dayMap = new Map<string, any[]>();
+      clinicAppointments.forEach(app => {
           const d = app.date.split('T')[0];
-          if (!groupedApps.has(d)) groupedApps.set(d, new Map());
-          const dayMap = groupedApps.get(d)!;
-          if (!dayMap.has(app.clinicId)) dayMap.set(app.clinicId, []);
-          dayMap.get(app.clinicId)!.push(app);
+          if (!dayMap.has(d)) dayMap.set(d, []);
+          dayMap.get(d)!.push(app);
       });
 
       const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -105,63 +110,52 @@ export default function PageContent({
 
       for (const day of daysInMonth) {
         const dateString = day.toISOString().split('T')[0];
-        const dayMap = groupedApps.get(dateString);
+        const dayBooked = dayMap.get(dateString) || [];
         const dayName = dayNames[day.getDay()];
         
-        let totalAvailableSlots = 0;
-        const availabilityByClinic: { [key: string]: number } = {};
-        const takenTimesByClinic: { [key: string]: any[] } = {};
+        const isHoliday = holidaySet.has(dateString);
+        const isWeekend = isSaturday(day) || isSunday(day);
+        const isSpecialDay = isWeekend || isHoliday;
+        
+        let availableSlotsForClinic = 0;
+        let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));
 
-        for (const clinic of clinics) {
-            const isHoliday = holidaySet.has(dateString);
-            const isSpecialDay = isSaturday(day) || isSunday(day) || isHoliday;
-            
-            let availableSlotsForClinic = 0;
-            let takenInfo: any[] = [];
+        const isDateBlocked = clinic.unavailableDates?.includes(dateString);
+        const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
+        const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
 
-            // REGLAS DE NEGOCIO PARA BLOQUEO:
-            const isDateBlocked = clinic.unavailableDates?.includes(dateString);
-            const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
-            const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
+        const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked;
 
-            const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked;
-
-            if (!isBlocked) {
-                const booked = dayMap?.get(clinic.id) || [];
-                if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
-                    const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
-                    const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
-                    
-                    const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
-                    // Filter out break time
-                    const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
-                    availableSlotsForClinic = filteredSlots.filter(s => !booked.some(a => a.time === s)).length;
-                } else {
-                    availableSlotsForClinic = Math.max(0, clinic.dailySlots - booked.length);
-                }
-                takenInfo = booked.map(a => ({ time: a.time, duration: a.duration }));
+        if (!isBlocked) {
+            if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
+                const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
+                const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
+                
+                const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
+                const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
+                availableSlotsForClinic = filteredSlots.filter(s => !dayBooked.some(a => a.time === s)).length;
+            } else {
+                availableSlotsForClinic = Math.max(0, clinic.dailySlots - dayBooked.length);
             }
-            availabilityByClinic[clinic.id] = availableSlotsForClinic;
-            totalAvailableSlots += availableSlotsForClinic;
-            takenTimesByClinic[clinic.id] = takenInfo;
         }
 
-        availabilityResult.push({ date: dateString, availableSlots: totalAvailableSlots, availabilityByClinic, takenTimesByClinic });
+        availabilityResult.push({ 
+            date: dateString, 
+            availableSlots: availableSlotsForClinic, 
+            availabilityByClinic: { [clinic.id]: availableSlotsForClinic }, 
+            takenTimesByClinic: { [clinic.id]: takenInfo } 
+        });
       }
       setAvailability(availabilityResult);
-  }, [clinics, generateDynamicTimeSlots]);
+  }, [clinics, selectedClinicId, generateDynamicTimeSlots]);
 
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && selectedClinicId) {
         startTransition(() => {
             fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
         });
     }
-  }, [isAuthenticated, fetchAvailability, currentMonth]);
-
-  const handleMonthChange = (month: Date) => {
-    setCurrentMonth(month);
-  };
+  }, [isAuthenticated, fetchAvailability, currentMonth, selectedClinicId]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date && date < startOfToday()) {
@@ -169,13 +163,12 @@ export default function PageContent({
         return;
     }
     setSelectedDate(date);
-    setSelectedClinicId(undefined);
-    setSelectedColoniaId(undefined);
     setSelectedTime(undefined);
   };
 
   const handleClinicSelect = (clinicId: string) => {
     setSelectedClinicId(clinicId);
+    setSelectedDate(undefined);
     setSelectedColoniaId(undefined);
     setSelectedTime(undefined);
   };
@@ -185,35 +178,19 @@ export default function PageContent({
       setSelectedTime(undefined);
   };
 
-  const fetchData = useCallback(() => {
-     startTransition(() => {
-         fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
-     });
-  }, [currentMonth, fetchAvailability]);
-
   const selectedClinic = useMemo(() => clinics.find(c => c.id === selectedClinicId), [selectedClinicId, clinics]);
   const selectedColonia = useMemo(() => colonias.find(c => c.id === selectedColoniaId), [selectedColoniaId, colonias]);
   
-  const selectedDayAvailability = React.useMemo(() => {
-    if (!selectedDate) return null;
-    const dateString = format(selectedDate, 'yyyy-MM-dd');
-    return availability.find((d) => d.date === dateString) || null;
-  }, [selectedDate, availability]);
-
   const clinicOptions = React.useMemo(() => {
-    if (!selectedDayAvailability || !selectedServiceTypeId) return [];
+    if (!selectedServiceTypeId) return [];
     return clinics
         .filter(c => c.serviceTypeId === selectedServiceTypeId)
-        .map(clinic => {
-            const slots = selectedDayAvailability.availabilityByClinic[clinic.id] ?? 0;
-            return { 
-                value: clinic.id, 
-                label: clinic.name, 
-                disabled: slots === 0,
-                slots: slots
-            };
-        }).sort((a,b) => a.label.localeCompare(b.label));
-  }, [clinics, selectedDayAvailability, selectedServiceTypeId]);
+        .map(clinic => ({ 
+            value: clinic.id, 
+            label: clinic.name,
+            doctor: clinic.doctorName
+        })).sort((a,b) => a.label.localeCompare(b.label));
+  }, [clinics, selectedServiceTypeId]);
 
   const filteredColonias = React.useMemo(() => {
     if (!selectedClinicId) return [];
@@ -221,13 +198,16 @@ export default function PageContent({
   }, [colonias, selectedClinicId]);
 
   const availableTimeSlots = React.useMemo(() => {
-    if (!selectedColoniaId || !selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Time) return [];
-    const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
-    const customSchedule = selectedClinic.customSchedules?.find(s => s.date === format(selectedDate!, 'yyyy-MM-dd'));
+    if (!selectedClinic || !selectedDate || selectedClinic.bookingMode !== BookingMode.Time) return [];
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+    const dayAvail = availability.find(d => d.date === dateString);
+    if (!dayAvail) return [];
+
+    const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
+    const customSchedule = selectedClinic.customSchedules?.find(s => s.date === dateString);
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
     
-    // Filter out break time AND booked slots
     const slots = allSlots.filter(s => s !== selectedClinic.breakTime && !booked.some(a => a.time === s));
 
     if (patientType === PatientType.Embarazada && isDoubleSlot) {
@@ -237,13 +217,16 @@ export default function PageContent({
             return nextSlot && nextSlot !== selectedClinic.breakTime && !booked.some(a => a.time === nextSlot);
         });
     }
-
     return slots;
-  }, [selectedColoniaId, selectedClinic, selectedDayAvailability, selectedDate, generateDynamicTimeSlots, patientType, isDoubleSlot]);
+  }, [selectedClinic, availability, selectedDate, generateDynamicTimeSlots, patientType, isDoubleSlot]);
 
   const availableTokens = React.useMemo(() => {
-    if (!selectedColoniaId || !selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
-    const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
+    if (!selectedClinic || !selectedDate || selectedClinic.bookingMode !== BookingMode.Token) return [];
+    const dateString = format(selectedDate, 'yyyy-MM-dd');
+    const dayAvail = availability.find(d => d.date === dateString);
+    if (!dayAvail) return [];
+
+    const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
     const totalSlots = selectedClinic.dailySlots;
     const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
     const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
@@ -255,163 +238,195 @@ export default function PageContent({
             return freeTokens.includes(nextToken);
         });
     }
-
     return freeTokens;
-  }, [selectedColoniaId, selectedClinic, selectedDayAvailability, patientType, isDoubleSlot]);
+  }, [selectedClinic, availability, selectedDate, patientType, isDoubleSlot]);
+
+  const fetchData = () => {
+    if (selectedClinicId) {
+        fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+    }
+  }
 
   if (!isAuthenticated) return <ModuleLoginForm title="Citas Médicas" onVerify={verifyCitasMedicasPassword} onSuccess={() => setIsAuthenticated(true)} />;
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="text-center mb-8 flex flex-col items-center">
+      <div className="text-center mb-10 flex flex-col items-center">
         <div className="text-primary mb-4"><Image src={logoBase64} alt="Logo" width={80} height={80} className="rounded-md" /></div>
         <h1 className="text-4xl lg:text-5xl font-bold font-headline">Agenda tu Cita Médica</h1>
       </div>
 
-      <Card className="w-full max-w-5xl mx-auto shadow-xl">
-        <CardContent className="p-4 md:p-8 grid md:grid-cols-2 gap-8">
-            <div className="space-y-8">
-                <div>
-                    <h3 className="text-2xl font-semibold font-headline mb-4 flex items-center gap-2">
-                        <span className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">1</span>
-                        Tipo de Consulta
-                    </h3>
-                    <Select onValueChange={setSelectedServiceTypeId} value={selectedServiceTypeId}>
-                        <SelectTrigger className="h-11"><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger>
-                        <SelectContent>
-                            {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                {selectedServiceTypeId && (
-                    <div className="animate-in fade-in zoom-in-95">
-                        <AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={handleMonthChange} isLoading={isPending} />
-                    </div>
-                )}
-                {selectedDate && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
-                        <h3 className="text-2xl font-semibold font-headline flex items-center gap-2">
-                            <span className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">2</span>
-                            Tipo de Paciente
+      <div className="grid lg:grid-cols-12 gap-8 max-w-7xl mx-auto">
+          {/* COLUMNA IZQUIERDA: CONFIGURACIÓN INICIAL */}
+          <div className="lg:col-span-4 space-y-6">
+              <Card className="shadow-lg border-primary/10 overflow-hidden">
+                <CardContent className="p-6 space-y-8">
+                    {/* 1. TIPO DE CONSULTA */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                            <LayoutList className="h-5 w-5" /> 1. Categoría
                         </h3>
-                        <Select onValueChange={(v: PatientType) => setPatientType(v)} value={patientType}>
-                            <SelectTrigger className="h-11"><SelectValue placeholder="Selecciona un tipo" /></SelectTrigger>
+                        <Select onValueChange={setSelectedServiceTypeId} value={selectedServiceTypeId}>
+                            <SelectTrigger className="h-12 text-base font-bold"><SelectValue placeholder="Elige el servicio..." /></SelectTrigger>
                             <SelectContent>
-                                {Object.values(PatientType).map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                {serviceTypes.map(t => <SelectItem key={t.id} value={t.id} className="font-bold">{t.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        {patientType === PatientType.Embarazada && (
-                            <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-lg animate-in slide-in-from-top-2">
-                                <Checkbox id="double-slot" checked={isDoubleSlot} onCheckedChange={(v) => setIsDoubleSlot(!!v)} />
-                                <Label htmlFor="double-slot" className="text-xs font-bold text-pink-700 uppercase">Solicitar Horario Doble (Consecutivo)</Label>
-                            </div>
-                        )}
                     </div>
-                )}
-            </div>
-            <div className="space-y-8">
-                {selectedDate && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
-                        <h3 className="text-2xl font-semibold font-headline mb-4 flex items-center gap-2">
-                            <span className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">3</span>
-                            Selecciona tu Unidad
-                        </h3>
-                        <Select onValueChange={handleClinicSelect} value={selectedClinicId}>
-                            <SelectTrigger className="h-11"><SelectValue placeholder="Selecciona un núcleo..." /></SelectTrigger>
-                            <SelectContent>
+
+                    {/* 2. CONSULTORIO */}
+                    {selectedServiceTypeId && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                                <Hospital className="h-5 w-5" /> 2. Consultorio
+                            </h3>
+                            <div className="grid gap-2">
                                 {clinicOptions.map(opt => (
-                                    <SelectItem 
-                                        key={opt.value} 
-                                        value={opt.value} 
-                                        disabled={opt.disabled}
+                                    <button 
+                                        key={opt.value}
+                                        onClick={() => handleClinicSelect(opt.value)}
                                         className={cn(
-                                            "flex items-center justify-between font-bold h-12",
-                                            opt.slots > 0 ? "text-emerald-700 bg-emerald-50/20 hover:bg-emerald-100/50" : "text-rose-500 opacity-60 bg-rose-50/5"
+                                            "w-full p-4 rounded-xl border-2 text-left transition-all group",
+                                            selectedClinicId === opt.value 
+                                                ? "bg-primary border-primary text-white shadow-md ring-2 ring-primary/20 scale-[1.02]" 
+                                                : "bg-background border-muted hover:border-primary/40 hover:bg-muted/30"
                                         )}
                                     >
-                                        <div className="flex items-center justify-between w-full min-w-[200px] gap-4">
-                                            <div className="flex items-center gap-2">
-                                                {opt.slots > 0 ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                                                <span>{opt.label}</span>
-                                            </div>
-                                            <Badge variant={opt.slots > 0 ? "secondary" : "destructive"} className="text-[9px] font-black uppercase">
-                                                {opt.slots > 0 ? `${opt.slots} libres` : "AGOTADO"}
-                                            </Badge>
-                                        </div>
-                                    </SelectItem>
+                                        <p className="font-black text-sm uppercase leading-none">{opt.label}</p>
+                                        <p className={cn("text-[10px] mt-1 font-bold uppercase", selectedClinicId === opt.value ? "text-white/70" : "text-muted-foreground group-hover:text-primary")}>
+                                            Dr. {opt.doctor}
+                                        </p>
+                                    </button>
                                 ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-
-                {selectedClinicId && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
-                        <h3 className="text-2xl font-semibold font-headline mb-4 flex items-center gap-2">
-                            <span className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">4</span>
-                            Selecciona tu Municipio / Localidad
-                        </h3>
-                        <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
-                            <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Busca tu colonia..." /></SelectTrigger>
-                            <SelectContent>
-                                {filteredColonias.length > 0 ? (
-                                    filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
-                                ) : (
-                                    <div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas.</div>
-                                )}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-
-                {selectedColoniaId && selectedClinic && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4">
-                        <h3 className="text-2xl font-semibold font-headline mb-4 flex items-center gap-2">
-                            <span className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">5</span>
-                            Horario / Turno
-                        </h3>
-                        {selectedClinic.bookingMode === BookingMode.Time ? (
-                            <div className="grid grid-cols-3 gap-2">
-                                {availableTimeSlots.map(time => (
-                                    <Button 
-                                        key={time} 
-                                        variant={selectedTime === time ? 'default' : 'outline'}
-                                        onClick={() => setSelectedTime(time)}
-                                        className="font-bold"
-                                    >
-                                        {time}
-                                    </Button>
-                                ))}
-                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic">No hay horarios disponibles para esta configuración.</p>}
                             </div>
-                        ) : (
-                            <Select onValueChange={setSelectedTime} value={selectedTime}>
-                                <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Selecciona una ficha disponible..." /></SelectTrigger>
-                                <SelectContent>
-                                    {availableTokens.map(token => <SelectItem key={token} value={token} className="font-bold">{token}</SelectItem>)}
-                                    {availableTokens.length === 0 && <p className="p-2 text-center text-muted-foreground italic">No hay fichas disponibles.</p>}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
-                )}
-                
-                {selectedTime && selectedClinic && (
-                    <BookingForm
-                        selectedDate={selectedDate}
-                        selectedClinic={selectedClinic}
-                        selectedColoniaName={selectedColonia?.name}
-                        selectedTime={selectedTime}
-                        patientType={patientType}
-                        isDoubleSlot={isDoubleSlot}
-                        onBookingSuccess={() => fetchData()}
-                        announcements={announcements}
-                        requireColonia={true}
-                    />
-                )}
-            </div>
-        </CardContent>
-      </Card>
+                        </div>
+                    )}
+
+                    {/* 3. CALENDARIO */}
+                    {selectedClinicId && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                                <CalendarDays className="h-5 w-5" /> 3. Selecciona Fecha
+                            </h3>
+                            <AvailabilityCalendar 
+                                selectedDate={selectedDate} 
+                                onDateSelect={handleDateSelect} 
+                                availability={availability} 
+                                onMonthChange={setCurrentMonth} 
+                                isLoading={isPending} 
+                            />
+                        </div>
+                    )}
+                </CardContent>
+              </Card>
+          </div>
+
+          {/* COLUMNA DERECHA: LOCALIDAD Y DATOS */}
+          <div className="lg:col-span-8 space-y-6">
+              {!selectedDate ? (
+                  <div className="h-full min-h-[400px] flex flex-col items-center justify-center border-2 border-dashed rounded-3xl opacity-20 bg-muted/5">
+                      <CalendarPlus className="h-20 w-20 mb-4" />
+                      <p className="text-2xl font-black uppercase tracking-widest">Espera de Selección</p>
+                      <p className="font-bold">Completa los pasos del panel izquierdo para continuar.</p>
+                  </div>
+              ) : (
+                  <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                      <Card className="shadow-xl border-primary/20">
+                          <CardContent className="p-8 space-y-10">
+                              <div className="grid md:grid-cols-2 gap-10">
+                                  {/* 4. MUNICIPIO */}
+                                  <div className="space-y-4">
+                                      <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                                          <MapPin className="h-5 w-5" /> 4. Tu Localidad
+                                      </h3>
+                                      <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
+                                          <SelectTrigger className="h-12 text-base font-bold border-primary/20"><SelectValue placeholder="Busca tu colonia..." /></SelectTrigger>
+                                          <SelectContent>
+                                              {filteredColonias.length > 0 ? (
+                                                  filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
+                                              ) : (
+                                                  <div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas a este núcleo.</div>
+                                              )}
+                                          </SelectContent>
+                                      </Select>
+                                  </div>
+
+                                  {/* 5. TIPO PACIENTE */}
+                                  <div className="space-y-4">
+                                      <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                                          <Badge variant="outline" className="border-primary text-primary h-5 text-[10px]">P2</Badge> Tipo de Paciente
+                                      </h3>
+                                      <Select onValueChange={(v: PatientType) => setPatientType(v)} value={patientType}>
+                                          <SelectTrigger className="h-12 text-base font-bold"><SelectValue /></SelectTrigger>
+                                          <SelectContent>
+                                              {Object.values(PatientType).map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                      {patientType === PatientType.Embarazada && (
+                                          <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-xl animate-in slide-in-from-top-2">
+                                              <Checkbox id="d-slot" checked={isDoubleSlot} onCheckedChange={(v) => setIsDoubleSlot(!!v)} />
+                                              <Label htmlFor="d-slot" className="text-xs font-black text-pink-700 uppercase">Solicitar Horario Doble (Consecutivo)</Label>
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+
+                              <Separator className="opacity-50" />
+
+                              {/* 6. HORARIOS */}
+                              {selectedColoniaId && (
+                                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                      <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                                          <Clock className="h-5 w-5" /> 5. Elige tu Horario
+                                      </h3>
+                                      {selectedClinic?.bookingMode === BookingMode.Time ? (
+                                          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                              {availableTimeSlots.map(time => (
+                                                  <Button 
+                                                      key={time} 
+                                                      variant={selectedTime === time ? 'default' : 'outline'}
+                                                      onClick={() => setSelectedTime(time)}
+                                                      className={cn("h-12 text-sm font-black transition-all", selectedTime === time ? "scale-105 shadow-md" : "")}
+                                                  >
+                                                      {time}
+                                                  </Button>
+                                              ))}
+                                              {availableTimeSlots.length === 0 && <p className="col-span-full text-center py-10 bg-muted/10 border rounded-xl text-muted-foreground italic">No hay horarios disponibles para el criterio seleccionado.</p>}
+                                          </div>
+                                      ) : (
+                                          <Select onValueChange={setSelectedTime} value={selectedTime}>
+                                              <SelectTrigger className="h-12 font-black border-primary/30"><SelectValue placeholder="Selecciona una ficha disponible..." /></SelectTrigger>
+                                              <SelectContent>
+                                                  {availableTokens.map(token => <SelectItem key={token} value={token} className="font-bold">{token}</SelectItem>)}
+                                                  {availableTokens.length === 0 && <p className="p-2 text-center text-muted-foreground italic">No hay fichas disponibles.</p>}
+                                              </SelectContent>
+                                          </Select>
+                                      )}
+                                  </div>
+                              )}
+
+                              {/* FORMULARIO FINAL */}
+                              {selectedTime && (
+                                  <div className="pt-4 animate-in fade-in slide-in-from-bottom-6">
+                                      <BookingForm
+                                          selectedDate={selectedDate}
+                                          selectedClinic={selectedClinic}
+                                          selectedColoniaName={selectedColonia?.name}
+                                          selectedTime={selectedTime}
+                                          patientType={patientType}
+                                          isDoubleSlot={isDoubleSlot}
+                                          onBookingSuccess={() => fetchData()}
+                                          announcements={announcements}
+                                          requireColonia={true}
+                                      />
+                                  </div>
+                              )}
+                          </CardContent>
+                      </Card>
+                  </div>
+              )}
+          </div>
+      </div>
     </div>
   );
 }

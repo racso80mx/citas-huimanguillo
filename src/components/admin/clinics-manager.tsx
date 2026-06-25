@@ -70,7 +70,6 @@ const DAYS_OF_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sá
 
 function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel }: { 
     clinic: Clinic, 
-    allColonias: Colonia[], 
     specialties: Specialty[], 
     serviceTypes: ServiceType[],
     onSave: (clinic: Clinic) => void, 
@@ -301,7 +300,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                         <div className='space-y-6'>
                             <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
                                 <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                    <Clock className="h-5 w-5" /> Salidas Tempranas
+                                    <Clock className="h-5 w-5" /> Salidas Tempranas (Cierres Anticipados)
                                 </h4>
                                 <Badge className="bg-primary text-white h-5">{editedClinic.customSchedules?.length || 0}</Badge>
                             </div>
@@ -310,11 +309,11 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                                     <Label className="text-[10px] font-bold uppercase opacity-50">Día</Label>
                                     <Popover>
                                         <PopoverTrigger asChild><Button variant="outline" className="w-full h-11 text-xs font-bold">{newScheduleDate ? format(newScheduleDate, 'dd/MM/yyyy') : 'Elegir Fecha'}</Button></PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
+                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
                                     </Popover>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase opacity-50">Fin</Label>
+                                    <Label className="text-[10px] font-bold uppercase opacity-50">Hora Fin</Label>
                                     <Select value={newScheduleTime} onValueChange={setNewScheduleTime}>
                                         <SelectTrigger className="h-11 font-black"><SelectValue /></SelectTrigger>
                                         <SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
@@ -334,21 +333,21 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                                         <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 font-black h-7 px-4">CIERRE: {s.endTime} HRS</Badge>
                                         <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => handleRemoveCustomSchedule(s.date)}><X className="h-5 w-5" /></Button>
                                     </div>
-                                )) : <div className="text-center py-10 border-2 border-dashed rounded-3xl opacity-30 italic text-xs">No hay cierres anticipados.</div>}
+                                )) : <div className="text-center py-10 border-2 border-dashed rounded-3xl opacity-30 italic text-xs">No hay cierres anticipados configurados.</div>}
                             </div>
                         </div>
 
                         <div className='space-y-6'>
                             <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
                                 <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                    <CalendarDays className="h-5 w-5" /> Vacaciones y Bloqueos
+                                    <CalendarDays className="h-5 w-5" /> Vacaciones y Días Bloqueados
                                 </h4>
                                 <Badge className="bg-destructive text-white h-5">{editedClinic.unavailableDates?.length || 0}</Badge>
                             </div>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className='w-full h-12 font-black bg-destructive/5 border-destructive/20 text-destructive hover:bg-destructive/10'>
-                                        <CalendarIcon className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS
+                                        <CalendarIcon className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS EN CALENDARIO
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className='w-auto p-0' align="end">
@@ -394,7 +393,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
             <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
                 <DialogClose asChild><Button variant="outline" className="h-12 px-8">Cancelar</Button></DialogClose>
                 <Button onClick={() => onSave(editedClinic)} className="h-12 px-10 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all">
-                    GUARDAR CAMBIOS
+                    GUARDAR TODA LA CONFIGURACIÓN
                 </Button>
             </DialogFooter>
         </DialogContent>
@@ -462,7 +461,7 @@ export function ClinicsManager() {
   const handleSave = () => {
     startSavingTransition(async () => {
       await updateClinics(clinics);
-      toast({ title: 'Estructura Sincronizada' });
+      toast({ title: 'Estructura de Atención Actualizada' });
       await fetchData();
     });
   };
@@ -528,7 +527,7 @@ export function ClinicsManager() {
           </CardContent>
           <CardFooter className="bg-muted/5 border-t pt-6"><Button onClick={handleSave} disabled={isSaving} className="w-full h-12 text-lg font-black uppercase shadow-lg">SINCRONIZAR TODA LA ESTRUCTURA</Button></CardFooter>
           </Card>
-          {selectedClinic && <ClinicEditDialog clinic={selectedClinic} allColonias={[]} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
+          {selectedClinic && <ClinicEditDialog clinic={selectedClinic} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
       </Dialog>
     </div>
   );
