@@ -38,7 +38,7 @@ import { Switch } from '../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Calendar } from '../ui/calendar';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { timeSlots30Min } from '@/lib/time-slots';
 import { Badge } from '../ui/badge';
@@ -113,14 +113,19 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
         handleFieldChange('unavailableDates', newDateStrings);
     };
 
+    const handleRemoveUnavailableDate = (dateStr: string) => {
+        const newDates = editedClinic.unavailableDates?.filter(d => d !== dateStr) || [];
+        handleFieldChange('unavailableDates', newDates);
+    };
+
     const formatBadgeDate = (d: string) => {
         try {
-            if (!d || d.length < 10) return "---";
+            if (!d) return "---";
             const dateObj = new Date(d + 'T12:00:00');
-            if (!isValid(dateObj)) return "---";
+            if (!isValid(dateObj)) return d;
             return format(dateObj, 'dd/MM/yy', { locale: es });
         } catch (e) {
-            return "---";
+            return d;
         }
     };
 
@@ -281,11 +286,11 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                         <div className='space-y-4'>
                             <Label className="text-base font-black uppercase text-primary tracking-tight flex items-center gap-2"><CalendarIcon className="h-5 w-5" /> Vacaciones y Bloqueos</Label>
                             <Popover>
-                                <PopoverTrigger asChild><Button variant="outline" className='w-full h-11 font-bold'>{editedClinic.unavailableDates?.length || 0} DÍAS BLOQUEADOS</Button></PopoverTrigger>
+                                <PopoverTrigger asChild><Button variant="outline" className='w-full h-11 font-bold bg-accent/20 border-accent/40'>{editedClinic.unavailableDates?.length || 0} DÍAS BLOQUEADOS</Button></PopoverTrigger>
                                 <PopoverContent className='w-auto p-0' align="end">
                                     <Calendar 
                                         mode="multiple" 
-                                        selected={editedClinic.unavailableDates?.filter(d => !!d && d.length >= 10).map(d => new Date(d + 'T12:00:00'))} 
+                                        selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00')).filter(d => isValid(d))} 
                                         onSelect={handleDateSelection} 
                                         locale={es} 
                                         disabled={{ before: new Date() }} 
@@ -294,9 +299,15 @@ function ClinicEditDialog({ clinic, allColonias, specialties, serviceTypes, onSa
                             </Popover>
                             <div className="bg-background p-4 rounded-xl border shadow-inner min-h-[120px] max-h-48 overflow-y-auto">
                                 <div className="flex flex-wrap gap-2">
-                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.filter(d => !!d && d.length >= 10).sort().map(d => (
-                                        <Badge key={d} variant="secondary" className="px-3 py-1 font-bold text-[10px] uppercase">
+                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.filter(d => !!d).sort().map(d => (
+                                        <Badge key={d} variant="secondary" className="pl-3 pr-1 py-1 font-bold text-[10px] uppercase flex items-center gap-1">
                                             {formatBadgeDate(d)}
+                                            <button 
+                                                onClick={() => handleRemoveUnavailableDate(d)}
+                                                className="hover:text-destructive transition-colors ml-1"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
                                         </Badge>
                                     )) : <p className="text-[10px] text-muted-foreground italic">Selecciona días en el calendario para bloquearlos.</p>}
                                 </div>
