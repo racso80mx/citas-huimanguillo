@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useCallback, useEffect, useTransition, useMemo } from 'react';
 import React from 'react';
@@ -12,6 +13,7 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay, ServiceType, Specialty } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
 import { getAppointments, getClinics, getHolidays, getSpecialActionDays, getServiceTypes, getSpecialties, verifyCitasMedicasPassword } from '@/lib/actions';
@@ -146,6 +148,30 @@ export default function PageContent({
     startTransition(() => fetchAvailability(month.getFullYear(), month.getMonth()));
   };
 
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date && date < startOfToday()) {
+        toast({ title: 'Fecha no válida', description: 'No puedes seleccionar una fecha en el pasado.', variant: 'destructive' });
+        return;
+    }
+    setSelectedDate(date);
+    setSelectedClinicId(undefined);
+    setSelectedTime(undefined);
+  };
+
+  const handleClinicSelect = (clinicId: string) => {
+    setSelectedClinicId(clinicId);
+    setSelectedTime(undefined);
+  };
+
+  const fetchData = useCallback(() => {
+     startTransition(() => {
+         fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+     });
+  }, [currentMonth, fetchAvailability]);
+
+  const selectedClinic = useMemo(() => clinics.find(c => c.id === selectedClinicId), [selectedClinicId, clinics]);
+  const selectedColonia = useMemo(() => colonias.find(c => c.id === selectedColoniaId), [selectedColoniaId, colonias]);
+
   const selectedDayAvailability = React.useMemo(() => {
     if (!selectedDate) return null;
     const dateString = format(selectedDate, 'yyyy-MM-dd');
@@ -161,6 +187,24 @@ export default function PageContent({
             return { value: clinic.id, label: `${clinic.name} (${slots} disponibles)`, disabled: slots === 0 };
         }).sort((a,b) => a.label.localeCompare(b.label));
   }, [clinics, selectedDayAvailability, selectedServiceTypeId]);
+
+  const availableTimeSlots = React.useMemo(() => {
+    if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Time) return [];
+    const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
+    const customSchedule = selectedClinic.customSchedules?.find(s => s.date === format(selectedDate!, 'yyyy-MM-dd'));
+    const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
+    const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
+    
+    return allSlots.filter(s => !booked.some(a => a.time === s));
+  }, [selectedClinic, selectedDayAvailability, selectedDate, generateDynamicTimeSlots]);
+
+  const availableTokens = React.useMemo(() => {
+    if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
+    const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
+    const totalSlots = selectedClinic.dailySlots;
+    const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
+    return allTokens.filter(t => !booked.some(a => a.time === t));
+  }, [selectedClinic, selectedDayAvailability]);
 
   if (!isAuthenticated) return <ModuleLoginForm title="Citas Médicas" onVerify={verifyCitasMedicasPassword} onSuccess={() => setIsAuthenticated(true)} />;
 
@@ -212,7 +256,36 @@ export default function PageContent({
                 )}
             </div>
             <div className="space-y-8">
-                {selectedClinicId && (
+                {selectedClinicId && selectedClinic && (
+                    <div>
+                        <h3 className="text-2xl font-semibold font-headline mb-4">4. Horario / Turno</h3>
+                        {selectedClinic.bookingMode === BookingMode.Time ? (
+                            <div className="grid grid-cols-3 gap-2">
+                                {availableTimeSlots.map(time => (
+                                    <Button 
+                                        key={time} 
+                                        variant={selectedTime === time ? 'default' : 'outline'}
+                                        onClick={() => setSelectedTime(time)}
+                                        className="font-bold"
+                                    >
+                                        {time}
+                                    </Button>
+                                ))}
+                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic">No hay horarios disponibles.</p>}
+                            </div>
+                        ) : (
+                            <Select onValueChange={setSelectedTime} value={selectedTime}>
+                                <SelectTrigger><SelectValue placeholder="Selecciona una ficha disponible..." /></SelectTrigger>
+                                <SelectContent>
+                                    {availableTokens.map(token => <SelectItem key={token} value={token}>{token}</SelectItem>)}
+                                    {availableTokens.length === 0 && <p className="p-2 text-center text-muted-foreground italic">No hay fichas disponibles.</p>}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+                )}
+                
+                {selectedTime && selectedClinic && (
                     <BookingForm
                         selectedDate={selectedDate}
                         selectedClinic={selectedClinic}

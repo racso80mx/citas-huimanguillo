@@ -325,8 +325,6 @@ export async function updateLabStudies(s: LabStudy[]) { return data.updateLabStu
 export async function updateXRayStudies(s: XRayStudy[]) { return data.updateXRayStudies(s); }
 export async function updateUltrasoundStudies(s: UltrasoundStudy[]) { return data.updateUltrasoundStudies(s); }
 export async function updateVaccines(v: Vaccine[]) { return data.updateVaccines(v); }
-export async function getUsers() { return []; }
-export async function updateUsers(u: any[]) { return { success: true }; }
 export async function bulkInsertCie10Glossary(i: any[]) { return data.bulkInsertCie10Glossary(i); }
 export async function bulkInsertCie10Catalog(i: any[]) { return data.bulkInsertCie10Catalog(i); }
 export async function deleteAllCie10Glossary() { return data.deleteAllCie10Glossary(); }
