@@ -52,10 +52,10 @@ import { v4 as uuidv4 } from 'uuid';
  * Convierte Timestamps de Firestore a strings ISO para evitar errores de Next.js.
  */
 export function serializeData(data: any): any {
-  if (!data) return data;
+  if (data === null || data === undefined) return data;
   if (data instanceof Timestamp) return data.toDate().toISOString();
   if (Array.isArray(data)) return data.map(item => serializeData(item));
-  if (typeof data === 'object' && data !== null) {
+  if (typeof data === 'object') {
     const serialized: any = {};
     for (const key in data) {
       serialized[key] = serializeData(data[key]);

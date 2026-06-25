@@ -142,6 +142,15 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         setSelectedTime(undefined);
     };
 
+    const handleClinicSelect = (clinicId: string) => {
+        setSelectedClinicId(clinicId);
+        setSelectedTime(undefined);
+    };
+
+    const handleMonthChange = (month: Date) => {
+        setCurrentMonth(month);
+    };
+
     const selectedClinic = useMemo(() => clinics.find(c => c.id === selectedClinicId), [selectedClinicId, clinics]);
     const selectedDayAvailability = useMemo(() => {
         if (!selectedDate) return null;
@@ -197,7 +206,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                     </Select>
                                 </CardContent>
                             </Card>
-                            {selectedServiceTypeId && <AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={setCurrentMonth} isLoading={isPending} />}
+                            {selectedServiceTypeId && <AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={handleMonthChange} isLoading={isPending} />}
                             {selectedDate && (
                                 <Card>
                                     <CardHeader><CardTitle className="text-lg">2. Tipo de Paciente</CardTitle></CardHeader>
@@ -223,7 +232,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                 <Card>
                                     <CardHeader><CardTitle className="text-lg">3. Consultorio</CardTitle></CardHeader>
                                     <CardContent>
-                                        <Select onValueChange={setSelectedClinicId} value={selectedClinicId}>
+                                        <Select onValueChange={handleClinicSelect} value={selectedClinicId}>
                                             <SelectTrigger><SelectValue placeholder="Elige el consultorio..." /></SelectTrigger>
                                             <SelectContent>
                                                 {clinicOptions.map(o => (

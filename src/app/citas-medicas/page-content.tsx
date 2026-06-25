@@ -31,9 +31,6 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
-import { Combobox } from '@/components/ui/combobox';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 
 type PageContentProps = {
     initialAnnouncements: string[];
@@ -106,7 +103,6 @@ export default function PageContent({
         const takenTimesByClinic: { [key: string]: any[] } = {};
 
         for (const clinic of clinics) {
-            const dayOfWeekName = dayNames[day.getUTCDay()];
             const isSpecialDay = isSaturday(day) || isSunday(day) || freshHolidays.some(h => h.date === dateString);
             
             let availableSlotsForClinic = 0;
@@ -137,14 +133,13 @@ export default function PageContent({
   React.useEffect(() => {
     if (isAuthenticated) {
         startTransition(() => {
-            fetchAvailability(new Date().getFullYear(), new Date().getMonth());
+            fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
         });
     }
-  }, [isAuthenticated, fetchAvailability]);
+  }, [isAuthenticated, fetchAvailability, currentMonth]);
 
   const handleMonthChange = (month: Date) => {
     setCurrentMonth(month);
-    startTransition(() => fetchAvailability(month.getFullYear(), month.getMonth()));
   };
 
   const handleDateSelect = (date: Date | undefined) => {
