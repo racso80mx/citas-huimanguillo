@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import type { Clinic, Specialty } from '@/lib/definitions';
-import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, verifyVaccinePassword, getClinics, getSpecialties } from '@/lib/actions';
+import type { Clinic, ServiceType } from '@/lib/definitions';
+import { verifyClinicPassword, verifyXRayPassword, verifyUltrasoundPassword, verifyLabPassword, verifyVaccinePassword, getClinics, getServiceTypes } from '@/lib/actions';
 import { ReportsDashboard } from '@/components/reports/reports-dashboard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,7 +17,7 @@ type ReportType = 'clinic' | 'x-ray' | 'ultrasound' | 'laboratorio' | 'vacunas';
 
 export default function ReportsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('clinic');
   const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('all');
@@ -36,12 +36,12 @@ export default function ReportsPage() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const [clinicsData, specialtiesData] = await Promise.all([
+        const [clinicsData, servicesData] = await Promise.all([
             getClinics(),
-            getSpecialties()
+            getServiceTypes()
         ]);
         setClinics(clinicsData.sort((a, b) => a.name.localeCompare(b.name)));
-        setSpecialties(specialtiesData);
+        setServiceTypes(servicesData.filter(s => s.available));
       } catch (error) {
         toast({
           title: 'Error',
@@ -57,8 +57,11 @@ export default function ReportsPage() {
 
   const filteredClinics = useMemo(() => {
     if (selectedClinicType === 'all') return clinics;
-    return clinics.filter(c => c.clinicType === selectedClinicType);
-  }, [clinics, selectedClinicType]);
+    return clinics.filter(c => {
+        const sType = serviceTypes.find(st => st.id === c.serviceTypeId || st.name === c.serviceTypeId);
+        return sType?.name === selectedClinicType || c.serviceTypeId === selectedClinicType;
+    });
+  }, [clinics, selectedClinicType, serviceTypes]);
 
   const handleLogin = async () => {
     setIsVerifying(true);
@@ -126,9 +129,9 @@ export default function ReportsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <p className='ml-2'>Cargando...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className='text-xs font-bold uppercase tracking-widest text-muted-foreground animate-pulse'>Sincronizando Reportes...</p>
       </div>
     );
   }
@@ -177,31 +180,31 @@ export default function ReportsPage() {
             {selectedReportType === 'clinic' && (
                 <>
                     <div className="space-y-2">
-                        <Label htmlFor="clinic-type">Tipo de Núcleo</Label>
+                        <Label htmlFor="clinic-type">Tipo de Consulta</Label>
                         <Select onValueChange={(value: string | 'all') => handleClinicTypeChange(value)} value={selectedClinicType}>
                             <SelectTrigger id="clinic-type" className="w-full h-11">
-                                <SelectValue placeholder="Filtrar por especialidad..." />
+                                <SelectValue placeholder="Todos los tipos de consulta..." />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos los Tipos</SelectItem>
-                                {specialties.map(spec => (
-                                    <SelectItem key={spec.id} value={spec.name}>{spec.name}</SelectItem>
+                                {serviceTypes.map(type => (
+                                    <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="clinic">Núcleo Básico</Label>
+                        <Label htmlFor="clinic">Consultorio / Núcleo Básico</Label>
                         <Select onValueChange={handleClinicSelect} value={selectedClinic?.id}>
                             <SelectTrigger id="clinic" className="w-full h-11 border-primary/40">
-                                <SelectValue placeholder="Selecciona un núcleo..." />
+                                <SelectValue placeholder="Selecciona un consultorio..." />
                             </SelectTrigger>
                             <SelectContent>
                                 {filteredClinics.length > 0 ? (
                                     filteredClinics.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)
                                 ) : (
-                                    <div className="p-4 text-center text-sm text-muted-foreground">No hay núcleos de este tipo.</div>
+                                    <div className="p-4 text-center text-sm text-muted-foreground italic">No hay consultorios registrados para este tipo.</div>
                                 )}
                             </SelectContent>
                         </Select>
@@ -210,14 +213,14 @@ export default function ReportsPage() {
             )}
            
             <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <Label htmlFor="password">Contraseña de Acceso</Label>
                 <div className="relative">
                     <Input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder={`Contraseña para reportes`}
+                        placeholder={`Contraseña de reportes`}
                         onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         disabled={selectedReportType === 'clinic' && !selectedClinic}
                         className="h-11 bg-muted/20"
@@ -241,7 +244,7 @@ export default function ReportsPage() {
                 ) : (
                   <LogIn className="mr-2 h-5 w-5" />
                 )}
-                {isVerifying ? 'Verificando...' : 'Ingresar'}
+                {isVerifying ? 'Verificando...' : 'Entrar a Reportes'}
             </Button>
         </CardFooter>
       </Card>

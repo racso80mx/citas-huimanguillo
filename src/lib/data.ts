@@ -65,6 +65,7 @@ export function serializeData(data: any): any {
 
 /**
  * PROCESAMIENTO EN MEMORIA (SIN ÍNDICES)
+ * Garantiza que Firestore nunca solicite un índice compuesto.
  */
 async function getRawCollection(name: string) {
     try {
@@ -105,7 +106,7 @@ export async function updateAdminSettings(settings: AdminSettings) {
 
 export async function getArchiveSettingsData() { 
     const snap = await getDoc(doc(adminDb, 'settings', 'archive')); 
-    return snap.exists() ? serializeData(snap.data()) : { password: 'ArchivoPassword' }; 
+    return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
 
 export async function updateArchiveSettings(settings: ArchiveSettings) { 
@@ -115,7 +116,7 @@ export async function updateArchiveSettings(settings: ArchiveSettings) {
 
 export async function getPharmacySettingsData() { 
     const snap = await getDoc(doc(adminDb, 'settings', 'pharmacy')); 
-    return snap.exists() ? serializeData(snap.data()) : { password: 'PharmacyPassword' }; 
+    return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
 
 export async function updatePharmacySettings(settings: PharmacySettings) { 
@@ -125,7 +126,7 @@ export async function updatePharmacySettings(settings: PharmacySettings) {
 
 export async function getWarehouseSettingsData() { 
     const snap = await getDoc(doc(adminDb, 'settings', 'warehouse')); 
-    return snap.exists() ? serializeData(snap.data()) : { password: 'WarehousePassword' }; 
+    return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
 
 export async function updateWarehouseSettings(settings: WarehouseSettings) { 
@@ -135,7 +136,7 @@ export async function updateWarehouseSettings(settings: WarehouseSettings) {
 
 export async function getBISettingsData() { 
     const snap = await getDoc(doc(adminDb, 'settings', 'bi')); 
-    return snap.exists() ? serializeData(snap.data()) : { password: 'BIPassword' }; 
+    return snap.exists() ? serializeData(snap.data()) : { password: '123' }; 
 }
 
 export async function updateBISettings(settings: BISettings) { 
@@ -143,7 +144,7 @@ export async function updateBISettings(settings: BISettings) {
     return { success: true }; 
 }
 
-// VERIFICACIONES DE CONTRASEÑA
+// VERIFICACIONES
 export async function verifyAdminPassword(p: string) { const s = await getAdminSettingsData(); return { success: s.password === p }; }
 export async function verifyArchivePassword(p: string) { const s = await getArchiveSettingsData(); return { success: s.password === p }; }
 export async function verifyPharmacyPassword(p: string) { const s = await getPharmacySettingsData(); return { success: s.password === p }; }
