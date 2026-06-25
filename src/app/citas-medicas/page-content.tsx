@@ -211,7 +211,7 @@ export default function PageContent({
   }, [colonias, selectedClinicId]);
 
   const availableTimeSlots = React.useMemo(() => {
-    if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Time) return [];
+    if (!selectedColoniaId || !selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Time) return [];
     const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
     const customSchedule = selectedClinic.customSchedules?.find(s => s.date === format(selectedDate!, 'yyyy-MM-dd'));
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
@@ -228,10 +228,10 @@ export default function PageContent({
     }
 
     return slots;
-  }, [selectedClinic, selectedDayAvailability, selectedDate, generateDynamicTimeSlots, patientType, isDoubleSlot]);
+  }, [selectedColoniaId, selectedClinic, selectedDayAvailability, selectedDate, generateDynamicTimeSlots, patientType, isDoubleSlot]);
 
   const availableTokens = React.useMemo(() => {
-    if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
+    if (!selectedColoniaId || !selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
     const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
     const totalSlots = selectedClinic.dailySlots;
     const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
@@ -246,7 +246,7 @@ export default function PageContent({
     }
 
     return freeTokens;
-  }, [selectedClinic, selectedDayAvailability, patientType, isDoubleSlot]);
+  }, [selectedColoniaId, selectedClinic, selectedDayAvailability, patientType, isDoubleSlot]);
 
   if (!isAuthenticated) return <ModuleLoginForm title="Citas Médicas" onVerify={verifyCitasMedicasPassword} onSuccess={() => setIsAuthenticated(true)} />;
 
