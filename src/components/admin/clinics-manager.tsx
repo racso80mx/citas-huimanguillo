@@ -32,7 +32,10 @@ import {
     Fingerprint,
     ShieldCheck,
     Timer,
-    CalendarPlus
+    CalendarPlus,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 import type { Clinic, Specialty, ServiceType, CustomSchedule } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -65,6 +68,7 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
+import { cn } from '@/lib/utils';
 
 const DAYS_OF_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -80,7 +84,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     const [newScheduleEndTime, setNewScheduleEndTime] = useState<string>("13:00");
 
     useEffect(() => {
-        // Normalización de datos para evitar errores de renderizado
         const rawDates = clinic.unavailableDates || [];
         const normalizedDates = Array.from(new Set(rawDates.map(d => {
             if (typeof d === 'string') return d;
@@ -110,6 +113,11 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     const handleDateSelection = (dates: Date[] | undefined) => {
         const newDateStrings = Array.from(new Set(dates?.map(d => format(d, 'yyyy-MM-dd')) || []));
         handleFieldChange('unavailableDates', newDateStrings);
+    };
+
+    const handleRemoveUnavailableDate = (dateStr: string) => {
+        const updated = editedClinic.unavailableDates?.filter(d => d !== dateStr) || [];
+        handleFieldChange('unavailableDates', updated);
     };
 
     const addCustomSchedule = () => {
@@ -159,7 +167,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
             </DialogHeader>
             <ScrollArea className="flex-1">
                  <div className="p-8 space-y-12">
-                    {/* SECCIÓN 1: IDENTIFICACIÓN */}
                     <div className="space-y-6">
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><Fingerprint className="h-5 w-5" /> 1. Datos del Responsable</h4>
                         <div className='grid sm:grid-cols-3 gap-8'>
@@ -176,7 +183,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
 
                     <Separator />
 
-                    {/* SECCIÓN 2: AGENDA Y TURNOS */}
                     <div className="space-y-6">
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><Timer className="h-5 w-5" /> 2. Control de Agenda y Turnos</h4>
                         <div className='grid grid-cols-2 md:grid-cols-6 gap-6 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
@@ -191,7 +197,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
 
                     <Separator />
 
-                    {/* SECCIÓN 3: DÍAS LABORALES */}
                     <div className="grid lg:grid-cols-2 gap-10">
                         <div className="space-y-4">
                             <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 3. Días de Acción (Laborales)</Label>
@@ -210,7 +215,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
 
                     <Separator />
 
-                    {/* SECCIÓN 4: HORARIOS ESPECIALES / CIERRES ANTICIPADOS */}
                     <div className="space-y-6">
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><Timer className="h-5 w-5" /> 4. Horarios Especiales (Salidas Tempranas)</h4>
                         <div className="grid sm:grid-cols-3 gap-6 items-end bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
@@ -223,7 +227,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                                             {newScheduleDate ? format(newScheduleDate, 'dd/MM/yyyy') : "Elegir Fecha..."}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
                                 </Popover>
                              </div>
                              <div className="space-y-2">
@@ -252,11 +256,10 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
 
                     <Separator />
 
-                    {/* SECCIÓN 5: BLOQUEOS Y VACACIONES */}
                     <div className='space-y-6'>
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 5. Vacaciones y Bloqueos Totales</h4>
                         <div className="flex gap-4 items-center">
-                            <Popover><PopoverTrigger asChild><Button variant="outline" className='flex-1 h-12 font-black bg-destructive/5 text-destructive border-destructive/20'><CalendarPlus className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS DE BLOQUEO EN CALENDARIO</Button></PopoverTrigger><PopoverContent className='w-auto p-0'><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00')).filter(isValid)} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent></Popover>
+                            <Popover><PopoverTrigger asChild><Button variant="outline" className='flex-1 h-12 font-black bg-destructive/5 text-destructive border-destructive/20'><CalendarPlus className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS DE BLOQUEO EN CALENDARIO</Button></PopoverTrigger><PopoverContent className='w-auto p-0' align="start"><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00')).filter(isValid)} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent></Popover>
                         </div>
                         <ScrollArea className="h-[250px] border-2 border-dashed rounded-3xl bg-muted/5 p-6">
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -285,6 +288,8 @@ export function ClinicsManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Clinic; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
+  
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -299,6 +304,38 @@ export function ClinicsManager() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleSort = (key: keyof Clinic) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+        direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: keyof Clinic) => {
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4 text-primary" /> : <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
+  };
+
+  const sortedAndFilteredClinics = useMemo(() => {
+    let result = clinics.filter(c => 
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (sortConfig) {
+        result.sort((a, b) => {
+            const valA = String((a as any)[sortConfig.key] || '').toUpperCase();
+            const valB = String((b as any)[sortConfig.key] || '').toUpperCase();
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    return result;
+  }, [clinics, searchTerm, sortConfig]);
+
   const handleEditClick = (clinic: Clinic) => { setSelectedClinic(clinic); setIsDialogOpen(true); }
   const handleDialogSave = (updatedClinic: Clinic) => {
     setClinics(clinics.some(c => c.id === updatedClinic.id) ? clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c) : [...clinics, updatedClinic]);
@@ -312,12 +349,60 @@ export function ClinicsManager() {
   return (
     <div className="w-full">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <Card className="shadow-lg border-primary/20"><CardHeader className="flex flex-row items-center justify-between border-b pb-6"><div><CardTitle className="text-2xl font-black uppercase flex items-center gap-2"><Hospital className="h-7 w-7 text-primary" /> Unidades Médicas</CardTitle></div><div className="flex gap-2"><Button variant="outline" onClick={fetchData} className="h-11"><RefreshCw className="h-4 w-4" /></Button><Button onClick={() => { setSelectedClinic({ id: uuidv4(), name: '', doctorName: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, serviceTypeId: serviceTypes[0]?.id || '', bookingMode: BookingMode.Time, consultationDuration: 30, customSchedules: [] } as Clinic); setIsDialogOpen(true); }} className="h-11 font-bold"><PlusCircle className="mr-2 h-4 w-4" /> Nueva Unidad</Button></div></CardHeader>
-          <CardContent className="pt-6"><div className="relative mb-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar por consultorio o médico..." className="pl-9 h-11 w-full sm:w-96" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div><div className="border rounded-2xl overflow-hidden"><Table><TableHeader className="bg-muted/50"><TableRow><TableHead className="font-black uppercase text-[10px]">Unidad</TableHead><TableHead className="font-black uppercase text-[10px]">Médico Responsable</TableHead><TableHead className="font-black uppercase text-[10px] text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{clinics.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())).map(clinic => (<TableRow key={clinic.id} className="hover:bg-muted/30"><TableCell className="font-black text-sm text-primary uppercase">{clinic.name}</TableCell><TableCell className="text-xs uppercase font-medium">{clinic.doctorName}</TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => handleEditClick(clinic)} className="h-9 font-bold border-primary/20 hover:bg-primary hover:text-white transition-all"><Pencil className="h-3 w-3 mr-2" /> Editar Configuración</Button></TableCell></TableRow>))}</TableBody></Table></div></CardContent>
-          <CardFooter className="bg-muted/5 border-t pt-6"><Button onClick={handleSave} disabled={isSaving} className="w-full h-14 text-xl font-black uppercase shadow-xl bg-primary hover:bg-primary/90 transition-all">SINCRONIZAR TODA LA RED MÉDICA</Button></CardFooter></Card>
+          <Card className="shadow-lg border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between border-b pb-6">
+                  <div>
+                      <CardTitle className="text-2xl font-black uppercase flex items-center gap-2"><Hospital className="h-7 w-7 text-primary" /> Unidades Médicas</CardTitle>
+                  </div>
+                  <div className="flex gap-2">
+                      <Button variant="outline" onClick={fetchData} className="h-11"><RefreshCw className="h-4 w-4" /></Button>
+                      <Button onClick={() => { setSelectedClinic({ id: uuidv4(), name: '', doctorName: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, serviceTypeId: serviceTypes[0]?.id || '', bookingMode: BookingMode.Time, consultationDuration: 30, customSchedules: [] } as Clinic); setIsDialogOpen(true); }} className="h-11 font-bold"><PlusCircle className="mr-2 h-4 w-4" /> Nueva Unidad</Button>
+                  </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                  <div className="relative mb-6">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Buscar por consultorio o médico..." className="pl-9 h-11 w-full sm:w-96" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  </div>
+                  <div className="border rounded-2xl overflow-hidden bg-background">
+                      <Table>
+                          <TableHeader className="bg-muted/50">
+                              <TableRow>
+                                  <TableHead 
+                                      className="font-black uppercase text-[10px] cursor-pointer hover:bg-muted transition-colors"
+                                      onClick={() => handleSort('name')}
+                                  >
+                                      <div className="flex items-center">Unidad {getSortIcon('name')}</div>
+                                  </TableHead>
+                                  <TableHead 
+                                      className="font-black uppercase text-[10px] cursor-pointer hover:bg-muted transition-colors"
+                                      onClick={() => handleSort('doctorName')}
+                                  >
+                                      <div className="flex items-center">Médico Responsable {getSortIcon('doctorName')}</div>
+                                  </TableHead>
+                                  <TableHead className="font-black uppercase text-[10px] text-right">Acciones</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {sortedAndFilteredClinics.map(clinic => (
+                                  <TableRow key={clinic.id} className="hover:bg-muted/30">
+                                      <TableCell className="font-black text-sm text-primary uppercase">{clinic.name}</TableCell>
+                                      <TableCell className="text-xs uppercase font-medium">{clinic.doctorName}</TableCell>
+                                      <TableCell className="text-right">
+                                          <Button variant="outline" size="sm" onClick={() => handleEditClick(clinic)} className="h-9 font-bold border-primary/20 hover:bg-primary hover:text-white transition-all"><Pencil className="h-3 w-3 mr-2" /> Editar Configuración</Button>
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+              </CardContent>
+              <CardFooter className="bg-muted/5 border-t pt-6">
+                  <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 text-xl font-black uppercase shadow-xl bg-primary hover:bg-primary/90 transition-all">SINCRONIZAR TODA LA RED MÉDICA</Button>
+              </CardFooter>
+          </Card>
           {selectedClinic && <ClinicEditDialog clinic={selectedClinic} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
       </Dialog>
     </div>
   );
 }
-

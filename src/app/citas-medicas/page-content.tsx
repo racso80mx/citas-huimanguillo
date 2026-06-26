@@ -62,7 +62,6 @@ export default function PageContent({
   const [isDoubleSlot, setIsDoubleSlot] = React.useState(false);
   const [selectedTime, setSelectedTime] = React.useState<string | undefined>();
   
-  // Cache for all clinics availability
   const [availabilityCache, setAvailabilityCache] = useState<Record<string, DailyAvailability[]>>({});
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   
@@ -115,7 +114,6 @@ export default function PageContent({
         const isHoliday = holidaySet.has(dateString);
         const isWeekend = isSaturday(day) || isSunday(day);
         
-        // Bloqueo por Acción Especial (Cerrado al público por indicación manual)
         const isSpecialActionDay = freshSpecialActionDays.some(sad => 
             sad.date === dateString && 
             (sad.clinicType === clinic.serviceTypeId || 
@@ -123,13 +121,8 @@ export default function PageContent({
              serviceTypes.find(t => t.id === clinic.serviceTypeId)?.name === sad.clinicType)
         );
 
-        // Bloqueo por Vacaciones/Incapacidad de la ficha del médico
         const isDateBlocked = clinic.unavailableDates?.includes(dateString);
-        
-        // Bloqueo por configuración de Fines de Semana
         const isWeekendBlocked = isWeekend && !clinic.weekendBookingEnabled;
-        
-        // INVERSIÓN: Si es un "Día de Acción" configurado en el médico, se considera DÍA CERRADO (Administrativo).
         const isActionDay = clinic.daysOfAction?.includes(dayName);
 
         const isBlocked = isDateBlocked || isHoliday || isWeekendBlocked || isSpecialActionDay || isActionDay;
@@ -138,17 +131,14 @@ export default function PageContent({
         let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));
 
         if (!isBlocked) {
-            // Verificar si hay una Salida Temprana (Horario Especial) programada para este día
             const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
             const currentEndTime = customSchedule ? customSchedule.endTime : clinic.endTime;
 
             if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                 const allSlots = generateDynamicTimeSlots(clinic.startTime, currentEndTime, clinic.consultationDuration);
-                // Bloquear automáticamente la Hora de Comida configurada
                 const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
                 availableSlotsForClinic = filteredSlots.filter(s => !dayBooked.some(a => a.time === s)).length;
             } else {
-                // Modo Ficha: Sumar Cupo Normal + Turnos Extra
                 const totalSlots = (clinic.dailySlots || 15) + (clinic.waitlistSlots || 0);
                 availableSlotsForClinic = Math.max(0, totalSlots - dayBooked.length);
             }
@@ -175,13 +165,11 @@ export default function PageContent({
       const targetClinic = clinics.find(c => c.id === targetClinicId);
       
       if (targetClinic) {
-          // 1. PRIORIDAD: Calcular consultorio seleccionado
           const targetAvail = calculateForClinic(targetClinic, allAppointments, holidaySet, freshSpecialActionDays);
           setAvailability(targetAvail);
           setAvailabilityCache(prev => ({ ...prev, [targetClinicId]: targetAvail }));
-          setIsLoadingAvailability(false); // Quitar loading rápido para el consultorio actual
+          setIsLoadingAvailability(false); 
           
-          // 2. BACKGROUND: Calcular el resto de los consultorios en segundo plano para agilizar cambios futuros
           setTimeout(() => {
               const otherClinics = clinics.filter(c => c.id !== targetClinicId);
               const newCache: Record<string, DailyAvailability[]> = { [targetClinicId]: targetAvail };
@@ -189,7 +177,7 @@ export default function PageContent({
               otherClinics.forEach(c => {
                   newCache[c.id] = calculateForClinic(c, allAppointments, holidaySet, freshSpecialActionDays);
               });
-              setAvailabilityCache(newCache);
+              setAvailabilityCache(prev => ({ ...prev, ...newCache }));
           }, 0);
       }
   }, [clinics, calculateForClinic]);
@@ -259,14 +247,10 @@ export default function PageContent({
     if (!dayAvail) return [];
 
     const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
-    
-    // Respetar Cierre Anticipado (Salida Temprana)
     const customSchedule = selectedClinic.customSchedules?.find(s => s.date === dateString);
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
     
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
-    
-    // Bloquear Hora de Comida y Horas Ya Ocupadas
     const slots = allSlots.filter(s => s !== selectedClinic.breakTime && !booked.some(a => a.time === s));
 
     if (patientType === PatientType.Embarazada && isDoubleSlot) {
@@ -286,7 +270,6 @@ export default function PageContent({
     if (!dayAvail) return [];
 
     const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
-    // Sumar Cupo Normal + Turnos Extras (Espera)
     const totalSlots = (selectedClinic.dailySlots || 15) + (selectedClinic.waitlistSlots || 0);
     const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
     const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
@@ -409,8 +392,20 @@ export default function PageContent({
                               </div>
                               <div className="mt-8 flex justify-center">
                                     <Popover>
-                                        <PopoverTrigger asChild><Button variant="outline" className="h-10 px-8 font-bold border-dashed border-primary/40 text-primary hover:bg-primary/5"><CalendarDays className="mr-2 h-4 w-4" /> Buscar otra fecha en el Calendario</Button></PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="center"><AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={setCurrentMonth} isLoading={isPending} /></PopoverContent>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="h-10 px-8 font-bold border-dashed border-primary/40 text-primary hover:bg-primary/5">
+                                                <CalendarDays className="mr-2 h-4 w-4" /> Buscar otra fecha en el Calendario
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="center">
+                                            <AvailabilityCalendar 
+                                                selectedDate={selectedDate} 
+                                                onDateSelect={handleDateSelect} 
+                                                availability={availability} 
+                                                onMonthChange={setCurrentMonth} 
+                                                isLoading={isPending} 
+                                            />
+                                        </PopoverContent>
                                     </Popover>
                               </div>
                           </CardContent>
@@ -461,4 +456,3 @@ export default function PageContent({
     </div>
   );
 }
-
