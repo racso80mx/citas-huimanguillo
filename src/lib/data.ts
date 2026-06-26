@@ -92,7 +92,6 @@ async function getPatientsForApps(apps: any[]) {
     if (pIds.length === 0) return [];
     
     const pats: any[] = [];
-    // Firestore permite hasta 30 elementos en una consulta 'in'
     for (let i = 0; i < pIds.length; i += 30) {
         const chunk = pIds.slice(i, i + 30);
         const q = query(collection(adminDb, 'patients'), where('__name__', 'in', chunk));
