@@ -7,7 +7,7 @@ import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
 import { getHolidays, getServiceTypes, getAppointments, getSpecialActionDays } from '@/lib/actions';
-import { CheckCircle2, XCircle, Loader2, MapPin } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, MapPin, Info } from 'lucide-react';
 import type { DailyAvailability, Clinic, Patient, Holiday, ServiceType, Colonia } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
@@ -60,19 +60,26 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 if (specialized) setSelectedServiceTypeId(specialized.id);
             });
             if (patient.age && patient.age > 60) setPatientType(PatientType.TerceraEdad);
+            
+            // Pre-fill manual locality from patient record
+            if (patient.coloniaName) {
+                setManualColonia(patient.coloniaName.toUpperCase());
+            }
         }
     }, [isOpen, patient]);
 
     const generateDynamicTimeSlots = (startTimeStr: string, endTimeStr: string, duration: number): string[] => {
         if (!startTimeStr || !endTimeStr || !duration) return [];
         const slots: string[] = [];
-        const start = new Date(`1970-01-01T${startTimeStr}:00`);
-        const end = new Date(`1970-01-01T${endTimeStr}:00`);
-        let current = start;
-        while (current < end) {
-            slots.push(current.toTimeString().substring(0, 5));
-            current = new Date(current.getTime() + duration * 60000);
-        }
+        try {
+            const start = new Date(`1970-01-01T${startTimeStr}:00`);
+            const end = new Date(`1970-01-01T${endTimeStr}:00`);
+            let current = start;
+            while (current < end) {
+                slots.push(current.toTimeString().substring(0, 5));
+                current = new Date(current.getTime() + duration * 60000);
+            }
+        } catch (e) {}
         return slots;
     };
 
@@ -166,14 +173,24 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         setSelectedDate(date);
         setSelectedClinicId(undefined);
         setSelectedColoniaId(undefined);
-        setManualColonia('');
         setSelectedTime(undefined);
     };
 
     const handleClinicSelect = (clinicId: string) => {
         setSelectedClinicId(clinicId);
         setSelectedColoniaId(undefined);
-        setManualColonia('');
+        
+        // Try to auto-select locality if it matches patient record
+        if (patient.coloniaName) {
+            const match = colonias.find(c => 
+                c.clinicId === clinicId && 
+                c.name.toUpperCase() === patient.coloniaName?.toUpperCase()
+            );
+            if (match) {
+                setSelectedColoniaId(match.id);
+            }
+        }
+        
         setSelectedTime(undefined);
     };
 
@@ -238,7 +255,8 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const availableTokens = useMemo(() => {
         if (!selectedClinic || !selectedDayAvailability || selectedClinic.bookingMode !== BookingMode.Token) return [];
         const booked = selectedDayAvailability.takenTimesByClinic[selectedClinic.id] || [];
-        const allTokens = Array.from({ length: selectedClinic.dailySlots }, (_, i) => `Ficha ${i + 1}`);
+        const totalSlots = (selectedClinic.dailySlots || 15) + (selectedClinic.waitlistSlots || 0);
+        const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
         const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
 
         if (patientType === PatientType.Embarazada && isDoubleSlot) {
@@ -340,12 +358,18 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             
                             {selectedClinicId && (
                                 <Card className="animate-in fade-in">
-                                    <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> 4. Localidad</CardTitle></CardHeader>
+                                    <CardHeader>
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <MapPin className="h-5 w-5 text-primary" /> 4. Localidad
+                                        </CardTitle>
+                                    </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="space-y-2">
                                             <Label className="text-[10px] font-black uppercase opacity-60">Seleccionar del Catálogo</Label>
                                             <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
-                                                <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Busca la colonia..." /></SelectTrigger>
+                                                <SelectTrigger className="h-11 border-primary/40">
+                                                    <SelectValue placeholder="Busca la colonia..." />
+                                                </SelectTrigger>
                                                 <SelectContent>
                                                     {filteredColonias.length > 0 ? (
                                                         filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
@@ -356,26 +380,27 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                             </Select>
                                         </div>
 
-                                        {isSpecialized && (
-                                            <div className="space-y-2 border-t pt-4">
-                                                <Label className="text-[10px] font-black uppercase text-primary">O CAPTURA MANUALMENTE (ESPECIALIZADA):</Label>
-                                                <Input 
-                                                    placeholder="ESCRIBE EL NOMBRE DE LA LOCALIDAD O PROCEDENCIA..." 
-                                                    value={manualColonia} 
-                                                    onChange={(e) => {
-                                                        setManualColonia(e.target.value.toUpperCase());
-                                                        if (e.target.value) setSelectedColoniaId(undefined); // Reset selection if typing manually
-                                                    }}
-                                                    className="h-11 font-black uppercase border-primary/30"
-                                                />
-                                                <p className="text-[10px] text-muted-foreground italic">* En consulta especializada el municipio no es obligatorio en catálogo.</p>
+                                        <div className="space-y-2 border-t pt-4">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-[10px] font-black uppercase text-primary">Captura Manual (Especializada o Libre):</Label>
+                                                {patient.coloniaName && <Badge variant="outline" className="text-[9px] bg-primary/5">Dato actual: {patient.coloniaName}</Badge>}
                                             </div>
-                                        )}
+                                            <Input 
+                                                placeholder="ESCRIBE EL NOMBRE DE LA LOCALIDAD O PROCEDENCIA..." 
+                                                value={manualColonia} 
+                                                onChange={(e) => {
+                                                    setManualColonia(e.target.value.toUpperCase());
+                                                    if (e.target.value) setSelectedColoniaId(undefined);
+                                                }}
+                                                className="h-11 font-black uppercase border-primary/30"
+                                            />
+                                            <p className="text-[10px] text-muted-foreground italic">* En consulta especializada el municipio no es obligatorio en catálogo.</p>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             )}
 
-                            {(selectedColoniaId || isSpecialized) && selectedClinic && (
+                            {(selectedColoniaId || manualColonia || isSpecialized) && selectedClinic && (
                                 <Card className="animate-in fade-in">
                                     <CardHeader><CardTitle className="text-lg">5. Horario</CardTitle></CardHeader>
                                     <CardContent>

@@ -42,9 +42,10 @@ import {
   getClinics, 
   updatePatient, 
   deleteAppointment,
-  getServiceTypes
+  getServiceTypes,
+  getColonias
 } from '@/lib/actions';
-import type { Patient, Appointment, Clinic, ArchiveCounts, ServiceType } from '@/lib/definitions';
+import type { Patient, Appointment, Clinic, ArchiveCounts, ServiceType, Colonia } from '@/lib/definitions';
 import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
@@ -127,9 +128,10 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   
-  // Appointment states
+  // Common items states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [colonias, setColonias] = useState<Colonia[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
   const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('all');
@@ -158,12 +160,13 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
           limitNum: (searchName || searchCurp || searchExpediente) ? 200 : 2000 
       };
 
-      const [patientsData, countsData, clinicsData, serviceTypesData, appointmentsData] = await Promise.all([
+      const [patientsData, countsData, clinicsData, serviceTypesData, appointmentsData, coloniasData] = await Promise.all([
         getPatients(searchOptions),
         getPatientCounts(),
         getClinics(),
         getServiceTypes(),
-        getAppointments()
+        getAppointments(),
+        getColonias()
       ]);
       
       setPatients(patientsData || []);
@@ -171,6 +174,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
       setClinics(clinicsData || []);
       setServiceTypes(serviceTypesData || []);
       setAllAppointments(appointmentsData || []);
+      setColonias(coloniasData || []);
       setCurrentPage(1); 
     } catch (error: any) {
       console.error("Dashboard error:", error);
@@ -789,7 +793,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
       </Tabs>
 
       {isEditOpen && <EditPatientDialog isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} patient={editingPatient} onSave={handleSavePatient} isSaving={isSubmitting} />}
-      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadData(); }} clinics={clinics} colonias={[]} isDoctorBypass={true} />}
+      {schedulingPatient && <ScheduleAppointmentDialog patient={schedulingPatient} isOpen={!!schedulingPatient} onClose={() => setSchedulingPatient(null)} onBookingSuccess={() => { setSchedulingPatient(null); loadData(); }} clinics={clinics} colonias={colonias} isDoctorBypass={true} />}
     </div>
   );
 }
