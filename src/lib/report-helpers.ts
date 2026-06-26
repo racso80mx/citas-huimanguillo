@@ -76,7 +76,7 @@ function addPDFFooter(doc: any) {
     doc.text(`Hospital General Huimanguillo - Generado el ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 105, footerY, { align: 'center' });
 }
 
-export async function downloadExcel(data: EnrichedAppointment[], filename: string) {
+export async function downloadExcel(data: any[], filename: string) {
     const xlsx = await import('xlsx');
     const isLab = filename.includes('laboratorio');
     const isXRay = filename.includes('rayos_x');
@@ -97,27 +97,20 @@ export async function downloadExcel(data: EnrichedAppointment[], filename: strin
             };
 
             if (isLab) {
-                const labItem = item as LabAppointment;
-                baseData['Estudios'] = labItem.studies.map(s => `${s.code ? `${s.code} - ` : ''}${s.name}`).join(', ');
-            } else if (isXRay) {
-                 const xrayItem = item as XRayAppointment;
-                 baseData['Estudio'] = xrayItem.studyName;
-            } else if (isUltrasound) {
-                 const ultrasoundItem = item as UltrasoundAppointment;
-                 baseData['Estudio'] = ultrasoundItem.studyName;
+                baseData['Estudios'] = (item.studies || []).map((s: any) => `${s.code ? `${s.code} - ` : ''}${s.name}`).join(', ');
+            } else if (isXRay || isUltrasound) {
+                 baseData['Estudio'] = item.studyName;
             } else if (isVaccine) {
-                const vaccineItem = item as VaccineAppointment;
-                baseData['Municipio'] = vaccineItem.coloniaName || 'N/A';
-                baseData['Vacunas'] = vaccineItem.vaccines.map(v => v.name).join(', ');
-                baseData['Recién Nacido'] = vaccineItem.patientType === 'Recién Nacido' ? 'Sí' : 'No';
-            } else { // It's a medical appointment
-                const regularItem = item as Appointment;
-                if (regularItem.time.includes('Ficha')) {
-                    baseData['Ficha'] = regularItem.time.split(' ')[1];
+                baseData['Municipio'] = item.coloniaName || 'N/A';
+                baseData['Vacunas'] = (item.vaccines || []).map((v: any) => v.name).join(', ');
+                baseData['Recién Nacido'] = item.patientType === 'Recién Nacido' ? 'Sí' : 'No';
+            } else {
+                if (item.time && item.time.includes('Ficha')) {
+                    baseData['Ficha'] = item.time.split(' ')[1];
                 }
-                baseData['Núcleo'] = (item as any).clinicName;
-                baseData['Municipio'] = regularItem.coloniaName || 'N/A';
-                baseData['Tipo Paciente'] = regularItem.patientType;
+                baseData['Núcleo'] = item.clinicName;
+                baseData['Municipio'] = item.coloniaName || 'N/A';
+                baseData['Tipo Paciente'] = item.patientType;
             }
             return baseData;
         }
@@ -224,36 +217,50 @@ export async function generateAppointmentPDF(appointmentData: Appointment, clini
     doc.setLineWidth(0.1);
     doc.line(20, currentY, 95, currentY);
     doc.line(110, currentY, 190, currentY);
-    currentY += 6;
+    currentY += 8;
 
     doc.setFontSize(10);
     doc.setFont('Helvetica', 'normal');
     
+    let leftY = currentY;
+    let rightY = currentY;
+    
     // Info Paciente
     const pName = patient ? `${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}` : 'N/A';
-    doc.setTextColor(100); doc.text('Nombre:', 20, currentY);
-    doc.setTextColor(0); doc.text(pName.toUpperCase(), 45, currentY);
-    currentY += 6;
-    doc.setTextColor(100); doc.text('CURP:', 20, currentY);
-    doc.setTextColor(0); doc.text(patient?.curp || 'N/A', 45, currentY);
-    currentY += 6;
-    doc.setTextColor(100); doc.text('Tipo:', 20, currentY);
-    doc.setTextColor(0); doc.text(patientType.toUpperCase(), 45, currentY);
+    doc.setTextColor(100); doc.text('Nombre:', 20, leftY);
+    doc.setTextColor(0); 
+    const pNameLines = doc.splitTextToSize(pName.toUpperCase(), 50);
+    doc.text(pNameLines, 45, leftY);
+    leftY += (pNameLines.length * 5) + 1;
+    
+    doc.setTextColor(100); doc.text('CURP:', 20, leftY);
+    doc.setTextColor(0); doc.text(patient?.curp || 'N/A', 45, leftY);
+    leftY += 6;
+    
+    doc.setTextColor(100); doc.text('Tipo:', 20, leftY);
+    doc.setTextColor(0); doc.text(patientType.toUpperCase(), 45, leftY);
+    leftY += 6;
     
     // Info Clínica
-    let col2Y = currentY - 12;
-    doc.setTextColor(100); doc.text('Unidad:', 110, col2Y);
-    doc.setTextColor(0); doc.text(clinicData.name.toUpperCase(), 135, col2Y);
-    col2Y += 6;
-    doc.setTextColor(100); doc.text('Médico:', 110, col2Y);
-    doc.setTextColor(0); doc.text(`DR(A). ${clinicData.doctorName.toUpperCase()}`, 135, col2Y);
-    col2Y += 6;
-    doc.setTextColor(100); doc.text('Folio:', 110, col2Y);
+    doc.setTextColor(100); doc.text('Unidad:', 110, rightY);
+    doc.setTextColor(0); 
+    const unitLines = doc.splitTextToSize(clinicData.name.toUpperCase(), 55);
+    doc.text(unitLines, 135, rightY);
+    rightY += (unitLines.length * 5) + 1;
+
+    doc.setTextColor(100); doc.text('Médico:', 110, rightY);
+    doc.setTextColor(0); 
+    const doctorLines = doc.splitTextToSize(`DR(A). ${clinicData.doctorName.toUpperCase()}`, 55);
+    doc.text(doctorLines, 135, rightY);
+    rightY += (doctorLines.length * 5) + 1;
+
+    doc.setTextColor(100); doc.text('Folio:', 110, rightY);
     doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
     doc.setFont('Helvetica', 'bold');
-    doc.text(appointmentNumber, 135, col2Y);
+    doc.text(appointmentNumber, 135, rightY);
+    rightY += 6;
 
-    currentY += 15;
+    currentY = Math.max(leftY, rightY) + 12;
 
     // Avisos
     if (announcements && announcements.length > 0) {
@@ -289,8 +296,10 @@ export async function generateLabAppointmentPDF(appointment: LabAppointment, ann
     doc.setFont('Helvetica', 'bold');
     doc.text('PACIENTE:', 20, currentY);
     doc.setFont('Helvetica', 'normal');
-    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
-    currentY += 7;
+    const pNameLines = doc.splitTextToSize(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 140);
+    doc.text(pNameLines, 50, currentY);
+    currentY += (pNameLines.length * 5) + 2;
+
     doc.setFont('Helvetica', 'bold');
     doc.text('CURP:', 20, currentY);
     doc.setFont('Helvetica', 'normal');
@@ -333,9 +342,10 @@ export async function generateXRayAppointmentPDF(appointment: XRayAppointment, s
     doc.setFont('Helvetica', 'bold');
     doc.text('PACIENTE:', 20, currentY);
     doc.setFont('Helvetica', 'normal');
-    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
-    
-    currentY += 15;
+    const pNameLines = doc.splitTextToSize(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 140);
+    doc.text(pNameLines, 50, currentY);
+    currentY += (pNameLines.length * 5) + 10;
+
     doc.setFont('Helvetica', 'bold');
     doc.text('ESTUDIO SOLICITADO:', 20, currentY);
     
@@ -364,9 +374,10 @@ export async function generateUltrasoundAppointmentPDF(appointment: UltrasoundAp
     doc.setFont('Helvetica', 'bold');
     doc.text('PACIENTE:', 20, currentY);
     doc.setFont('Helvetica', 'normal');
-    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
+    const pNameLines = doc.splitTextToSize(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 140);
+    doc.text(pNameLines, 50, currentY);
+    currentY += (pNameLines.length * 5) + 10;
     
-    currentY += 15;
     doc.setFont('Helvetica', 'bold');
     doc.text('ESTUDIO SOLICITADO:', 20, currentY);
     
@@ -395,9 +406,10 @@ export async function generateVaccineAppointmentPDF(appointment: VaccineAppointm
     doc.setFont('Helvetica', 'bold');
     doc.text('PACIENTE:', 20, currentY);
     doc.setFont('Helvetica', 'normal');
-    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
+    const pNameLines = doc.splitTextToSize(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 140);
+    doc.text(pNameLines, 50, currentY);
+    currentY += (pNameLines.length * 5) + 10;
     
-    currentY += 15;
     doc.setFont('Helvetica', 'bold');
     doc.text('VACUNAS A APLICAR:', 20, currentY);
     
@@ -451,15 +463,18 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
     doc.text('DATOS DEL PACIENTE', 25, 56);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(11);
-    doc.text(`NOMBRE: ${prescription.patientName.toUpperCase()}`, 25, 64);
+    const pNameLines = doc.splitTextToSize(`NOMBRE: ${prescription.patientName.toUpperCase()}`, 85);
+    doc.text(pNameLines, 25, 64);
     
     doc.setFontSize(9);
     doc.setFont('Helvetica', 'bold');
     doc.text('MÉDICO QUE PRESCRIBE', 115, 56);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`DR(A): ${prescription.doctorName.toUpperCase()}`, 115, 64);
-    doc.text(`CED: ${prescription.doctorLicense || 'S/C'}`, 115, 69);
+    const doctorLines = doc.splitTextToSize(`DR(A): ${prescription.doctorName.toUpperCase()}`, 70);
+    doc.text(doctorLines, 115, 64);
+    const nextY = 64 + (doctorLines.length * 4.5);
+    doc.text(`CED: ${prescription.doctorLicense || 'S/C'}`, 115, nextY);
 
     let currentY = 85;
     doc.setFont('Helvetica', 'bold');
