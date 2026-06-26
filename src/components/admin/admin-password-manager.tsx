@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import {
@@ -16,6 +15,7 @@ import { updateAdminSettings, getAdminSettings, logActivity } from '@/lib/action
 import { Loader2, Save, Eye, EyeOff, ShieldAlert, Lock, Unlock } from 'lucide-react';
 import type { AdminSettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -90,7 +90,6 @@ export function AdminPasswordManager() {
   };
 
   const handlePinConfirm = () => {
-    // PIN de seguridad estático para cambios de contraseña crítica
     if (pinValue !== '171208') {
       toast({
         title: 'PIN Incorrecto',
