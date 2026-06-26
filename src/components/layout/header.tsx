@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -35,18 +34,18 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-48 shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex items-center flex-1">
+    <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-0">
+      <div className="flex items-center w-full px-0">
         <Link 
           href="/"
-          className="flex items-center hover:opacity-80 transition-opacity focus:outline-none text-left"
+          className="flex items-center hover:opacity-80 transition-opacity focus:outline-none px-0"
         >
           <div className="text-primary flex-shrink-0">
             <Image
               src={logoBase64}
               alt="Logo Hospital"
-              width={192}
-              height={192}
+              width={120}
+              height={120}
               className="object-contain"
               priority
             />
@@ -54,7 +53,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
         </Link>
 
         {mounted && getPageTitle() && (
-          <span className="text-muted-foreground text-3xl font-medium border-l-2 border-muted h-12 flex items-center px-4 hidden lg:flex">
+          <span className="text-muted-foreground text-xl font-black border-l border-muted h-8 flex items-center px-4 hidden lg:flex uppercase tracking-tighter ml-2">
             {getPageTitle()}
           </span>
         )}
