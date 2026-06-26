@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -42,10 +41,11 @@ import {
   getAppointments, 
   getClinics, 
   updatePatient, 
-  deleteAppointment 
+  deleteAppointment,
+  getServiceTypes
 } from '@/lib/actions';
-import type { Patient, Appointment, Clinic, ArchiveCounts } from '@/lib/definitions';
-import { PatientStatus as PatientStatusEnum, ClinicType } from '@/lib/definitions';
+import type { Patient, Appointment, Clinic, ArchiveCounts, ServiceType } from '@/lib/definitions';
+import { PatientStatus as PatientStatusEnum } from '@/lib/definitions';
 import { PatientList } from './patient-list';
 import { MassUploadDialog } from './mass-upload-dialog';
 import { EditPatientDialog } from './edit-patient-dialog';
@@ -130,8 +130,9 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   // Appointment states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
-  const [selectedClinicType, setSelectedClinicType] = useState<ClinicType | 'all'>('all');
+  const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
@@ -157,23 +158,22 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
           limitNum: (searchName || searchCurp || searchExpediente) ? 200 : 2000 
       };
 
-      const [patientsData, countsData, clinicsData, appointmentsData] = await Promise.all([
+      const [patientsData, countsData, clinicsData, serviceTypesData, appointmentsData] = await Promise.all([
         getPatients(searchOptions),
         getPatientCounts(),
         getClinics(),
+        getServiceTypes(),
         getAppointments()
       ]);
       
       setPatients(patientsData || []);
       setCounts(countsData);
       setClinics(clinicsData || []);
+      setServiceTypes(serviceTypesData || []);
       setAllAppointments(appointmentsData || []);
       setCurrentPage(1); 
     } catch (error: any) {
       console.error("Dashboard error:", error);
-      // Log the specific error to help the user identify it
-      console.error("DETALLE ERROR:", error.message, error.stack);
-      
       toast({
         title: 'Error de Consulta',
         description: 'No se pudieron recuperar los registros. Por favor, intenta con una búsqueda más específica.',
@@ -305,15 +305,21 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
   const filteredClinics = useMemo(() => {
     if (selectedClinicType === 'all') return clinics;
-    return clinics.filter(c => c.clinicType === selectedClinicType);
-  }, [clinics, selectedClinicType]);
+    return clinics.filter(c => {
+        const sType = serviceTypes.find(st => st.id === c.serviceTypeId || st.name === c.serviceTypeId);
+        return sType?.name === selectedClinicType || c.serviceTypeId === selectedClinicType;
+    });
+  }, [clinics, selectedClinicType, serviceTypes]);
 
   const appointmentsToDisplay = useMemo(() => {
     let filtered = [...allAppointments];
     
     // Filter by clinic type
     if (selectedClinicType !== 'all') {
-        const clinicsOfType = clinics.filter(c => c.clinicType === selectedClinicType).map(c => c.id);
+        const clinicsOfType = clinics.filter(c => {
+            const sType = serviceTypes.find(st => st.id === c.serviceTypeId || st.name === c.serviceTypeId);
+            return sType?.name === selectedClinicType || c.serviceTypeId === selectedClinicType;
+        }).map(c => c.id);
         filtered = filtered.filter(app => clinicsOfType.includes(app.clinicId));
     }
 
@@ -376,7 +382,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
     filtered = filtered.filter(filterFn);
     return filtered.sort((a, b) => a.time.localeCompare(b.time));
-  }, [allAppointments, selectedClinics, selectedClinicType, dateFilter, dateRange, clinics]);
+  }, [allAppointments, selectedClinics, selectedClinicType, dateFilter, dateRange, clinics, serviceTypes]);
 
   const handleDownloadAppointmentsExcel = async () => {
     if (appointmentsToDisplay.length === 0) {
@@ -691,14 +697,14 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                     <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-2">
                             <Label className="text-xs font-bold uppercase text-muted-foreground whitespace-nowrap">Tipo:</Label>
-                            <Select value={selectedClinicType} onValueChange={(v: ClinicType | 'all') => { setSelectedClinicType(v); setSelectedClinics([]); }}>
+                            <Select value={selectedClinicType} onValueChange={(v) => { setSelectedClinicType(v); setSelectedClinics([]); }}>
                                 <SelectTrigger className="h-9 w-[180px]">
                                     <SelectValue placeholder="Tipo de Consulta" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos los Tipos</SelectItem>
-                                    {Object.values(ClinicType).map(type => (
-                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                    {serviceTypes.map(type => (
+                                        <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
