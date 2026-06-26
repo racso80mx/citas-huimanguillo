@@ -309,7 +309,7 @@ export default function PageContent({
                             <div className="grid gap-2">
                                 {clinicOptions.map(opt => (
                                     <button 
-                                        key={opt.value}
+                                        key={opt.value} 
                                         onClick={() => handleClinicSelect(opt.value)}
                                         className={cn(
                                             "w-full p-4 rounded-xl border-2 text-left transition-all group",
@@ -376,14 +376,14 @@ export default function PageContent({
                               )}
                               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
                                   {projectedGridData.map((item) => (
-                                      <button
+                                      <button 
                                         key={item.dateStr}
                                         onClick={() => handleDateSelect(item.date)}
                                         disabled={item.isClosed}
                                         className={cn(
                                             "relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all group",
                                             isSameDay(selectedDate || new Date(0), item.date)
-                                                ? "bg-primary border-primary text-white shadow-lg ring-4 ring-primary/10 scale-105 z-10"
+                                                ? "bg-primary border-primary text-white shadow-lg ring-4 ring-primary/10 scale-105 z-10" 
                                                 : item.isClosed
                                                     ? "bg-muted/30 border-muted opacity-40 cursor-not-allowed grayscale"
                                                     : "bg-background border-muted hover:border-primary/40 hover:bg-primary/5"
@@ -526,7 +526,7 @@ export default function PageContent({
                                                           <div className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-black">6</div>
                                                           <h3 className="text-xl font-black uppercase text-primary tracking-widest">Confirma tus Datos</h3>
                                                       </div>
-                                                      <BookingForm
+                                                      <BookingForm 
                                                           selectedDate={selectedDate}
                                                           selectedClinic={selectedClinic}
                                                           selectedColoniaName={selectedColonia?.name}

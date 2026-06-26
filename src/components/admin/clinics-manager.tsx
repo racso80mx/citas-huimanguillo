@@ -75,12 +75,12 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     onCancel: () => void 
 }) {
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
-    const [showPassword, setShowPassword] = useState(false);
     
     const [newScheduleDate, setNewScheduleDate] = useState<Date | undefined>();
     const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     useEffect(() => {
+        // Normalizar fechas de la base de datos para evitar errores visuales
         const normalizedDates = Array.from(new Set(clinic.unavailableDates?.map(d => {
             if (typeof d === 'string') return d;
             if (d && typeof d === 'object' && 'seconds' in d) {
@@ -219,21 +219,54 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <Label className="text-sm font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                            <CalendarDays className="h-5 w-5" /> Días de Acción (Laborales)
-                        </Label>
-                        <div className="flex flex-wrap gap-3 p-6 bg-muted/20 border-2 border-dashed rounded-3xl">
-                            {DAYS_OF_WEEK.map(day => (
-                                <div key={day} className="flex items-center space-x-3 bg-background p-3 px-4 rounded-xl border-2 shadow-sm transition-all hover:border-primary/40">
-                                    <Checkbox id={`day-${day}`} checked={editedClinic.daysOfAction?.includes(day)} onCheckedChange={() => toggleDay(day)} />
-                                    <Label htmlFor={`day-${day}`} className="text-xs font-black cursor-pointer uppercase">{day}</Label>
+                    <div className="grid lg:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                            <Label className="text-sm font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                                <CalendarDays className="h-5 w-5" /> Días de Acción (Laborales)
+                            </Label>
+                            <div className="flex flex-wrap gap-3 p-6 bg-muted/20 border-2 border-dashed rounded-3xl">
+                                {DAYS_OF_WEEK.map(day => (
+                                    <div key={day} className="flex items-center space-x-3 bg-background p-3 px-4 rounded-xl border-2 shadow-sm transition-all hover:border-primary/40">
+                                        <Checkbox id={`day-${day}`} checked={editedClinic.daysOfAction?.includes(day)} onCheckedChange={() => toggleDay(day)} />
+                                        <Label htmlFor={`day-${day}`} className="text-xs font-black cursor-pointer uppercase">{day}</Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <Label className="text-sm font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                                <Clock className="h-5 w-5" /> Disponibilidad de Agenda
+                            </Label>
+                            <div className="p-6 bg-muted/20 border-2 border-dashed rounded-3xl space-y-6">
+                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-sm font-black uppercase">Permitir Fines de Semana</Label>
+                                        <p className="text-[10px] text-muted-foreground font-bold">Habilita la reserva en Sábado y Domingo.</p>
+                                    </div>
+                                    <Switch 
+                                        checked={editedClinic.weekendBookingEnabled} 
+                                        onCheckedChange={(v) => handleFieldChange('weekendBookingEnabled', v)} 
+                                    />
                                 </div>
-                            ))}
+                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-sm font-black uppercase text-accent-foreground">Hora de Descanso (Comida)</Label>
+                                        <p className="text-[10px] text-muted-foreground font-bold">Bloquea este horario automáticamente.</p>
+                                    </div>
+                                    <Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}>
+                                        <SelectTrigger className="w-40 h-11 border-accent/40 bg-accent/10 font-black"><SelectValue placeholder="NINGUNO" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Sin Descanso</SelectItem>
+                                            {dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
+                    <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
                         <div className='space-y-2'>
                             <Label className="text-[10px] font-black uppercase text-primary">Modo</Label>
                             <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
@@ -273,25 +306,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                                     {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-accent-foreground">Descanso</Label>
-                            <Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}>
-                                <SelectTrigger className="h-11 border-accent/40 bg-accent/10 font-bold"><SelectValue placeholder="SIN DESCANSO" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Sin Descanso</SelectItem>
-                                    {dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-primary">Clave Reporte</Label>
-                            <div className="relative">
-                                <Input type={showPassword ? 'text' : 'password'} value={editedClinic.password} onChange={(e) => handleFieldChange('password', e.target.value)} className="h-11 border-primary/20" />
-                                <Button type="button" variant="ghost" size="icon" className="absolute inset-y-0 right-0 h-full px-3" onClick={() => setShowPassword(!showPassword)}>
-                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
-                            </div>
                         </div>
                     </div>
 

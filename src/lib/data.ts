@@ -11,8 +11,6 @@ import {
   increment,
   addDoc,
   DocumentReference,
-  query,
-  where
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -193,9 +191,10 @@ export async function getAppointmentsData() {
     return apps.map(a => ({ ...a, patient: patients.find(p => p.id === a.patientId) }));
 }
 
-export async function updateAppointmentStatus(id: string, status: string, t: string) {
+export async function updateAppointmentStatus(appointmentId: string, status: string, type: string) {
     const m: Record<string, string> = { medical: 'appointments', lab: 'labAppointments', xray: 'xrayAppointments', ultrasound: 'ultrasoundAppointments', vaccine: 'vaccineAppointments' };
-    await updateDoc(doc(adminDb, m[t], id), { status }); return { success: true };
+    await updateDoc(doc(adminDb, m[type] || 'appointments', appointmentId), { status });
+    return { success: true };
 }
 
 export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
