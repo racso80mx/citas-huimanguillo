@@ -211,6 +211,17 @@ export async function cleanupOldRecords() {
 }
 
 // --- SEGURIDAD ---
+export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
+export async function updateAdminSettings(settings: AdminSettings) { return data.updateAdminSettings(settings); }
+export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
+export async function updateArchiveSettings(settings: ArchiveSettings) { return data.updateArchiveSettings(settings); }
+export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
+export async function updatePharmacySettings(settings: PharmacySettings) { return data.updatePharmacySettings(settings); }
+export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
+export async function updateWarehouseSettings(settings: WarehouseSettings) { return data.updateWarehouseSettings(settings); }
+export async function getBISettings() { return data.getBISettingsData(); }
+export async function updateBISettings(settings: BISettings) { return data.updateBISettings(settings); }
+
 export async function verifyAdminPassword(p: string) { const s = await data.getAdminSettingsData(); return { success: s.password === p }; }
 export async function verifyArchivePassword(p: string) { const s = await data.getArchiveSettingsData(); return { success: s.password === p }; }
 export async function verifyPharmacyPassword(p: string) { const s = await data.getPharmacySettingsData(); return { success: s.password === p }; }
@@ -320,36 +331,6 @@ export async function getMedications() { return data.getMedications(); }
 export async function getSupplies() { return data.getSupplies(); }
 export async function updatePrescription(id: string, p: any) { 
     const res = await data.updatePrescription(id, p);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
-export async function updateAdminSettings(s: AdminSettings) { 
-    const res = await data.updateAdminSettings(s);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
-export async function updateArchiveSettings(s: ArchiveSettings) { 
-    const res = await data.updateArchiveSettings(s);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function getPharmacySettingsData() { return data.getPharmacySettingsData(); }
-export async function updatePharmacySettings(s: PharmacySettings) { 
-    const res = await data.updatePharmacySettings(s);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
-export async function updateWarehouseSettings(s: WarehouseSettings) { 
-    const res = await data.updateWarehouseSettings(s);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function getBISettings() { return data.getBISettingsData(); }
-export async function updateBISettings(s: BISettings) { 
-    const res = await data.updateBISettings(s);
     revalidatePath('/', 'layout');
     return res;
 }

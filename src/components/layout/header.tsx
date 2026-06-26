@@ -33,13 +33,13 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-0">
-      <div className="flex items-center w-full px-0">
+    <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-0 overflow-hidden">
+      <div className="flex items-center w-full px-0 h-full">
         <Link 
           href="/"
-          className="flex items-center hover:opacity-80 transition-opacity focus:outline-none px-0"
+          className="flex items-center hover:opacity-80 transition-opacity focus:outline-none h-full"
         >
-          <div className="text-primary flex-shrink-0">
+          <div className="text-primary flex-shrink-0 h-full flex items-center">
             <Image
               src={logoBase64}
               alt="Logo Hospital"
@@ -52,7 +52,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
         </Link>
 
         {mounted && getPageTitle() && (
-          <span className="text-muted-foreground text-xl font-black border-l border-muted h-8 flex items-center px-4 lg:flex uppercase tracking-tighter">
+          <span className="text-muted-foreground text-xl font-black border-l border-muted h-10 flex items-center px-4 lg:flex uppercase tracking-tighter">
             {getPageTitle()}
           </span>
         )}

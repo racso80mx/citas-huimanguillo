@@ -16,9 +16,9 @@ const ptSans = PT_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'CitaMedicaFacil',
+  title: 'Hospital General Huimanguillo',
   description:
-    'Agenda tu cita médica de forma fácil y rápida en Huimanguillo, Tabasco.',
+    'Portal de servicios médicos y citas del Hospital General de Huimanguillo, Tabasco.',
 };
 
 export default async function RootLayout({
@@ -35,9 +35,9 @@ export default async function RootLayout({
         <FirebaseClientProvider>
           <SidebarProvider defaultOpen={false}>
             <AppSidebar moduleSettings={moduleSettings} />
-            <SidebarInset className="flex flex-col">
+            <SidebarInset className="flex flex-col m-0 p-0 rounded-none border-none shadow-none">
               <SiteHeader moduleSettings={moduleSettings} />
-              <main className="flex-1 overflow-y-auto p-0">
+              <main className="flex-1 overflow-x-hidden p-0 m-0">
                 {children}
               </main>
               <SiteFooter />

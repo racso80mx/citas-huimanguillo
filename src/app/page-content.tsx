@@ -77,39 +77,39 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
 
   return (
     <div className="w-full p-0">
-      <div className="text-center mb-10 flex flex-col items-center pt-8">
-        <div className="text-primary mb-6">
+      <div className="text-center mb-6 flex flex-col items-center pt-6">
+        <div className="text-primary mb-4">
           <Image
             src={logoBase64}
-            alt="Logo CitaMedicaFacil"
-            width={270}
-            height={270}
-            className="rounded-xl shadow-2xl"
+            alt="Logo Hospital"
+            width={240}
+            height={240}
+            className="rounded-xl shadow-lg"
             priority
           />
         </div>
-        <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground tracking-tighter">
-          Bienvenido a CitaMedicaFacil
+        <h1 className="text-4xl font-bold font-headline text-foreground tracking-tighter uppercase">
+          Bienvenido al Portal Hospitalario
         </h1>
-        <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto font-medium px-4">
-          Selecciona el servicio que necesitas y agenda tu cita de forma rápida y sencilla.
+        <p className="text-muted-foreground mt-1 max-w-2xl mx-auto font-medium px-4">
+          Huimanguillo, Tabasco. Selecciona el servicio que necesitas.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 w-full border-t border-l">
         {enabledModules.map((mod) => (
-          <Link href={mod.href} key={mod.href}>
-            <Card className="hover:shadow-xl hover:bg-primary/5 transition-all duration-300 h-full flex flex-col items-center text-center p-8 bg-card border rounded-none group">
+          <Link href={mod.href} key={mod.href} className="w-full">
+            <Card className="hover:bg-primary/5 transition-all duration-300 h-full flex flex-col items-center text-center p-8 bg-card border-r border-b rounded-none group shadow-none">
               <CardHeader className="p-0">
                 <div className="mb-4 flex justify-center p-4 bg-primary/5 rounded-full group-hover:bg-primary/10 transition-colors">{mod.icon}</div>
-                <CardTitle className="text-xl font-headline font-bold">{mod.title}</CardTitle>
+                <CardTitle className="text-xl font-headline font-bold uppercase">{mod.title}</CardTitle>
                 <CardDescription className="text-sm font-medium mt-1 leading-tight">{mod.description}</CardDescription>
               </CardHeader>
             </Card>
           </Link>
         ))}
          {enabledModules.length === 0 && (
-            <div className="col-span-full text-center py-20 bg-muted/20 border-2 border-dashed mx-4 rounded-3xl">
+            <div className="col-span-full text-center py-20 bg-muted/20 border-2 border-dashed mx-4 rounded-3xl mt-4">
                 <p className="text-xl font-bold text-muted-foreground">No hay módulos de citas activos en este momento.</p>
                 <p className="text-sm text-muted-foreground mt-1">Por favor, contacta al administrador del Hospital.</p>
             </div>
