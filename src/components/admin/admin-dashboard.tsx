@@ -25,10 +25,9 @@ import {
   Check,
   Calendar as CalendarIcon,
   MapPin,
-  Tags,
+  LayoutGrid,
   ShieldCheck,
-  Megaphone,
-  Database
+  Package
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -133,15 +132,12 @@ function ServiceTypesManager() {
   );
 }
 
-type DateFilterType = 'today' | 'tomorrow' | 'week' | 'month' | 'range';
-
 function AppointmentsViewer() {
     const [searchTerm, setSearchTerm] = useState('');
     const [data, setData] = useState<any>({ apps: [], lab: [], xr: [], us: [], vac: [], clinics: [], services: [] });
     const [loading, setLoading] = useState(true);
     
-    // Advanced Filters
-    const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
+    const [dateFilter, setDateFilter] = useState<'today' | 'tomorrow' | 'week' | 'month' | 'range'>('today');
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedServiceType, setSelectedServiceType] = useState<string | 'all'>('all');
     const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
@@ -189,7 +185,6 @@ function AppointmentsViewer() {
         let results = [...list];
         const now = new Date();
 
-        // 1. Date Filter
         let dateFilterFn: (app: any) => boolean;
         switch (dateFilter) {
             case 'tomorrow':
@@ -216,17 +211,14 @@ function AppointmentsViewer() {
         }
         results = results.filter(dateFilterFn);
 
-        // 2. Service Type Filter
         if (selectedServiceType !== 'all') {
             results = results.filter(a => a.clinicId && data.clinics.find((c: any) => c.id === a.clinicId)?.serviceTypeId === selectedServiceType);
         }
 
-        // 3. Clinic Filter
         if (selectedClinics.length > 0) {
             results = results.filter(a => selectedClinics.includes(a.clinicId));
         }
 
-        // 4. Text Search
         if (searchTerm) {
             const t = searchTerm.toUpperCase();
             results = results.filter(a => {
@@ -321,7 +313,6 @@ function AppointmentsViewer() {
                                                     </CommandItem>
                                                 ))}
                                             </CommandGroup>
-                                            {selectedClinics.length > 0 && <><CommandSeparator /><CommandGroup><CommandItem onSelect={() => setSelectedClinics([])} className="justify-center text-center">Limpiar filtro</CommandItem></CommandGroup></>}
                                         </CommandList>
                                     </Command>
                                 </PopoverContent>
@@ -372,20 +363,17 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       </Card>
       
       <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto mb-8 bg-muted/20 p-1">
+        <TabsList className="grid w-full grid-cols-4 h-auto mb-8 bg-muted/20 p-1">
           <TabsTrigger value="configuracion" className="py-3 font-bold flex items-center gap-2"><Settings className="h-4 w-4" /> 1. Configuración</TabsTrigger>
           <TabsTrigger value="catalogos" className="py-3 font-bold flex items-center gap-2"><UserRound className="h-4 w-4" /> 2. Catálogos</TabsTrigger>
           <TabsTrigger value="citas" className="py-3 font-bold flex items-center gap-2"><ClipboardList className="h-4 w-4" /> 3. Registro de Citas</TabsTrigger>
+          <TabsTrigger value="modulos" className="py-3 font-bold flex items-center gap-2 text-primary"><LayoutGrid className="h-4 w-4" /> 4. Módulos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="configuracion" className="space-y-8 animate-in fade-in">
             <div className="grid lg:grid-cols-2 gap-8">
+                <ClinicsManager />
                 <div className="space-y-8">
-                    <ModuleManager />
-                    <ClinicsManager />
-                </div>
-                <div className="space-y-8">
-                    <AdminPasswordManager />
                     <AnnouncementsManager />
                     <BackupManager onRestoreSuccess={() => window.location.reload()} />
                     <HolidaysManager />
@@ -412,6 +400,18 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
         <TabsContent value="citas" className="animate-in fade-in">
             <AppointmentsViewer />
+        </TabsContent>
+
+        <TabsContent value="modulos" className="animate-in fade-in space-y-8">
+            <div className="grid lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-8 space-y-8">
+                    <ModuleSecurityManager />
+                </div>
+                <div className="lg:col-span-4 space-y-8">
+                    <AdminPasswordManager />
+                    <ModuleManager />
+                </div>
+            </div>
         </TabsContent>
       </Tabs>
     </div>

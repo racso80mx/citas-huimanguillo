@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -313,7 +314,7 @@ export async function updatePrescription(id: string, p: any) {
     revalidatePath('/', 'layout');
     return res;
 }
-export async function getAdminSettings() { return data.getAdminSettingsData(); }
+export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
 export async function updateAdminSettings(s: AdminSettings) { 
     const res = await data.updateAdminSettings(s);
     revalidatePath('/', 'layout');
