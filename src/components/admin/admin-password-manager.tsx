@@ -96,7 +96,7 @@ export function AdminPasswordManager() {
 
   return (
     <>
-      <Card className={cn("shadow-lg border-destructive/20 transition-all", isUnlocked ? "bg-destructive/5 ring-2 ring-destructive/10" : "opacity-90")}>
+      <Card className={cn("shadow-lg border-destructive/20 transition-all duration-500", isUnlocked ? "bg-destructive/10 ring-2 ring-destructive/20" : "bg-muted/5 opacity-80")}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive cursor-pointer select-none font-black text-sm uppercase" onClick={handleTitleClick}>
             <ShieldAlert className="h-5 w-5" /> PANEL MAESTRO {isUnlocked ? <Unlock className="h-4 w-4 ml-2" /> : <Lock className="h-4 w-4 ml-2 opacity-20" />}
