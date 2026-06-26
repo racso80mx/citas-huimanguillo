@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   doc, 
@@ -11,6 +12,9 @@ import {
   increment,
   addDoc,
   DocumentReference,
+  query,
+  where,
+  limit
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -197,8 +201,6 @@ export async function updateAppointmentStatus(appointmentId: string, status: str
     return { success: true };
 }
 
-export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
-
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const batch = writeBatch(adminDb);
     const pId = patient.curp.toUpperCase();
@@ -335,6 +337,11 @@ export async function cleanupOldRecords() {
     return { success: true, deletedCount: total };
 }
 
+// --- CLÍNICAS ---
+export async function getClinicsData() { return getRawCollection('clinics'); }
+export async function updateClinics(clinics: Clinic[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'clinics')); snap.docs.forEach(d => batch.delete(d.ref)); clinics.forEach(c => batch.set(doc(adminDb, 'clinics', c.id), c)); await batch.commit(); return { success: true }; }
+export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); return { success: true }; }
+
 // --- LOGS ---
 export async function getLogsData() { const all = await getRawCollection('activityLog') as ActivityLog[]; return all.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 500); }
 export async function logActivity(action: string, details: string) { await addDoc(collection(adminDb, 'activityLog'), { action, details, timestamp: new Date().toISOString() }); }
@@ -372,8 +379,6 @@ export async function updateSpecialties(specialties: Specialty[]) {
     specialties.forEach(s => batch.set(doc(adminDb, 'specialties', s.id), s));
     await batch.commit(); return { success: true };
 }
-export async function getClinicsData() { return getRawCollection('clinics'); }
-export async function updateClinics(clinics: Clinic[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'clinics')); snap.docs.forEach(d => batch.delete(d.ref)); clinics.forEach(c => batch.set(doc(adminDb, 'clinics', c.id), c)); await batch.commit(); return { success: true }; }
 export async function getColoniasData() { return getRawCollection('colonias'); }
 export async function updateColonias(colonias: Colonia[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'colonias')); snap.docs.forEach(d => batch.delete(d.ref)); colonias.forEach(c => batch.set(doc(adminDb, 'colonias', c.id), c)); await batch.commit(); return { success: true }; }
 
@@ -409,3 +414,7 @@ export async function getVaccines() { return getRawCollection('vaccines'); }
 export async function updateVaccines(v: Vaccine[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'vaccines')); snap.docs.forEach(d => batch.delete(d.ref)); v.forEach(i => batch.set(doc(adminDb, 'vaccines', i.id), i)); await batch.commit(); return { success: true }; }
 export async function getMedications() { return getRawCollection('medications'); }
 export async function getSupplies() { return getRawCollection('supplies'); }
+export async function deleteAllMedications() { const snap = await getDocs(collection(adminDb, 'medications')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
+export async function deleteAllSupplies() { const snap = await getDocs(collection(adminDb, 'supplies')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
+export async function bulkInsertMedications(p: any[]) { const batch = writeBatch(adminDb); p.forEach(i => { const id = uuidv4(); batch.set(doc(adminDb, 'medications', id), { ...i, id }); }); await batch.commit(); return { success: true, processedCount: p.length }; }
+export async function bulkInsertSupplies(p: any[]) { const batch = writeBatch(adminDb); p.forEach(i => { const id = uuidv4(); batch.set(doc(adminDb, 'supplies', id), { ...i, id }); }); await batch.commit(); return { success: true, processedCount: p.length }; }

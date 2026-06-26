@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,16 +15,14 @@ import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { 
     updateClinics, getClinics, 
-    getColonias, 
-    getSpecialties, getServiceTypes
+    getSpecialties, getServiceTypes,
+    deleteClinic
 } from '@/lib/actions';
 import { 
     Loader2, 
     PlusCircle, 
     Hospital, 
     Save, 
-    Eye, 
-    EyeOff, 
     Calendar as CalendarIcon, 
     X, 
     Pencil, 
@@ -75,30 +74,16 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     onCancel: () => void 
 }) {
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
-    
-    const [newScheduleDate, setNewScheduleDate] = useState<Date | undefined>();
-    const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     useEffect(() => {
         const rawDates = clinic.unavailableDates || [];
         const normalizedDates = Array.from(new Set(rawDates.map(d => {
             if (typeof d === 'string') return d;
-            if (d && typeof d === 'object' && 'seconds' in d) {
-                return new Date((d as any).seconds * 1000).toISOString().split('T')[0];
-            }
+            if (d && typeof d === 'object' && 'seconds' in d) return new Date((d as any).seconds * 1000).toISOString().split('T')[0];
             return String(d);
         }).filter(d => !!d && d !== "[object Object]")));
 
-        let normalizedDays = clinic.daysOfAction || [];
-        if (typeof normalizedDays === 'string') {
-            normalizedDays = DAYS_OF_WEEK.filter(d => (clinic.daysOfAction as any).includes(d));
-        }
-
-        setEditedClinic({
-            ...clinic,
-            unavailableDates: normalizedDates,
-            daysOfAction: normalizedDays
-        });
+        setEditedClinic({ ...clinic, unavailableDates: normalizedDates, daysOfAction: clinic.daysOfAction || [] });
     }, [clinic]);
 
     const handleFieldChange = (field: keyof Omit<Clinic, 'id'>, value: any) => {
@@ -109,20 +94,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
         const current = editedClinic.daysOfAction || [];
         const updated = current.includes(day) ? current.filter(d => d !== day) : [...current, day];
         handleFieldChange('daysOfAction', updated);
-    };
-
-    const handleAddCustomSchedule = () => {
-        if (!newScheduleDate || !newScheduleTime) return;
-        const dateStr = format(newScheduleDate, 'yyyy-MM-dd');
-        const currentSchedules = editedClinic.customSchedules || [];
-        const filtered = currentSchedules.filter(s => s.date !== dateStr);
-        handleFieldChange('customSchedules', [...filtered, { date: dateStr, endTime: newScheduleTime }].sort((a,b) => a.date.localeCompare(b.date)));
-        setNewScheduleDate(undefined);
-    };
-
-    const handleRemoveCustomSchedule = (dateStr: string) => {
-        const newSchedules = editedClinic.customSchedules?.filter(s => s.date !== dateStr);
-        handleFieldChange('customSchedules', newSchedules);
     };
 
     const handleDateSelection = (dates: Date[] | undefined) => {
@@ -137,14 +108,10 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
 
     const formatBadgeDate = (d: any) => {
         try {
-            if (!d) return "---";
             const dateStr = typeof d === 'string' ? d : (d.seconds ? new Date(d.seconds * 1000).toISOString().split('T')[0] : String(d));
             const dateObj = new Date(dateStr + 'T12:00:00');
-            if (!isValid(dateObj)) return dateStr;
-            return format(dateObj, 'dd/MM/yy', { locale: es });
-        } catch (e) {
-            return String(d);
-        }
+            return isValid(dateObj) ? format(dateObj, 'dd/MM/yy', { locale: es }) : dateStr;
+        } catch (e) { return String(d); }
     };
 
     const dynamicBreakSlots = useMemo(() => {
@@ -159,262 +126,65 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                 slots.add(current.toTimeString().substring(0, 5));
                 current = new Date(current.getTime() + (editedClinic.consultationDuration || 30) * 60000);
             }
-            if (editedClinic.breakTime) {
-                slots.add(editedClinic.breakTime);
-            }
+            if (editedClinic.breakTime) slots.add(editedClinic.breakTime);
         } catch (e) {}
         return Array.from(slots).sort();
     }, [editedClinic.startTime, editedClinic.endTime, editedClinic.consultationDuration, editedClinic.breakTime]);
 
     return (
         <DialogContent className="sm:max-w-[90vw] h-[95vh] flex flex-col p-0 overflow-hidden">
-            <DialogHeader className="p-6 pb-2 shrink-0 border-b">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <DialogTitle className="text-2xl font-black uppercase">Configuración de Unidad</DialogTitle>
-                        <DialogDescription className="font-bold text-primary">{editedClinic.name || "Nueva Unidad Médica"}</DialogDescription>
-                    </div>
-                </div>
+            <DialogHeader className="p-6 shrink-0 border-b">
+                <DialogTitle className="text-2xl font-black uppercase">Configuración de Unidad</DialogTitle>
+                <DialogDescription className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</DialogDescription>
             </DialogHeader>
             <ScrollArea className="flex-1">
-                 <div className="p-8 space-y-10 pb-20">
-                    <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-8'>
-                        <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Nombre de la Unidad</Label>
-                            <Input value={editedClinic.name} onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())} placeholder="Ej. NB1" className="h-12 text-lg font-bold" />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Médico Responsable</Label>
-                            <Input value={editedClinic.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())} placeholder="DR. NOMBRE" className="h-12 text-lg font-bold" />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">CURP Médico</Label>
-                            <div className="relative">
-                                <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input value={editedClinic.doctorCurp || ''} onChange={(e) => handleFieldChange('doctorCurp', e.target.value.toUpperCase())} placeholder="CURP..." className="h-12 pl-9 font-mono uppercase" maxLength={18} />
-                            </div>
-                        </div>
+                 <div className="p-8 space-y-10">
+                    <div className='grid sm:grid-cols-3 gap-8'>
+                        <div className='space-y-2'><Label className="font-black text-xs uppercase opacity-60">Nombre</Label><Input value={editedClinic.name} onChange={(e) => handleFieldChange('name', e.target.value.toUpperCase())} className="h-12 font-bold" /></div>
+                        <div className='space-y-2'><Label className="font-black text-xs uppercase opacity-60">Médico</Label><Input value={editedClinic.doctorName} onChange={(e) => handleFieldChange('doctorName', e.target.value.toUpperCase())} className="h-12 font-bold" /></div>
+                        <div className='space-y-2'><Label className="font-black text-xs uppercase opacity-60">CURP</Label><Input value={editedClinic.doctorCurp || ''} onChange={(e) => handleFieldChange('doctorCurp', e.target.value.toUpperCase())} className="h-12 font-mono" maxLength={18} /></div>
                     </div>
-
-                    <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-8'>
-                        <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Cédula Profesional</Label>
-                            <div className="relative">
-                                <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input value={editedClinic.professionalLicense || ''} onChange={(e) => handleFieldChange('professionalLicense', e.target.value.toUpperCase())} placeholder="Cédula..." className="h-12 pl-9 uppercase" />
-                            </div>
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Categoría</Label>
-                            <Select value={editedClinic.serviceTypeId} onValueChange={(v) => handleFieldChange('serviceTypeId', v)}>
-                                <SelectTrigger className="h-12 font-bold"><SelectValue placeholder="Tipo de consulta..." /></SelectTrigger>
-                                <SelectContent>
-                                    {serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="font-black text-xs uppercase opacity-60">Especialidad</Label>
-                            <Select value={editedClinic.specialtyId || 'none'} onValueChange={(v) => handleFieldChange('specialtyId', v === 'none' ? undefined : v)}>
-                                <SelectTrigger className="h-12 font-bold"><SelectValue placeholder="Sin especialidad" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Sin Especialidad / General</SelectItem>
-                                    {specialties.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className='grid sm:grid-cols-3 gap-8'>
+                        <div className='space-y-2'><Label className="font-black text-xs uppercase opacity-60">Categoría</Label><Select value={editedClinic.serviceTypeId} onValueChange={(v) => handleFieldChange('serviceTypeId', v)}><SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger><SelectContent>{serviceTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
+                        <div className='space-y-2'><Label className="font-black text-xs uppercase opacity-60">Especialidad</Label><Select value={editedClinic.specialtyId || 'none'} onValueChange={(v) => handleFieldChange('specialtyId', v === 'none' ? undefined : v)}><SelectTrigger className="h-12 font-bold"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">General</SelectItem>{specialties.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div>
+                        <div className='space-y-2'><Label className="font-black text-xs uppercase opacity-60">Cédula</Label><Input value={editedClinic.professionalLicense || ''} onChange={(e) => handleFieldChange('professionalLicense', e.target.value.toUpperCase())} className="h-12" /></div>
                     </div>
-
                     <div className="grid lg:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                            <Label className="text-sm font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                                <CalendarDays className="h-5 w-5" /> Días de Acción (Laborales)
-                            </Label>
+                            <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5" /> Días Laborales</Label>
                             <div className="flex flex-wrap gap-3 p-6 bg-muted/20 border-2 border-dashed rounded-3xl">
-                                {DAYS_OF_WEEK.map(day => (
-                                    <div key={day} className="flex items-center space-x-3 bg-background p-3 px-4 rounded-xl border-2 shadow-sm transition-all hover:border-primary/40">
-                                        <Checkbox id={`day-${day}`} checked={editedClinic.daysOfAction?.includes(day)} onCheckedChange={() => toggleDay(day)} />
-                                        <Label htmlFor={`day-${day}`} className="text-xs font-black cursor-pointer uppercase">{day}</Label>
-                                    </div>
-                                ))}
+                                {DAYS_OF_WEEK.map(day => (<div key={day} className="flex items-center space-x-3 bg-background p-3 px-4 rounded-xl border-2 shadow-sm"><Checkbox id={`day-${day}`} checked={editedClinic.daysOfAction?.includes(day)} onCheckedChange={() => toggleDay(day)} /><Label htmlFor={`day-${day}`} className="text-xs font-black uppercase cursor-pointer">{day}</Label></div>))}
                             </div>
                         </div>
-
                         <div className="space-y-4">
-                            <Label className="text-sm font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                                <Clock className="h-5 w-5" /> Disponibilidad de Agenda
-                            </Label>
+                            <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><Clock className="h-5 w-5" /> Disponibilidad</Label>
                             <div className="p-6 bg-muted/20 border-2 border-dashed rounded-3xl space-y-6">
-                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm">
-                                    <div className="space-y-0.5">
-                                        <Label className="text-sm font-black uppercase">Permitir Fines de Semana</Label>
-                                        <p className="text-[10px] text-muted-foreground font-bold">Habilita la reserva en Sábado y Domingo.</p>
-                                    </div>
-                                    <Switch 
-                                        checked={editedClinic.weekendBookingEnabled} 
-                                        onCheckedChange={(v) => handleFieldChange('weekendBookingEnabled', v)} 
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm">
-                                    <div className="space-y-0.5">
-                                        <Label className="text-sm font-black uppercase text-accent-foreground">Hora de Descanso (Comida)</Label>
-                                        <p className="text-[10px] text-muted-foreground font-bold">Bloquea este horario automáticamente.</p>
-                                    </div>
-                                    <Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}>
-                                        <SelectTrigger className="w-40 h-11 border-accent/40 bg-accent/10 font-black"><SelectValue placeholder="NINGUNO" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Sin Descanso</SelectItem>
-                                            {dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm"><Label className="text-sm font-black uppercase">Fin de Semana</Label><Switch checked={editedClinic.weekendBookingEnabled} onCheckedChange={(v) => handleFieldChange('weekendBookingEnabled', v)} /></div>
+                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm"><Label className="text-sm font-black uppercase">Hora Descanso</Label><Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}><SelectTrigger className="w-40 h-11 bg-accent/10 font-black"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Sin Descanso</SelectItem>{dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
                             </div>
                         </div>
                     </div>
-
-                    <div className='grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-primary">Modo</Label>
-                            <Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}>
-                                <SelectTrigger className="h-11 font-bold border-primary/20"><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="time">Por Horario</SelectItem>
-                                    <SelectItem value="token">Por Ficha</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-primary">Cupo Diario</Label>
-                            <Input type="number" value={editedClinic.dailySlots} onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center border-primary/20" />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-primary">Lista Espera</Label>
-                            <Input type="number" value={editedClinic.waitlistSlots || 0} onChange={(e) => handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center border-primary/20" />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-primary">Duración (m)</Label>
-                            <Input type="number" value={editedClinic.consultationDuration || ''} onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center border-primary/20" />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-primary">Entrada</Label>
-                            <Select value={editedClinic.startTime} onValueChange={(v) => handleFieldChange('startTime', v)}>
-                                <SelectTrigger className="h-11 font-bold border-primary/20"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className='space-y-2'>
-                            <Label className="text-[10px] font-black uppercase text-primary">Salida</Label>
-                            <Select value={editedClinic.endTime} onValueChange={(v) => handleFieldChange('endTime', v)}>
-                                <SelectTrigger className="h-11 font-bold border-primary/20"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className='grid grid-cols-2 md:grid-cols-6 gap-4 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
+                        <div className='space-y-2'><Label className="text-[10px] font-black uppercase">Cupo</Label><Input type="number" value={editedClinic.dailySlots} onChange={(e) => handleFieldChange('dailySlots', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center" /></div>
+                        <div className='space-y-2'><Label className="text-[10px] font-black uppercase">Espera</Label><Input type="number" value={editedClinic.waitlistSlots || 0} onChange={(e) => handleFieldChange('waitlistSlots', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center" /></div>
+                        <div className='space-y-2'><Label className="text-[10px] font-black uppercase">Duración</Label><Input type="number" value={editedClinic.consultationDuration || ''} onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center" /></div>
+                        <div className='space-y-2'><Label className="text-[10px] font-black uppercase">Entrada</Label><Select value={editedClinic.startTime} onValueChange={(v) => handleFieldChange('startTime', v)}><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger><SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
+                        <div className='space-y-2'><Label className="text-[10px] font-black uppercase">Salida</Label><Select value={editedClinic.endTime} onValueChange={(v) => handleFieldChange('endTime', v)}><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger><SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
                     </div>
-
-                    <div className="grid lg:grid-cols-2 gap-10">
-                        <div className='space-y-6'>
-                            <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
-                                <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                    <Clock className="h-5 w-5" /> Salidas Tempranas (Cierres Anticipados)
-                                </h4>
-                                <Badge className="bg-primary text-white h-5">{editedClinic.customSchedules?.length || 0}</Badge>
+                    <div className='space-y-6'>
+                        <h4 className="text-sm font-black uppercase text-primary flex items-center gap-2"><CalendarDays className="h-5 w-5" /> Vacaciones y Bloqueos</h4>
+                        <Popover><PopoverTrigger asChild><Button variant="outline" className='w-full h-12 font-black bg-destructive/5 text-destructive border-destructive/20'><CalendarIcon className="mr-2 h-5 w-5" /> SELECCIONAR EN CALENDARIO</Button></PopoverTrigger><PopoverContent className='w-auto p-0'><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00')).filter(isValid)} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent></Popover>
+                        <ScrollArea className="h-[300px] border-2 border-dashed rounded-3xl bg-muted/5 p-4">
+                            <div className="grid gap-2">
+                                {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.map(d => (
+                                    <div key={String(d)} className="flex items-center justify-between p-3 bg-background border rounded-xl shadow-sm"><span className="text-sm font-bold uppercase">{formatBadgeDate(d)}</span><Button variant="ghost" size="icon" onClick={() => handleRemoveUnavailableDate(String(d))}><X className="h-4 w-4 text-destructive" /></Button></div>
+                                )) : <div className="text-center py-20 opacity-30 uppercase font-black text-xs">Sin días bloqueados</div>}
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase opacity-50">Día</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild><Button variant="outline" className="w-full h-11 text-xs font-bold">{newScheduleDate ? format(newScheduleDate, 'dd/MM/yyyy') : 'Elegir Fecha'}</Button></PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={newScheduleDate} onSelect={setNewScheduleDate} locale={es} disabled={{ before: new Date() }} /></PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase opacity-50">Hora Fin</Label>
-                                    <Select value={newScheduleTime} onValueChange={setNewScheduleTime}>
-                                        <SelectTrigger className="h-11 font-black"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
-                                <Button onClick={handleAddCustomSchedule} className="h-11 font-bold" disabled={!newScheduleDate}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> AGREGAR
-                                </Button>
-                            </div>
-                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2">
-                                {editedClinic.customSchedules?.length ? editedClinic.customSchedules.map(s => (
-                                    <div key={String(s.date)} className="flex items-center justify-between p-4 bg-background border-2 rounded-2xl shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <CalendarIcon className="h-4 w-4 text-primary" />
-                                            <span className="font-black text-sm uppercase">{formatBadgeDate(s.date)}</span>
-                                        </div>
-                                        <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 font-black h-7 px-4">CIERRE: {s.endTime} HRS</Badge>
-                                        <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => handleRemoveCustomSchedule(String(s.date))}><X className="h-5 w-5" /></Button>
-                                    </div>
-                                )) : <div className="text-center py-10 border-2 border-dashed rounded-3xl opacity-30 italic text-xs">No hay cierres anticipados configurados.</div>}
-                            </div>
-                        </div>
-
-                        <div className='space-y-6'>
-                            <div className="flex items-center justify-between border-b-2 border-primary/10 pb-2">
-                                <h4 className="text-sm font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                    <CalendarDays className="h-5 w-5" /> Vacaciones y Días Bloqueados
-                                </h4>
-                                <Badge className="bg-destructive text-white h-5">{editedClinic.unavailableDates?.length || 0}</Badge>
-                            </div>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className='w-full h-12 font-black bg-destructive/5 border-destructive/20 text-destructive hover:bg-destructive/10'>
-                                        <CalendarIcon className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS EN CALENDARIO
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className='w-auto p-0' align="end">
-                                    <Calendar 
-                                        mode="multiple" 
-                                        selected={editedClinic.unavailableDates?.map(d => {
-                                            const dateObj = new Date(typeof d === 'string' ? d + 'T12:00:00' : (d as any).seconds ? (d as any).seconds * 1000 : d);
-                                            return dateObj;
-                                        }).filter(d => isValid(d))} 
-                                        onSelect={handleDateSelection} 
-                                        locale={es} 
-                                        disabled={{ before: new Date() }} 
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            <ScrollArea className="h-[300px] border-2 border-dashed rounded-3xl bg-muted/5 p-4 shadow-inner">
-                                <div className="grid grid-cols-1 gap-2">
-                                    {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.filter(d => !!d && String(d) !== "[object Object]").sort().map(d => (
-                                        <div key={String(d)} className="flex items-center justify-between p-3 bg-background border rounded-xl shadow-sm hover:shadow-md transition-shadow group">
-                                            <div className="flex items-center gap-3">
-                                                <Badge className="bg-destructive/10 text-destructive border-destructive/20 font-black">BLOQUEADO</Badge>
-                                                <span className="text-sm font-bold uppercase">{formatBadgeDate(String(d))}</span>
-                                            </div>
-                                            <button 
-                                                onClick={() => handleRemoveUnavailableDate(String(d))}
-                                                className="h-8 w-8 flex items-center justify-center rounded-full hover:bg-destructive/10 text-destructive transition-colors"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    )) : (
-                                        <div className="text-center py-20 opacity-30 flex flex-col items-center gap-3">
-                                            <CalendarDays className="h-10 w-10" />
-                                            <p className="text-xs font-bold uppercase">Sin días bloqueados</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </ScrollArea>
-                        </div>
+                        </ScrollArea>
                     </div>
                 </div>
             </ScrollArea>
-            <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
-                <DialogClose asChild><Button variant="outline" className="h-12 px-8">Cancelar</Button></DialogClose>
-                <Button onClick={() => onSave(editedClinic)} className="h-12 px-10 font-black bg-primary hover:bg-primary/90 shadow-xl transition-all">
-                    GUARDAR TODA LA CONFIGURACIÓN
-                </Button>
-            </DialogFooter>
+            <DialogFooter className="p-6 border-t bg-muted/10 shrink-0"><Button onClick={() => onSave(editedClinic)} className="h-12 px-10 font-black bg-primary hover:bg-primary/90">GUARDAR CAMBIOS</Button></DialogFooter>
         </DialogContent>
     );
 }
@@ -427,125 +197,37 @@ export function ClinicsManager() {
   const [isSaving, startSavingTransition] = useTransition();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [clinicsData, specialtiesData, servicesData] = await Promise.all([
-          getClinics(), getSpecialties(), getServiceTypes()
-      ]);
+      const [clinicsData, specialtiesData, servicesData] = await Promise.all([getClinics(), getSpecialties(), getServiceTypes()]);
       setClinics(clinicsData);
       setSpecialties(specialtiesData);
       setServiceTypes(servicesData);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setIsLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleEditClick = (clinic: Clinic) => { 
-      setSelectedClinic(clinic); 
-      setIsDialogOpen(true); 
-  }
-  
-  const handleAddNewClick = () => {
-      if (serviceTypes.length === 0) {
-          toast({ title: "Atención", description: "Configura los Tipos de Consulta primero.", variant: "destructive" });
-          return;
-      }
-      const newClinic: Clinic = { 
-        id: uuidv4(), name: '', doctorName: '', doctorCurp: '', professionalLicense: '', password: '123', dailySlots: 15, waitlistSlots: 0, startTime: '08:00', endTime: '13:00', breakTime: '', weekendBookingEnabled: false, daysOfAction: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"], unavailableDates: [], customSchedules: [], serviceTypeId: serviceTypes[0].id, bookingMode: BookingMode.Time, consultationDuration: 30,
-    };
-    setSelectedClinic(newClinic);
-    setIsDialogOpen(true);
-  }
-  
+  const handleEditClick = (clinic: Clinic) => { setSelectedClinic(clinic); setIsDialogOpen(true); }
   const handleDialogSave = (updatedClinic: Clinic) => {
-    const clinicExists = clinics.some(c => c.id === updatedClinic.id);
-    if (clinicExists) { 
-        setClinics(clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c)); 
-    } else { 
-        setClinics(prev => [...prev, updatedClinic].sort((a, b) => a.name.localeCompare(b.name))); 
-    }
+    setClinics(clinics.some(c => c.id === updatedClinic.id) ? clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c) : [...clinics, updatedClinic]);
     setIsDialogOpen(false);
     setSelectedClinic(null);
   }
-
-  const handleSave = () => {
-    startSavingTransition(async () => {
-      await updateClinics(clinics);
-      toast({ title: 'Estructura de Atención Actualizada' });
-      await fetchData();
-    });
-  };
+  const handleSave = () => { startSavingTransition(async () => { await updateClinics(clinics); toast({ title: 'Configuración Sincronizada' }); fetchData(); }); };
 
   if (isLoading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
   return (
     <div className="w-full">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <Card className="shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4 border-b pb-6">
-              <div>
-                  <CardTitle className="text-2xl font-black uppercase flex items-center gap-2"><Hospital className="h-7 w-7 text-primary" /> Estructura de Atención</CardTitle>
-                  <CardDescription>Configura los consultorios, horarios y bloqueos de agenda.</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={fetchData} className="h-11"><RefreshCw className="h-4 w-4" /></Button>
-                <Button onClick={handleAddNewClick} className="h-11 font-bold"><PlusCircle className="mr-2 h-4 w-4" /> Agregar Unidad</Button>
-              </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-              <div className="relative mb-6">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Buscar consultorio o médico..." className="h-11 w-full sm:w-96 pl-9" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-              </div>
-              <div className="border rounded-2xl overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="font-black uppercase text-[10px]">Unidad / Núcleo</TableHead>
-                            <TableHead className="font-black uppercase text-[10px]">Responsable</TableHead>
-                            <TableHead className="font-black uppercase text-[10px]">Categoría</TableHead>
-                            <TableHead className="font-black uppercase text-[10px] text-center">Horario</TableHead>
-                            <TableHead className="text-right pr-6 font-black uppercase text-[10px]">Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {clinics.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())).map(clinic => {
-                            const sType = serviceTypes.find(t => t.id === clinic.serviceTypeId) || 
-                                        serviceTypes.find(t => t.name.toUpperCase() === String(clinic.serviceTypeId || '').toUpperCase());
-                            
-                            return (
-                                <TableRow key={clinic.id} className="hover:bg-muted/30">
-                                    <TableCell className="font-black text-sm text-primary uppercase">{clinic.name}</TableCell>
-                                    <TableCell className="text-xs uppercase font-medium">{clinic.doctorName}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="text-[10px] font-black uppercase tracking-tighter bg-background">{sType?.name || 'N/A'}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center font-mono text-[10px] font-bold">
-                                        {clinic.startTime} - {clinic.endTime}
-                                    </TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        <Button variant="outline" size="sm" onClick={() => handleEditClick(clinic)} className="h-8 font-bold border-primary/20">
-                                            <Pencil className="h-3 w-3 mr-2 text-blue-600" /> Configurar
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
-              </div>
-          </CardContent>
-          <CardFooter className="bg-muted/5 border-t pt-6"><Button onClick={handleSave} disabled={isSaving} className="w-full h-12 text-lg font-black uppercase shadow-lg">SINCRONIZAR TODA LA ESTRUCTURA</Button></CardFooter>
-          </Card>
+          <Card className="shadow-lg"><CardHeader className="flex flex-row items-center justify-between border-b pb-6"><div><CardTitle className="text-2xl font-black uppercase flex items-center gap-2"><Hospital className="h-7 w-7 text-primary" /> Unidades Médicas</CardTitle></div><div className="flex gap-2"><Button variant="outline" onClick={fetchData} className="h-11"><RefreshCw className="h-4 w-4" /></Button><Button onClick={() => { setSelectedClinic({ id: uuidv4(), name: '', doctorName: '', password: '123', dailySlots: 15, startTime: '08:00', endTime: '13:00', weekendBookingEnabled: false, serviceTypeId: serviceTypes[0]?.id || '', bookingMode: BookingMode.Time, consultationDuration: 30 } as Clinic); setIsDialogOpen(true); }} className="h-11 font-bold"><PlusCircle className="mr-2 h-4 w-4" /> Nueva Unidad</Button></div></CardHeader>
+          <CardContent className="pt-6"><div className="relative mb-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." className="pl-9 h-11 w-full sm:w-96" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div><div className="border rounded-2xl overflow-hidden"><Table><TableHeader className="bg-muted/50"><TableRow><TableHead className="font-black uppercase text-[10px]">Unidad</TableHead><TableHead className="font-black uppercase text-[10px]">Doctor</TableHead><TableHead className="font-black uppercase text-[10px] text-right">Acciones</TableHead></TableRow></TableHeader><TableBody>{clinics.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())).map(clinic => (<TableRow key={clinic.id}><TableCell className="font-black text-sm text-primary uppercase">{clinic.name}</TableCell><TableCell className="text-xs uppercase font-medium">{clinic.doctorName}</TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => handleEditClick(clinic)} className="h-8 font-bold border-primary/20"><Pencil className="h-3 w-3 mr-2" /> Editar</Button></TableCell></TableRow>))}</TableBody></Table></div></CardContent>
+          <CardFooter className="bg-muted/5 border-t pt-6"><Button onClick={handleSave} disabled={isSaving} className="w-full h-12 text-lg font-black uppercase shadow-lg">SINCRONIZAR CONFIGURACIÓN</Button></CardFooter></Card>
           {selectedClinic && <ClinicEditDialog clinic={selectedClinic} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
       </Dialog>
     </div>

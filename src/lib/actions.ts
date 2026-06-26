@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -248,7 +249,7 @@ export async function deletePrescription(id: string) {
     return res;
 }
 export async function getPendingPrescriptions(filters: any) { return data.getPendingPrescriptions(filters); }
-export async function getPrescriptionHistory(filters: any) { return data.getPrescriptionHistory(filters); }
+export async function getPrescriptionHistory(filters: any) { return data.getPendingPrescriptions(filters); }
 export async function getPatientPrescriptionsCountTodayAction(patientId: string) { return data.getPatientPrescriptionsCountTodayAction(patientId); }
 export async function getAppointmentCountOnDate(clinicId: string, date: string) { return data.getAppointmentCountOnDate(clinicId, date); }
 
@@ -364,3 +365,5 @@ export async function deleteAllCie10Glossary() { return data.deleteAllCie10Gloss
 export async function deleteAllCie10Catalog() { return data.deleteAllCie10Catalog(); }
 export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
 export async function getLogs() { return data.getLogsData(); }
+export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
+export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }

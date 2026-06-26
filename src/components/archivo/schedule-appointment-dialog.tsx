@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -106,7 +107,6 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                 const isDateBlocked = clinic.unavailableDates?.includes(dateString);
                 const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
 
-                // SPECIAL RULE: Bypassing Special Action Day if doctor mode
                 const isSpecialActionDay = freshSpecialActionDays.some(sad => 
                     sad.date === dateString && 
                     (sad.clinicType === clinic.serviceTypeId || 
@@ -126,7 +126,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                         const slots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
                         availableSlotsForClinic = slots.filter(s => !booked.some(a => a.time === s)).length;
                     } else {
-                        availableSlotsForClinic = Math.max(0, clinic.dailySlots - booked.length);
+                        availableSlotsForClinic = Math.max(0, (clinic.dailySlots || 15) - booked.length);
                     }
                     takenInfo = booked.map(a => ({ time: a.time, duration: a.duration }));
                 }
@@ -149,7 +149,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
 
     const handleDateSelect = (date: Date | undefined) => {
         if (date && !isDoctorBypass && date < startOfToday()) {
-            toast({ title: 'Fecha no válida', description: 'No puedes seleccionar pasado.', variant: 'destructive' });
+            toast({ title: 'Fecha no válida', description: 'No puedes agendar en el pasado.', variant: 'destructive' });
             return;
         }
         setSelectedDate(date);
@@ -326,7 +326,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             
                             {selectedClinicId && (
                                 <Card className="animate-in fade-in">
-                                    <CardHeader><CardTitle className="text-lg">4. Municipio / Colonia</CardTitle></CardHeader>
+                                    <CardHeader><CardTitle className="text-lg">4. Localidad</CardTitle></CardHeader>
                                     <CardContent>
                                         <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
                                             <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Busca la colonia..." /></SelectTrigger>
@@ -334,7 +334,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                                 {filteredColonias.length > 0 ? (
                                                     filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
                                                 ) : (
-                                                    <div className="p-4 text-center text-sm text-muted-foreground italic">No hay colonias vinculadas.</div>
+                                                    <div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas.</div>
                                                 )}
                                             </SelectContent>
                                         </Select>
@@ -349,7 +349,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                         {selectedClinic?.bookingMode === BookingMode.Time ? (
                                             <div className="grid grid-cols-3 gap-2">
                                                 {availableTimeSlots.map(t => <Button key={t} variant={selectedTime === t ? 'default' : 'outline'} onClick={() => setSelectedTime(t)} size="sm" className="font-bold">{t}</Button>)}
-                                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic text-xs">No hay espacios consecutivos disponibles.</p>}
+                                                {availableTimeSlots.length === 0 && <p className="col-span-3 text-center text-muted-foreground italic text-xs">No hay espacios disponibles.</p>}
                                             </div>
                                         ) : (
                                             <Select onValueChange={setSelectedTime} value={selectedTime}>

@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useCallback, useEffect, useTransition, useMemo } from 'react';
 import React from 'react';
@@ -12,13 +13,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay, ServiceType, Specialty } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
-import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword, getSpecialActionDays } from '@/lib/actions';
+import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword, getSpecialActionDays, getServiceTypes } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus, Check, Loader2 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday, addDays, isSameDay } from 'date-fns';
+import { format, eachDayOfInterval, isSaturday, isSunday, startOfToday, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Select,
@@ -27,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -50,7 +51,6 @@ export default function PageContent({
     initialColonias, 
     initialClinics, 
     initialHolidays, 
-    initialSpecialActionDays,
     initialServiceTypes,
 }: PageContentProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -88,11 +88,11 @@ export default function PageContent({
     return slots;
   }, []);
 
-  const fetchAvailability = React.useCallback(async (year: number, month: number) => {
+  const fetchAvailability = React.useCallback(async () => {
       if (!selectedClinicId) return;
       
-      const startDate = startOfMonth(new Date(year, month));
-      const endDate = endOfMonth(new Date(year, month));
+      const startDate = startOfToday();
+      const endDate = addDays(startDate, 31);
       
       const [allAppointments, freshHolidays, freshSpecialActionDays] = await Promise.all([
         getAppointments(), getHolidays(), getSpecialActionDays()
@@ -122,9 +122,8 @@ export default function PageContent({
         
         const isHoliday = holidaySet.has(dateString);
         const isWeekend = isSaturday(day) || isSunday(day);
-        const isSpecialDay = isWeekend || isHoliday;
         
-        // BUSINESS RULE: Special Action Day blocks public booking
+        // Block if it's a Special Action Day for this clinic/service
         const isSpecialActionDay = freshSpecialActionDays.some(sad => 
             sad.date === dateString && 
             (sad.clinicType === clinic.serviceTypeId || 
@@ -132,20 +131,19 @@ export default function PageContent({
              serviceTypes.find(t => t.id === clinic.serviceTypeId)?.name === sad.clinicType)
         );
 
+        const isDateBlocked = clinic.unavailableDates?.includes(dateString);
+        const isWeekendBlocked = isWeekend && !clinic.weekendBookingEnabled;
+        const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
+
+        const isBlocked = isDateBlocked || isHoliday || isWeekendBlocked || isSpecialActionDay || !worksOnThisDay;
+
         let availableSlotsForClinic = 0;
         let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));
-
-        const isDateBlocked = clinic.unavailableDates?.includes(dateString);
-        const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
-        const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
-
-        const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked || isSpecialActionDay;
 
         if (!isBlocked) {
             if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
                 const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
                 const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
-                
                 const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
                 const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
                 availableSlotsForClinic = filteredSlots.filter(s => !dayBooked.some(a => a.time === s)).length;
@@ -167,10 +165,10 @@ export default function PageContent({
   React.useEffect(() => {
     if (isAuthenticated && selectedClinicId) {
         startTransition(async () => {
-            await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+            await fetchAvailability();
         });
     }
-  }, [isAuthenticated, fetchAvailability, currentMonth, selectedClinicId]);
+  }, [isAuthenticated, fetchAvailability, selectedClinicId]);
 
   const handleDateSelect = (date: Date | undefined) => {
     if (date && date < startOfToday()) {
@@ -262,27 +260,14 @@ export default function PageContent({
 
   const projectedGridData = useMemo(() => {
     if (!selectedClinicId || availability.length === 0) return [];
-    
     const today = startOfToday();
     const range = Array.from({ length: 14 }, (_, i) => addDays(today, i));
-    
     return range.map(date => {
         const dateStr = format(date, 'yyyy-MM-dd');
         const avail = availability.find(a => a.date === dateStr);
-        return {
-            date,
-            dateStr,
-            slots: avail?.availableSlots ?? 0,
-            isClosed: avail === undefined || avail.availableSlots === 0
-        };
+        return { date, dateStr, slots: avail?.availableSlots ?? 0, isClosed: avail === undefined || avail.availableSlots === 0 };
     });
   }, [selectedClinicId, availability]);
-
-  const fetchData = () => {
-    if (selectedClinicId) {
-        fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
-    }
-  }
 
   if (!isAuthenticated) return <ModuleLoginForm title="Citas Médicas" onVerify={verifyCitasMedicasPassword} onSuccess={() => setIsAuthenticated(true)} />;
 
@@ -295,29 +280,20 @@ export default function PageContent({
       </div>
 
       <div className="grid lg:grid-cols-12 gap-8 max-w-7xl mx-auto">
-          {/* COLUMNA IZQUIERDA: CONFIGURACIÓN INICIAL */}
           <div className="lg:col-span-4 space-y-6">
               <Card className="shadow-lg border-primary/10 overflow-hidden">
                 <CardContent className="p-6 space-y-8">
-                    {/* 1. TIPO DE CONSULTA */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                            <LayoutList className="h-5 w-5" /> 1. Categoría
-                        </h3>
+                        <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2"><LayoutList className="h-5 w-5" /> 1. Categoría</h3>
                         <Select onValueChange={setSelectedServiceTypeId} value={selectedServiceTypeId}>
                             <SelectTrigger className="h-12 text-base font-bold"><SelectValue placeholder="Elige el servicio..." /></SelectTrigger>
-                            <SelectContent>
-                                {serviceTypes.map(t => <SelectItem key={t.id} value={t.id} className="font-bold">{t.name}</SelectItem>)}
-                            </SelectContent>
+                            <SelectContent>{serviceTypes.map(t => <SelectItem key={t.id} value={t.id} className="font-bold">{t.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
 
-                    {/* 2. CONSULTORIO */}
                     {selectedServiceTypeId && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                            <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                                <Hospital className="h-5 w-5" /> 2. Consultorio
-                            </h3>
+                            <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2"><Hospital className="h-5 w-5" /> 2. Consultorio</h3>
                             <div className="grid gap-2">
                                 {clinicOptions.map(opt => (
                                     <button 
@@ -325,18 +301,11 @@ export default function PageContent({
                                         onClick={() => handleClinicSelect(opt.value)}
                                         className={cn(
                                             "w-full p-4 rounded-xl border-2 text-left transition-all group",
-                                            selectedClinicId === opt.value 
-                                                ? "bg-primary border-primary text-white shadow-md ring-2 ring-primary/20 scale-[1.02]" 
-                                                : "bg-background border-muted hover:border-primary/40 hover:bg-muted/30"
+                                            selectedClinicId === opt.value ? "bg-primary border-primary text-white shadow-md ring-2 ring-primary/20 scale-[1.02]" : "bg-background border-muted hover:border-primary/40 hover:bg-muted/30"
                                         )}
                                     >
                                         <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-black text-sm uppercase leading-none">{opt.label}</p>
-                                                <p className={cn("text-[10px] mt-1 font-bold uppercase", selectedClinicId === opt.value ? "text-white/70" : "text-muted-foreground group-hover:text-primary")}>
-                                                    Dr. {opt.doctor}
-                                                </p>
-                                            </div>
+                                            <div><p className="font-black text-sm uppercase leading-none">{opt.label}</p><p className={cn("text-[10px] mt-1 font-bold uppercase", selectedClinicId === opt.value ? "text-white/70" : "text-muted-foreground group-hover:text-primary")}>Dr. {opt.doctor}</p></div>
                                             {selectedClinicId === opt.value && <Check className="h-5 w-5 text-white" />}
                                         </div>
                                     </button>
@@ -344,22 +313,15 @@ export default function PageContent({
                             </div>
                         </div>
                     )}
-                    
-                    {/* INDICADORES ADICIONALES */}
                     <Separator className="opacity-50" />
                     <div className="space-y-4">
-                         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                            <Clock className="h-4 w-4" /> Los horarios se actualizan en tiempo real.
-                         </div>
-                         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                            <Bell className="h-4 w-4" /> Recuerda llegar 15 min antes.
-                         </div>
+                         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground"><Clock className="h-4 w-4" /> Los horarios se actualizan en tiempo real.</div>
+                         <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground"><Bell className="h-4 w-4" /> Recuerda llegar 15 min antes.</div>
                     </div>
                 </CardContent>
               </Card>
           </div>
 
-          {/* COLUMNA DERECHA: GRID DE DISPONIBILIDAD Y FORMULARIO */}
           <div className="lg:col-span-8 space-y-8">
               {!selectedClinicId ? (
                   <div className="h-full min-h-[500px] flex flex-col items-center justify-center border-2 border-dashed rounded-[2.5rem] opacity-20 bg-muted/5">
@@ -369,13 +331,10 @@ export default function PageContent({
                   </div>
               ) : (
                   <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-                      {/* 3. GRID DE DISPONIBILIDAD PROYECTADA (2 SEMANAS) */}
                       <Card className="shadow-xl border-primary/10 overflow-hidden rounded-[2.5rem] relative">
                           <CardHeader className="bg-primary/5 pb-4 border-b border-primary/5">
                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-xl font-black uppercase text-primary tracking-wider flex items-center gap-2">
-                                        <CalendarDays className="h-6 w-6" /> 3. Disponibilidad Próximas 2 Semanas
-                                    </CardTitle>
+                                    <CardTitle className="text-xl font-black uppercase text-primary tracking-wider flex items-center gap-2"><CalendarDays className="h-6 w-6" /> 3. Disponibilidad Próximas 2 Semanas</CardTitle>
                                     <Badge variant="outline" className="font-bold bg-background">Cupo en {selectedClinic?.name}</Badge>
                                </div>
                           </CardHeader>
@@ -394,164 +353,59 @@ export default function PageContent({
                                         disabled={item.isClosed}
                                         className={cn(
                                             "relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all group",
-                                            isSameDay(selectedDate || new Date(0), item.date)
-                                                ? "bg-primary border-primary text-white shadow-lg ring-4 ring-primary/10 scale-105 z-10" 
-                                                : item.isClosed
-                                                    ? "bg-muted/30 border-muted opacity-40 cursor-not-allowed grayscale"
-                                                    : "bg-background border-muted hover:border-primary/40 hover:bg-primary/5"
+                                            isSameDay(selectedDate || new Date(0), item.date) ? "bg-primary border-primary text-white shadow-lg ring-4 ring-primary/10 scale-105 z-10" : item.isClosed ? "bg-muted/30 border-muted opacity-40 cursor-not-allowed grayscale" : "bg-background border-muted hover:border-primary/40 hover:bg-primary/5"
                                         )}
                                       >
-                                          <span className={cn("text-[9px] font-black uppercase tracking-tighter mb-1", isSameDay(selectedDate || new Date(0), item.date) ? "text-white/60" : "text-muted-foreground")}>
-                                              {format(item.date, 'EEEE', { locale: es })}
-                                          </span>
+                                          <span className={cn("text-[9px] font-black uppercase tracking-tighter mb-1", isSameDay(selectedDate || new Date(0), item.date) ? "text-white/60" : "text-muted-foreground")}>{format(item.date, 'EEEE', { locale: es })}</span>
                                           <span className="text-lg font-black leading-none">{format(item.date, 'dd')}</span>
-                                          <span className={cn("text-[9px] font-bold uppercase", isSameDay(selectedDate || new Date(0), item.date) ? "text-white/80" : "text-muted-foreground")}>
-                                              {format(item.date, 'MMM', { locale: es })}
-                                          </span>
-                                          
-                                          {!item.isClosed && (
-                                              <Badge className={cn(
-                                                  "mt-2 text-[9px] font-black w-full justify-center px-1",
-                                                  isSameDay(selectedDate || new Date(0), item.date)
-                                                    ? "bg-white text-primary"
-                                                    : item.slots > 5 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                                              )}>
-                                                  {item.slots} LIBRES
-                                              </Badge>
-                                          )}
-                                          {item.isClosed && (
-                                              <Badge variant="ghost" className="mt-2 text-[9px] font-black text-muted-foreground">CERRADO</Badge>
-                                          )}
+                                          <span className={cn("text-[9px] font-bold uppercase", isSameDay(selectedDate || new Date(0), item.date) ? "text-white/80" : "text-muted-foreground")}>{format(item.date, 'MMM', { locale: es })}</span>
+                                          {!item.isClosed && (<Badge className={cn("mt-2 text-[9px] font-black w-full justify-center px-1", isSameDay(selectedDate || new Date(0), item.date) ? "bg-white text-primary" : item.slots > 5 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700")}>{item.slots} LIBRES</Badge>)}
+                                          {item.isClosed && (<Badge variant="ghost" className="mt-2 text-[9px] font-black text-muted-foreground">CERRADO</Badge>)}
                                       </button>
                                   ))}
                               </div>
-
                               <div className="mt-8 flex justify-center">
                                     <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" className="h-10 px-8 font-bold border-dashed border-primary/40 text-primary hover:bg-primary/5">
-                                                <CalendarDays className="mr-2 h-4 w-4" /> Buscar otra fecha en el Calendario
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="center">
-                                            <AvailabilityCalendar 
-                                                selectedDate={selectedDate} 
-                                                onDateSelect={handleDateSelect} 
-                                                availability={availability} 
-                                                onMonthChange={setCurrentMonth} 
-                                                isLoading={isPending} 
-                                            />
-                                        </PopoverContent>
+                                        <PopoverTrigger asChild><Button variant="outline" className="h-10 px-8 font-bold border-dashed border-primary/40 text-primary hover:bg-primary/5"><CalendarDays className="mr-2 h-4 w-4" /> Buscar otra fecha en el Calendario</Button></PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="center"><AvailabilityCalendar selectedDate={selectedDate} onDateSelect={handleDateSelect} availability={availability} onMonthChange={setCurrentMonth} isLoading={isPending} /></PopoverContent>
                                     </Popover>
                               </div>
                           </CardContent>
                       </Card>
 
-                      {/* 4. LOCALIDAD Y DATOS */}
                       {selectedDate && (
                           <Card className="shadow-xl border-primary/20 animate-in fade-in slide-in-from-bottom-6 duration-700 rounded-[2.5rem]">
                               <CardContent className="p-10 space-y-10">
                                   <div className="grid md:grid-cols-2 gap-10">
-                                      {/* MUNICIPIO */}
                                       <div className="space-y-4">
-                                          <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                                              <MapPin className="h-5 w-5" /> 4. Tu Localidad
-                                          </h3>
+                                          <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2"><MapPin className="h-5 w-5" /> 4. Tu Localidad</h3>
                                           <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
                                               <SelectTrigger className="h-12 text-base font-bold border-primary/20"><SelectValue placeholder="Busca tu colonia..." /></SelectTrigger>
-                                              <SelectContent>
-                                                  {filteredColonias.length > 0 ? (
-                                                      filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
-                                                  ) : (
-                                                      <div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas a este consultorio.</div>
-                                                  )}
-                                              </SelectContent>
+                                              <SelectContent>{filteredColonias.length > 0 ? (filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)) : (<div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas a este consultorio.</div>)}</SelectContent>
                                           </Select>
                                       </div>
-
-                                      {/* TIPO PACIENTE */}
                                       <div className="space-y-4">
-                                          <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                                              <Badge variant="outline" className="border-primary text-primary h-5 text-[10px]">P2</Badge> Tipo de Paciente
-                                          </h3>
+                                          <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2"><Badge variant="outline" className="border-primary text-primary h-5 text-[10px]">P2</Badge> Tipo de Paciente</h3>
                                           <Select onValueChange={(v: PatientType) => setPatientType(v)} value={patientType}>
                                               <SelectTrigger className="h-12 text-base font-bold"><SelectValue /></SelectTrigger>
-                                              <SelectContent>
-                                                  {Object.values(PatientType).map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}
-                                              </SelectContent>
+                                              <SelectContent>{Object.values(PatientType).map(t => <SelectItem key={t} value={t} className="font-bold">{t}</SelectItem>)}</SelectContent>
                                           </Select>
-                                          {patientType === PatientType.Embarazada && (
-                                              <div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-xl animate-in slide-in-from-top-2">
-                                                  <Checkbox id="d-slot" checked={isDoubleSlot} onCheckedChange={(v) => setIsDoubleSlot(!!v)} />
-                                                  <Label htmlFor="d-slot" className="text-xs font-black text-pink-700 uppercase cursor-pointer">Solicitar Horario Doble (Consecutivo)</Label>
-                                              </div>
-                                          )}
+                                          {patientType === PatientType.Embarazada && (<div className="flex items-center space-x-2 p-3 bg-pink-50 border border-pink-100 rounded-xl animate-in slide-in-from-top-2"><Checkbox id="d-slot" checked={isDoubleSlot} onCheckedChange={(v) => setIsDoubleSlot(!!v)} /><Label htmlFor="d-slot" className="text-xs font-black text-pink-700 uppercase cursor-pointer">Solicitar Horario Doble (Consecutivo)</Label></div>)}
                                       </div>
                                   </div>
-
                                   <Separator className="opacity-50" />
-
-                                  {/* 5. HORARIOS */}
                                   {selectedColoniaId && (
                                       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-                                          <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                                              <Clock className="h-5 w-5" /> 5. Elige tu Horario
-                                          </h3>
+                                          <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2"><Clock className="h-5 w-5" /> 5. Elige tu Horario</h3>
                                           {selectedClinic?.bookingMode === BookingMode.Time ? (
                                               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                                  {availableTimeSlots.map(time => (
-                                                      <Button 
-                                                          key={time} 
-                                                          variant={selectedTime === time ? 'default' : 'outline'}
-                                                          onClick={() => setSelectedTime(time)}
-                                                          className={cn(
-                                                              "h-14 text-base font-black transition-all rounded-2xl", 
-                                                              selectedTime === time ? "scale-105 shadow-xl ring-4 ring-primary/20" : ""
-                                                          )}
-                                                      >
-                                                          {time}
-                                                      </Button>
-                                                  ))}
-                                                  {availableTimeSlots.length === 0 && (
-                                                      <div className="col-span-full text-center py-12 bg-rose-50/50 border-2 border-dashed border-rose-200 rounded-3xl text-rose-700 font-bold italic">
-                                                          No hay horarios disponibles para el criterio seleccionado o los espacios restantes son insuficientes para cita doble.
-                                                      </div>
-                                                  )}
+                                                  {availableTimeSlots.map(time => (<Button key={time} variant={selectedTime === time ? 'default' : 'outline'} onClick={() => setSelectedTime(time)} className={cn("h-14 text-base font-black transition-all rounded-2xl", selectedTime === time ? "scale-105 shadow-xl ring-4 ring-primary/20" : "")}>{time}</Button>))}
+                                                  {availableTimeSlots.length === 0 && (<div className="col-span-full text-center py-12 bg-rose-50/50 border-2 border-dashed border-rose-200 rounded-3xl text-rose-700 font-bold italic">No hay horarios disponibles para el criterio seleccionado.</div>)}
                                               </div>
                                           ) : (
-                                              <div className="max-w-md mx-auto">
-                                                  <Select onValueChange={setSelectedTime} value={selectedTime}>
-                                                      <SelectTrigger className="h-14 text-lg font-black border-primary/30 rounded-2xl"><SelectValue placeholder="Selecciona una ficha disponible..." /></SelectTrigger>
-                                                      <SelectContent>
-                                                          {availableTokens.map(token => <SelectItem key={token} value={token} className="font-bold">{token}</SelectItem>)}
-                                                          {availableTokens.length === 0 && <p className="p-2 text-center text-muted-foreground italic">No hay fichas disponibles.</p>}
-                                                      </SelectContent>
-                                                  </Select>
-                                              </div>
+                                              <div className="max-w-md mx-auto"><Select onValueChange={setSelectedTime} value={selectedTime}><SelectTrigger className="h-14 text-lg font-black border-primary/30 rounded-2xl"><SelectValue placeholder="Selecciona una ficha disponible..." /></SelectTrigger><SelectContent>{availableTokens.map(token => <SelectItem key={token} value={token} className="font-bold">{token}</SelectItem>)}</SelectContent></Select></div>
                                           )}
-
-                                          {/* FORMULARIO FINAL */}
-                                          {selectedTime && (
-                                              <div className="pt-10 animate-in fade-in zoom-in-95 duration-500 border-t border-dashed mt-10">
-                                                  <div className="bg-primary/5 p-8 rounded-[2rem] border border-primary/10">
-                                                      <div className="flex items-center gap-3 mb-8">
-                                                          <div className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-black">6</div>
-                                                          <h3 className="text-xl font-black uppercase text-primary tracking-widest">Confirma tus Datos</h3>
-                                                      </div>
-                                                      <BookingForm 
-                                                          selectedDate={selectedDate}
-                                                          selectedClinic={selectedClinic}
-                                                          selectedColoniaName={selectedColonia?.name}
-                                                          selectedTime={selectedTime}
-                                                          patientType={patientType}
-                                                          isDoubleSlot={isDoubleSlot}
-                                                          onBookingSuccess={() => fetchData()}
-                                                          announcements={announcements}
-                                                          requireColonia={true}
-                                                      />
-                                                  </div>
-                                              </div>
-                                          )}
+                                          {selectedTime && (<div className="pt-10 animate-in fade-in zoom-in-95 duration-500 border-t border-dashed mt-10"><div className="bg-primary/5 p-8 rounded-[2rem] border border-primary/10"><div className="flex items-center gap-3 mb-8"><div className="bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-black">6</div><h3 className="text-xl font-black uppercase text-primary tracking-widest">Confirma tus Datos</h3></div><BookingForm selectedDate={selectedDate} selectedClinic={selectedClinic} selectedColoniaName={selectedColonia?.name} selectedTime={selectedTime} patientType={patientType} isDoubleSlot={isDoubleSlot} onBookingSuccess={() => fetchAvailability()} announcements={announcements} requireColonia={true} /></div></div>)}
                                       </div>
                                   )}
                               </CardContent>
