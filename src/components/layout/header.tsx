@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
-import { cn } from '@/lib/utils';
 
 export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings }) {
   const pathname = usePathname();
@@ -53,7 +52,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
         </Link>
 
         {mounted && getPageTitle() && (
-          <span className="text-muted-foreground text-xl font-black border-l border-muted h-8 flex items-center px-4 hidden lg:flex uppercase tracking-tighter ml-2">
+          <span className="text-muted-foreground text-xl font-black border-l border-muted h-8 flex items-center px-4 lg:flex uppercase tracking-tighter">
             {getPageTitle()}
           </span>
         )}

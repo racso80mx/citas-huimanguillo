@@ -216,12 +216,23 @@ export async function verifyArchivePassword(p: string) { const s = await data.ge
 export async function verifyPharmacyPassword(p: string) { const s = await data.getPharmacySettingsData(); return { success: s.password === p }; }
 export async function verifyWarehousePassword(p: string) { const s = await data.getWarehouseSettingsData(); return { success: s.password === p }; }
 export async function verifyBIPassword(p: string) { const s = await data.getBISettingsData(); return { success: s.password === p }; }
-export async function verifyCitasMedicasPassword(p: string) { const s = await data.getModuleSettings(); return { success: s.citasMedicasPassword === p }; }
-export async function verifyLabPassword(p: string) { const s = await data.getLabSettings(); return { success: s.password === p }; }
-export async function verifyXRayPassword(p: string) { const s = await data.getXRaySettings(); return { success: s.password === p }; }
-export async function verifyUltrasoundPassword(p: string) { const s = await data.getUltrasoundSettings(); return { success: s.password === p }; }
-export async function verifyVaccinePassword(p: string) { const s = await data.getVaccineSettings(); return { success: s.password === p }; }
-export async function verifyClinicPassword(id: string, p: string) { return data.verifyClinicPassword(id, p); }
+
+export async function verifyLabPassword(p: string) { 
+    const s = await data.getLabSettings(); 
+    return { success: s.password === p }; 
+}
+export async function verifyXRayPassword(p: string) { 
+    const s = await data.getXRaySettings(); 
+    return { success: s.password === p }; 
+}
+export async function verifyUltrasoundPassword(p: string) { 
+    const s = await data.getUltrasoundSettings(); 
+    return { success: s.password === p }; 
+}
+export async function verifyVaccinePassword(p: string) { 
+    const s = await data.getVaccineSettings(); 
+    return { success: s.password === p }; 
+}
 
 // --- CONSULTAS Y RECETAS ---
 export async function getConsultationsByPatientId(patientId: string) { return data.getConsultationsByPatientId(patientId); }
@@ -324,7 +335,7 @@ export async function updateArchiveSettings(s: ArchiveSettings) {
     revalidatePath('/', 'layout');
     return res;
 }
-export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
+export async function getPharmacySettingsData() { return data.getPharmacySettingsData(); }
 export async function updatePharmacySettings(s: PharmacySettings) { 
     const res = await data.updatePharmacySettings(s);
     revalidatePath('/', 'layout');
@@ -366,7 +377,10 @@ export async function logActivity(a: string, d: string) { return data.logActivit
 export async function getLogs() { return data.getLogsData(); }
 export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
-
-// MAINTENANCE EXPORTS
 export async function deleteAllMedications() { return data.deleteAllMedications(); }
 export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
+export async function verifyClinicPassword(id: string, p: string) { 
+    const snap = await data.getClinicsData();
+    const clinic = snap.find(c => c.id === id);
+    return { success: clinic?.password === p };
+}

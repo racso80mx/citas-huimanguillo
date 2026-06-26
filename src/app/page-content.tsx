@@ -76,8 +76,8 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
   const enabledModules = allModules.filter(mod => mod.enabled);
 
   return (
-    <div className="w-full px-4 py-4">
-      <div className="text-center mb-10 flex flex-col items-center">
+    <div className="w-full p-0">
+      <div className="text-center mb-10 flex flex-col items-center pt-8">
         <div className="text-primary mb-6">
           <Image
             src={logoBase64}
@@ -91,15 +91,15 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
         <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground tracking-tighter">
           Bienvenido a CitaMedicaFacil
         </h1>
-        <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto font-medium">
+        <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto font-medium px-4">
           Selecciona el servicio que necesitas y agenda tu cita de forma rápida y sencilla.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-[1600px] mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 w-full">
         {enabledModules.map((mod) => (
           <Link href={mod.href} key={mod.href}>
-            <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6 bg-card border-primary/10 group">
+            <Card className="hover:shadow-xl hover:bg-primary/5 transition-all duration-300 h-full flex flex-col items-center text-center p-8 bg-card border rounded-none group">
               <CardHeader className="p-0">
                 <div className="mb-4 flex justify-center p-4 bg-primary/5 rounded-full group-hover:bg-primary/10 transition-colors">{mod.icon}</div>
                 <CardTitle className="text-xl font-headline font-bold">{mod.title}</CardTitle>
@@ -109,7 +109,7 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
           </Link>
         ))}
          {enabledModules.length === 0 && (
-            <div className="col-span-full text-center py-20 bg-muted/20 rounded-3xl border-2 border-dashed">
+            <div className="col-span-full text-center py-20 bg-muted/20 border-2 border-dashed mx-4 rounded-3xl">
                 <p className="text-xl font-bold text-muted-foreground">No hay módulos de citas activos en este momento.</p>
                 <p className="text-sm text-muted-foreground mt-1">Por favor, contacta al administrador del Hospital.</p>
             </div>

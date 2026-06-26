@@ -53,7 +53,6 @@ import type {
 } from './definitions';
 import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
-import { startOfMonth, endOfMonth } from 'date-fns';
 
 // Helper de serialización para NextJS Server Actions
 export function serializeData(data: any): any {
@@ -330,6 +329,18 @@ export async function getAppointmentsForClinic(cid: string) {
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) }));
 }
 
+export async function deleteAppointment(id: string) { await deleteDoc(doc(adminDb, 'appointments', id)); return { success: true }; }
+export async function deleteLabAppointment(id: string) { await deleteDoc(doc(adminDb, 'labAppointments', id)); return { success: true }; }
+export async function deleteXRayAppointment(id: string) { await deleteDoc(doc(adminDb, 'xrayAppointments', id)); return { success: true }; }
+export async function deleteUltrasoundAppointment(id: string) { await deleteDoc(doc(adminDb, 'ultrasoundAppointments', id)); return { success: true }; }
+export async function deleteVaccineAppointment(id: string) { await deleteDoc(doc(adminDb, 'vaccineAppointments', id)); return { success: true }; }
+
+export async function updateAppointmentStatus(id: string, s: string, type: string) {
+    const m: Record<string, string> = { medical: 'appointments', lab: 'labAppointments', xray: 'xrayAppointments', ultrasound: 'ultrasoundAppointments', vaccine: 'vaccineAppointments' };
+    await updateDoc(doc(adminDb, m[type], id), { status: s });
+    return { success: true };
+}
+
 export async function rescheduleAppointment(id: string, date: string, type: string) {
     const m: Record<string, string> = { medical: 'appointments', lab: 'labAppointments', xray: 'xrayAppointments', ultrasound: 'ultrasoundAppointments', vaccine: 'vaccineAppointments' };
     await updateDoc(doc(adminDb, m[type], id), { date });
@@ -374,28 +385,6 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
         }
         return { timeSlots: slots };
     }
-}
-
-// --- MANTENIMIENTO ---
-export async function bulkInsertPatients(pats: any[]) { const batch = writeBatch(adminDb); pats.forEach(p => { const id = (p.CURP || p.curp || uuidv4()).toUpperCase(); batch.set(doc(adminDb, 'patients', id), { ...p, id, curp: id, status: p.status || PatientStatus.Vigente }, { merge: true }); }); await batch.commit(); return { success: true, processedCount: pats.length }; }
-export async function bulkInsertDoctors(docs: any[]) { const batch = writeBatch(adminDb); docs.forEach(d => { const id = uuidv4(); batch.set(doc(adminDb, 'clinics', id), { ...d, id, name: d.Unidad || d.name, doctorName: d.Médico || d.doctorName, serviceTypeId: d.serviceTypeId || d.Categoría || '' }); }); await batch.commit(); return { success: true, processedCount: docs.length }; }
-export async function scanDuplicates(criteria: string) { const all = await getRawCollection('patients', 1000) as Patient[]; const groups: Record<string, Patient[]> = {}; all.forEach(p => { const key = criteria === 'expediente' ? String(p.expediente) : criteria === 'curp' ? p.curp : `${p.name}_${p.paternalLastName}`; if (key) { groups[key] = groups[key] || []; groups[key].push(p); } }); return Object.values(groups).filter(g => g.length > 1); }
-export async function applyStatusUpdateChunk(exps: string[], s: string) { const batch = writeBatch(adminDb); let count = 0; for(const exp of exps) { const q = query(collection(adminDb, 'patients'), where('expediente', '==', exp), limit(5)); const snap = await getDocs(q); snap.docs.forEach(d => { batch.update(d.ref, { status: s }); count++; }); } await batch.commit(); return { success: true, count }; }
-export async function normalizeExpedientesAction() { const snap = await getDocs(collection(adminDb, 'patients')); const batch = writeBatch(adminDb); let count = 0; snap.docs.forEach(d => { const exp = d.data().expediente; if (exp && !String(exp).startsWith('0')) { batch.update(d.ref, { expediente: `0${exp}` }); count++; } }); await batch.commit(); return { success: true, count }; }
-export async function downloadBackupAction() {
-    const [apps, lab, xray, us, vac, pats, clins] = await Promise.all([getRawCollection('appointments'), getRawCollection('labAppointments'), getRawCollection('xrayAppointments'), getRawCollection('ultrasoundAppointments'), getRawCollection('vaccineAppointments'), getRawCollection('patients', 2000), getRawCollection('clinics')]);
-    return { success: true, data: { appointments: apps, labAppointments: lab, xRayAppointments: xray, ultrasoundAppointments: us, vaccineAppointments: vac, patients: pats, clinics: clins } };
-}
-export async function cleanupOldRecords() {
-    const limitDate = new Date(); limitDate.setMonth(limitDate.getMonth() - 1); const limitStr = limitDate.toISOString();
-    const cols = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments', 'activityLog'];
-    let total = 0;
-    for (const c of cols) {
-        const snap = await getDocs(collection(adminDb, c)); const batch = writeBatch(adminDb);
-        snap.docs.forEach(d => { const date = d.data().date || d.data().timestamp; if (date && date < limitStr) { batch.delete(d.ref); total++; } });
-        await batch.commit();
-    }
-    return { success: true, deletedCount: total };
 }
 
 // --- CLÍNICAS ---
@@ -484,3 +473,107 @@ export async function deleteAllMedications() { const snap = await getDocs(collec
 export async function deleteAllSupplies() { const snap = await getDocs(collection(adminDb, 'supplies')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
 export async function bulkInsertMedications(p: any[]) { const batch = writeBatch(adminDb); p.forEach(i => { const id = uuidv4(); batch.set(doc(adminDb, 'medications', id), { ...i, id }); }); await batch.commit(); return { success: true, processedCount: p.length }; }
 export async function bulkInsertSupplies(p: any[]) { const batch = writeBatch(adminDb); p.forEach(i => { const id = uuidv4(); batch.set(doc(adminDb, 'supplies', id), { ...i, id }); }); await batch.commit(); return { success: true, processedCount: p.length }; }
+
+// --- MANTENIMIENTO ---
+export async function bulkInsertPatients(patients: any[]) {
+    const batch = writeBatch(adminDb);
+    patients.forEach(p => {
+        const id = p.CURP?.toUpperCase() || uuidv4();
+        batch.set(doc(adminDb, 'patients', id), {
+            id,
+            curp: id,
+            name: String(p.Nombre || '').toUpperCase(),
+            paternalLastName: String(p.Apaterno || '').toUpperCase(),
+            maternalLastName: String(p.Amaterno || '').toUpperCase(),
+            expediente: String(p['No.Expediente'] || ''),
+            phoneNumber: String(p.Telefono || ''),
+            status: p.Estatus || PatientStatus.Vigente,
+            coloniaName: String(p.Colonia || '').toUpperCase()
+        }, { merge: true });
+    });
+    await batch.commit();
+    return { success: true, processedCount: patients.length };
+}
+
+export async function bulkInsertDoctors(doctors: any[]) {
+    const batch = writeBatch(adminDb);
+    doctors.forEach(d => {
+        const id = uuidv4();
+        batch.set(doc(adminDb, 'clinics', id), {
+            id,
+            doctorName: String(d.Médico || '').toUpperCase(),
+            doctorCurp: String(d.CURP || '').toUpperCase(),
+            professionalLicense: String(d.Cédula || ''),
+            name: String(d.Unidad || '').toUpperCase(),
+            serviceTypeId: d.Categoría || '',
+            bookingMode: BookingMode.Time,
+            dailySlots: 10,
+            startTime: '08:00',
+            endTime: '13:00'
+        });
+    });
+    await batch.commit();
+    return { success: true, processedCount: doctors.length };
+}
+
+export async function downloadBackupAction() {
+    const [p, a, l, x, u, v, c] = await Promise.all([
+        getRawCollection('patients'),
+        getRawCollection('appointments'),
+        getRawCollection('labAppointments'),
+        getRawCollection('xrayAppointments'),
+        getRawCollection('ultrasoundAppointments'),
+        getRawCollection('vaccineAppointments'),
+        getRawCollection('clinics')
+    ]);
+    return { success: true, data: { patients: p, appointments: a, labAppointments: l, x RayAppointments: x, ultrasoundAppointments: u, vaccineAppointments: v, clinics: c } };
+}
+
+export async function scanDuplicates(criteria: string) {
+    const pats = await getRawCollection('patients') as Patient[];
+    const groups = new Map<string, Patient[]>();
+    pats.forEach(p => {
+        const key = criteria === 'expediente' ? p.expediente : criteria === 'curp' ? p.curp : `${p.name} ${p.paternalLastName}`;
+        if (!key) return;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(p);
+    });
+    return Array.from(groups.values()).filter(g => g.length > 1);
+}
+
+export async function applyStatusUpdateChunk(expedientes: string[], status: string) {
+    const batch = writeBatch(adminDb);
+    let count = 0;
+    for (const exp of expedientes) {
+        const q = query(collection(adminDb, 'patients'), where('expediente', '==', exp));
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => {
+            batch.update(d.ref, { status });
+            count++;
+        });
+    }
+    await batch.commit();
+    return { success: true, count };
+}
+
+export async function normalizeExpedientesAction() {
+    const pats = await getRawCollection('patients') as Patient[];
+    const batch = writeBatch(adminDb);
+    let count = 0;
+    pats.forEach(p => {
+        if (p.expediente && !p.expediente.startsWith('0')) {
+            batch.update(doc(adminDb, 'patients', p.id), { expediente: '0' + p.expediente });
+            count++;
+        }
+    });
+    await batch.commit();
+    return { success: true, count };
+}
+
+export async function cleanupOldRecords() {
+    const snap = await getDocs(collection(adminDb, 'appointments'));
+    const batch = writeBatch(adminDb);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    return { success: true, deletedCount: snap.size };
+}
