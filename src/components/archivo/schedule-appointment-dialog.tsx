@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -8,7 +7,7 @@ import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
 import { getHolidays, getServiceTypes, getAppointments, getSpecialActionDays } from '@/lib/actions';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, MapPin } from 'lucide-react';
 import type { DailyAvailability, Clinic, Patient, Holiday, ServiceType, Colonia } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
@@ -18,6 +17,7 @@ import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Input } from '../ui/input';
 
 type ScheduleAppointmentDialogProps = {
     patient: Patient;
@@ -37,6 +37,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const [isDoubleSlot, setIsDoubleSlot] = useState(false);
     const [selectedClinicId, setSelectedClinicId] = useState<string | undefined>();
     const [selectedColoniaId, setSelectedColoniaId] = useState<string | undefined>();
+    const [manualColonia, setManualColonia] = useState('');
     const [selectedTime, setSelectedTime] = useState<string | undefined>();
     
     const [availability, setAvailability] = useState<DailyAvailability[]>([]);
@@ -45,9 +46,19 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
 
+    const isSpecialized = useMemo(() => {
+        const type = serviceTypes.find(t => t.id === selectedServiceTypeId);
+        return type?.name.toUpperCase().includes('ESPECIALIZADA');
+    }, [selectedServiceTypeId, serviceTypes]);
+
     useEffect(() => {
         if (isOpen) {
-            getServiceTypes().then(setServiceTypes);
+            getServiceTypes().then(types => {
+                setServiceTypes(types);
+                // Pre-select specialized
+                const specialized = types.find(t => t.name.toUpperCase().includes('ESPECIALIZADA'));
+                if (specialized) setSelectedServiceTypeId(specialized.id);
+            });
             if (patient.age && patient.age > 60) setPatientType(PatientType.TerceraEdad);
         }
     }, [isOpen, patient]);
@@ -155,17 +166,20 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         setSelectedDate(date);
         setSelectedClinicId(undefined);
         setSelectedColoniaId(undefined);
+        setManualColonia('');
         setSelectedTime(undefined);
     };
 
     const handleClinicSelect = (clinicId: string) => {
         setSelectedClinicId(clinicId);
         setSelectedColoniaId(undefined);
+        setManualColonia('');
         setSelectedTime(undefined);
     };
 
     const handleColoniaSelect = (coloniaId: string) => {
         setSelectedColoniaId(coloniaId);
+        setManualColonia('');
         setSelectedTime(undefined);
     }
 
@@ -326,23 +340,42 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                             
                             {selectedClinicId && (
                                 <Card className="animate-in fade-in">
-                                    <CardHeader><CardTitle className="text-lg">4. Localidad</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
-                                            <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Busca la colonia..." /></SelectTrigger>
-                                            <SelectContent>
-                                                {filteredColonias.length > 0 ? (
-                                                    filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
-                                                ) : (
-                                                    <div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas.</div>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
+                                    <CardHeader><CardTitle className="text-lg flex items-center gap-2"><MapPin className="h-5 w-5 text-primary" /> 4. Localidad</CardTitle></CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase opacity-60">Seleccionar del Catálogo</Label>
+                                            <Select onValueChange={handleColoniaSelect} value={selectedColoniaId}>
+                                                <SelectTrigger className="h-11 border-primary/40"><SelectValue placeholder="Busca la colonia..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    {filteredColonias.length > 0 ? (
+                                                        filteredColonias.map(c => <SelectItem key={c.id} value={c.id} className="font-bold uppercase text-xs">{c.name}</SelectItem>)
+                                                    ) : (
+                                                        <div className="p-4 text-center text-sm text-muted-foreground italic">No hay localidades vinculadas a este consultorio.</div>
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {isSpecialized && (
+                                            <div className="space-y-2 border-t pt-4">
+                                                <Label className="text-[10px] font-black uppercase text-primary">O CAPTURA MANUALMENTE (ESPECIALIZADA):</Label>
+                                                <Input 
+                                                    placeholder="ESCRIBE EL NOMBRE DE LA LOCALIDAD O PROCEDENCIA..." 
+                                                    value={manualColonia} 
+                                                    onChange={(e) => {
+                                                        setManualColonia(e.target.value.toUpperCase());
+                                                        if (e.target.value) setSelectedColoniaId(undefined); // Reset selection if typing manually
+                                                    }}
+                                                    className="h-11 font-black uppercase border-primary/30"
+                                                />
+                                                <p className="text-[10px] text-muted-foreground italic">* En consulta especializada el municipio no es obligatorio en catálogo.</p>
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             )}
 
-                            {selectedColoniaId && selectedClinic && (
+                            {(selectedColoniaId || isSpecialized) && selectedClinic && (
                                 <Card className="animate-in fade-in">
                                     <CardHeader><CardTitle className="text-lg">5. Horario</CardTitle></CardHeader>
                                     <CardContent>
@@ -361,19 +394,21 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
                                 </Card>
                             )}
                             {selectedTime && selectedClinic && (
-                                <BookingForm
-                                    initialPatientData={patient.id ? patient : undefined}
-                                    selectedDate={selectedDate}
-                                    selectedClinic={selectedClinic}
-                                    selectedColoniaName={selectedColonia?.name}
-                                    selectedTime={selectedTime}
-                                    patientType={patientType}
-                                    isDoubleSlot={isDoubleSlot}
-                                    onBookingSuccess={() => { onBookingSuccess(); onClose(); }}
-                                    announcements={[]}
-                                    requireColonia={true}
-                                    isDoctorBypass={isDoctorBypass}
-                                />
+                                <div className="animate-in zoom-in-95 duration-500">
+                                    <BookingForm
+                                        initialPatientData={patient.id ? patient : undefined}
+                                        selectedDate={selectedDate}
+                                        selectedClinic={selectedClinic}
+                                        selectedColoniaName={selectedColonia?.name || manualColonia}
+                                        selectedTime={selectedTime}
+                                        patientType={patientType}
+                                        isDoubleSlot={isDoubleSlot}
+                                        onBookingSuccess={() => { onBookingSuccess(); onClose(); }}
+                                        announcements={[]}
+                                        requireColonia={!isSpecialized}
+                                        isDoctorBypass={isDoctorBypass}
+                                    />
+                                </div>
                             )}
                         </div>
                     </div>

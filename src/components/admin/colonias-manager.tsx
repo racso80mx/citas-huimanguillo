@@ -83,7 +83,7 @@ export function ColoniasManager() {
     startSavingTransition(async () => {
       const result = await updateColonias(valid);
       if (result.success) {
-        toast({ title: 'Catálogo de Colonias Guardado' });
+        toast({ title: 'Catálogo de Localidades Guardado' });
         fetchData();
       } else {
         toast({ title: 'Error', description: 'No se pudo guardar el catálogo.', variant: 'destructive' });
@@ -142,20 +142,20 @@ export function ColoniasManager() {
         </div>
         <div className="flex gap-2">
             <Button variant="outline" onClick={fetchData} className="bg-background"><RefreshCw className="h-4 w-4" /></Button>
-            <Button onClick={addColonia} variant="default" className="font-bold"><Plus className="mr-2 h-4 w-4" /> Agregar Localidad</Button>
+            <Button onClick={addColonia} variant="default" className="font-bold bg-primary hover:bg-primary/90"><Plus className="mr-2 h-4 w-4" /> Agregar Localidad</Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-                placeholder="Filtrar por nombre de colonia o consultorio..." 
+                placeholder="Filtrar por nombre de localidad o consultorio..." 
                 className="pl-9 h-11 bg-background"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
             />
         </div>
-        <div className="border rounded-2xl overflow-hidden bg-background">
+        <div className="border rounded-2xl overflow-hidden bg-background shadow-inner">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
@@ -171,23 +171,23 @@ export function ColoniasManager() {
                 >
                   <div className="flex items-center">Consultorio Asignado {getSortIcon('clinicName')}</div>
                 </TableHead>
-                <TableHead className="w-[80px] text-right font-black uppercase text-[10px]">Acciones</TableHead>
+                <TableHead className="w-[80px] text-right font-black uppercase text-[10px] pr-6">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedAndFiltered.length > 0 ? sortedAndFiltered.map((col) => (
-                <TableRow key={col.id} className="hover:bg-muted/30">
+                <TableRow key={col.id} className="hover:bg-muted/30 group">
                   <TableCell>
                     <Input 
                       value={col.name} 
                       onChange={e => updateColoniaField(col.id, 'name', e.target.value.toUpperCase())}
-                      placeholder="Nombre de la localidad..."
-                      className="h-10 font-bold uppercase border-transparent focus:border-primary/20"
+                      placeholder="ESCRIBE EL NOMBRE DE LA COMUNIDAD..."
+                      className="h-10 font-bold uppercase border-transparent focus:border-primary/20 bg-transparent group-hover:bg-background transition-colors"
                     />
                   </TableCell>
                   <TableCell>
                     <Select value={col.clinicId} onValueChange={v => updateColoniaField(col.id, 'clinicId', v)}>
-                        <SelectTrigger className="h-10 font-bold border-transparent focus:ring-0">
+                        <SelectTrigger className="h-10 font-bold border-transparent focus:ring-0 bg-transparent group-hover:bg-background transition-colors">
                             <SelectValue placeholder="Seleccionar..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -197,7 +197,7 @@ export function ColoniasManager() {
                         </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right pr-6">
                     <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeColonia(col.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -205,8 +205,8 @@ export function ColoniasManager() {
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-20 text-muted-foreground italic">
-                    {searchTerm ? "No hay coincidencias." : "No hay localidades configuradas."}
+                  <TableCell colSpan={3} className="text-center py-24 text-muted-foreground italic">
+                    {searchTerm ? "No hay coincidencias para el filtro." : "No hay localidades configuradas. Haz clic en 'Agregar Localidad'."}
                   </TableCell>
                 </TableRow>
               )}
@@ -214,7 +214,7 @@ export function ColoniasManager() {
           </Table>
         </div>
       </CardContent>
-      <CardFooter className="pt-6">
+      <CardFooter className="pt-6 border-t bg-muted/5">
         <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 text-xl font-black uppercase shadow-xl bg-primary hover:bg-primary/90">
           {isSaving ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Save className="mr-2 h-6 w-6" />}
           {isSaving ? 'Sincronizando...' : 'SINCRONIZAR CATÁLOGO DE LOCALIDADES'}
