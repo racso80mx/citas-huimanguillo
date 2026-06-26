@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Patient, MedicalConsultation, Prescription } from '@/lib/definitions';
@@ -421,7 +422,7 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   }
 
-  const renderSettingsManagerContent = () => {
+  const renderSettingsManager = () => {
     switch(reportType) {
         case 'laboratorio':
             return <LabSettingsManager />;
