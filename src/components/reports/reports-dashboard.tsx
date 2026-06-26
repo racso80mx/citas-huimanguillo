@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Patient, MedicalConsultation, Prescription } from '@/lib/definitions';
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Patient, MedicalConsultation, Prescription, Colonia } from '@/lib/definitions';
 import {
   getAppointmentsForClinic,
   getLabAppointments,
@@ -282,7 +282,6 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         const searchOptions: any = {};
         const term = historySearchTerm.toUpperCase().trim();
         
-        // Detect if it's a CURP (18 chars)
         if (term.length === 18) {
             searchOptions.searchCurp = term;
         } else if (/^\d+$/.test(term)) {
@@ -972,4 +971,3 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     </div>
   );
 }
-
