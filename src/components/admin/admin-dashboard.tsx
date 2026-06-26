@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useTransition, useEffect, useCallback } from 'react';
 import {
@@ -23,7 +24,8 @@ import {
   Filter,
   Check,
   Calendar as CalendarIcon,
-  MapPin
+  MapPin,
+  Tags
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -251,7 +253,7 @@ function AppointmentsViewer() {
 
                                 <div className="flex items-center gap-2 bg-background p-2 rounded-xl border border-dashed border-primary/20 shadow-sm">
                                     <div className="flex flex-col gap-1">
-                                        <Label className="text-[9px] font-black uppercase text-primary h-3">Día/Mes</Label>
+                                        <Label className="text-[10px] font-black uppercase text-primary h-3">Día/Mes</Label>
                                         <Input placeholder="11/07" value={manualDayMonth} onChange={e => {
                                             let v = e.target.value.replace(/\D/g, '');
                                             if (v.length > 2) v = v.substring(0,2) + '/' + v.substring(2,4);
@@ -259,7 +261,7 @@ function AppointmentsViewer() {
                                         }} className="h-8 w-20 text-center font-bold text-xs" maxLength={5} />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <Label className="text-[9px] font-black uppercase text-primary h-3">Año</Label>
+                                        <Label className="text-[10px] font-black uppercase text-primary h-3">Año</Label>
                                         <Input type="number" value={manualYear} onChange={e => handleManualDateChange(manualDayMonth, e.target.value.substring(0,4))} className="h-8 w-16 text-center font-bold text-xs" />
                                     </div>
                                 </div>
