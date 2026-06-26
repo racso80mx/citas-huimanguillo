@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   doc, 
@@ -11,6 +12,9 @@ import {
   increment,
   addDoc,
   DocumentReference,
+  query,
+  where,
+  limit
 } from 'firebase/firestore';
 import { adminDb } from '@/firebase/server-config';
 import type { 
@@ -278,6 +282,11 @@ export async function cloneAppointment(id: string, date: string, t: string, time
     return { success: true, message: 'Cita clonada.' };
 }
 
+export async function updateAppointmentStatus(id: string, s: string, t: string) {
+    const m: Record<string, string> = { medical: 'appointments', lab: 'labAppointments', xray: 'xrayAppointments', ultrasound: 'ultrasoundAppointments', vaccine: 'vaccineAppointments' };
+    await updateDoc(doc(adminDb, m[t], id), { status: s }); return { success: true };
+}
+
 export async function deleteAppointment(id: string) { await deleteDoc(doc(adminDb, 'appointments', id)); return { success: true }; }
 export async function deleteLabAppointment(id: string) { await deleteDoc(doc(adminDb, 'labAppointments', id)); return { success: true }; }
 export async function deleteXRayAppointment(id: string) { await deleteDoc(doc(adminDb, 'xrayAppointments', id)); return { success: true }; }
@@ -371,14 +380,40 @@ export async function updateSpecialties(specialties: Specialty[]) {
 export async function getColoniasData() { return getRawCollection('colonias'); }
 export async function updateColonias(colonias: Colonia[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'colonias')); snap.docs.forEach(d => batch.delete(d.ref)); colonias.forEach(c => batch.set(doc(adminDb, 'colonias', c.id), c)); await batch.commit(); return { success: true }; }
 
-// --- SETTINGS MÓDULOS ---
+// --- CIE-10 ---
+export async function bulkInsertCie10Glossary(items: any[]) {
+    const batch = writeBatch(adminDb);
+    items.forEach(i => batch.set(doc(adminDb, 'cie10_glossary', uuidv4()), i));
+    await batch.commit(); return { success: true, processedCount: items.length };
+}
+export async function bulkInsertCie10Catalog(items: any[]) {
+    const batch = writeBatch(adminDb);
+    items.forEach(i => batch.set(doc(adminDb, 'cie10_catalog', uuidv4()), i));
+    await batch.commit(); return { success: true, processedCount: items.length };
+}
+export async function deleteAllCie10Glossary() {
+    const snap = await getDocs(collection(adminDb, 'cie10_glossary'));
+    const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit(); return { success: true };
+}
+export async function deleteAllCie10Catalog() {
+    const snap = await getDocs(collection(adminDb, 'cie10_catalog'));
+    const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit(); return { success: true };
+}
+export async function searchCie10Data(term: string) { 
+    const all = await getRawCollection('cie10_catalog') as Cie10Record[]; 
+    const u = term.toUpperCase(); 
+    return all.filter(r => (r.nombre || '').toUpperCase().includes(u) || (r.catalogKey || '').toUpperCase().includes(u)).slice(0, 50); 
+}
+
+// --- OTROS SETTINGS ---
 export async function updateAnnouncements(msgs: string[]) { await setDoc(doc(adminDb, 'settings', 'announcements'), { messages: msgs }); return { success: true }; }
 export async function getAnnouncementsData() { const snap = await getDoc(doc(adminDb, 'settings', 'announcements')); return snap.exists() ? snap.data()?.messages || [] : []; }
 export async function getHolidaysData() { return getRawCollection('holidays'); }
 export async function updateHolidays(hols: Holiday[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'holidays')); snap.docs.forEach(d => batch.delete(d.ref)); hols.forEach(h => batch.set(doc(adminDb, 'holidays', h.id || uuidv4()), h)); await batch.commit(); return { success: true }; }
 export async function getSpecialActionDaysData() { return getRawCollection('specialActionDays'); }
 export async function updateSpecialActionDays(items: SpecialActionDay[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'specialActionDays')); snap.docs.forEach(d => batch.delete(d.ref)); items.forEach(i => batch.set(doc(adminDb, 'specialActionDays', uuidv4()), i)); await batch.commit(); return { success: true }; }
-export async function searchCie10Data(term: string) { const all = await getRawCollection('cie10_catalog') as Cie10Record[]; const u = term.toUpperCase(); return all.filter(r => (r.nombre || '').toUpperCase().includes(u) || (r.catalogKey || '').toUpperCase().includes(u)).slice(0, 50); }
 
 export async function getLabSettings() { const snap = await getDoc(doc(adminDb, 'settings', 'labSettings')); return snap.exists() ? serializeData(snap.data()) : { dailySlots: 10, waitlistSlots: 0, weekendBookingEnabled: false, password: '123' }; }
 export async function updateLabSettings(s: LabSettings) { await setDoc(doc(adminDb, 'settings', 'labSettings'), s); return { success: true }; }

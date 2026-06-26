@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -207,7 +208,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                         <div className="space-y-4">
                             <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><Clock className="h-5 w-5" /> Disponibilidad Adicional</Label>
                             <div className="p-6 bg-muted/20 border-2 border-dashed rounded-3xl space-y-6">
-                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm"><Label className="text-sm font-black uppercase">¿Labora Fines de Semana?</Label><Switch checked={editedClinic.weekendBookingEnabled} onCheckedChange={(v) => handleFieldChange('weekendBookingEnabled', v)} /></div>
+                                <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm"><Label className="text-sm font-black uppercase">¿Labora Sábados y Domingos?</Label><Switch checked={editedClinic.weekendBookingEnabled} onCheckedChange={(v) => handleFieldChange('weekendBookingEnabled', v)} /></div>
                                 <div className="flex items-center justify-between p-4 bg-background rounded-2xl border-2 shadow-sm"><Label className="text-sm font-black uppercase">Modo de Reserva</Label><Select value={editedClinic.bookingMode} onValueChange={(v: BookingMode) => handleFieldChange('bookingMode', v)}><SelectTrigger className="w-40 h-10 font-bold"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={BookingMode.Time}>Por Horario</SelectItem><SelectItem value={BookingMode.Token}>Por Ficha</SelectItem></SelectContent></Select></div>
                             </div>
                         </div>

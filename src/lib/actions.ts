@@ -177,7 +177,13 @@ export async function updateColonias(colonias: Colonia[]) {
     return res;
 }
 
-// --- MANTENIMIENTO ---
+// --- MANTENIMIENTO Y CIE-10 ---
+export async function bulkInsertCie10Glossary(items: any[]) { return data.bulkInsertCie10Glossary(items); }
+export async function bulkInsertCie10Catalog(items: any[]) { return data.bulkInsertCie10Catalog(items); }
+export async function deleteAllCie10Glossary() { return data.deleteAllCie10Glossary(); }
+export async function deleteAllCie10Catalog() { return data.deleteAllCie10Catalog(); }
+export async function searchCie10(term: string) { return data.searchCie10Data(term); }
+
 export async function bulkInsertPatients(patients: any[]) { 
     const res = await data.bulkInsertPatients(patients);
     revalidatePath('/', 'layout');
@@ -273,7 +279,6 @@ export async function updateSpecialActionDays(items: SpecialActionDay[]) {
     revalidatePath('/', 'layout');
     return res;
 }
-export async function searchCie10(term: string) { return data.searchCie10Data(term); }
 export async function getLabSettings() { return data.getLabSettings(); }
 export async function updateLabSettings(s: LabSettings) { 
     const res = await data.updateLabSettings(s);
@@ -359,12 +364,7 @@ export async function updateVaccines(v: Vaccine[]) {
     revalidatePath('/', 'layout');
     return res;
 }
-export async function bulkInsertCie10Glossary(i: any[]) { return data.bulkInsertCie10Glossary(i); }
-export async function bulkInsertCie10Catalog(i: any[]) { return data.bulkInsertCie10Catalog(i); }
-export async function deleteAllCie10Glossary() { return data.deleteAllCie10Glossary(); }
-export async function deleteAllCie10Catalog() { return data.deleteAllCie10Catalog(); }
 export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
 export async function getLogs() { return data.getLogsData(); }
 export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
-
