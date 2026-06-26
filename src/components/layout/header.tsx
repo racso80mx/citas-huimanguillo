@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -26,32 +27,32 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
+    <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
       <div className="flex items-center gap-4 flex-1">
         <Link 
           href="/"
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none text-left"
+          className="flex items-center gap-4 hover:opacity-80 transition-opacity focus:outline-none text-left"
         >
           <div className="text-primary">
             <Image
               src={logoBase64}
               alt="Logo"
-              width={32}
-              height={32}
+              width={96}
+              height={96}
               className="rounded-md"
             />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="font-bold font-headline text-lg text-foreground">
+            <span className="font-bold font-headline text-2xl text-foreground">
               CitaMedicaFacil
             </span>
-            <span className="text-[11px] text-muted-foreground font-medium">
+            <span className="text-sm text-muted-foreground font-medium">
               Huimanguillo, Tabasco
             </span>
           </div>
         </Link>
 
-        <span className="text-muted-foreground text-sm font-medium ml-2 border-l pl-4 hidden md:block">
+        <span className="text-muted-foreground text-lg font-medium ml-4 border-l pl-6 hidden md:block">
           {getPageTitle()}
         </span>
       </div>

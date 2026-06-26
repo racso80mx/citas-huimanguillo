@@ -417,3 +417,4 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
+

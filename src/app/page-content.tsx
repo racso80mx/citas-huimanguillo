@@ -1,3 +1,4 @@
+
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -78,38 +79,39 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <div className="text-center mb-12 flex flex-col items-center">
-        <div className="text-primary mb-4">
+        <div className="text-primary mb-8">
           <Image
             src={logoBase64}
             alt="Logo CitaMedicaFacil"
-            width={90}
-            height={90}
-            className="rounded-md"
+            width={270}
+            height={270}
+            className="rounded-xl shadow-2xl"
           />
         </div>
-        <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground">
+        <h1 className="text-5xl lg:text-6xl font-bold font-headline text-foreground">
           Bienvenido a CitaMedicaFacil
         </h1>
-        <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto">
+        <p className="text-xl text-muted-foreground mt-4 max-w-2xl mx-auto">
           Selecciona el servicio que necesitas y agenda tu cita de forma rápida y sencilla.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-6xl mx-auto">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-7xl mx-auto">
         {enabledModules.map((mod) => (
           <Link href={mod.href} key={mod.href}>
-            <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6">
+            <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6 bg-card border-primary/10">
               <CardHeader>
-                <div className="mb-4 flex justify-center">{mod.icon}</div>
-                <CardTitle className="text-xl font-headline">{mod.title}</CardTitle>
-                <CardDescription>{mod.description}</CardDescription>
+                <div className="mb-4 flex justify-center p-4 bg-primary/5 rounded-full">{mod.icon}</div>
+                <CardTitle className="text-2xl font-headline">{mod.title}</CardTitle>
+                <CardDescription className="text-sm font-medium mt-2">{mod.description}</CardDescription>
               </CardHeader>
             </Card>
           </Link>
         ))}
          {enabledModules.length === 0 && (
-            <div className="col-span-full text-center py-10">
-                <p className="text-muted-foreground">No hay módulos de citas activos en este momento. Por favor, contacta al administrador.</p>
+            <div className="col-span-full text-center py-20 bg-muted/20 rounded-3xl border-2 border-dashed">
+                <p className="text-xl font-bold text-muted-foreground">No hay módulos de citas activos en este momento.</p>
+                <p className="text-sm text-muted-foreground mt-1">Por favor, contacta al administrador del Hospital.</p>
             </div>
         )}
       </div>
