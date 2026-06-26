@@ -80,18 +80,27 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     useEffect(() => {
-        // Normalizar fechas de la base de datos para evitar errores visuales
-        const normalizedDates = Array.from(new Set(clinic.unavailableDates?.map(d => {
+        // Normalize unavailableDates safely from Firestore formats
+        const rawDates = clinic.unavailableDates || [];
+        const normalizedDates = Array.from(new Set(rawDates.map(d => {
             if (typeof d === 'string') return d;
             if (d && typeof d === 'object' && 'seconds' in d) {
                 return new Date((d as any).seconds * 1000).toISOString().split('T')[0];
             }
             return String(d);
-        }).filter(d => !!d && d !== "[object Object]") || []));
+        }).filter(d => !!d && d !== "[object Object]")));
+
+        // Normalize daysOfAction safely (might be string or array)
+        let normalizedDays = clinic.daysOfAction || [];
+        if (typeof normalizedDays === 'string') {
+            // Heuristic for old string data: "LunesMartes..."
+            normalizedDays = DAYS_OF_WEEK.filter(d => (clinic.daysOfAction as any).includes(d));
+        }
 
         setEditedClinic({
             ...clinic,
-            unavailableDates: normalizedDates
+            unavailableDates: normalizedDates,
+            daysOfAction: normalizedDays
         });
     }, [clinic]);
 
@@ -344,7 +353,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
                                             <span className="font-black text-sm uppercase">{formatBadgeDate(s.date)}</span>
                                         </div>
                                         <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200 font-black h-7 px-4">CIERRE: {s.endTime} HRS</Badge>
-                                        <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => handleRemoveCustomSchedule(s.date)}><X className="h-5 w-5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10" onClick={() => handleRemoveCustomSchedule(String(s.date))}><X className="h-5 w-5" /></Button>
                                     </div>
                                 )) : <div className="text-center py-10 border-2 border-dashed rounded-3xl opacity-30 italic text-xs">No hay cierres anticipados configurados.</div>}
                             </div>

@@ -317,7 +317,7 @@ export async function getAvailableSlotsForDate(cid: string, d: string) {
 export async function bulkInsertPatients(pats: any[]) { const batch = writeBatch(adminDb); pats.forEach(p => { const id = (p.CURP || p.curp || uuidv4()).toUpperCase(); batch.set(doc(adminDb, 'patients', id), { ...p, id, curp: id }); }); await batch.commit(); return { success: true, processedCount: pats.length }; }
 export async function bulkInsertDoctors(docs: any[]) { const batch = writeBatch(adminDb); docs.forEach(d => { const id = uuidv4(); batch.set(doc(adminDb, 'clinics', id), { ...d, id, name: d.Unidad || d.name, doctorName: d.Médico || d.doctorName, serviceTypeId: d.serviceTypeId || d.Categoría || '' }); }); await batch.commit(); return { success: true, processedCount: docs.length }; }
 export async function scanDuplicates(criteria: string) { const all = await getRawCollection('patients') as Patient[]; const groups: Record<string, Patient[]> = {}; all.forEach(p => { const key = criteria === 'expediente' ? String(p.expediente) : criteria === 'curp' ? p.curp : `${p.name}_${p.paternalLastName}`; if (key) { groups[key] = groups[key] || []; groups[key].push(p); } }); return Object.values(groups).filter(g => g.length > 1); }
-export async function applyStatusUpdateChunk(exps: string[], s: string) { const snap = await getDocs(collection(adminDb, 'patients')); const batch = writeBatch(adminDb); let count = 0; snap.docs.forEach(d => { if (exps.includes(String(d.data().expediente))) { batch.update(d.ref, { status: s }); count++; } }); await batch.commit(); return { success: true, count }; }
+export async function applyStatusUpdateChunk(exps: string[], s: string) { const snap = await getDocs(collection(adminDb, 'patients')); const batch = writeBatch(adminDb); let count = 0; snap.docs.forEach(d => { if (exps.includes( d.data().expediente )) { batch.update(d.ref, { status: s }); count++; } }); await batch.commit(); return { success: true, count }; }
 export async function normalizeExpedientesAction() { const snap = await getDocs(collection(adminDb, 'patients')); const batch = writeBatch(adminDb); let count = 0; snap.docs.forEach(d => { const exp = d.data().expediente; if (exp && !String(exp).startsWith('0')) { batch.update(d.ref, { expediente: `0${exp}` }); count++; } }); await batch.commit(); return { success: true, count }; }
 export async function downloadBackupAction() {
     const [apps, lab, xray, us, vac, pats, clins] = await Promise.all([getRawCollection('appointments'), getRawCollection('labAppointments'), getRawCollection('xrayAppointments'), getRawCollection('ultrasoundAppointments'), getRawCollection('vaccineAppointments'), getRawCollection('patients'), getRawCollection('clinics')]);
@@ -353,6 +353,7 @@ export async function getPendingPrescriptions(f: any) { const all = await getRaw
 export async function getPrescriptionHistory(f: any) { const all = await getRawCollection('prescriptions') as Prescription[]; let res = all.filter(d => d.status === 'surtida'); if (f?.startDate) res = res.filter(r => r.date >= f.startDate); if (f?.endDate) res = res.filter(r => r.date <= f.endDate); return res.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 100); }
 export async function getPatientPrescriptionsCountTodayAction(pid: string) { const t = new Date(); t.setHours(0,0,0,0); const all = await getRawCollection('prescriptions') as Prescription[]; return all.filter(d => d.patientId === pid && d.date >= t.toISOString()).length; }
 export async function getAppointmentCountOnDate(cid: string, d: string) { const all = await getRawCollection('appointments') as Appointment[]; return all.filter(a => a.clinicId === cid && a.date.startsWith(d)).length; }
+export async function getAttendedPatientsForClinic(cid: string) { const allApps = await getRawCollection('appointments') as Appointment[]; const ids = Array.from(new Set(allApps.filter(d => d.clinicId === cid && d.status === 'Atendido').map(d => d.patientId))); if (ids.length === 0) return []; const pats = await getRawCollection('patients') as Patient[]; return pats.filter(d => ids.includes(d.id)); }
 
 // --- CATÁLOGOS DINÁMICOS ---
 export async function getServiceTypesData() { return getRawCollection('serviceTypes'); }
@@ -408,11 +409,3 @@ export async function getVaccines() { return getRawCollection('vaccines'); }
 export async function updateVaccines(v: Vaccine[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'vaccines')); snap.docs.forEach(d => batch.delete(d.ref)); v.forEach(i => batch.set(doc(adminDb, 'vaccines', i.id), i)); await batch.commit(); return { success: true }; }
 export async function getMedications() { return getRawCollection('medications'); }
 export async function getSupplies() { return getRawCollection('supplies'); }
-
-export async function getAttendedPatientsForClinic(cid: string) { 
-    const allApps = await getRawCollection('appointments') as Appointment[]; 
-    const ids = Array.from(new Set(allApps.filter(d => d.clinicId === cid && d.status === 'Atendido').map(d => d.patientId))); 
-    if (ids.length === 0) return []; 
-    const pats = await getRawCollection('patients') as Patient[]; 
-    return pats.filter(d => ids.includes(d.id)); 
-}

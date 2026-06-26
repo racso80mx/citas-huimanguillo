@@ -75,13 +75,15 @@ export default function PageContent({
   const generateDynamicTimeSlots = React.useCallback((startTimeStr: string, endTimeStr: string, duration: number): string[] => {
     if (!startTimeStr || !endTimeStr || !duration) return [];
     const slots: string[] = [];
-    const start = new Date(`1970-01-01T${startTimeStr}:00`);
-    const end = new Date(`1970-01-01T${endTimeStr}:00`);
-    let current = start;
-    while (current < end) {
-        slots.push(current.toTimeString().substring(0, 5));
-        current = new Date(current.getTime() + duration * 60000);
-    }
+    try {
+        const start = new Date(`1970-01-01T${startTimeStr}:00`);
+        const end = new Date(`1970-01-01T${endTimeStr}:00`);
+        let current = start;
+        while (current < end) {
+            slots.push(current.toTimeString().substring(0, 5));
+            current = new Date(current.getTime() + duration * 60000);
+        }
+    } catch (e) {}
     return slots;
   }, []);
 
@@ -110,10 +112,11 @@ export default function PageContent({
 
       const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       const availabilityResult: DailyAvailability[] = [];
-      const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+      const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
 
-      for (const day of daysInMonth) {
-        const dateString = day.toISOString().split('T')[0];
+      for (const day of daysInInterval) {
+        // CRITICAL FIX: Use local format for dateString to match grid lookup
+        const dateString = format(day, 'yyyy-MM-dd'); 
         const dayBooked = dayMap.get(dateString) || [];
         const dayName = dayNames[day.getDay()];
         
@@ -136,10 +139,11 @@ export default function PageContent({
                 const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
                 
                 const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
+                // Filter out break time from availability
                 const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
                 availableSlotsForClinic = filteredSlots.filter(s => !dayBooked.some(a => a.time === s)).length;
             } else {
-                availableSlotsForClinic = Math.max(0, clinic.dailySlots - dayBooked.length);
+                availableSlotsForClinic = Math.max(0, (clinic.dailySlots || 15) - dayBooked.length);
             }
         }
 
@@ -155,8 +159,8 @@ export default function PageContent({
 
   React.useEffect(() => {
     if (isAuthenticated && selectedClinicId) {
-        startTransition(() => {
-            fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
+        startTransition(async () => {
+            await fetchAvailability(currentMonth.getFullYear(), currentMonth.getMonth());
         });
     }
   }, [isAuthenticated, fetchAvailability, currentMonth, selectedClinicId]);
@@ -175,6 +179,7 @@ export default function PageContent({
     setSelectedDate(undefined);
     setSelectedColoniaId(undefined);
     setSelectedTime(undefined);
+    setAvailability([]); // Clear previous to trigger loading UI
   };
 
   const handleColoniaSelect = (coloniaId: string) => {
@@ -215,6 +220,7 @@ export default function PageContent({
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
     
+    // Always exclude breakTime from selectable slots
     const slots = allSlots.filter(s => s !== selectedClinic.breakTime && !booked.some(a => a.time === s));
 
     if (patientType === PatientType.Embarazada && isDoubleSlot) {
@@ -234,7 +240,7 @@ export default function PageContent({
     if (!dayAvail) return [];
 
     const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
-    const totalSlots = selectedClinic.dailySlots;
+    const totalSlots = selectedClinic.dailySlots || 15;
     const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
     const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
 
@@ -368,7 +374,7 @@ export default function PageContent({
                                </div>
                           </CardHeader>
                           <CardContent className="p-8 min-h-[300px] relative">
-                              {isPending && (
+                              {(isPending || availability.length === 0) && (
                                   <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-[2rem] animate-in fade-in">
                                       <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                       <p className="text-xs font-black uppercase tracking-widest mt-4 text-primary animate-pulse">Sincronizando Agenda...</p>
