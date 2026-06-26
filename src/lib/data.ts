@@ -211,9 +211,16 @@ export async function getPatientByCURP(curp: string) {
 
 // --- CITAS ---
 export async function getAppointmentsData() {
-    const apps = await getRawCollection('appointments', 1000);
-    const patients = await getRawCollection('patients', 2000);
-    return apps.map(a => ({ ...a, patient: patients.find(p => p.id === a.patientId) }));
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const startRange = today.toISOString();
+    const endRange = new Date(today.getTime() + 31 * 24 * 60 * 60 * 1000).toISOString();
+
+    const q = query(collection(adminDb, 'appointments'), where('date', '>=', startRange), where('date', '<=', endRange));
+    const snap = await getDocs(q);
+    const apps = snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
+    const pats = await getRawCollection('patients', 2000);
+    return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) }));
 }
 
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
@@ -347,7 +354,7 @@ export async function downloadBackupAction() {
     return { success: true, data: { appointments: apps, labAppointments: lab, xRayAppointments: xray, ultrasoundAppointments: us, vaccineAppointments: vac, patients: pats, clinics: clins } };
 }
 export async function cleanupOldRecords() {
-    const limit = new Date(); limit.setMonth(limit.getMonth() - 1); const limitStr = limit.toISOString();
+    const limitDate = new Date(); limitDate.setMonth(limitDate.getMonth() - 1); const limitStr = limitDate.toISOString();
     const cols = ['appointments', 'labAppointments', 'xrayAppointments', 'ultrasoundAppointments', 'vaccineAppointments', 'activityLog'];
     let total = 0;
     for (const c of cols) {
