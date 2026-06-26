@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   doc, 
@@ -179,7 +178,7 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
 
 export async function savePatient(p: Omit<Patient, 'id'>, id?: string) {
     const pid = id || p.curp.toUpperCase() || uuidv4();
-    await setDoc(doc(adminDb, 'patients', pid), { ...p, id: pid, curp: p.curp.toUpperCase() });
+    await setDoc(doc(adminDb, 'patients', pid), { ...p, id: pid, curp: p.curp.toUpperCase() }, { merge: true });
     return { success: true };
 }
 

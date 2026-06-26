@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useCallback, useEffect, useTransition, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useTransition, useMemo } from 'react';
 import React from 'react';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
@@ -116,7 +115,7 @@ export default function PageContent({
         const isHoliday = holidaySet.has(dateString);
         const isWeekend = isSaturday(day) || isSunday(day);
         
-        // Bloqueo por Acción Especial (Evento registrado)
+        // Bloqueo por Acción Especial (Cerrado al público por indicación manual)
         const isSpecialActionDay = freshSpecialActionDays.some(sad => 
             sad.date === dateString && 
             (sad.clinicType === clinic.serviceTypeId || 
@@ -124,10 +123,13 @@ export default function PageContent({
              serviceTypes.find(t => t.id === clinic.serviceTypeId)?.name === sad.clinicType)
         );
 
+        // Bloqueo por Vacaciones/Incapacidad de la ficha del médico
         const isDateBlocked = clinic.unavailableDates?.includes(dateString);
+        
+        // Bloqueo por configuración de Fines de Semana
         const isWeekendBlocked = isWeekend && !clinic.weekendBookingEnabled;
         
-        // INVERSIÓN: Si es un "Día de Acción" configurado en el médico, se BLOQUEA.
+        // INVERSIÓN: Si es un "Día de Acción" configurado en el médico, se considera DÍA CERRADO (Administrativo).
         const isActionDay = clinic.daysOfAction?.includes(dayName);
 
         const isBlocked = isDateBlocked || isHoliday || isWeekendBlocked || isSpecialActionDay || isActionDay;
@@ -136,14 +138,19 @@ export default function PageContent({
         let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));
 
         if (!isBlocked) {
+            // Verificar si hay una Salida Temprana (Horario Especial) programada para este día
+            const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
+            const currentEndTime = customSchedule ? customSchedule.endTime : clinic.endTime;
+
             if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
-                const customSchedule = clinic.customSchedules?.find(s => s.date === dateString);
-                const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
-                const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
+                const allSlots = generateDynamicTimeSlots(clinic.startTime, currentEndTime, clinic.consultationDuration);
+                // Bloquear automáticamente la Hora de Comida configurada
                 const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
                 availableSlotsForClinic = filteredSlots.filter(s => !dayBooked.some(a => a.time === s)).length;
             } else {
-                availableSlotsForClinic = Math.max(0, (clinic.dailySlots || 15) - dayBooked.length);
+                // Modo Ficha: Sumar Cupo Normal + Turnos Extra
+                const totalSlots = (clinic.dailySlots || 15) + (clinic.waitlistSlots || 0);
+                availableSlotsForClinic = Math.max(0, totalSlots - dayBooked.length);
             }
         }
 
@@ -172,9 +179,9 @@ export default function PageContent({
           const targetAvail = calculateForClinic(targetClinic, allAppointments, holidaySet, freshSpecialActionDays);
           setAvailability(targetAvail);
           setAvailabilityCache(prev => ({ ...prev, [targetClinicId]: targetAvail }));
-          setIsLoadingAvailability(false); // Quitar loading rápido
+          setIsLoadingAvailability(false); // Quitar loading rápido para el consultorio actual
           
-          // 2. BACKGROUND: Calcular el resto de los consultorios
+          // 2. BACKGROUND: Calcular el resto de los consultorios en segundo plano para agilizar cambios futuros
           setTimeout(() => {
               const otherClinics = clinics.filter(c => c.id !== targetClinicId);
               const newCache: Record<string, DailyAvailability[]> = { [targetClinicId]: targetAvail };
@@ -190,10 +197,8 @@ export default function PageContent({
   React.useEffect(() => {
     if (isAuthenticated && selectedClinicId) {
         if (availabilityCache[selectedClinicId]) {
-            // Instantáneo si ya está en cache
             setAvailability(availabilityCache[selectedClinicId]);
         } else {
-            // Fetch prioritario
             startTransition(async () => {
                 await fetchAllAvailability(selectedClinicId);
             });
@@ -254,10 +259,14 @@ export default function PageContent({
     if (!dayAvail) return [];
 
     const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
+    
+    // Respetar Cierre Anticipado (Salida Temprana)
     const customSchedule = selectedClinic.customSchedules?.find(s => s.date === dateString);
-    const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
+    const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
+    
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
     
+    // Bloquear Hora de Comida y Horas Ya Ocupadas
     const slots = allSlots.filter(s => s !== selectedClinic.breakTime && !booked.some(a => a.time === s));
 
     if (patientType === PatientType.Embarazada && isDoubleSlot) {
@@ -277,7 +286,8 @@ export default function PageContent({
     if (!dayAvail) return [];
 
     const booked = dayAvail.takenTimesByClinic[selectedClinic.id] || [];
-    const totalSlots = selectedClinic.dailySlots || 15;
+    // Sumar Cupo Normal + Turnos Extras (Espera)
+    const totalSlots = (selectedClinic.dailySlots || 15) + (selectedClinic.waitlistSlots || 0);
     const allTokens = Array.from({ length: totalSlots }, (_, i) => `Ficha ${i + 1}`);
     const freeTokens = allTokens.filter(t => !booked.some(a => a.time === t));
 
@@ -451,3 +461,4 @@ export default function PageContent({
     </div>
   );
 }
+

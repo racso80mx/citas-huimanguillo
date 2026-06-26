@@ -102,6 +102,7 @@ export enum BookingMode {
 export type CustomSchedule = {
     date: string; // YYYY-MM-DD
     endTime: string; // HH:mm
+    reason?: string;
 };
 
 export const ClinicSchema = z.object({
@@ -121,7 +122,8 @@ export const ClinicSchema = z.object({
   unavailableDates: z.array(z.string()).optional(),
   customSchedules: z.array(z.object({
       date: z.string(),
-      endTime: z.string()
+      endTime: z.string(),
+      reason: z.string().optional()
   })).optional(),
   serviceTypeId: z.string().min(1, "El tipo de consulta es requerido."),
   specialtyId: z.string().optional(),
