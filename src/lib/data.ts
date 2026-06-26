@@ -54,6 +54,7 @@ import type {
 } from './definitions';
 import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 // Helper de serialización para NextJS Server Actions
 export function serializeData(data: any): any {
@@ -71,7 +72,7 @@ export function serializeData(data: any): any {
   return data;
 }
 
-// Lector genérico de colecciones
+// Lector genérico de colecciones con optimización
 async function getRawCollection(name: string, limitNum?: number) {
     try {
         const colRef = collection(adminDb, name);
@@ -85,7 +86,7 @@ async function getRawCollection(name: string, limitNum?: number) {
     }
 }
 
-// Unificador de Pacientes para Citas (JOIN)
+// Motor de Vinculación de Pacientes (JOIN)
 async function getPatientsForApps(apps: any[]) {
     const pIds = Array.from(new Set(apps.map(a => a.patientId).filter(id => !!id)));
     if (pIds.length === 0) return [];
@@ -234,7 +235,7 @@ export async function getPatientByCURP(curp: string) {
     return { success: true, data: serializeData(snap.docs[0].data()) };
 }
 
-// --- CITAS CON JOIN ---
+// --- CITAS ---
 export async function getAppointmentsData() {
     const apps = await getRawCollection('appointments', 1000);
     const pats = await getPatientsForApps(apps);
@@ -371,6 +372,14 @@ export async function cloneAppointment(id: string, date: string, type: string, t
     const folio = `${data!.appointmentNumber.split('-')[0]}-${uuidv4().split('-')[0].toUpperCase()}`;
     await setDoc(doc(adminDb, m[type], nid), { ...data, id: nid, date, time: time || data!.time, appointmentNumber: folio, status: 'Agendada', createdAt: new Date().toISOString() });
     return { success: true, message: `Nueva cita generada con folio ${folio}.` };
+}
+
+export async function getAppointmentsForCalendar(month: number, year: number) {
+    const start = startOfMonth(new Date(year, month)).toISOString();
+    const end = endOfMonth(new Date(year, month)).toISOString();
+    const q = query(collection(adminDb, 'appointments'), where('date', '>=', start), where('date', '<=', end));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
 }
 
 export async function getAvailableSlotsForDate(clinicId: string, date: string) {

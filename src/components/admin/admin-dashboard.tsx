@@ -27,7 +27,10 @@ import {
   MapPin,
   LayoutGrid,
   ShieldCheck,
-  Package
+  Package,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -209,7 +212,7 @@ function AppointmentsViewer() {
                 dateFilterFn = (a) => isWithinInterval(parseISO(a.date), { start: startOfDay(now), end: endOfDay(now) });
                 break;
         }
-        results = results.filter(dateFilterFn);
+        results = list.filter(dateFilterFn);
 
         if (selectedServiceType !== 'all') {
             results = results.filter(a => a.clinicId && data.clinics.find((c: any) => c.id === a.clinicId)?.serviceTypeId === selectedServiceType);
@@ -223,7 +226,9 @@ function AppointmentsViewer() {
             const t = searchTerm.toUpperCase();
             results = results.filter(a => {
                 const name = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
-                return name.includes(t) || String(a.appointmentNumber).toUpperCase().includes(t) || String(a.patient?.curp || '').toUpperCase().includes(t);
+                const curp = (a.patient?.curp || '').toUpperCase();
+                const folio = (a.appointmentNumber || '').toUpperCase();
+                return name.includes(t) || curp.includes(t) || folio.includes(t);
             });
         }
 
@@ -266,7 +271,7 @@ function AppointmentsViewer() {
 
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant={dateFilter === 'range' ? 'default' : 'outline'} size="sm" className="h-9 min-w-[160px]">
+                                        <Button variant="outline" size="sm" className="h-9 min-w-[160px]">
                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                             {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, 'dd/MM')} - ${format(dateRange.to, 'dd/MM')}` : format(dateRange.from, 'dd/MM')) : "Rango"}
                                         </Button>
@@ -307,7 +312,7 @@ function AppointmentsViewer() {
                                             <CommandEmpty>No hay resultados.</CommandEmpty>
                                             <CommandGroup>
                                                 {data.clinics.filter((c: any) => selectedServiceType === 'all' || c.serviceTypeId === selectedServiceType).map((c: any) => (
-                                                    <CommandItem key={c.id} onSelect={() => setSelectedClinics(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}>
+                                                    <CommandItem key={c.id} onSelect={() => setSelectedClinics(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, id])}>
                                                         <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinics.includes(c.id) ? "bg-primary text-white" : "opacity-50 [&_svg]:invisible")}><Check className="h-4 w-4" /></div>
                                                         <span className="text-xs uppercase font-bold">{c.name}</span>
                                                     </CommandItem>
@@ -417,4 +422,3 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
-
