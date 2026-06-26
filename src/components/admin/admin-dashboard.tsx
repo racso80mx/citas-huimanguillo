@@ -22,7 +22,8 @@ import {
   Search,
   Filter,
   Check,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  MapPin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -34,6 +35,7 @@ import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
 import { DoctorsCatalog } from './doctors-catalog';
 import { SpecialtiesManager } from './specialties-manager';
+import { ColoniasManager } from './colonias-manager';
 import { Input } from '../ui/input';
 import { v4 as uuidv4 } from 'uuid';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -93,16 +95,16 @@ function ServiceTypesManager() {
     <Card className="shadow-lg border-primary/20">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="flex items-center gap-2"><LayoutList /> Tipos de Consulta</CardTitle>
-          <CardDescription>Define las categorías generales de atención.</CardDescription>
+          <CardTitle className="flex items-center gap-2 text-primary font-black uppercase"><LayoutList /> Catálogo de Servicios</CardTitle>
+          <CardDescription>Define las categorías generales de atención (Consulta Externa, etc).</CardDescription>
         </div>
-        <Button onClick={handleAdd} variant="outline"><Plus className="mr-2 h-4 w-4" /> Agregar Tipo</Button>
+        <Button onClick={handleAdd} variant="outline" className="font-bold border-primary/20"><Plus className="mr-2 h-4 w-4" /> Agregar Servicio</Button>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Categoría</TableHead>
+              <TableHead>Categoría de Atención</TableHead>
               <TableHead className="w-[100px]">Estado</TableHead>
               <TableHead className="w-[80px]">Acciones</TableHead>
             </TableRow>
@@ -110,7 +112,7 @@ function ServiceTypesManager() {
           <TableBody>
             {types.map(t => (
               <TableRow key={t.id}>
-                <TableCell><Input value={t.name} onChange={e => handleUpdate(t.id, 'name', e.target.value.toUpperCase())} placeholder="Nombre..." /></TableCell>
+                <TableCell><Input value={t.name} onChange={e => handleUpdate(t.id, 'name', e.target.value.toUpperCase())} placeholder="Nombre del servicio..." className="font-bold" /></TableCell>
                 <TableCell><Switch checked={t.available} onCheckedChange={v => handleUpdate(t.id, 'available', v)} /></TableCell>
                 <TableCell><Button variant="ghost" size="icon" onClick={() => handleRemove(t.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
               </TableRow>
@@ -118,7 +120,7 @@ function ServiceTypesManager() {
           </TableBody>
         </Table>
       </CardContent>
-      <CardFooter><Button onClick={handleSave} disabled={saving} className="w-full h-12">Guardar Catálogo</Button></CardFooter>
+      <CardFooter><Button onClick={handleSave} disabled={saving} className="w-full h-14 text-lg font-black shadow-xl uppercase">Sincronizar Catálogo de Servicios</Button></CardFooter>
     </Card>
   );
 }
@@ -386,12 +388,14 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         <TabsContent value="catalogos" className="animate-in fade-in space-y-8">
             <Tabs defaultValue="service-types" className="w-full">
                 <TabsList className="flex flex-wrap w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
-                    <TabsTrigger value="service-types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Tipos de Consulta</TabsTrigger>
-                    <TabsTrigger value="specialties" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Especialidades Médicas</TabsTrigger>
+                    <TabsTrigger value="service-types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Servicios</TabsTrigger>
+                    <TabsTrigger value="specialties" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Especialidades</TabsTrigger>
+                    <TabsTrigger value="colonias" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Localidades / Colonias</TabsTrigger>
                     <TabsTrigger value="medicos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Directorio Médico</TabsTrigger>
                 </TabsList>
                 <TabsContent value="service-types"><ServiceTypesManager /></TabsContent>
                 <TabsContent value="specialties"><SpecialtiesManager /></TabsContent>
+                <TabsContent value="colonias"><ColoniasManager /></TabsContent>
                 <TabsContent value="medicos"><DoctorsCatalog /></TabsContent>
             </Tabs>
         </TabsContent>

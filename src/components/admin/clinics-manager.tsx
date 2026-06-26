@@ -199,7 +199,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
 
                     <div className="grid lg:grid-cols-2 gap-10">
                         <div className="space-y-4">
-                            <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 3. Días de Acción (Laborales)</Label>
+                            <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 3. Días Administrativos (Bloqueados)</Label>
                             <div className="flex flex-wrap gap-3 p-6 bg-muted/20 border-2 border-dashed rounded-3xl">
                                 {DAYS_OF_WEEK.map(day => (<div key={day} className="flex items-center space-x-3 bg-background p-3 px-4 rounded-xl border-2 shadow-sm"><Checkbox id={`day-${day}`} checked={editedClinic.daysOfAction?.includes(day)} onCheckedChange={() => toggleDay(day)} /><Label htmlFor={`day-${day}`} className="text-xs font-black uppercase cursor-pointer">{day}</Label></div>))}
                             </div>
