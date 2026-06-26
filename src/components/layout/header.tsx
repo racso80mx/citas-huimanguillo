@@ -35,26 +35,26 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-56 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-      <div className="flex items-center gap-4 flex-1">
+    <header className="sticky top-0 z-40 flex h-32 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
+      <div className="flex items-center gap-2 flex-1">
         <Link 
           href="/"
-          className="flex items-center gap-4 hover:opacity-80 transition-opacity focus:outline-none text-left"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none text-left"
         >
           <div className="text-primary flex-shrink-0">
             <Image
               src={logoBase64}
               alt="Logo"
-              width={192}
-              height={192}
+              width={128}
+              height={128}
               className="rounded-md object-contain"
               priority
             />
           </div>
         </Link>
 
-        {mounted && (
-          <span className="text-muted-foreground text-xl font-medium ml-6 border-l-2 pl-8 hidden lg:block">
+        {mounted && getPageTitle() && (
+          <span className="text-muted-foreground text-xl font-medium ml-4 border-l-2 pl-4 hidden lg:block">
             {getPageTitle()}
           </span>
         )}

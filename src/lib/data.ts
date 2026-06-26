@@ -214,18 +214,18 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
 
 export async function getPatientCounts(): Promise<ArchiveCounts> {
   const colRef = collection(adminDb, 'patients');
-  // Usamos consultas optimizadas para obtener totales reales por estatus
-  const [totalSnap, bajaSnap, bajaDefSnap] = await Promise.all([
+  const [totalSnap, vigenteSnap, bajaSnap, bajaDefSnap] = await Promise.all([
     getCountFromServer(colRef),
+    getCountFromServer(query(colRef, where('status', '==', PatientStatus.Vigente))),
     getCountFromServer(query(colRef, where('status', '==', PatientStatus.Baja))),
     getCountFromServer(query(colRef, where('status', '==', PatientStatus.BajaDefinitiva)))
   ]);
-  const total = totalSnap.data().count;
-  const bajaTemporal = bajaSnap.data().count;
-  const bajaDefinitiva = bajaDefSnap.data().count;
-  // Consideramos vigentes a todos los que no están de baja
-  const vigente = total - (bajaTemporal + bajaDefinitiva);
-  return { total, vigente, bajaTemporal, bajaDefinitiva };
+  return { 
+    total: totalSnap.data().count, 
+    vigente: vigenteSnap.data().count, 
+    bajaTemporal: bajaSnap.data().count, 
+    bajaDefinitiva: bajaDefSnap.data().count 
+  };
 }
 
 export async function savePatient(p: Omit<Patient, 'id'>, id?: string) {
