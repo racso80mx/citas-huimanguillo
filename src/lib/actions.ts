@@ -127,7 +127,6 @@ export async function cloneAppointment(id: string, date: string, type: any, time
     revalidatePath('/', 'layout');
     return res;
 }
-export async function getAppointmentsForCalendar(month: number, year: number) { return data.getAppointmentsForCalendar(month, year); }
 export async function getAppointmentsForClinic(clinicId: string) { return data.getAppointmentsForClinic(clinicId); }
 export async function getAvailableSlotsForDate(clinicId: string, date: string) { return data.getAvailableSlotsForDate(clinicId, date); }
 
@@ -212,16 +211,16 @@ export async function cleanupOldRecords() {
 }
 
 // --- SEGURIDAD ---
-export async function verifyAdminPassword(p: string) { return data.verifyAdminPassword(p); }
-export async function verifyArchivePassword(p: string) { return data.verifyArchivePassword(p); }
-export async function verifyPharmacyPassword(p: string) { return data.verifyPharmacyPassword(p); }
-export async function verifyWarehousePassword(p: string) { return data.verifyWarehousePassword(p); }
-export async function verifyBIPassword(p: string) { return data.verifyBIPassword(p); }
-export async function verifyCitasMedicasPassword(p: string) { return data.verifyCitasMedicasPassword(p); }
-export async function verifyLabPassword(p: string) { return data.verifyLabPassword(p); }
-export async function verifyXRayPassword(p: string) { return data.verifyXRayPassword(p); }
-export async function verifyUltrasoundPassword(p: string) { return data.verifyUltrasoundPassword(p); }
-export async function verifyVaccinePassword(p: string) { return data.verifyVaccinePassword(p); }
+export async function verifyAdminPassword(p: string) { const s = await data.getAdminSettingsData(); return { success: s.password === p }; }
+export async function verifyArchivePassword(p: string) { const s = await data.getArchiveSettingsData(); return { success: s.password === p }; }
+export async function verifyPharmacyPassword(p: string) { const s = await data.getPharmacySettingsData(); return { success: s.password === p }; }
+export async function verifyWarehousePassword(p: string) { const s = await data.getWarehouseSettingsData(); return { success: s.password === p }; }
+export async function verifyBIPassword(p: string) { const s = await data.getBISettingsData(); return { success: s.password === p }; }
+export async function verifyCitasMedicasPassword(p: string) { const s = await data.getModuleSettings(); return { success: s.citasMedicasPassword === p }; }
+export async function verifyLabPassword(p: string) { const s = await data.getLabSettings(); return { success: s.password === p }; }
+export async function verifyXRayPassword(p: string) { const s = await data.getXRaySettings(); return { success: s.password === p }; }
+export async function verifyUltrasoundPassword(p: string) { const s = await data.getUltrasoundSettings(); return { success: s.password === p }; }
+export async function verifyVaccinePassword(p: string) { const s = await data.getVaccineSettings(); return { success: s.password === p }; }
 export async function verifyClinicPassword(id: string, p: string) { return data.verifyClinicPassword(id, p); }
 
 // --- CONSULTAS Y RECETAS ---
@@ -367,3 +366,7 @@ export async function logActivity(a: string, d: string) { return data.logActivit
 export async function getLogs() { return data.getLogsData(); }
 export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
+
+// MAINTENANCE EXPORTS
+export async function deleteAllMedications() { return data.deleteAllMedications(); }
+export async function deleteAllSupplies() { return data.deleteAllSupplies(); }

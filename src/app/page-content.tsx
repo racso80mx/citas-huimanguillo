@@ -1,4 +1,3 @@
-
 'use client';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,7 +45,7 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
     },
     {
       title: 'Archivo (Gestión)',
-      description: 'Gestión y edición del padrón de pacientes.',
+      description: 'Gestión e edición del padrón de pacientes.',
       href: '/archivo',
       icon: <Archive className="h-10 w-10 text-primary" />,
       enabled: moduleSettings.archivoEnabled,
@@ -77,9 +76,9 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
   const enabledModules = allModules.filter(mod => mod.enabled);
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="text-center mb-12 flex flex-col items-center">
-        <div className="text-primary mb-8">
+    <div className="w-full px-4 py-4">
+      <div className="text-center mb-10 flex flex-col items-center">
+        <div className="text-primary mb-6">
           <Image
             src={logoBase64}
             alt="Logo CitaMedicaFacil"
@@ -89,22 +88,22 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
             priority
           />
         </div>
-        <h1 className="text-5xl lg:text-6xl font-bold font-headline text-foreground">
+        <h1 className="text-4xl lg:text-5xl font-bold font-headline text-foreground tracking-tighter">
           Bienvenido a CitaMedicaFacil
         </h1>
-        <p className="text-xl text-muted-foreground mt-4 max-w-2xl mx-auto">
+        <p className="text-lg text-muted-foreground mt-2 max-w-2xl mx-auto font-medium">
           Selecciona el servicio que necesitas y agenda tu cita de forma rápida y sencilla.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-[1600px] mx-auto">
         {enabledModules.map((mod) => (
           <Link href={mod.href} key={mod.href}>
-            <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6 bg-card border-primary/10">
-              <CardHeader>
-                <div className="mb-4 flex justify-center p-4 bg-primary/5 rounded-full">{mod.icon}</div>
-                <CardTitle className="text-2xl font-headline">{mod.title}</CardTitle>
-                <CardDescription className="text-sm font-medium mt-2">{mod.description}</CardDescription>
+            <Card className="hover:shadow-xl hover:border-primary/50 transition-all duration-300 h-full flex flex-col items-center text-center p-6 bg-card border-primary/10 group">
+              <CardHeader className="p-0">
+                <div className="mb-4 flex justify-center p-4 bg-primary/5 rounded-full group-hover:bg-primary/10 transition-colors">{mod.icon}</div>
+                <CardTitle className="text-xl font-headline font-bold">{mod.title}</CardTitle>
+                <CardDescription className="text-sm font-medium mt-1 leading-tight">{mod.description}</CardDescription>
               </CardHeader>
             </Card>
           </Link>
