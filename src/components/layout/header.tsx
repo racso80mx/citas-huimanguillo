@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -10,8 +11,14 @@ import { cn } from '@/lib/utils';
 
 export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings }) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getPageTitle = () => {
+    if (!mounted) return '';
     if (pathname === '/') return 'Inicio';
     if (pathname === '/citas-medicas') return 'Citas Médicas';
     if (pathname === '/laboratorio') return 'Laboratorio';
@@ -28,35 +35,37 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
+    <header className="sticky top-0 z-40 flex h-28 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
       <div className="flex items-center gap-4 flex-1">
         <Link 
           href="/"
           className="flex items-center gap-4 hover:opacity-80 transition-opacity focus:outline-none text-left"
         >
-          <div className="text-primary">
+          <div className="text-primary flex-shrink-0">
             <Image
               src={logoBase64}
               alt="Logo"
               width={96}
               height={96}
-              className="rounded-md"
+              className="rounded-md object-contain"
               priority
             />
           </div>
-          <div className="flex flex-col leading-none">
-            <span className="font-bold font-headline text-2xl text-foreground">
+          <div className="flex flex-col leading-tight">
+            <span className="font-bold font-headline text-2xl lg:text-3xl text-foreground">
               CitaMedicaFacil
             </span>
-            <span className="text-sm text-muted-foreground font-medium">
+            <span className="text-sm lg:text-base text-muted-foreground font-medium">
               Huimanguillo, Tabasco
             </span>
           </div>
         </Link>
 
-        <span className="text-muted-foreground text-lg font-medium ml-4 border-l pl-6 hidden md:block">
-          {getPageTitle()}
-        </span>
+        {mounted && (
+          <span className="text-muted-foreground text-xl font-medium ml-6 border-l-2 pl-8 hidden lg:block">
+            {getPageTitle()}
+          </span>
+        )}
       </div>
     </header>
   );
