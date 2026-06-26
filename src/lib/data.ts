@@ -86,12 +86,13 @@ async function getRawCollection(name: string, limitNum?: number) {
     }
 }
 
-// Motor de Vinculación de Pacientes (JOIN)
+// Motor de Vinculación de Pacientes (JOIN) eficiente
 async function getPatientsForApps(apps: any[]) {
     const pIds = Array.from(new Set(apps.map(a => a.patientId).filter(id => !!id)));
     if (pIds.length === 0) return [];
     
     const pats: any[] = [];
+    // Firestore permite hasta 30 elementos en una consulta 'in'
     for (let i = 0; i < pIds.length; i += 30) {
         const chunk = pIds.slice(i, i + 30);
         const q = query(collection(adminDb, 'patients'), where('__name__', 'in', chunk));
@@ -213,6 +214,7 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
 
 export async function getPatientCounts(): Promise<ArchiveCounts> {
   const colRef = collection(adminDb, 'patients');
+  // Usamos consultas optimizadas para obtener totales reales por estatus
   const [totalSnap, bajaSnap, bajaDefSnap] = await Promise.all([
     getCountFromServer(colRef),
     getCountFromServer(query(colRef, where('status', '==', PatientStatus.Baja))),
@@ -221,6 +223,7 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
   const total = totalSnap.data().count;
   const bajaTemporal = bajaSnap.data().count;
   const bajaDefinitiva = bajaDefSnap.data().count;
+  // Consideramos vigentes a todos los que no están de baja
   const vigente = total - (bajaTemporal + bajaDefinitiva);
   return { total, vigente, bajaTemporal, bajaDefinitiva };
 }
