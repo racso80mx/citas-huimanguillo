@@ -1,3 +1,3 @@
-// Logotipo institucional en formato Base64 (Escudo Médico Genérico)
-// Este Base64 es un marcador de posición válido y visual para evitar errores de corrupción de PNG.
-export const logoBase64 = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAAB4C0nBAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAADUExURQAAAK5399YAAAABdFJOUwBA5thmAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAAXElEQVRoTe3MQQEAIAwEsK9/0S1gwR8O0MAnOOfYV69O79GjR48ePXr06NGjR48ePXr06NGjR48ePXr06NGjR48ePXr06NGjR48ePXr06NGjR48ePXr06NGjR48ePToPrfMAfQyNAt0AAAAASUVORK5CYII=`;
+
+// Logotipo institucional del Hospital General de Huimanguillo
+export const logoBase64 = "https://firebasestorage.googleapis.com/v0/b/citasfull-ok-22108253-af2f0.firebasestorage.app/o/LogotipoHospital2026-03.png?alt=media&token=b86f24f5-9490-43c0-b40c-5d56f4a92e20";
