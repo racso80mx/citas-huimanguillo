@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { DailyAvailability, Colonia, Clinic, Holiday, SpecialActionDay, ServiceType, Specialty } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
-import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword } from '@/lib/actions';
+import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword, getSpecialActionDays } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
 import { Bell, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus, Check, Loader2 } from 'lucide-react';
@@ -50,6 +50,7 @@ export default function PageContent({
     initialColonias, 
     initialClinics, 
     initialHolidays, 
+    initialSpecialActionDays,
     initialServiceTypes,
 }: PageContentProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -93,8 +94,8 @@ export default function PageContent({
       const startDate = startOfMonth(new Date(year, month));
       const endDate = endOfMonth(new Date(year, month));
       
-      const [allAppointments, freshHolidays] = await Promise.all([
-        getAppointments(), getHolidays()
+      const [allAppointments, freshHolidays, freshSpecialActionDays] = await Promise.all([
+        getAppointments(), getHolidays(), getSpecialActionDays()
       ]);
       
       const clinic = clinics.find(c => c.id === selectedClinicId);
@@ -115,7 +116,6 @@ export default function PageContent({
       const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
 
       for (const day of daysInInterval) {
-        // CRITICAL FIX: Use local format for dateString to match grid lookup
         const dateString = format(day, 'yyyy-MM-dd'); 
         const dayBooked = dayMap.get(dateString) || [];
         const dayName = dayNames[day.getDay()];
@@ -124,6 +124,14 @@ export default function PageContent({
         const isWeekend = isSaturday(day) || isSunday(day);
         const isSpecialDay = isWeekend || isHoliday;
         
+        // BUSINESS RULE: Special Action Day blocks public booking
+        const isSpecialActionDay = freshSpecialActionDays.some(sad => 
+            sad.date === dateString && 
+            (sad.clinicType === clinic.serviceTypeId || 
+             sad.clinicType === "Consulta Externa" ||
+             serviceTypes.find(t => t.id === clinic.serviceTypeId)?.name === sad.clinicType)
+        );
+
         let availableSlotsForClinic = 0;
         let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));
 
@@ -131,7 +139,7 @@ export default function PageContent({
         const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
         const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
 
-        const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked;
+        const isBlocked = isDateBlocked || !worksOnThisDay || isWeekendBlocked || isSpecialActionDay;
 
         if (!isBlocked) {
             if (clinic.bookingMode === BookingMode.Time && clinic.consultationDuration) {
@@ -139,7 +147,6 @@ export default function PageContent({
                 const endTime = customSchedule ? customSchedule.endTime : clinic.endTime;
                 
                 const allSlots = generateDynamicTimeSlots(clinic.startTime, endTime, clinic.consultationDuration);
-                // Filter out break time from availability
                 const filteredSlots = allSlots.filter(s => s !== clinic.breakTime);
                 availableSlotsForClinic = filteredSlots.filter(s => !dayBooked.some(a => a.time === s)).length;
             } else {
@@ -155,7 +162,7 @@ export default function PageContent({
         });
       }
       setAvailability(availabilityResult);
-  }, [clinics, selectedClinicId, generateDynamicTimeSlots]);
+  }, [clinics, selectedClinicId, generateDynamicTimeSlots, serviceTypes]);
 
   React.useEffect(() => {
     if (isAuthenticated && selectedClinicId) {
@@ -179,7 +186,7 @@ export default function PageContent({
     setSelectedDate(undefined);
     setSelectedColoniaId(undefined);
     setSelectedTime(undefined);
-    setAvailability([]); // Clear previous to trigger loading UI
+    setAvailability([]); 
   };
 
   const handleColoniaSelect = (coloniaId: string) => {
@@ -220,7 +227,6 @@ export default function PageContent({
     const endTime = customSchedule ? customSchedule.endTime : selectedClinic.endTime;
     const allSlots = generateDynamicTimeSlots(selectedClinic.startTime, endTime, selectedClinic.consultationDuration || 30);
     
-    // Always exclude breakTime from selectable slots
     const slots = allSlots.filter(s => s !== selectedClinic.breakTime && !booked.some(a => a.time === s));
 
     if (patientType === PatientType.Embarazada && isDoubleSlot) {

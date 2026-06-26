@@ -6,8 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AvailabilityCalendar } from '@/components/availability-calendar';
 import { BookingForm } from '@/components/booking-form';
 import { useToast } from '@/hooks/use-toast';
-import { getHolidays, getServiceTypes, getAppointments } from '@/lib/actions';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { getHolidays, getServiceTypes, getAppointments, getSpecialActionDays } from '@/lib/actions';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import type { DailyAvailability, Clinic, Patient, Holiday, ServiceType, Colonia } from '@/lib/definitions';
 import { PatientType, BookingMode } from '@/lib/definitions';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSaturday, isSunday, startOfToday } from 'date-fns';
@@ -68,9 +68,10 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
         const startDate = startOfMonth(new Date(year, month));
         const endDate = endOfMonth(new Date(year, month));
 
-        const [allAppointments, freshHolidays] = await Promise.all([
+        const [allAppointments, freshHolidays, freshSpecialActionDays] = await Promise.all([
             getAppointments(),
-            getHolidays()
+            getHolidays(),
+            getSpecialActionDays()
         ]);
         
         const holidaySet = new Set(freshHolidays.map(h => h.date));
@@ -101,12 +102,18 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             const isSpecialDay = isWeekend || isHoliday;
 
             for (const clinic of clinics) {
-                // REGLAS DE NEGOCIO PARA BLOQUEO:
                 const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
                 const isDateBlocked = clinic.unavailableDates?.includes(dateString);
                 const isWeekendBlocked = isSpecialDay && !clinic.weekendBookingEnabled;
 
-                const isBlocked = !isDoctorBypass && (isDateBlocked || !worksOnThisDay || isWeekendBlocked);
+                // SPECIAL RULE: Bypassing Special Action Day if doctor mode
+                const isSpecialActionDay = freshSpecialActionDays.some(sad => 
+                    sad.date === dateString && 
+                    (sad.clinicType === clinic.serviceTypeId || 
+                     serviceTypes.find(t => t.id === clinic.serviceTypeId)?.name === sad.clinicType)
+                );
+
+                const isBlocked = !isDoctorBypass && (isDateBlocked || !worksOnThisDay || isWeekendBlocked || isSpecialActionDay);
 
                 let availableSlotsForClinic = 0;
                 let takenInfo: any[] = [];
@@ -130,7 +137,7 @@ export function ScheduleAppointmentDialog({ patient, isOpen, onClose, onBookingS
             availabilityResult.push({ date: dateString, availableSlots: totalAvailableSlots, availabilityByClinic, takenTimesByClinic });
         }
         setAvailability(availabilityResult);
-    }, [clinics, isDoctorBypass]);
+    }, [clinics, isDoctorBypass, serviceTypes]);
 
     useEffect(() => {
         if (isOpen) {

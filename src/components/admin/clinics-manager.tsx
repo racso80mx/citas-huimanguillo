@@ -80,7 +80,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     const [newScheduleTime, setNewScheduleTime] = useState<string>('13:00');
 
     useEffect(() => {
-        // Normalize unavailableDates safely from Firestore formats
         const rawDates = clinic.unavailableDates || [];
         const normalizedDates = Array.from(new Set(rawDates.map(d => {
             if (typeof d === 'string') return d;
@@ -90,10 +89,8 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
             return String(d);
         }).filter(d => !!d && d !== "[object Object]")));
 
-        // Normalize daysOfAction safely (might be string or array)
         let normalizedDays = clinic.daysOfAction || [];
         if (typeof normalizedDays === 'string') {
-            // Heuristic for old string data: "LunesMartes..."
             normalizedDays = DAYS_OF_WEEK.filter(d => (clinic.daysOfAction as any).includes(d));
         }
 
