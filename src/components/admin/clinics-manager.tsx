@@ -36,9 +36,10 @@ import {
     CalendarPlus,
     ArrowUpDown,
     ArrowUp,
-    ArrowDown
+    ArrowDown,
+    Trash2
 } from 'lucide-react';
-import type { Clinic, Specialty, ServiceType, CustomSchedule } from '@/lib/definitions';
+import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -67,17 +68,29 @@ import {
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 
 const DAYS_OF_WEEK = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
-function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel }: { 
+function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete, onCancel }: { 
     clinic: Clinic, 
     specialties: Specialty[], 
     serviceTypes: ServiceType[],
     onSave: (clinic: Clinic) => void, 
+    onDelete?: (id: string) => void,
     onCancel: () => void 
 }) {
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
@@ -163,8 +176,33 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onCancel 
     return (
         <DialogContent className="sm:max-w-[90vw] h-[95vh] flex flex-col p-0 overflow-hidden">
             <DialogHeader className="p-6 shrink-0 border-b">
-                <DialogTitle className="text-2xl font-black uppercase">Configuración Avanzada de Unidad</DialogTitle>
-                <DialogDescription className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</DialogDescription>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <DialogTitle className="text-2xl font-black uppercase">Configuración Avanzada de Unidad</DialogTitle>
+                        <DialogDescription className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</DialogDescription>
+                    </div>
+                    {onDelete && clinic.id && !clinic.id.startsWith('new') && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" className="font-bold">
+                                    <Trash2 className="mr-2 h-4 w-4" /> ELIMINAR REGISTRO
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Eliminar esta unidad médica?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción es irreversible y eliminará todos los horarios y configuraciones asociados a <strong>{clinic.name}</strong>.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => onDelete(clinic.id)} className="bg-destructive hover:bg-destructive/90">Sí, Eliminar Permanentemente</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
             </DialogHeader>
             <ScrollArea className="flex-1">
                  <div className="p-8 space-y-12">
@@ -293,7 +331,7 @@ export function ClinicsManager() {
   
   const { toast } = useToast();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     try {
       const [clinicsData, specialtiesData, servicesData] = await Promise.all([getClinics(), getSpecialties(), getServiceTypes()]);
@@ -301,9 +339,9 @@ export function ClinicsManager() {
       setSpecialties(specialtiesData);
       setServiceTypes(servicesData);
     } catch (e) { console.error(e); } finally { setIsLoading(false); }
-  }, []);
+  };
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); }, []);
 
   const handleSort = (key: keyof Clinic) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -320,8 +358,8 @@ export function ClinicsManager() {
 
   const sortedAndFilteredClinics = useMemo(() => {
     let result = clinics.filter(c => 
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+        (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (c.doctorName || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     if (sortConfig) {
@@ -343,6 +381,33 @@ export function ClinicsManager() {
     setIsDialogOpen(false);
     setSelectedClinic(null);
   }
+  
+  const handleDialogDelete = async (id: string) => {
+    try {
+        const res = await deleteClinic(id);
+        if (res.success) {
+            toast({ title: 'Unidad Médica Eliminada' });
+            setIsDialogOpen(false);
+            setSelectedClinic(null);
+            fetchData();
+        }
+    } catch (e) {
+        toast({ title: 'Error al eliminar', variant: 'destructive' });
+    }
+  }
+
+  const handleQuickDelete = async (id: string) => {
+    try {
+        const res = await deleteClinic(id);
+        if (res.success) {
+            toast({ title: 'Unidad Médica Eliminada' });
+            fetchData();
+        }
+    } catch (e) {
+        toast({ title: 'Error al eliminar', variant: 'destructive' });
+    }
+  }
+
   const handleSave = () => { startSavingTransition(async () => { await updateClinics(clinics); toast({ title: 'Configuración Sincronizada' }); fetchData(); }); };
 
   if (isLoading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -381,7 +446,7 @@ export function ClinicsManager() {
                                   >
                                       <div className="flex items-center">Médico Responsable {getSortIcon('doctorName')}</div>
                                   </TableHead>
-                                  <TableHead className="font-black uppercase text-[10px] text-right">Acciones</TableHead>
+                                  <TableHead className="font-black uppercase text-[10px] text-right pr-6">Acciones</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -389,8 +454,25 @@ export function ClinicsManager() {
                                   <TableRow key={clinic.id} className="hover:bg-muted/30">
                                       <TableCell className="font-black text-sm text-primary uppercase">{clinic.name}</TableCell>
                                       <TableCell className="text-xs uppercase font-medium">{clinic.doctorName}</TableCell>
-                                      <TableCell className="text-right">
-                                          <Button variant="outline" size="sm" onClick={() => handleEditClick(clinic)} className="h-9 font-bold border-primary/20 hover:bg-primary hover:text-white transition-all"><Pencil className="h-3 w-3 mr-2" /> Editar Configuración</Button>
+                                      <TableCell className="text-right pr-6">
+                                          <div className="flex justify-end gap-2">
+                                              <Button variant="outline" size="sm" onClick={() => handleEditClick(clinic)} className="h-9 font-bold border-primary/20 hover:bg-primary hover:text-white transition-all"><Pencil className="h-3 w-3 mr-2" /> Editar</Button>
+                                              <AlertDialog>
+                                                  <AlertDialogTrigger asChild>
+                                                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                                                  </AlertDialogTrigger>
+                                                  <AlertDialogContent>
+                                                      <AlertDialogHeader>
+                                                          <AlertDialogTitle>¿Eliminar esta unidad?</AlertDialogTitle>
+                                                          <AlertDialogDescription>Se borrará permanentemente el registro de <strong>{clinic.name}</strong>.</AlertDialogDescription>
+                                                      </AlertDialogHeader>
+                                                      <AlertDialogFooter>
+                                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                          <AlertDialogAction onClick={() => handleQuickDelete(clinic.id)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+                                                      </AlertDialogFooter>
+                                                  </AlertDialogContent>
+                                              </AlertDialog>
+                                          </div>
                                       </TableCell>
                                   </TableRow>
                               ))}
@@ -402,7 +484,7 @@ export function ClinicsManager() {
                   <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 text-xl font-black uppercase shadow-xl bg-primary hover:bg-primary/90 transition-all">SINCRONIZAR TODA LA RED MÉDICA</Button>
               </CardFooter>
           </Card>
-          {selectedClinic && <ClinicEditDialog clinic={selectedClinic} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onCancel={() => setIsDialogOpen(false)} />}
+          {selectedClinic && <ClinicEditDialog clinic={selectedClinic} specialties={specialties} serviceTypes={serviceTypes} onSave={handleDialogSave} onDelete={handleDialogDelete} onCancel={() => setIsDialogOpen(false)} />}
       </Dialog>
     </div>
   );
