@@ -1,16 +1,18 @@
+
 'use client';
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '../ui/card';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { downloadBackupAction, cleanupOldRecords } from '@/lib/actions';
-import { Loader2, Download, Upload, Trash } from 'lucide-react';
+import { downloadBackupAction, cleanupOldRecords, logActivity } from '@/lib/actions';
+import { Loader2, Download, Trash, Database, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,9 +29,7 @@ import { Label } from '../ui/label';
 
 export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => void }) {
   const [isDownloading, startDownloadTransition] = useTransition();
-  const [isRestoring, startRestoreTransition] = useTransition();
   const [isCleaning, startCleanTransition] = useTransition();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [cleanupPassword, setCleanupPassword] = useState('');
   const { toast } = useToast();
   
@@ -60,7 +60,7 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
                      const [obj, prop] = itemKey.split('.');
                      newRow[key] = item[obj] ? item[obj][prop] : '';
                   } else if (Array.isArray(item[itemKey])) {
-                    newRow[key] = item[itemKey].map((i: any) => i.name).join(', ');
+                    newRow[key] = item[itemKey].map((i: any) => i.name || i).join(', ');
                   }
                   else {
                     newRow[key] = item[itemKey] ?? '';
@@ -79,123 +79,96 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
             createSheetFromCollection('Ultrasonidos', result.data.ultrasoundAppointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Estudio': 'studyName' });
             createSheetFromCollection('Vacunación', result.data.vaccineAppointments, { 'Folio': 'appointmentNumber', 'Fecha': 'date', 'Hora': 'time', 'Estado': 'status', 'Nombre': 'patient.name', 'Apellido Paterno': 'patient.paternalLastName', 'Apellido Materno': 'patient.maternalLastName', 'CURP': 'patient.curp', 'Teléfono': 'patient.phoneNumber', 'Colonia': 'coloniaName', 'Vacunas': 'vaccines', 'Recién Nacido': 'isNewborn' });
             createSheetFromCollection('Pacientes', result.data.patients, { 'ID': 'id', 'CURP': 'curp', 'Nombre': 'name', 'Apellido Paterno': 'paternalLastName', 'Apellido Materno': 'maternalLastName', 'Teléfono': 'phoneNumber', 'Colonia': 'coloniaName' });
-            createSheetFromCollection('Clinicas', result.data.clinics, { 'ID': 'id', 'Nombre': 'name', 'Doctor': 'doctorName' });
+            createSheetFromCollection('Unidades', result.data.clinics, { 'ID': 'id', 'Nombre': 'name', 'Médico': 'doctorName' });
 
             const date = new Date().toISOString().split('T')[0];
-            xlsx.writeFile(workbook, `respaldo_completo_${date}.xlsx`);
+            xlsx.writeFile(workbook, `respaldo_hospital_${date}.xlsx`);
 
             toast({
-              title: 'Respaldo Descargado',
-              description: 'El archivo de respaldo ha sido generado en formato Excel.',
+              title: 'Respaldo Exitoso',
+              description: 'Se ha generado el archivo Excel con toda la información.',
             });
+            await logActivity("Mantenimiento", "Se descargó un respaldo completo en Excel.");
         } catch (excelError: any) {
-             toast({
-              title: 'Error al generar Excel',
-              description: excelError.message || 'No se pudo crear el archivo Excel.',
-              variant: 'destructive',
-            });
+             toast({ title: 'Error al generar Excel', variant: 'destructive' });
         }
       } else {
-        toast({
-          title: 'Error',
-          description: result.message || 'No se pudo generar el respaldo.',
-          variant: 'destructive',
-        });
+        toast({ title: 'Error al consultar base de datos', variant: 'destructive' });
       }
     });
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // This functionality is temporarily disabled.
-    toast({
-        title: 'Función Deshabilitada',
-        description: 'La restauración desde un archivo está deshabilitada en este momento.',
-        variant: 'destructive',
-    });
-  };
-  
-  const handleCleanup = () => {
-      startCleanTransition(async () => {
-          const result = await cleanupOldRecords();
-          if (result.success) {
-              toast({
-                  title: 'Limpieza Completada',
-                  description: `Se eliminaron ${result.deletedCount || 0} registros antiguos.`,
-                  duration: 5000,
-              });
-              onRestoreSuccess?.();
-          } else {
-              toast({
-                title: 'Error en la Limpieza',
-                description: result.message || 'No se pudieron eliminar los registros.',
-                variant: 'destructive',
-              });
-          }
-      });
-  };
-  
   const handleConfirmCleanup = () => {
     if (cleanupPassword !== 'Hu1m4ngu1ll0') {
       toast({
         title: 'Contraseña Incorrecta',
-        description: 'La contraseña proporcionada no es válida para realizar esta acción.',
+        description: 'La clave maestra es necesaria para purgar la base de datos.',
         variant: 'destructive',
       });
       return;
     }
-    handleCleanup();
+    
+    startCleanTransition(async () => {
+        const result = await cleanupOldRecords();
+        if (result.success) {
+            toast({
+                title: 'Limpieza Finalizada',
+                description: `Se han purgado ${result.deletedCount || 0} registros antiguos satisfactoriamente.`,
+            });
+            await logActivity("Mantenimiento", `Purgado masivo: ${result.deletedCount} registros eliminados.`);
+            onRestoreSuccess?.();
+        } else {
+            toast({ title: 'Error al purgar registros', variant: 'destructive' });
+        }
+    });
   };
 
   return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2'>Gestión de Datos</CardTitle>
-          <CardDescription>
-            Realiza respaldos de seguridad en Excel y limpia registros antiguos.
+      <Card className="shadow-lg border-primary/20">
+        <CardHeader className="bg-muted/5">
+          <CardTitle className='flex items-center gap-2 text-primary font-black uppercase text-sm'>
+            <Database className="h-5 w-5" /> Mantenimiento de Datos
+          </CardTitle>
+          <CardDescription className="text-xs font-medium">
+            Respaldos en Excel y depuración de registros del mes anterior.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid sm:grid-cols-3 gap-4">
-          <Button onClick={handleDownload} disabled={isDownloading} className="bg-green-600 text-white hover:bg-green-700">
+        <CardContent className="pt-6 space-y-4">
+          <Button 
+            onClick={handleDownload} 
+            disabled={isDownloading} 
+            variant="outline"
+            className="w-full h-11 font-bold border-green-200 text-green-700 hover:bg-green-50 shadow-sm"
+          >
             {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Descargar Respaldo (Excel)
           </Button>
 
-          <Button onClick={() => fileInputRef.current?.click()} disabled={true} variant="outline">
-            {isRestoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-            Cargar Respaldo (Deshabilitado)
-          </Button>
-          <p className="text-xs text-muted-foreground col-span-1 sm:col-span-3 -mt-2">La restauración desde Excel está deshabilitada temporalmente por la migración a la base de datos en la nube.</p>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            className="hidden"
-            accept=".xlsx"
-          />
-
           <AlertDialog onOpenChange={(open) => !open && setCleanupPassword('')}>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isCleaning}>
+              <Button variant="ghost" disabled={isCleaning} className="w-full text-destructive hover:bg-destructive/5 font-bold h-11">
                   {isCleaning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
-                  Limpiar Registros Antiguos
+                  Purgar Historial Antiguo
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta acción es irreversible. Se eliminarán todas las citas del mes pasado hacia atrás.
-                  Para confirmar, ingresa la contraseña de SuperAdmin.
+                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                    <ShieldAlert className="h-5 w-5" /> ¿ESTÁS SEGURO?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="font-bold text-sm">
+                  Esta acción eliminará permanentemente todas las citas y registros de actividad de meses anteriores para optimizar el sistema.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              <div className="space-y-2 py-2">
-                <Label htmlFor="cleanup-password">Contraseña de SuperAdmin</Label>
+              <div className="space-y-2 py-4">
+                <Label htmlFor="cleanup-password">Contraseña Maestra (SuperAdmin)</Label>
                 <Input
                   id="cleanup-password"
                   type="password"
                   value={cleanupPassword}
                   onChange={(e) => setCleanupPassword(e.target.value)}
-                  placeholder="Ingresa la contraseña para confirmar"
+                  placeholder="Confirmar con clave maestra..."
+                  className="font-black h-12"
                 />
               </div>
               <AlertDialogFooter>
@@ -203,14 +176,18 @@ export function BackupManager({ onRestoreSuccess }: { onRestoreSuccess?: () => v
                 <AlertDialogAction
                   onClick={handleConfirmCleanup}
                   disabled={isCleaning}
-                  className='bg-destructive hover:bg-destructive/90'
+                  className='bg-destructive hover:bg-destructive/90 font-black'
                 >
-                  Sí, eliminar registros
+                  SÍ, PURGAR BASE DE DATOS
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
         </CardContent>
+        <CardFooter className="bg-muted/10 border-t py-3 flex items-center justify-center gap-2">
+            <CheckCircle2 className="h-3 w-3 text-green-600" />
+            <span className="text-[10px] font-black uppercase text-muted-foreground opacity-60">Base de Datos Protegida por Firestore</span>
+        </CardFooter>
       </Card>
   );
 }

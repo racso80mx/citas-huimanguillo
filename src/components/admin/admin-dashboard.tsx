@@ -25,7 +25,10 @@ import {
   Check,
   Calendar as CalendarIcon,
   MapPin,
-  Tags
+  Tags,
+  ShieldCheck,
+  Megaphone,
+  Database
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -35,6 +38,9 @@ import { ActivityLogViewer } from './activity-log-viewer';
 import { HolidaysManager } from './holidays-manager';
 import { SpecialActionDaysManager } from './special-action-days-manager';
 import { ModuleSecurityManager } from './module-security-manager';
+import { AdminPasswordManager } from './admin-password-manager';
+import { AnnouncementsManager } from './announcements-manager';
+import { BackupManager } from './backup-manager';
 import { DoctorsCatalog } from './doctors-catalog';
 import { SpecialtiesManager } from './specialties-manager';
 import { ColoniasManager } from './colonias-manager';
@@ -334,11 +340,11 @@ function AppointmentsViewer() {
 
             <Tabs defaultValue="medical" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <TabsList className="bg-muted/40 p-1 mb-4 h-auto">
-                  <TabsTrigger value="medical" className="py-2 px-6">General</TabsTrigger>
-                  <TabsTrigger value="lab" className="py-2 px-6">Laboratorio</TabsTrigger>
-                  <TabsTrigger value="xr" className="py-2 px-6">Rayos X</TabsTrigger>
-                  <TabsTrigger value="us" className="py-2 px-6">Ultrasonidos</TabsTrigger>
-                  <TabsTrigger value="vac" className="py-2 px-6">Vacunas</TabsTrigger>
+                  <TabsTrigger value="medical" className="py-2.5 px-6 font-bold">Cita Médica</TabsTrigger>
+                  <TabsTrigger value="lab" className="py-2.5 px-6 font-bold">Laboratorio</TabsTrigger>
+                  <TabsTrigger value="xr" className="py-2.5 px-6 font-bold">Rayos X</TabsTrigger>
+                  <TabsTrigger value="us" className="py-2.5 px-6 font-bold">Ultrasonidos</TabsTrigger>
+                  <TabsTrigger value="vac" className="py-2.5 px-6 font-bold">Vacunación</TabsTrigger>
                 </TabsList>
                 <TabsContent value="medical"><AppointmentList appointments={filterList(data.apps)} clinics={data.clinics} isAdmin onDelete={(id) => handlePatientDelete(id, 'medical')} onEditSuccess={fetchData} /></TabsContent>
                 <TabsContent value="lab"><LabAppointmentList appointments={filterList(data.lab)} isAdmin onDelete={(id) => handlePatientDelete(id, 'lab')} onEditSuccess={fetchData} /></TabsContent>
@@ -379,7 +385,9 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     <ClinicsManager />
                 </div>
                 <div className="space-y-8">
-                    <ModuleSecurityManager />
+                    <AdminPasswordManager />
+                    <AnnouncementsManager />
+                    <BackupManager onRestoreSuccess={() => window.location.reload()} />
                     <HolidaysManager />
                     <SpecialActionDaysManager />
                 </div>
@@ -390,10 +398,10 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         <TabsContent value="catalogos" className="animate-in fade-in space-y-8">
             <Tabs defaultValue="service-types" className="w-full">
                 <TabsList className="flex flex-wrap w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
-                    <TabsTrigger value="service-types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Servicios</TabsTrigger>
-                    <TabsTrigger value="specialties" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Especialidades</TabsTrigger>
-                    <TabsTrigger value="colonias" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Localidades / Colonias</TabsTrigger>
-                    <TabsTrigger value="medicos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3">Directorio Médico</TabsTrigger>
+                    <TabsTrigger value="service-types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3 font-bold">Servicios</TabsTrigger>
+                    <TabsTrigger value="specialties" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3 font-bold">Especialidades</TabsTrigger>
+                    <TabsTrigger value="colonias" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3 font-bold">Localidades</TabsTrigger>
+                    <TabsTrigger value="medicos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary px-6 py-3 font-bold">Médicos</TabsTrigger>
                 </TabsList>
                 <TabsContent value="service-types"><ServiceTypesManager /></TabsContent>
                 <TabsContent value="specialties"><SpecialtiesManager /></TabsContent>

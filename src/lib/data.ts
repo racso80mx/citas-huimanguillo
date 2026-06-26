@@ -52,7 +52,7 @@ import type {
   ArchiveCounts,
   Cie10Record
 } from './definitions';
-import { PatientStatus } from './definitions';
+import { PatientStatus, BookingMode } from './definitions';
 import { v4 as uuidv4 } from 'uuid';
 
 export function serializeData(data: any): any {
@@ -83,7 +83,7 @@ async function getRawCollection(name: string, limitNum?: number) {
     }
 }
 
-// --- CONFIGURACIÓN ---
+// --- CONFIGURACIÓN Y SEGURIDAD ---
 export async function getModuleSettings(): Promise<ModuleSettings> {
   const snap = await getDoc(doc(adminDb, 'settings', 'moduleSettings'));
   if (snap.exists()) return serializeData(snap.data()) as ModuleSettings;

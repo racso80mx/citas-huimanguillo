@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition } from 'react';
 import {
@@ -12,7 +13,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { updateAdminSettings, getAdminSettings, logActivity } from '@/lib/actions';
-import { Loader2, Save, KeyRound, Eye, EyeOff, ShieldAlert, Lock, Unlock } from 'lucide-react';
+import { Loader2, Save, Eye, EyeOff, ShieldAlert, Lock, Unlock } from 'lucide-react';
 import type { AdminSettings } from '@/lib/definitions';
 import { Label } from '../ui/label';
 import {
@@ -64,8 +65,8 @@ export function AdminPasswordManager() {
       setIsUnlocked(true);
       setClickCount(0);
       toast({
-        title: 'Panel Desbloqueado',
-        description: 'Ahora puedes modificar la contraseña maestra.',
+        title: 'Panel Maestro Desbloqueado',
+        description: 'Ahora puedes modificar la contraseña de SuperAdmin.',
       });
     }
   };
@@ -80,16 +81,16 @@ export function AdminPasswordManager() {
     if (!settings || !settings.password || settings.password.length < 6) {
         toast({
             title: 'Contraseña no válida',
-            description: 'La contraseña de SuperAdmin debe tener al menos 6 caracteres.',
+            description: 'La contraseña maestra debe tener al menos 6 caracteres.',
             variant: 'destructive'
         });
         return;
     }
-    
     setIsPinDialogOpen(true);
   };
 
   const handlePinConfirm = () => {
+    // PIN de seguridad estático para cambios de contraseña crítica
     if (pinValue !== '171208') {
       toast({
         title: 'PIN Incorrecto',
@@ -107,17 +108,17 @@ export function AdminPasswordManager() {
 
       if (result.success) {
         toast({
-          title: 'Configuración Guardada',
-          description: 'La contraseña Maestra (SuperAdmin) ha sido actualizada.',
-          className: 'bg-accent text-accent-foreground',
+          title: 'Contraseña Maestra Actualizada',
+          description: 'Se ha guardado la nueva clave de SuperAdmin.',
+          className: 'bg-primary text-primary-foreground',
         });
-        await logActivity("Cambio de Seguridad", "Se actualizó la contraseña de SuperAdmin mediante PIN.");
-        setIsUnlocked(false); // Relock after saving
+        await logActivity("Seguridad Crítica", "Se actualizó la contraseña de SuperAdmin mediante PIN.");
+        setIsUnlocked(false); 
         await fetchData();
       } else {
         toast({
           title: 'Error',
-          description: result.message ||'No se pudo guardar la configuración.',
+          description: result.message ||'No se pudo actualizar.',
           variant: 'destructive',
         });
       }
@@ -141,39 +142,44 @@ export function AdminPasswordManager() {
 
   return (
     <>
-      <Card className={`shadow-lg border-destructive/20 transition-colors duration-500 ${isUnlocked ? 'bg-destructive/10' : 'bg-destructive/5'}`}>
+      <Card className={cn(
+        "shadow-lg border-destructive/20 transition-all duration-500",
+        isUnlocked ? "bg-destructive/10 ring-2 ring-destructive/20" : "bg-muted/5 opacity-80"
+      )}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle 
-              className="flex items-center gap-2 text-destructive cursor-pointer select-none"
+              className="flex items-center gap-2 text-destructive cursor-pointer select-none font-black uppercase tracking-widest text-sm"
               onClick={handleTitleClick}
             >
-              <ShieldAlert className="h-5 w-5" /> Panel Maestro
+              <ShieldAlert className="h-5 w-5" /> PANEL MAESTRO
               {isUnlocked ? <Unlock className="h-4 w-4 ml-2 animate-bounce" /> : <Lock className="h-4 w-4 ml-2 opacity-20" />}
             </CardTitle>
             {isUnlocked && (
-              <Button variant="ghost" size="sm" onClick={() => setIsUnlocked(false)} className="text-xs">
-                Bloquear
+              <Button variant="ghost" size="sm" onClick={() => setIsUnlocked(false)} className="text-[10px] font-bold h-6">
+                BLOQUEAR
               </Button>
             )}
           </div>
-          <CardDescription>
-            Contraseña del usuario SuperAdmin (Acceso total). 
-            {!isUnlocked && " [Haga 6 clics en el título para desbloquear]"}
+          <CardDescription className="text-xs font-medium">
+            {isUnlocked ? "Estás editando el acceso total." : "Haz clic 6 veces en el título para habilitar edición."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="admin-password">Contraseña de SuperAdmin</Label>
+            <Label htmlFor="admin-password" className="text-[10px] font-black uppercase">Contraseña SuperAdmin</Label>
             <div className="relative">
               <Input
                 id="admin-password"
                 type={showPassword ? 'text' : 'password'}
                 value={isUnlocked ? (settings.password || '') : '************'}
                 onChange={(e) => handlePasswordChange(e.target.value)}
-                placeholder="Contraseña maestra"
+                placeholder="Contraseña Maestra"
                 disabled={!isUnlocked}
-                className={!isUnlocked ? "bg-muted/50 cursor-not-allowed" : "bg-background"}
+                className={cn(
+                    "h-11 font-bold",
+                    !isUnlocked ? "bg-muted/50 cursor-not-allowed" : "bg-background border-destructive/40"
+                )}
               />
               {isUnlocked && (
                 <Button
@@ -194,10 +200,10 @@ export function AdminPasswordManager() {
             onClick={handleSaveClick} 
             disabled={isSaving || !isUnlocked} 
             variant="destructive" 
-            className="w-full font-bold"
+            className="w-full font-black uppercase"
           >
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            {isSaving ? 'Guardando...' : 'Guardar Maestro'}
+            {isSaving ? 'Guardando...' : 'Actualizar Maestro'}
           </Button>
         </CardFooter>
       </Card>
@@ -205,31 +211,29 @@ export function AdminPasswordManager() {
       <Dialog open={isPinDialogOpen} onOpenChange={setIsPinDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Autorización Requerida</DialogTitle>
-            <DialogDescription>
-              Para cambiar la contraseña maestra, ingresa el PIN de seguridad de 6 dígitos.
+            <DialogTitle className="font-black text-center text-destructive">AUTORIZACIÓN REQUERIDA</DialogTitle>
+            <DialogDescription className="text-center">
+              Ingresa el PIN de seguridad de 6 dígitos para confirmar el cambio de la clave maestra.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="security-pin">PIN de Seguridad</Label>
+          <div className="py-6">
             <Input
-              id="security-pin"
               type="password"
               placeholder="••••••"
               value={pinValue}
               onChange={(e) => setPinInput(e.target.value)}
-              className="text-center text-2xl tracking-[1em]"
+              className="text-center text-3xl font-black tracking-[0.5em] h-16 border-primary/40"
               maxLength={6}
               onKeyDown={(e) => e.key === 'Enter' && handlePinConfirm()}
               autoFocus
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="sm:justify-center gap-2">
             <Button variant="outline" onClick={() => { setIsPinDialogOpen(false); setPinInput(''); }}>
               Cancelar
             </Button>
-            <Button onClick={handlePinConfirm} disabled={pinValue.length < 6}>
-              Validar y Guardar
+            <Button onClick={handlePinConfirm} disabled={pinValue.length < 6} className="bg-destructive hover:bg-destructive/90 font-bold px-8">
+              Confirmar Cambio
             </Button>
           </DialogFooter>
         </DialogContent>
