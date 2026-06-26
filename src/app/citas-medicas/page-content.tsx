@@ -123,7 +123,7 @@ export default function PageContent({
         const isHoliday = holidaySet.has(dateString);
         const isWeekend = isSaturday(day) || isSunday(day);
         
-        // Block if it's a Special Action Day for this clinic/service
+        // Bloqueo por Acción Especial (Evento registrado)
         const isSpecialActionDay = freshSpecialActionDays.some(sad => 
             sad.date === dateString && 
             (sad.clinicType === clinic.serviceTypeId || 
@@ -133,9 +133,12 @@ export default function PageContent({
 
         const isDateBlocked = clinic.unavailableDates?.includes(dateString);
         const isWeekendBlocked = isWeekend && !clinic.weekendBookingEnabled;
-        const worksOnThisDay = !clinic.daysOfAction || clinic.daysOfAction.length === 0 || clinic.daysOfAction.includes(dayName);
+        
+        // INVERSIÓN: Si es un "Día de Acción" configurado en el médico, se BLOQUEA.
+        // Los "Días de Acción" son días administrativos sin consulta.
+        const isActionDay = clinic.daysOfAction?.includes(dayName);
 
-        const isBlocked = isDateBlocked || isHoliday || isWeekendBlocked || isSpecialActionDay || !worksOnThisDay;
+        const isBlocked = isDateBlocked || isHoliday || isWeekendBlocked || isSpecialActionDay || isActionDay;
 
         let availableSlotsForClinic = 0;
         let takenInfo = dayBooked.map(a => ({ time: a.time, duration: a.duration }));

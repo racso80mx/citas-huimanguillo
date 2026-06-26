@@ -972,3 +972,4 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     </div>
   );
 }
+

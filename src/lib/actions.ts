@@ -252,6 +252,7 @@ export async function getPendingPrescriptions(filters: any) { return data.getPen
 export async function getPrescriptionHistory(filters: any) { return data.getPendingPrescriptions(filters); }
 export async function getPatientPrescriptionsCountTodayAction(patientId: string) { return data.getPatientPrescriptionsCountTodayAction(patientId); }
 export async function getAppointmentCountOnDate(clinicId: string, date: string) { return data.getAppointmentCountOnDate(clinicId, date); }
+export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
 
 // --- OTROS ---
 export async function getAnnouncements() { return data.getAnnouncementsData(); }
@@ -303,7 +304,6 @@ export async function getUltrasoundStudies() { return data.getUltrasoundStudies(
 export async function getVaccines() { return data.getVaccines(); }
 export async function getMedications() { return data.getMedications(); }
 export async function getSupplies() { return data.getSupplies(); }
-export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
 export async function updatePrescription(id: string, p: any) { 
     const res = await data.updatePrescription(id, p);
     revalidatePath('/', 'layout');
@@ -367,3 +367,4 @@ export async function logActivity(a: string, d: string) { return data.logActivit
 export async function getLogs() { return data.getLogsData(); }
 export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
+
