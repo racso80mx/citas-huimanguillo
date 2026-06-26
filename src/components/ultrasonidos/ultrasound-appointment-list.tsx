@@ -44,6 +44,7 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getUltrasoundStudies, getModuleSettings } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
+import { generateUltrasoundAppointmentPDF } from '@/lib/report-helpers';
 
 
 type UltrasoundAppointmentListProps = {
@@ -245,84 +246,11 @@ export function UltrasoundAppointmentList({ appointments, isAdmin = false, onDel
   const handleDownloadPDF = async (appointment: UltrasoundAppointment) => {
     const study = allStudies.find(s => s.id === appointment.studyId);
     if (!study) {
-      toast({
-        title: 'Error',
-        description: 'No se encontraron los datos del estudio para generar el PDF.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se encontraron datos del estudio.', variant: 'destructive' });
       return;
     }
-    const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
-    const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber } = appointment;
-
-    doc.setFont('Helvetica');
-    doc.setFontSize(22);
-    doc.text('Confirmación de Cita de Ultrasonido', 105, 25, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
-    doc.setFontSize(14);
-    doc.setFont('Helvetica', 'bold');
-    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
-
-    doc.setLineWidth(0.5);
-    doc.line(20, 55, 190, 55);
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Datos del Paciente:', 20, 65);
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
-    doc.text(`CURP: ${patient.curp}`, 20, 85);
-    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, 95);
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, 115);
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, 125);
-    doc.text(`Hora: ${time} hrs`, 20, 135);
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Estudio Solicitado e Indicaciones:', 20, 155);
-    
-    doc.autoTable({
-        startY: 165,
-        head: [['Estudio', 'Indicaciones']],
-        body: [[study.name, study.indications]],
-        theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51] }, // Primary color
-    });
-
-    let finalY = doc.lastAutoTable.finalY || 200;
-    finalY += 10;
-    
-    if (announcements && announcements.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text('Avisos Importantes:', 20, finalY);
-        finalY += 7;
-        doc.autoTable({
-            startY: finalY,
-            body: announcements.map(a => [a]),
-            theme: 'plain',
-            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
-        });
-        finalY = doc.lastAutoTable.finalY + 5;
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
-    doc.text('Siga las indicaciones de preparación para el estudio.', 20, finalY + 5);
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
-
-    doc.save(`recibo_ultrasonido_${patient.curp}.pdf`);
+    const ann = await getAnnouncements();
+    await generateUltrasoundAppointmentPDF(appointment, study, ann);
   };
 
   if (!appointments || appointments.length === 0) {

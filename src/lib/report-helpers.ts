@@ -1,10 +1,80 @@
 'use client';
-import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine, Prescription } from "./definitions";
+import type { Appointment, Clinic, LabAppointment, XRayAppointment, XRayStudy, UltrasoundAppointment, UltrasoundStudy, VaccineAppointment, Vaccine, Prescription, Patient } from "./definitions";
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { logoBase64 } from './logo-data';
 
-type EnrichedAppointment = (Appointment | LabAppointment | XRayAppointment | UltrasoundAppointment | VaccineAppointment) & { clinicName?: string, coloniaName?: string, studyName?: string };
+const PRIMARY_COLOR = [0, 102, 51]; // Verde Institucional
+
+// Helper para el encabezado común
+function addPDFHeader(doc: any, title: string) {
+    // Fondo del encabezado
+    doc.setFillColor(245, 245, 245);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.setLineWidth(1.5);
+    doc.line(0, 40, 210, 40);
+
+    // Logotipo
+    try {
+        doc.addImage(logoBase64, 'PNG', 15, 8, 22, 22);
+    } catch (e) {}
+
+    // Información del Hospital
+    doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('HOSPITAL GENERAL DE HUIMANGUILLO', 42, 18);
+    
+    doc.setTextColor(100);
+    doc.setFontSize(9);
+    doc.setFont('Helvetica', 'normal');
+    doc.text('SECRETARÍA DE SALUD DEL ESTADO DE TABASCO', 42, 24);
+    doc.text('SISTEMA DE CITAS MÉDICAS DIGITALES', 42, 29);
+
+    // Título del Documento
+    doc.setTextColor(0);
+    doc.setFontSize(16);
+    doc.setFont('Helvetica', 'bold');
+    doc.text(title, 105, 55, { align: 'center' });
+}
+
+// Helper para resaltar fecha y hora
+function addDateTimeHighlight(doc: any, date: string, time: string, currentY: number) {
+    doc.setFillColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.rect(20, currentY, 170, 10, 'F');
+    doc.setTextColor(255);
+    doc.setFontSize(10);
+    doc.text('DETALLES DE LA CITA', 105, currentY + 6.5, { align: 'center' });
+
+    currentY += 10;
+    doc.setFillColor(245, 250, 245);
+    doc.rect(20, currentY, 170, 25, 'F');
+    doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.setLineWidth(0.5);
+    doc.rect(20, currentY, 170, 25, 'D');
+
+    doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.setFontSize(17);
+    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es }).toUpperCase();
+    doc.text(formattedDate, 105, currentY + 10, { align: 'center' });
+    
+    doc.setFontSize(22);
+    doc.text(time.includes('Ficha') ? time.toUpperCase() : `HORA: ${time} HRS`, 105, currentY + 20, { align: 'center' });
+    return currentY + 35;
+}
+
+// Helper para el pie de página
+function addPDFFooter(doc: any) {
+    const footerY = 285;
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.5);
+    doc.line(20, footerY - 10, 190, footerY - 10);
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Este documento es un comprobante oficial de reservación. Presente INE y Cartilla Nacional de Salud.', 105, footerY - 5, { align: 'center' });
+    doc.text(`Hospital General Huimanguillo - Generado el ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 105, footerY, { align: 'center' });
+}
 
 export async function downloadExcel(data: EnrichedAppointment[], filename: string) {
     const xlsx = await import('xlsx');
@@ -73,7 +143,6 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
     await import('jspdf-autotable');
     const doc = new jsPDF('landscape') as any;
 
-    // Logo
     try {
         doc.addImage(logoBase64, 'PNG', 14, 10, 15, 15);
     } catch (e) {}
@@ -93,7 +162,7 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
         app.patient?.curp || 'S/C',
         app.patientType,
         app.clinicName || 'N/A',
-        '' // Column for "Observaciones"
+        '' 
     ]);
 
     doc.autoTable({
@@ -101,7 +170,7 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
         head: [['Hora', 'Folio', 'Nombre del Paciente', 'Expediente', 'CURP', 'Tipo', 'Consultorio/Núcleo', 'Observaciones']],
         body: tableBody,
         theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51], fontSize: 10 },
+        headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
         styles: { fontSize: 9 },
         columnStyles: {
             0: { cellWidth: 20 },
@@ -135,98 +204,214 @@ export async function generateArchiveListPDF(appointments: any[], title: string,
     doc.save(`listado_archivo_${dateStr}.pdf`);
 }
 
-
 export async function generateAppointmentPDF(appointmentData: Appointment, clinicData: Clinic, announcements: string[]) {
     const { jsPDF } = await import('jspdf');
     await import('jspdf-autotable');
     const doc = new jsPDF() as any;
     const { patient, date, time, appointmentNumber, patientType } = appointmentData;
 
-    // Logo
-    try {
-        doc.addImage(logoBase64, 'PNG', 20, 15, 20, 20);
-    } catch (e) {}
+    addPDFHeader(doc, 'Confirmación de Cita Médica');
+    let currentY = addDateTimeHighlight(doc, date, time, 65);
 
-    doc.setFont('Helvetica');
-    doc.setFontSize(20);
-    doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
+    // Columnas
+    doc.setTextColor(0);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('DATOS DEL PACIENTE', 20, currentY);
+    doc.text('UNIDAD Y MÉDICO', 110, currentY);
+    
+    currentY += 2;
+    doc.setLineWidth(0.1);
+    doc.line(20, currentY, 95, currentY);
+    doc.line(110, currentY, 190, currentY);
+    currentY += 6;
+
     doc.setFontSize(10);
-    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
-    
-    let currentY = 55;
-    doc.setFontSize(14);
-    doc.setFont('Helvetica', 'bold');
-    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
-    currentY += 8;
-
-    doc.setLineWidth(0.5);
-    doc.line(20, currentY - 4, 190, currentY - 4);
-
-    currentY += 5;
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Datos del Paciente:', 20, currentY);
-    currentY += 10;
-    doc.setFontSize(12);
     doc.setFont('Helvetica', 'normal');
     
-    const pName = patient ? `${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}` : 'DATOS NO DISPONIBLES';
-    doc.text(`Nombre: ${pName}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Tipo de Paciente: ${patientType}`, 20, currentY);
-    currentY += 10;
-    doc.text(`CURP: ${patient?.curp || 'N/A'}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Teléfono: ${patient?.phoneNumber || 'N/A'}`, 20, currentY);
-    currentY += 20;
-
-    doc.setFontSize(16);
+    // Info Paciente
+    const pName = patient ? `${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}` : 'N/A';
+    doc.setTextColor(100); doc.text('Nombre:', 20, currentY);
+    doc.setTextColor(0); doc.text(pName.toUpperCase(), 45, currentY);
+    currentY += 6;
+    doc.setTextColor(100); doc.text('CURP:', 20, currentY);
+    doc.setTextColor(0); doc.text(patient?.curp || 'N/A', 45, currentY);
+    currentY += 6;
+    doc.setTextColor(100); doc.text('Tipo:', 20, currentY);
+    doc.setTextColor(0); doc.text(patientType.toUpperCase(), 45, currentY);
+    
+    // Info Clínica
+    let col2Y = currentY - 12;
+    doc.setTextColor(100); doc.text('Unidad:', 110, col2Y);
+    doc.setTextColor(0); doc.text(clinicData.name.toUpperCase(), 135, col2Y);
+    col2Y += 6;
+    doc.setTextColor(100); doc.text('Médico:', 110, col2Y);
+    doc.setTextColor(0); doc.text(`DR(A). ${clinicData.doctorName.toUpperCase()}`, 135, col2Y);
+    col2Y += 6;
+    doc.setTextColor(100); doc.text('Folio:', 110, col2Y);
+    doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
     doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, currentY);
-    currentY += 10;
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, currentY);
-    currentY += 10;
-    
-    if (time.includes('Ficha')) {
-        doc.text(`Ficha de Turno: ${time.split(' ')[1]}`, 20, currentY);
-    } else {
-        doc.text(`Hora: ${time}`, 20, currentY);
-    }
-    currentY += 10;
+    doc.text(appointmentNumber, 135, col2Y);
 
-    doc.text(`Clínica: ${clinicData.name}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Doctor(a): ${clinicData.doctorName}`, 20, currentY);
-    currentY += 10;
-    
-    let finalY = currentY;
+    currentY += 15;
 
+    // Avisos
     if (announcements && announcements.length > 0) {
-        doc.setFontSize(14);
         doc.setFont('Helvetica', 'bold');
-        doc.text('Avisos Importantes:', 20, finalY);
-        finalY += 7;
+        doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+        doc.text('INSTRUCCIONES IMPORTANTES:', 20, currentY);
+        currentY += 4;
         
         doc.autoTable({
-            startY: finalY,
-            body: announcements.map(a => [a]),
+            startY: currentY,
+            margin: { left: 20, right: 20 },
+            body: announcements.map(a => [a.toUpperCase()]),
             theme: 'plain',
-            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
+            styles: { fontSize: 8, cellPadding: 1, halign: 'left', textColor: [50, 50, 50] },
         });
-        finalY = doc.lastAutoTable.finalY + 5;
     }
 
-    doc.setFontSize(10);
-    doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
-    doc.text('Presentarse con identificación personal (INE).', 20, finalY + 5)
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
+    addPDFFooter(doc);
+    doc.save(`cita_${appointmentNumber}.pdf`);
+}
 
-    doc.save(`recibo_cita_${patient?.curp || 'sin_curp'}.pdf`);
+export async function generateLabAppointmentPDF(appointment: LabAppointment, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber, studies } = appointment;
+
+    addPDFHeader(doc, 'Cita de Laboratorio Clínico');
+    let currentY = addDateTimeHighlight(doc, date, time, 65);
+
+    doc.setTextColor(0);
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('PACIENTE:', 20, currentY);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
+    currentY += 7;
+    doc.setFont('Helvetica', 'bold');
+    doc.text('CURP:', 20, currentY);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(patient.curp, 50, currentY);
+
+    currentY += 15;
+    doc.setFont('Helvetica', 'bold');
+    doc.text('ESTUDIOS SOLICITADOS:', 20, currentY);
+    
+    const tableBody = studies.map(s => [s.name.toUpperCase(), s.sampleType, s.fastingHours]);
+    doc.autoTable({
+        startY: currentY + 5,
+        head: [['Estudio', 'Tipo de Muestra', 'Ayuno']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: PRIMARY_COLOR },
+    });
+
+    let finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(10);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('RECUERDE:', 20, finalY);
+    doc.setFont('Helvetica', 'normal');
+    doc.text('Presentarse a las 06:30 hrs para su toma de muestras puntual a las 07:00 hrs.', 20, finalY + 5);
+
+    addPDFFooter(doc);
+    doc.save(`cita_lab_${appointmentNumber}.pdf`);
+}
+
+export async function generateXRayAppointmentPDF(appointment: XRayAppointment, study: XRayStudy, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber } = appointment;
+
+    addPDFHeader(doc, 'Cita de Rayos X');
+    let currentY = addDateTimeHighlight(doc, date, time, 65);
+
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('PACIENTE:', 20, currentY);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
+    
+    currentY += 15;
+    doc.setFont('Helvetica', 'bold');
+    doc.text('ESTUDIO SOLICITADO:', 20, currentY);
+    
+    doc.autoTable({
+        startY: currentY + 5,
+        head: [['Estudio de Radiología', 'Indicaciones']],
+        body: [[study.name.toUpperCase(), study.indications.toUpperCase()]],
+        theme: 'grid',
+        headStyles: { fillColor: PRIMARY_COLOR },
+    });
+
+    addPDFFooter(doc);
+    doc.save(`cita_rx_${appointmentNumber}.pdf`);
+}
+
+export async function generateUltrasoundAppointmentPDF(appointment: UltrasoundAppointment, study: UltrasoundStudy, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber } = appointment;
+
+    addPDFHeader(doc, 'Cita de Ultrasonido');
+    let currentY = addDateTimeHighlight(doc, date, time, 65);
+
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('PACIENTE:', 20, currentY);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
+    
+    currentY += 15;
+    doc.setFont('Helvetica', 'bold');
+    doc.text('ESTUDIO SOLICITADO:', 20, currentY);
+    
+    doc.autoTable({
+        startY: currentY + 5,
+        head: [['Estudio de Ultrasonografía', 'Indicaciones']],
+        body: [[study.name.toUpperCase(), study.indications.toUpperCase()]],
+        theme: 'grid',
+        headStyles: { fillColor: PRIMARY_COLOR },
+    });
+
+    addPDFFooter(doc);
+    doc.save(`cita_us_${appointmentNumber}.pdf`);
+}
+
+export async function generateVaccineAppointmentPDF(appointment: VaccineAppointment, announcements: string[]) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF() as any;
+    const { patient, date, time, appointmentNumber, vaccines } = appointment;
+
+    addPDFHeader(doc, 'Cita de Vacunación');
+    let currentY = addDateTimeHighlight(doc, date, time, 65);
+
+    doc.setFontSize(12);
+    doc.setFont('Helvetica', 'bold');
+    doc.text('PACIENTE:', 20, currentY);
+    doc.setFont('Helvetica', 'normal');
+    doc.text(`${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`.toUpperCase(), 50, currentY);
+    
+    currentY += 15;
+    doc.setFont('Helvetica', 'bold');
+    doc.text('VACUNAS A APLICAR:', 20, currentY);
+    
+    const tableBody = vaccines.map(v => [v.name.toUpperCase(), v.description.toUpperCase(), v.applicationAge]);
+    doc.autoTable({
+        startY: currentY + 5,
+        head: [['Vacuna', 'Protección', 'Edad Recomendada']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: PRIMARY_COLOR },
+    });
+
+    addPDFFooter(doc);
+    doc.save(`cita_vacuna_${appointmentNumber}.pdf`);
 }
 
 export async function generatePrescriptionPDF(prescription: Prescription) {
@@ -238,9 +423,7 @@ export async function generatePrescriptionPDF(prescription: Prescription) {
         if (logoBase64) {
             doc.addImage(logoBase64, 'PNG', 15, 12, 22, 22);
         }
-    } catch (e) {
-        console.warn("Logo loading failed:", e);
-    }
+    } catch (e) {}
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(18);

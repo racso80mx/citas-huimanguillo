@@ -80,6 +80,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { Card, CardContent } from './ui/card';
+import { generateAppointmentPDF } from '@/lib/report-helpers';
 
 
 type AppointmentListProps = {
@@ -100,7 +101,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
   const [isUpdating, startUpdateTransition] = useTransition();
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>(null);
   
-  // Historical context states
+  // Contexto histórico
   const [expandedPatientId, setExpandedPatientId] = useState<string | null>(null);
   const [patientConsultations, setPatientConsultations] = useState<Record<string, MedicalConsultation[]>>({});
   const [isLoadingHistory, setIsLoadingHistory] = useState<Record<string, boolean>>({});
@@ -119,9 +120,7 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
   const [announcements, setAnnouncements] = useState<string[]>([]);
   const [settings, setSettings] = useState<ModuleSettings | null>(null);
 
-  // New Consultation states
   const [consultingAppointment, setConsultingAppointment] = useState<Appointment | null>(null);
-  // State for viewing a historical consultation
   const [viewingConsultation, setViewingConsultation] = useState<{ consultation: MedicalConsultation, appointment: Appointment } | null>(null);
 
   const { toast } = useToast();
@@ -162,7 +161,6 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
 
     setExpandedPatientId(patientId);
     
-    // Only fetch if we don't have it yet
     if (!patientConsultations[patientId]) {
       setIsLoadingHistory(prev => ({ ...prev, [patientId]: true }));
       try {
@@ -182,7 +180,6 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
       const res = await deleteMedicalConsultation(consultationId);
       if (res.success) {
         toast({ title: 'Nota Médica Eliminada' });
-        // Update local state to remove the item instantly
         setPatientConsultations(prev => ({
           ...prev,
           [patientId]: prev[patientId].filter(c => c.id !== consultationId)
@@ -370,96 +367,11 @@ export function AppointmentList({ appointments, isAdmin = false, onDelete, clini
   const handleDownloadPDF = async (appointment: Appointment) => {
     const clinic = clinics.find(c => c.id === appointment.clinicId);
     if (!clinic) {
-      toast({
-        title: 'Error',
-        description: 'No se encontraron los datos de la clínica para generar el PDF.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se encontraron datos de la clínica.', variant: 'destructive' });
       return;
     }
-    const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
-    const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, patientType } = appointment;
-
-    doc.setFont('Helvetica');
-    doc.setFontSize(22);
-    doc.text('Confirmación de Cita Médica', 105, 25, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
-    
-    let currentY = 50;
-    doc.setFontSize(14);
-    doc.setFont('Helvetica', 'bold');
-    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, currentY);
-    currentY += 8;
-
-    doc.setLineWidth(0.5);
-    doc.line(20, currentY - 4, 190, currentY - 4);
-
-    currentY += 5;
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Datos del Paciente:', 20, currentY);
-    currentY += 10;
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Tipo de Paciente: ${patientType}`, 20, currentY);
-    currentY += 10;
-    doc.text(`CURP: ${patient.curp}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Teléfono: ${patient.phoneNumber}`, 20, currentY);
-    currentY += 20;
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, currentY);
-    currentY += 10;
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, currentY);
-    currentY += 10;
-    
-    if (time.includes('Ficha')) {
-        doc.text(`Ficha de Turno: ${time.split(' ')[1]}`, 20, currentY);
-    } else {
-        doc.text(`Hora: ${time}`, 20, currentY);
-    }
-    currentY += 10;
-
-    doc.text(`Clínica: ${clinic.name}`, 20, currentY);
-    currentY += 10;
-    doc.text(`Doctor(a): ${clinic.doctorName}`, 20, currentY);
-    currentY += 10;
-    
-    let finalY = currentY;
-
-    if (announcements && announcements.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text('Avisos Importantes:', 20, finalY);
-        finalY += 7;
-        
-        doc.autoTable({
-            startY: finalY,
-            body: announcements.map(a => [a]),
-            theme: 'plain',
-            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
-        });
-        finalY = doc.lastAutoTable.finalY + 5;
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
-    doc.text('Presentarse con identificación personal (INE).', 20, finalY + 5)
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
-
-    doc.save(`recibo_cita_${patient.curp}.pdf`);
+    const ann = await getAnnouncements();
+    await generateAppointmentPDF(appointment, clinic, ann);
   };
 
   const renderHistoryGrid = (patientId: string, app: Appointment) => {

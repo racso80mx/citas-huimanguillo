@@ -45,6 +45,7 @@ import {
 import { updateAppointmentStatus, rescheduleAppointment, cloneAppointment, getAnnouncements, getModuleSettings } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '../ui/calendar';
+import { generateVaccineAppointmentPDF } from '@/lib/report-helpers';
 
 
 type VaccineAppointmentListProps = {
@@ -242,96 +243,8 @@ export function VaccineAppointmentList({ appointments, isAdmin = false, onDelete
   };
 
   const handleDownloadPDF = async (appointment: VaccineAppointment) => {
-    const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
-    const doc = new jsPDF() as any;
-    const { patient, date, time, appointmentNumber, patientType, vaccines, coloniaName } = appointment;
-    const isNewborn = patientType === 'Recién Nacido';
-    let detailsY = 85;
-
-    doc.setFont('Helvetica');
-    doc.setFontSize(22);
-    doc.text('Confirmación de Cita de Vacunación', 105, 25, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text('Hospital General de Huimanguillo', 105, 31, { align: 'center' });
-    doc.setFontSize(14);
-    doc.setFont('Helvetica', 'bold');
-    doc.text(`Folio de Cita: ${appointmentNumber}`, 20, 50);
-
-    doc.setLineWidth(0.5);
-    doc.line(20, 55, 190, 55);
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Datos del Paciente:', 20, 65);
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    doc.text(`Nombre: ${patient.name} ${patient.paternalLastName} ${patient.maternalLastName}`, 20, 75);
-    doc.text(`Teléfono del Tutor: ${patient.phoneNumber}`, 20, detailsY);
-    detailsY += 10;
-    
-    if (!isNewborn) {
-        doc.text(`CURP: ${patient.curp}`, 20, detailsY);
-        detailsY += 10;
-        if (coloniaName) {
-            doc.text(`Colonia: ${coloniaName}`, 20, detailsY);
-            detailsY += 10;
-        }
-    }
-    detailsY += 10; // Extra space
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Detalles de la Cita:', 20, detailsY);
-    detailsY += 10;
-    doc.setFontSize(12);
-    doc.setFont('Helvetica', 'normal');
-    const formattedDate = format(new Date(date), "eeee, dd 'de' MMMM 'de' yyyy", { locale: es });
-    doc.text(`Fecha: ${formattedDate}`, 20, detailsY);
-    detailsY += 10;
-    doc.text(`Hora: ${time} hrs`, 20, detailsY);
-    detailsY += 10;
-    doc.text('Lugar: Área de Vacunación del Centro de Salud', 20, detailsY);
-    detailsY += 20;
-
-    doc.setFontSize(16);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Vacunas a Aplicar:', 20, detailsY);
-    detailsY += 10;
-    
-    const tableBody = vaccines.map(v => [v.name, v.description, v.applicationAge]);
-    doc.autoTable({
-        startY: detailsY,
-        head: [['Vacuna', 'Protege contra', 'Edad recomendada']],
-        body: tableBody,
-        theme: 'grid',
-        headStyles: { fillColor: [0, 102, 51] }, // Primary color
-    });
-
-    let finalY = doc.lastAutoTable.finalY || detailsY + 30;
-    finalY += 10;
-
-    if (announcements && announcements.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('Helvetica', 'bold');
-        doc.text('Avisos Importantes:', 20, finalY);
-        finalY += 7;
-        doc.autoTable({
-            startY: finalY,
-            body: announcements.map(a => [a]),
-            theme: 'plain',
-            styles: { fontSize: 10, cellPadding: 1, halign: 'left' },
-        });
-        finalY = doc.lastAutoTable.finalY + 5;
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(150);
-    doc.text('Por favor, llegue 15 minutos antes de su cita.', 20, finalY);
-    doc.text('No olvide traer la Cartilla Nacional de Salud.', 20, finalY + 5);
-    doc.text('Este es un comprobante de su cita, puede mostrar este PDF desde su teléfono.', 20, finalY + 10);
-
-    doc.save(`recibo_vacuna_${patient.name.split(' ')[0]}_${patient.paternalLastName}.pdf`);
+    const ann = await getAnnouncements();
+    await generateVaccineAppointmentPDF(appointment, ann);
   };
 
   if (!appointments || appointments.length === 0) {
