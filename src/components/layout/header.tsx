@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { logoBase64 } from '@/lib/logo-data';
 import type { ModuleSettings } from '@/lib/definitions';
+import { cn } from '@/lib/utils';
 
 export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings }) {
   const pathname = usePathname();
@@ -40,6 +41,7 @@ export function SiteHeader({ moduleSettings }: { moduleSettings: ModuleSettings 
               width={96}
               height={96}
               className="rounded-md"
+              priority
             />
           </div>
           <div className="flex flex-col leading-none">

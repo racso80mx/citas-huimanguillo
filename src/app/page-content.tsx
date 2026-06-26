@@ -86,6 +86,7 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
             width={270}
             height={270}
             className="rounded-xl shadow-2xl"
+            priority
           />
         </div>
         <h1 className="text-5xl lg:text-6xl font-bold font-headline text-foreground">

@@ -91,7 +91,7 @@ export async function getModuleSettings(): Promise<ModuleSettings> {
     citasMedicasEnabled: true, laboratorioEnabled: true, rayosXEnabled: true, ultrasoundEnabled: true, vacunasEnabled: true,
     archivoEnabled: true, farmaciaEnabled: true, almacenEnabled: true, archivoConsultaEnabled: true,
     citasMedicasWhatsAppEnabled: true, laboratorioWhatsAppEnabled: true, rayosXWhatsAppEnabled: true, ultrasoundWhatsAppEnabled: true, vacunasWhatsAppEnabled: true, archivoWhatsAppEnabled: true,
-    citasMedicasPassword: 'Citas', archivoConsultaPassword: 'Consulta'
+    citasMedicasPassword: 'citas2026', archivoConsultaPassword: '2026'
   };
 }
 
@@ -367,7 +367,7 @@ export async function getAvailableSlotsForDate(cid: string, d: string) {
     const snap = await getDocs(q);
     const booked = snap.docs.map(doc => doc.data().time);
     
-    if (c.bookingMode === BookingMode.Token) return { tokens: Array.from({ length: c.dailySlots }, (_, i) => i + 1).filter(t => !booked.includes(`Ficha ${t}`)) };
+    if (c.bookingMode === BookingMode.Token) return { tokens: Array.from({ length: (c.dailySlots + (c.waitlistSlots || 0)) }, (_, i) => i + 1).filter(t => !booked.includes(`Ficha ${t}`)) };
     return { timeSlots: ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00"].filter(t => !booked.includes(t)) };
 }
 
