@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   doc, 
@@ -511,7 +510,7 @@ export async function updateServiceTypes(types: ServiceType[]) { const batch = w
 export async function getSpecialtiesData() { return getRawCollection('specialties'); }
 export async function updateSpecialties(specialties: Specialty[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'specialties')); snap.docs.forEach(d => batch.delete(d.ref)); specialties.forEach(s => batch.set(doc(adminDb, 'specialties', s.id), s)); await batch.commit(); return { success: true }; }
 export async function getColoniasData() { return getRawCollection('colonias'); }
-export async function updateColonias(colonias: Colonia[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'colonias')); snap.docs.forEach(d => batch.delete(d.ref)); colonias.forEach(c => batch.set(doc(adminDb, 'colonias', c.id), c)); await batch.commit(); return { success: true }; }
+export async function updateColonias(colonias: Colonia[]) { const batch = writeBatch(adminDb); snap = await getDocs(collection(adminDb, 'colonias')); snap.docs.forEach(d => batch.delete(d.ref)); colonias.forEach(c => batch.set(doc(adminDb, 'colonias', c.id), c)); await batch.commit(); return { success: true }; }
 
 // --- CIE-10 ---
 export async function bulkInsertCie10Glossary(items: any[]) { const batch = writeBatch(adminDb); items.forEach(i => batch.set(doc(adminDb, 'cie10_glossary', uuidv4()), i)); await batch.commit(); return { success: true, processedCount: items.length }; }

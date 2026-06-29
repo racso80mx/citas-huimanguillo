@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -172,8 +171,8 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
       const res = await deleteAllMedications();
       if (res.success) {
         toast({ title: 'Inventario vaciado' });
-        setMedications([]); // Limpiar estado local inmediatamente
-        loadMedications(); // Recargar para confirmar estado desde servidor
+        setMedications([]);
+        loadMedications();
       }
     });
   };
