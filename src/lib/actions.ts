@@ -28,6 +28,16 @@ import type {
     Specialty
 } from './definitions';
 
+// --- WRAPPERS PARA MANTENER NOMBRES DE COMPONENTES ---
+export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
+export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
+export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
+export async function getBISettings() { return data.getBISettingsData(); }
+export async function getAdminSettings() { return data.getAdminSettingsData(); }
+export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
+export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
+export async function getLogs() { return data.getLogsData(); }
+
 // --- MÓDULOS ---
 export async function getModuleSettings() { return data.getModuleSettings(); }
 export async function updateModuleSettings(settings: ModuleSettings) { 
@@ -129,7 +139,6 @@ export async function cloneAppointment(id: string, date: string, type: any, time
     return res;
 }
 export async function getAppointmentsForClinic(clinicId: string) { return data.getAppointmentsForClinic(clinicId); }
-export async function getAvailableSlotsForDate(clinicId: string, date: string) { return data.getAvailableSlotsForDate(clinicId, date); }
 
 export async function saveNewAppointment(appointment: any, patient: any, isDouble: boolean, colonia?: string) {
     const res = await data.saveNewAppointment(appointment, patient, isDouble, colonia);
@@ -176,13 +185,7 @@ export async function updateColonias(colonias: Colonia[]) {
     return res;
 }
 
-// --- MANTENIMIENTO Y CIE-10 ---
-export async function bulkInsertCie10Glossary(items: any[]) { return data.bulkInsertCie10Glossary(items); }
-export async function bulkInsertCie10Catalog(items: any[]) { return data.bulkInsertCie10Catalog(items); }
-export async function deleteAllCie10Glossary() { return data.deleteAllCie10Glossary(); }
-export async function deleteAllCie10Catalog() { return data.deleteAllCie10Catalog(); }
-export async function searchCie10(term: string) { return data.searchCie10Data(term); }
-
+// --- MANTENIMIENTO ---
 export async function bulkInsertPatients(patients: any[]) { 
     const res = await data.bulkInsertPatients(patients);
     revalidatePath('/', 'layout');
@@ -190,17 +193,6 @@ export async function bulkInsertPatients(patients: any[]) {
 }
 export async function bulkInsertDoctors(doctors: any[]) { 
     const res = await data.bulkInsertDoctors(doctors);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function scanDuplicates(criteria: string) { return data.scanDuplicates(criteria); }
-export async function applyStatusUpdateChunk(expedientes: string[], status: string) { 
-    const res = await data.applyStatusUpdateChunk(expedientes, status);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function normalizeExpedientesAction() { 
-    const res = await data.normalizeExpedientesAction();
     revalidatePath('/', 'layout');
     return res;
 }
@@ -212,15 +204,10 @@ export async function cleanupOldRecords() {
 }
 
 // --- SEGURIDAD ---
-export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
 export async function updateAdminSettings(settings: AdminSettings) { return data.updateAdminSettings(settings); }
-export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
 export async function updateArchiveSettings(settings: ArchiveSettings) { return data.updateArchiveSettings(settings); }
-export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
 export async function updatePharmacySettings(settings: PharmacySettings) { return data.updatePharmacySettings(settings); }
-export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
 export async function updateWarehouseSettings(settings: WarehouseSettings) { return data.updateWarehouseSettings(settings); }
-export async function getBISettings() { return data.getBISettingsData(); }
 export async function updateBISettings(settings: BISettings) { return data.updateBISettings(settings); }
 
 export async function verifyAdminPassword(p: string) { const s = await data.getAdminSettingsData(); return { success: s.password === p }; }
@@ -281,7 +268,6 @@ export async function deletePrescription(id: string) {
     return res;
 }
 export async function getPendingPrescriptions(filters: any) { return data.getPendingPrescriptions(filters); }
-export async function getPrescriptionHistory(filters: any) { return data.getPendingPrescriptions(filters); }
 export async function getPatientPrescriptionsCountTodayAction(patientId: string) { return data.getPatientPrescriptionsCountTodayAction(patientId); }
 export async function getAppointmentCountOnDate(clinicId: string, date: string) { return data.getAppointmentCountOnDate(clinicId, date); }
 export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
@@ -360,16 +346,7 @@ export async function updateVaccines(v: Vaccine[]) {
     revalidatePath('/', 'layout');
     return res;
 }
-export async function getLogs() { return data.getLogsData(); }
 export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
 export async function deleteAllMedications() { return data.deleteAllMedications(); }
 export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
-export async function verifyClinicPassword(id: string, p: string) { 
-    const clinics = await data.getClinicsData();
-    const clinic = clinics.find(c => c.id === id);
-    return { success: clinic?.password === p };
-}
-export async function logActivity(action: string, details: string) {
-    return data.logActivity(action, details);
-}
