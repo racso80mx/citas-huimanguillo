@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { SiteHeader } from '@/components/layout/header';
@@ -35,9 +36,9 @@ export default async function RootLayout({
         <FirebaseClientProvider>
           <SidebarProvider defaultOpen={false}>
             <AppSidebar moduleSettings={moduleSettings} />
-            <SidebarInset className="flex flex-col m-0 p-0 rounded-none border-none shadow-none bg-background">
+            <SidebarInset className="flex flex-col m-0 p-0 rounded-none border-none shadow-none bg-background w-full max-w-none">
               <SiteHeader moduleSettings={moduleSettings} />
-              <main className="flex-1 w-full p-0 m-0 overflow-x-hidden">
+              <main className="flex-1 w-full p-0 m-0 overflow-x-hidden bg-background">
                 {children}
               </main>
               <SiteFooter />

@@ -194,7 +194,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
     }, [editedClinic.startTime, editedClinic.endTime, editedClinic.consultationDuration, editedClinic.breakTime]);
 
     return (
-        <DialogContent className="sm:max-w-[90vw] h-[95vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-[90vw] h-[95vh] flex flex-col p-0 overflow-hidden text-foreground">
             <DialogHeader className="p-6 shrink-0 border-b">
                 <div className="flex items-center justify-between">
                     <div>
@@ -278,7 +278,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                                 <Label className="text-xs font-bold uppercase">Fecha del Evento</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant="outline" className="w-full h-11 justify-start font-bold">
+                                        <Button variant="outline" className="w-full h-11 justify-start font-bold text-foreground">
                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                             {newScheduleDate ? format(newScheduleDate, 'dd/MM/yyyy') : "Elegir Fecha..."}
                                         </Button>
@@ -548,6 +548,11 @@ export function ClinicsManager() {
                 </Table>
             </div>
         </CardContent>
+        <CardFooter className="bg-muted/5 border-t py-4">
+             <Button onClick={() => handleDialogSave(clinics[0])} disabled={isSaving || clinics.length === 0} className="w-full h-12 font-black uppercase shadow-lg">
+                <Save className="mr-2 h-5 w-5" /> GUARDAR CATÁLOGO DE UNIDADES
+             </Button>
+        </CardFooter>
       </Card>
 
       {selectedClinic && (
