@@ -37,7 +37,8 @@ import {
     ArrowUp,
     ArrowDown,
     Trash2,
-    AlertTriangle
+    AlertTriangle,
+    Settings2
 } from 'lucide-react';
 import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -375,4 +376,221 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
             </AlertDialog>
         </DialogContent>
     );
+}
+
+export function ClinicsManager() {
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, startSavingTransition] = useTransition();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Clinic; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
+  
+  const { toast } = useToast();
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [clinicsData, specialtiesData, servicesData] = await Promise.all([
+        getClinics(),
+        getSpecialties(),
+        getServiceTypes()
+      ]);
+      setClinics(clinicsData);
+      setSpecialties(specialtiesData);
+      setServiceTypes(servicesData);
+    } catch (error) {
+      console.error('Failed to fetch clinics:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleSort = (key: keyof Clinic) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: keyof Clinic) => {
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
+    return sortConfig.direction === 'asc' ? <ArrowUp className="ml-2 h-4 w-4 text-primary" /> : <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
+  };
+
+  const filteredAndSortedClinics = useMemo(() => {
+    let result = clinics.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const valA = String((a as any)[sortConfig.key] || '').toLowerCase();
+        const valB = String((b as any)[sortConfig.key] || '').toLowerCase();
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [clinics, searchTerm, sortConfig]);
+
+  const handleEditClick = (clinic: Clinic) => {
+    setSelectedClinic(clinic);
+    setIsDialogOpen(true);
+  };
+
+  const handleAddNew = () => {
+    const newClinic: Clinic = {
+        id: `new-${uuidv4()}`,
+        name: '',
+        doctorName: '',
+        password: '123',
+        dailySlots: 15,
+        waitlistSlots: 0,
+        startTime: '08:00',
+        endTime: '13:00',
+        weekendBookingEnabled: false,
+        serviceTypeId: serviceTypes[0]?.id || '',
+        bookingMode: BookingMode.Time,
+        consultationDuration: 30,
+        unavailableDates: [],
+        daysOfAction: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+    };
+    setSelectedClinic(newClinic);
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogSave = (updatedClinic: Clinic) => {
+    const isNew = updatedClinic.id.startsWith('new');
+    let finalClinics: Clinic[];
+    
+    if (isNew) {
+        const newId = uuidv4();
+        finalClinics = [...clinics, { ...updatedClinic, id: newId }];
+    } else {
+        finalClinics = clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c);
+    }
+    
+    startSavingTransition(async () => {
+        const result = await updateClinics(finalClinics);
+        if (result.success) {
+            toast({ title: 'Unidad Guardada', description: 'La configuración se ha sincronizado correctamente.' });
+            setIsDialogOpen(false);
+            setSelectedClinic(null);
+            fetchData();
+        }
+    });
+  };
+
+  const handleDeleteClinic = async (id: string) => {
+      startSavingTransition(async () => {
+          const res = await deleteClinic(id);
+          if (res.success) {
+              toast({ title: 'Unidad Eliminada' });
+              setIsDialogOpen(false);
+              setSelectedClinic(null);
+              fetchData();
+          }
+      });
+  };
+
+  if (isLoading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <Card className="shadow-lg border-primary/10">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
+          <div>
+            <CardTitle className="text-2xl font-bold font-headline flex items-center gap-2">
+              <Hospital className="h-6 w-6 text-primary" /> Gestión de Consultorios y Núcleos
+            </CardTitle>
+            <CardDescription>Configura los horarios, personal médico y disponibilidad de cada unidad.</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={fetchData} className="h-10"><RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /></Button>
+            <Button onClick={handleAddNew} className="h-10 bg-primary hover:bg-primary/90 font-bold"><PlusCircle className="mr-2 h-4 w-4" /> Nueva Unidad</Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Buscar por consultorio o médico..." 
+                    className="pl-9 h-11"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="border rounded-xl overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow>
+                            <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('name')}>
+                                <div className="flex items-center">Consultorio / Núcleo {getSortIcon('name')}</div>
+                            </TableHead>
+                            <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('doctorName')}>
+                                <div className="flex items-center">Médico {getSortIcon('doctorName')}</div>
+                            </TableHead>
+                            <TableHead>Horario</TableHead>
+                            <TableHead className="w-[100px] text-right pr-6">Config.</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredAndSortedClinics.map(clinic => (
+                            <TableRow key={clinic.id} className="hover:bg-muted/30">
+                                <TableCell>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-sm uppercase">{clinic.name}</span>
+                                        <Badge variant="outline" className="w-fit text-[9px] mt-1 uppercase font-bold text-muted-foreground">
+                                            {serviceTypes.find(t => t.id === clinic.serviceTypeId)?.name || 'N/A'}
+                                        </Badge>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <span className="text-xs font-medium uppercase text-primary">Dr. {clinic.doctorName}</span>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                                        <Clock className="h-3 w-3" /> {clinic.startTime} - {clinic.endTime}
+                                        <Badge className="bg-primary/5 text-primary text-[10px] h-5 border-primary/20">{clinic.dailySlots} Citas</Badge>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right pr-6">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(clinic)} className="hover:bg-primary/10 text-primary">
+                                        <Settings2 className="h-5 w-5" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        </CardContent>
+      </Card>
+
+      {selectedClinic && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <ClinicEditDialog 
+            clinic={selectedClinic} 
+            specialties={specialties} 
+            serviceTypes={serviceTypes}
+            onSave={handleDialogSave}
+            onDelete={handleDeleteClinic}
+            onCancel={() => { setIsDialogOpen(false); setSelectedClinic(null); }}
+          />
+        </Dialog>
+      )}
+    </div>
+  );
 }

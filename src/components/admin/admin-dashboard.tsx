@@ -311,7 +311,7 @@ function AppointmentsViewer() {
                                             <CommandEmpty>No hay resultados.</CommandEmpty>
                                             <CommandGroup>
                                                 {data.clinics.filter((c: any) => selectedServiceType === 'all' || c.serviceTypeId === selectedServiceType).map((c: any) => (
-                                                    <CommandItem key={c.id} onSelect={() => setSelectedClinics(prev => prev.includes(c.id) ? prev.filter(itemId => itemId !== c.id) : [...prev, c.id])}>
+                                                    <CommandItem key={c.id} onSelect={() => setSelectedClinics(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}>
                                                         <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinics.includes(c.id) ? "bg-primary text-white" : "opacity-50 [&_svg]:invisible")}><Check className="h-4 w-4" /></div>
                                                         <span className="text-xs uppercase font-bold">{c.name}</span>
                                                     </CommandItem>

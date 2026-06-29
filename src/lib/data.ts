@@ -380,7 +380,6 @@ export async function bulkInsertCie10Glossary(items: any[]) { const batch = writ
 export async function bulkInsertCie10Catalog(items: any[]) { const batch = writeBatch(adminDb); items.forEach(i => batch.set(doc(adminDb, 'cie10_catalog', uuidv4()), i)); await batch.commit(); return { success: true, processedCount: items.length }; }
 export async function deleteAllCie10Glossary() { const snap = await getDocs(collection(adminDb, 'cie10_glossary')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
 export async function deleteAllCie10Catalog() { const snap = await getDocs(collection(adminDb, 'cie10_catalog')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
-export async function searchCie10Data(term: string) { const q = query(collection(adminDb, 'cie10_catalog'), where('catalogKey', '>=', term), where('catalogKey', '<=', term + '\uf8ff'), limit(20)); const snap = await getDocs(q); return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id })) as Cie10Record[]; }
 
 export async function bulkInsertPatients(pats: any[]) { const batch = writeBatch(adminDb); pats.forEach(p => { const id = uuidv4(); batch.set(doc(adminDb, 'patients', id), { ...p, id }); }); await batch.commit(); return { success: true, processedCount: pats.length }; }
 export async function bulkInsertDoctors(docs: any[]) { const batch = writeBatch(adminDb); docs.forEach(d => { const id = uuidv4(); batch.set(doc(adminDb, 'clinics', id), { ...d, id }); }); await batch.commit(); return { success: true, processedCount: docs.length }; }
@@ -409,3 +408,37 @@ export async function getPatientPrescriptionsCountTodayAction(pid: string) { con
 export async function getAttendedPatientsForClinic(cid: string) { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid), where('status', '==', 'Atendido'), limit(300)); const snap = await getDocs(q); const pIds = Array.from(new Set(snap.docs.map(d => d.data().patientId))); if (pIds.length === 0) return []; const pats: Patient[] = []; for (let i = 0; i < pIds.length; i += 30) { const chunk = pIds.slice(i, i + 30); const pq = query(collection(adminDb, 'patients'), where('__name__', 'in', chunk)); const psnap = await getDocs(pq); pats.push(...psnap.docs.map(d => ({ ...serializeData(d.data()), id: d.id } as Patient))); } return pats; }
 export async function deleteMedicalConsultation(id: string) { await deleteDoc(doc(adminDb, 'medicalConsultations', id)); return { success: true }; }
 export async function updatePrescription(id: string, p: any) { await updateDoc(doc(adminDb, 'prescriptions', id), p); return { success: true }; }
+export async function logActivity(action: string, details: string) { await addDoc(collection(adminDb, 'activityLog'), { timestamp: Timestamp.now(), action, details }); return { success: true }; }
+
+export async function bulkInsertMedications(p: any[]) { 
+    const batch = writeBatch(adminDb); 
+    p.forEach(item => {
+        const id = uuidv4();
+        batch.set(doc(adminDb, 'medications', id), { ...item, id, updatedAt: new Date().toISOString() });
+    });
+    await batch.commit(); 
+    return { success: true, processedCount: p.length }; 
+}
+export async function bulkInsertSupplies(p: any[]) { 
+    const batch = writeBatch(adminDb); 
+    p.forEach(item => {
+        const id = uuidv4();
+        batch.set(doc(adminDb, 'supplies', id), { ...item, id, updatedAt: new Date().toISOString() });
+    });
+    await batch.commit(); 
+    return { success: true, processedCount: p.length }; 
+}
+export async function deleteAllMedications() { 
+    const snap = await getDocs(collection(adminDb, 'medications'));
+    const batch = writeBatch(adminDb);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    return { success: true };
+}
+export async function deleteAllSupplies() { 
+    const snap = await getDocs(collection(adminDb, 'supplies'));
+    const batch = writeBatch(adminDb);
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    return { success: true };
+}
