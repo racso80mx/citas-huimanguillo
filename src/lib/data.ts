@@ -70,6 +70,32 @@ export function serializeData(data: any): any {
   return data;
 }
 
+// Motor de normalización de encabezados Excel
+function fuzzyMapInsumo(item: any) {
+    const keys = Object.keys(item);
+    const find = (options: string[]) => {
+        const found = keys.find(k => {
+            const cleanK = k.toLowerCase().trim().replace(/\s/g, '').replace(/[áéíóú]/g, (m) => ({'á':'a','é':'e','í':'i','ó':'o','ú':'u'}[m] || m));
+            return options.some(opt => {
+                const cleanOpt = opt.toLowerCase().trim().replace(/\s/g, '');
+                return cleanK === cleanOpt;
+            });
+        });
+        return found ? item[found] : undefined;
+    };
+
+    return {
+        claveCuadroBasico: String(find(['clave', 'clavedecuadrobasico', 'articulo']) || 'S/C'),
+        descripcion: String(find(['descripcion', 'nombre', 'insumo']) || 'SIN DESCRIPCIÓN'),
+        existencia: Number(find(['existencia', 'stock', 'cantidad', 'actual']) || 0),
+        fechaCaducidad: String(find(['caducidad', 'vencimiento', 'fechadecaducidad']) || ''),
+        lote: String(find(['lote', 'numerodelote']) || 'N/A'),
+        grupo: String(find(['grupo', 'categoria']) || ''),
+        precioUnitario: Number(find(['precio', 'preciounitario', 'costo']) || 0),
+        almacen: String(find(['almacen', 'deposito']) || '')
+    };
+}
+
 // Lector genérico de colecciones
 async function getRawCollection(name: string, limitNum?: number) {
     try {
@@ -99,17 +125,18 @@ async function getPatientsForApps(apps: any[]) {
     return pats;
 }
 
-// GESTIÓN DE CONTRASEÑAS BLINDADA (Colección module_passwords)
+// GESTIÓN DE SEGURIDAD BLINDADA
 async function getPasswordFromStore(id: string, defaultPass: string): Promise<string> {
     const snap = await getDoc(doc(adminDb, 'module_passwords', id));
     return snap.exists() ? snap.data().password : defaultPass;
 }
 
-async function setPasswordInStore(id: string, password: string) {
-    await setDoc(doc(adminDb, 'module_passwords', id), { password });
+export async function logActivity(action: string, details: string) { 
+    await addDoc(collection(adminDb, 'activityLog'), { timestamp: Timestamp.now(), action, details }); 
+    return { success: true }; 
 }
 
-// CONFIGURACIÓN DE MÓDULOS
+// CONFIGURACIONES
 export async function getModuleSettings(): Promise<ModuleSettings> {
   const snap = await getDoc(doc(adminDb, 'settings', 'moduleSettings'));
   const base = snap.exists() ? serializeData(snap.data()) as ModuleSettings : {
@@ -140,7 +167,7 @@ export async function getAdminSettingsData(): Promise<AdminSettings> {
 }
 
 export async function updateAdminSettings(settings: AdminSettings) { 
-    if (settings.password) await setPasswordInStore('superadmin', settings.password);
+    if (settings.password) await setDoc(doc(adminDb, 'module_passwords', 'superadmin'), { password: settings.password });
     return { success: true }; 
 }
 
@@ -150,7 +177,7 @@ export async function getArchiveSettingsData(): Promise<ArchiveSettings> {
 }
 
 export async function updateArchiveSettings(settings: ArchiveSettings) {
-    if (settings.password) await setPasswordInStore('archive', settings.password);
+    if (settings.password) await setDoc(doc(adminDb, 'module_passwords', 'archive'), { password: settings.password });
     return { success: true };
 }
 
@@ -160,7 +187,7 @@ export async function getPharmacySettingsData(): Promise<PharmacySettings> {
 }
 
 export async function updatePharmacySettings(settings: PharmacySettings) {
-    if (settings.password) await setPasswordInStore('pharmacy', settings.password);
+    if (settings.password) await setDoc(doc(adminDb, 'module_passwords', 'pharmacy'), { password: settings.password });
     return { success: true };
 }
 
@@ -170,7 +197,7 @@ export async function getWarehouseSettingsData(): Promise<WarehouseSettings> {
 }
 
 export async function updateWarehouseSettings(settings: WarehouseSettings) {
-    if (settings.password) await setPasswordInStore('warehouse', settings.password);
+    if (settings.password) await setDoc(doc(adminDb, 'module_passwords', 'warehouse'), { password: settings.password });
     return { success: true };
 }
 
@@ -180,7 +207,7 @@ export async function getBISettingsData(): Promise<BISettings> {
 }
 
 export async function updateBISettings(settings: BISettings) {
-    if (settings.password) await setPasswordInStore('bi', settings.password);
+    if (settings.password) await setDoc(doc(adminDb, 'module_passwords', 'bi'), { password: settings.password });
     return { success: true };
 }
 
@@ -221,7 +248,7 @@ export async function getPatientByCURP(curp: string) { const q = query(collectio
 
 // CITAS
 export async function getAppointmentsData() {
-    const apps = await getRawCollection('appointments', 10000); 
+    const apps = await getRawCollection('appointments', 15000); 
     const pats = await getPatientsForApps(apps);
     const clinics = await getClinicsData();
     return apps.map(a => {
@@ -233,10 +260,10 @@ export async function getAppointmentsData() {
         };
     });
 }
-export async function getLabAppointmentsData() { const apps = await getRawCollection('labAppointments', 1000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
-export async function getXRayAppointmentsData() { const apps = await getRawCollection('xrayAppointments', 1000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
-export async function getUltrasoundAppointmentsData() { const apps = await getRawCollection('ultrasoundAppointments', 1000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
-export async function getVaccineAppointmentsData() { const apps = await getRawCollection('vaccineAppointments', 1000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
+export async function getLabAppointmentsData() { const apps = await getRawCollection('labAppointments', 2000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
+export async function getXRayAppointmentsData() { const apps = await getRawCollection('xrayAppointments', 2000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
+export async function getUltrasoundAppointmentsData() { const apps = await getRawCollection('ultrasoundAppointments', 2000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
+export async function getVaccineAppointmentsData() { const apps = await getRawCollection('vaccineAppointments', 2000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
 
 export async function saveNewAppointment(a: any, pData: any, isDouble: boolean, colonia?: string) {
     let pId;
@@ -456,27 +483,12 @@ export async function getPatientPrescriptionsCountTodayAction(pid: string) { con
 export async function getAttendedPatientsForClinic(cid: string) { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid), where('status', '==', 'Atendido'), limit(300)); const snap = await getDocs(q); const pIds = Array.from(new Set(snap.docs.map(d => d.data().patientId))); if (pIds.length === 0) return []; const pats: Patient[] = []; for (let i = 0; i < pIds.length; i += 30) { const chunk = pIds.slice(i, i + 30); const pq = query(collection(adminDb, 'patients'), where('__name__', 'in', chunk)); const psnap = await getDocs(pq); pats.push(...psnap.docs.map(d => ({ ...serializeData(d.data()), id: d.id } as Patient))); } return pats; }
 export async function deleteMedicalConsultation(id: string) { await deleteDoc(doc(adminDb, 'medicalConsultations', id)); return { success: true }; }
 export async function updatePrescription(id: string, p: any) { await updateDoc(doc(adminDb, 'prescriptions', id), p); return { success: true }; }
-export async function logActivity(action: string, details: string) { await addDoc(collection(adminDb, 'activityLog'), { timestamp: Timestamp.now(), action, details }); return { success: true }; }
-
-function mapInsumo(item: any) {
-  // Motor de mapeo inteligente para normalizar encabezados de Excel
-  return {
-    claveCuadroBasico: item.Clave || item.CLAVE || item['Clave de Cuadro Básico'] || item.claveCuadroBasico || 'S/C',
-    descripcion: item.Descripción || item.DESCRIPCION || item.Nombre || item.nombre || item.descripcion || 'SIN DESCRIPCIÓN',
-    existencia: Number(item.Existencia || item.EXISTENCIA || item.Stock || item.STOCK || item.stock || item.existencia || 0),
-    fechaCaducidad: item.Caducidad || item.CADUCIDAD || item.Vencimiento || item['Fecha Caducidad'] || item.fechaCaducidad || '',
-    lote: item.Lote || item.LOTE || item.lote || 'N/A',
-    grupo: item.Grupo || item.grupo || '',
-    precioUnitario: Number(item.Precio || item['Precio Unitario'] || item.precioUnitario || 0),
-    almacen: item.Almacen || item.ALMACEN || item.almacen || ''
-  };
-}
 
 export async function bulkInsertMedications(p: any[]) { 
     const batch = writeBatch(adminDb); 
     p.forEach(item => {
         const id = uuidv4();
-        const mapped = mapInsumo(item);
+        const mapped = fuzzyMapInsumo(item);
         batch.set(doc(adminDb, 'medications', id), { ...mapped, id, updatedAt: new Date().toISOString() });
     });
     await batch.commit(); 
@@ -486,7 +498,7 @@ export async function bulkInsertSupplies(p: any[]) {
     const batch = writeBatch(adminDb); 
     p.forEach(item => {
         const id = uuidv4();
-        const mapped = mapInsumo(item);
+        const mapped = fuzzyMapInsumo(item);
         batch.set(doc(adminDb, 'supplies', id), { ...mapped, id, updatedAt: new Date().toISOString() });
     });
     await batch.commit(); 
