@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -168,7 +169,8 @@ export function WarehouseDashboard({ onLogout }: { onLogout?: () => void }) {
       const res = await deleteAllSupplies();
       if (res.success) {
         toast({ title: 'Inventario vaciado' });
-        loadSupplies();
+        setSupplies([]); // Limpiar estado local inmediatamente
+        loadSupplies(); // Recargar para confirmar estado desde servidor
       }
     });
   };

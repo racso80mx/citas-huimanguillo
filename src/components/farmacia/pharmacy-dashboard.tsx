@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -171,7 +172,8 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
       const res = await deleteAllMedications();
       if (res.success) {
         toast({ title: 'Inventario vaciado' });
-        loadMedications();
+        setMedications([]); // Limpiar estado local inmediatamente
+        loadMedications(); // Recargar para confirmar estado desde servidor
       }
     });
   };
@@ -483,7 +485,7 @@ export function PharmacyDashboard({ onLogout }: { onLogout?: () => void }) {
                     </Table>
                     {filteredAndSortedMedications.length > 300 && (
                         <div className="p-4 text-center text-xs text-muted-foreground bg-muted/20 border-t font-medium italic">
-                        Mostrando los primeros 300 resultados de {filteredAndSortedMedications.length}. Use el buscador para filtrar registros específicos.
+                        Mostrando los primeros 300 resultados de {filteredAndSortedMedications.length}.
                         </div>
                     )}
                     </div>

@@ -700,7 +700,7 @@ export async function downloadBackupAction() {
         getRawCollection('vaccineAppointments'),
         getRawCollection('clinics')
     ]);
-    return { success: true, data: { patients: p, appointments: a, labAppointments: l, xrayAppointments: x, ultrasoundAppointments: u, vaccineAppointments: v, clinics: c } };
+    return { success: true, data: { patients: p, appointments: a, labAppointments: l, xRayAppointments: x, ultrasoundAppointments: u, vaccineAppointments: v, clinics: c } };
 }
 
 export async function scanDuplicates(criteria: string) {
