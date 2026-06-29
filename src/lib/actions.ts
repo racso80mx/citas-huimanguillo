@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -227,6 +228,11 @@ export async function verifyArchivePassword(p: string) { const s = await data.ge
 export async function verifyPharmacyPassword(p: string) { const s = await data.getPharmacySettingsData(); return { success: s.password === p }; }
 export async function verifyWarehousePassword(p: string) { const s = await data.getWarehouseSettingsData(); return { success: s.password === p }; }
 export async function verifyBIPassword(p: string) { const s = await data.getBISettingsData(); return { success: s.password === p }; }
+
+export async function verifyCitasMedicasPassword(p: string) { 
+    const s = await data.getModuleSettings(); 
+    return { success: s.citasMedicasPassword === p }; 
+}
 
 export async function verifyLabPassword(p: string) { 
     const s = await data.getLabSettings(); 

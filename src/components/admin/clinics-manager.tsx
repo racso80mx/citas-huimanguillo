@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -356,11 +357,11 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                             <AlertTriangle className="h-6 w-6" /> ADVERTENCIA: CITAS EXISTENTES
                         </AlertDialogTitle>
                         <AlertDialogDescription asChild>
-                            <div className="space-y-4 pt-2">
+                            <div className="space-y-4 pt-2 text-sm text-muted-foreground">
                                 <div className="font-bold text-foreground">
                                     Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
                                 </div>
-                                <div className="text-sm">
+                                <div>
                                     Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas. Se recomienda reprogramar a estos pacientes antes de aplicar el bloqueo total.
                                 </div>
                                 <div className="font-black uppercase text-[10px]">¿Deseas asignar esta fecha como bloqueada de todos modos?</div>

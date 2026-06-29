@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { SiteHeader } from '@/components/layout/header';
@@ -30,7 +31,7 @@ export default async function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body
-        className={`${ptSans.variable} font-body antialiased min-h-screen bg-background`}
+        className={`${ptSans.variable} font-body antialiased min-h-screen bg-background p-0 m-0`}
       >
         <FirebaseClientProvider>
           <SidebarProvider defaultOpen={false}>

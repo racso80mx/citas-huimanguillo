@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   doc, 
@@ -118,7 +119,6 @@ export async function getModuleSettings(): Promise<ModuleSettings> {
     citasMedicasWhatsAppEnabled: true, laboratorioWhatsAppEnabled: true, rayosXWhatsAppEnabled: true, ultrasoundWhatsAppEnabled: true, vacunasWhatsAppEnabled: true, archivoWhatsAppEnabled: true
   };
 
-  // Merge con tabla de contraseñas para evitar borrados
   const [citasPass, consultaPass] = await Promise.all([
       getPasswordFromStore('medical', 'citas2026'),
       getPasswordFromStore('archiveInquiry', '2026')
@@ -435,7 +435,7 @@ export async function getAppointmentCountOnDate(cid: string, d: string) {
     return count; 
 }
 
-// --- CLÍNICAS Y CONFIGURACIONES ROBUSTAS ---
+// --- CLÍNICAS Y CONFIGURACIONES ---
 export async function getClinicsData(): Promise<Clinic[]> { 
     const clinicsSnap = await getDocs(collection(adminDb, 'clinics'));
     const settingsSnap = await getDocs(collection(adminDb, 'clinic_settings'));
@@ -452,15 +452,9 @@ export async function getClinicsData(): Promise<Clinic[]> {
 
 export async function updateClinics(clinics: Clinic[]) { 
     const batch = writeBatch(adminDb); 
-    
-    // Solo actualizamos la información base de las clínicas para no borrar accidentalmente la seguridad/bloqueos
     clinics.forEach(c => {
         const { id, unavailableDates, customSchedules, daysOfAction, password, ...baseInfo } = c;
-        
-        // 1. Datos base (médico, nombre, horarios estándar)
         batch.set(doc(adminDb, 'clinics', id), { ...baseInfo, id }, { merge: true });
-        
-        // 2. Datos de disponibilidad y seguridad (separados en tabla relacionada)
         batch.set(doc(adminDb, 'clinic_settings', id), { 
             unavailableDates: unavailableDates || [], 
             customSchedules: customSchedules || [], 
@@ -468,7 +462,6 @@ export async function updateClinics(clinics: Clinic[]) {
             password: password || '123'
         }, { merge: true });
     });
-    
     await batch.commit(); 
     return { success: true }; 
 }
@@ -707,7 +700,7 @@ export async function downloadBackupAction() {
         getRawCollection('vaccineAppointments'),
         getRawCollection('clinics')
     ]);
-    return { success: true, data: { patients: p, appointments: a, labAppointments: l, xRayAppointments: x, ultrasoundAppointments: u, vaccineAppointments: v, clinics: c } };
+    return { success: true, data: { patients: p, appointments: a, labAppointments: l, xrayAppointments: x, ultrasoundAppointments: u, vaccineAppointments: v, clinics: c } };
 }
 
 export async function scanDuplicates(criteria: string) {
