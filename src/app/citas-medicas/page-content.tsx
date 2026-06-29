@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useCallback, useEffect, useTransition, useMemo } from 'react';
 import React from 'react';
@@ -19,7 +18,7 @@ import { PatientType, BookingMode } from '@/lib/definitions';
 import { getAppointments, getClinics, getHolidays, verifyCitasMedicasPassword, getSpecialActionDays, getServiceTypes } from '@/lib/actions';
 
 import { useToast } from '@/hooks/use-toast';
-import { Bell, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus, Check, Loader2 } from 'lucide-react';
+import { Bell, MapPin, Hospital, LayoutList, Clock, CalendarDays, CalendarPlus, Check, Loader2, RefreshCw } from 'lucide-react';
 import { format, eachDayOfInterval, isSaturday, isSunday, startOfToday, addDays, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -94,7 +93,12 @@ export default function PageContent({
   const calculateForClinic = useCallback((clinic: Clinic, allAppointments: any[], holidaySet: Set<string>, freshSpecialActionDays: SpecialActionDay[]): DailyAvailability[] => {
       const startDate = startOfToday();
       const endDate = addDays(startDate, 31);
-      const clinicAppointments = allAppointments.filter(app => app.clinicId === clinic.id);
+      
+      // MEJORA: Filtro robusto que considera ID y Nombre para evitar pérdida de datos (Nucleo 5)
+      const clinicAppointments = allAppointments.filter(app => 
+          app.clinicId === clinic.id || 
+          (app.clinicName && app.clinicName.toUpperCase() === clinic.name.toUpperCase())
+      );
       
       const dayMap = new Map<string, any[]>();
       clinicAppointments.forEach(app => {
@@ -219,6 +223,14 @@ export default function PageContent({
       setSelectedTime(undefined);
   };
 
+  const handleManualRefresh = () => {
+      if (selectedClinicId) {
+          setAvailabilityCache({});
+          fetchAllAvailability(selectedClinicId);
+          toast({ title: 'Agenda Sincronizada', description: 'Se han actualizado los horarios disponibles.' });
+      }
+  };
+
   const selectedClinic = useMemo(() => clinics.find(c => c.id === selectedClinicId), [selectedClinicId, clinics]);
   const selectedColonia = useMemo(() => colonias.find(c => c.id === selectedColoniaId), [selectedColoniaId, colonias]);
   
@@ -320,7 +332,14 @@ export default function PageContent({
 
                     {selectedServiceTypeId && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                            <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center gap-2"><Hospital className="h-5 w-5" /> 2. Consultorio</h3>
+                            <h3 className="text-lg font-black uppercase text-primary tracking-widest flex items-center justify-between">
+                                <span className="flex items-center gap-2"><Hospital className="h-5 w-5" /> 2. Consultorio</span>
+                                {selectedClinicId && (
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={handleManualRefresh}>
+                                        <RefreshCw className={cn("h-4 w-4", isLoadingAvailability && "animate-spin")} />
+                                    </Button>
+                                )}
+                            </h3>
                             <div className="grid gap-2">
                                 {clinicOptions.map(opt => (
                                     <button 

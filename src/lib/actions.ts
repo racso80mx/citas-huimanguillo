@@ -53,7 +53,7 @@ export async function updateSpecialties(specialties: Specialty[]) {
 export async function getPatients(options?: any) { return data.getPatientsData(options); }
 export async function getPatientCounts() { return data.getPatientCounts(); }
 export async function savePatient(patient: Omit<Patient, 'id'>, id?: string) { 
-    const res = await data.savePatient(patient, id);
+    const res = await data.savePatient(patient, id || '');
     revalidatePath('/', 'layout');
     return res;
 }
@@ -284,6 +284,11 @@ export async function getPrescriptionHistory(filters: any) { return data.getPend
 export async function getPatientPrescriptionsCountTodayAction(patientId: string) { return data.getPatientPrescriptionsCountTodayAction(patientId); }
 export async function getAppointmentCountOnDate(clinicId: string, date: string) { return data.getAppointmentCountOnDate(clinicId, date); }
 export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
+export async function updatePrescription(id: string, p: any) { 
+    const res = await data.updatePrescription(id, p);
+    revalidatePath('/', 'layout');
+    return res;
+}
 
 // --- OTROS ---
 export async function getAnnouncements() { return data.getAnnouncementsData(); }
@@ -334,11 +339,6 @@ export async function getUltrasoundStudies() { return data.getUltrasoundStudies(
 export async function getVaccines() { return data.getVaccines(); }
 export async function getMedications() { return data.getMedications(); }
 export async function getSupplies() { return data.getSupplies(); }
-export async function updatePrescription(id: string, p: any) { 
-    const res = await data.updatePrescription(id, p);
-    revalidatePath('/', 'layout');
-    return res;
-}
 export async function updateLabStudies(s: LabStudy[]) { 
     const res = await data.updateLabStudies(s);
     revalidatePath('/', 'layout');
@@ -359,7 +359,6 @@ export async function updateVaccines(v: Vaccine[]) {
     revalidatePath('/', 'layout');
     return res;
 }
-export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
 export async function getLogs() { return data.getLogsData(); }
 export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMedications(p); }
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
