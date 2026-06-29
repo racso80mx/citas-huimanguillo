@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     updateClinics, getClinics, 
     getSpecialties, getServiceTypes,
-    deleteClinic
+    deleteClinic, getAppointmentCountOnDate
 } from '@/lib/actions';
 import { 
     Loader2, 
@@ -37,7 +36,8 @@ import {
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
-    Trash2
+    Trash2,
+    AlertTriangle
 } from 'lucide-react';
 import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -96,6 +96,12 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
     const [editedClinic, setEditedClinic] = useState<Clinic>(clinic);
     const [newScheduleDate, setNewScheduleDate] = useState<Date | undefined>();
     const [newScheduleEndTime, setNewScheduleEndTime] = useState<string>("13:00");
+    const { toast } = useToast();
+
+    // Validation state
+    const [isConfirmingBlock, setIsConfirmingBlock] = useState(false);
+    const [pendingDates, setPendingDates] = useState<Date[] | undefined>();
+    const [conflictInfo, setConflictInfo] = useState<{ date: string, count: number } | null>(null);
 
     useEffect(() => {
         const rawDates = clinic.unavailableDates || [];
@@ -124,9 +130,39 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
         handleFieldChange('daysOfAction', updated);
     };
 
-    const handleDateSelection = (dates: Date[] | undefined) => {
-        const newDateStrings = Array.from(new Set(dates?.map(d => format(d, 'yyyy-MM-dd')) || []));
+    const handleDateSelection = async (dates: Date[] | undefined) => {
+        if (!dates || dates.length === 0) {
+            handleFieldChange('unavailableDates', []);
+            return;
+        }
+
+        // Detect if a new date was added (not just removal)
+        const currentDateStrings = editedClinic.unavailableDates || [];
+        const newDate = dates.find(d => !currentDateStrings.includes(format(d, 'yyyy-MM-dd')));
+
+        if (newDate) {
+            const dateStr = format(newDate, 'yyyy-MM-dd');
+            const count = await getAppointmentCountOnDate(editedClinic.id, dateStr);
+            
+            if (count > 0) {
+                setConflictInfo({ date: format(newDate, 'dd/MM/yyyy'), count });
+                setPendingDates(dates);
+                setIsConfirmingBlock(true);
+                return;
+            }
+        }
+
+        const newDateStrings = Array.from(new Set(dates.map(d => format(d, 'yyyy-MM-dd'))));
         handleFieldChange('unavailableDates', newDateStrings);
+    };
+
+    const confirmBlockage = () => {
+        if (pendingDates) {
+            const newDateStrings = Array.from(new Set(pendingDates.map(d => format(d, 'yyyy-MM-dd'))));
+            handleFieldChange('unavailableDates', newDateStrings);
+        }
+        setIsConfirmingBlock(false);
+        setConflictInfo(null);
     };
 
     const handleRemoveUnavailableDate = (dateStr: string) => {
@@ -314,6 +350,30 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                 </div>
             </ScrollArea>
             <DialogFooter className="p-6 border-t bg-muted/10 shrink-0"><Button onClick={() => onSave(editedClinic)} className="h-14 px-12 text-lg font-black uppercase shadow-2xl bg-primary hover:bg-primary/90 rounded-2xl"><Save className="mr-2 h-6 w-6" /> GUARDAR TODA LA CONFIGURACIÓN</Button></DialogFooter>
+
+            {/* Confirmation Dialog for Blockage with existing appointments */}
+            <AlertDialog open={isConfirmingBlock} onOpenChange={setIsConfirmingBlock}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertTriangle className="h-6 w-6" /> ADVERTENCIA: CITAS EXISTENTES
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-4 pt-2">
+                            <p className="font-bold text-foreground">
+                                Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
+                            </p>
+                            <p>
+                                Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas. Se recomienda reprogramar a estos pacientes antes de aplicar el bloqueo total.
+                            </p>
+                            <p className="font-black uppercase text-[10px]">¿Deseas asignar esta fecha como bloqueada de todos modos?</p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => { setIsConfirmingBlock(false); setConflictInfo(null); setPendingDates(undefined); }}>No, elegir otra fecha</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmBlockage} className="bg-destructive hover:bg-destructive/90 font-bold">SÍ, ASIGNAR BLOQUEO</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </DialogContent>
     );
 }
