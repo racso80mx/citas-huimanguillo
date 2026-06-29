@@ -397,6 +397,18 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
     }
 }
 
+export async function getAppointmentCountOnDate(cid: string, d: string) { 
+    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid));
+    const snap = await getDocs(q);
+    const count = snap.docs.filter(docSnap => {
+        const data = docSnap.data();
+        const dateVal = data.date;
+        const dateStr = dateVal instanceof Timestamp ? dateVal.toDate().toISOString() : String(dateVal || '');
+        return dateStr.startsWith(d);
+    }).length;
+    return count; 
+}
+
 // --- CLÍNICAS ---
 export async function getClinicsData() { return getRawCollection('clinics'); }
 export async function updateClinics(clinics: Clinic[]) { 
@@ -436,18 +448,6 @@ export async function dispensePrescription(id: string, items: any[]) { const bat
 export async function deletePrescription(id: string) { await deleteDoc(doc(adminDb, 'prescriptions', id)); return { success: true }; }
 export async function getPendingPrescriptions(f: any) { const all = await getRawCollection('prescriptions', 500) as Prescription[]; let res = all; if (f?.status) res = res.filter(r => r.status === f.status); if (f?.folio) res = res.filter(r => r.folio.toUpperCase() === f.folio.toUpperCase()); if (f?.clinicId && f.clinicId !== 'all') res = res.filter(r => r.clinicId === f.clinicId); return res.sort((a, b) => b.date.localeCompare(a.date)); }
 export async function getPatientPrescriptionsCountTodayAction(pid: string) { const t = new Date(); t.setHours(0,0,0,0); const q = query(collection(adminDb, 'prescriptions'), where('patientId', '==', pid), where('date', '>=', t.toISOString())); const snap = await getCountFromServer(q); return snap.data().count; }
-
-export async function getAppointmentCountOnDate(cid: string, d: string) { 
-    const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid));
-    const snap = await getDocs(q);
-    const count = snap.docs.filter(docSnap => {
-        const data = docSnap.data();
-        const dateVal = data.date;
-        const dateStr = dateVal instanceof Timestamp ? dateVal.toDate().toISOString() : String(dateVal || '');
-        return dateStr.startsWith(d);
-    }).length;
-    return count; 
-}
 
 export async function getAttendedPatientsForClinic(cid: string) { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid), where('status', '==', 'Atendido'), limit(100)); const snap = await getDocs(q); const ids = Array.from(new Set(snap.docs.map(d => d.data().patientId))); if (ids.length === 0) return []; const pats: any[] = []; for (let i = 0; i < ids.length; i += 10) { const chunk = ids.slice(i, i + 10); const psnap = await getDocs(query(collection(adminDb, 'patients'), where('__name__', 'in', chunk))); pats.push(...psnap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }))); } return pats; }
 

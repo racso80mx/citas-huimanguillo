@@ -358,14 +358,16 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                         <AlertDialogTitle className="flex items-center gap-2 text-destructive">
                             <AlertTriangle className="h-6 w-6" /> ADVERTENCIA: CITAS EXISTENTES
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="space-y-4 pt-2">
-                            <p className="font-bold text-foreground">
-                                Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
-                            </p>
-                            <p>
-                                Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas. Se recomienda reprogramar a estos pacientes antes de aplicar el bloqueo total.
-                            </p>
-                            <p className="font-black uppercase text-[10px]">¿Deseas asignar esta fecha como bloqueada de todos modos?</p>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4 pt-2">
+                                <div className="font-bold text-foreground">
+                                    Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
+                                </div>
+                                <div>
+                                    Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas. Se recomienda reprogramar a estos pacientes antes de aplicar el bloqueo total.
+                                </div>
+                                <div className="font-black uppercase text-[10px]">¿Deseas asignar esta fecha como bloqueada de todos modos?</div>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
