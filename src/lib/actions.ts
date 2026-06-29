@@ -28,13 +28,7 @@ import type {
     Specialty
 } from './definitions';
 
-// --- WRAPPERS PARA MANTENER NOMBRES DE COMPONENTES ---
-export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
-export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
-export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
-export async function getBISettings() { return data.getBISettingsData(); }
-export async function getAdminSettings() { return data.getAdminSettingsData(); }
-export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
+// --- ACTIVIDAD Y LOGS ---
 export async function logActivity(a: string, d: string) { return data.logActivity(a, d); }
 export async function getLogs() { return data.getLogsData(); }
 
@@ -42,20 +36,6 @@ export async function getLogs() { return data.getLogsData(); }
 export async function getModuleSettings() { return data.getModuleSettings(); }
 export async function updateModuleSettings(settings: ModuleSettings) { 
     const res = await data.updateModuleSettings(settings);
-    revalidatePath('/', 'layout');
-    return res;
-}
-
-// --- CATÁLOGOS ---
-export async function getServiceTypes() { return data.getServiceTypesData(); }
-export async function updateServiceTypes(types: ServiceType[]) { 
-    const res = await data.updateServiceTypes(types);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function getSpecialties() { return data.getSpecialtiesData(); }
-export async function updateSpecialties(specialties: Specialty[]) { 
-    const res = await data.updateSpecialties(specialties);
     revalidatePath('/', 'layout');
     return res;
 }
@@ -89,6 +69,11 @@ export async function deletePatients(ids: string[]) {
     return res;
 }
 export async function getPatientByCURP(curp: string) { return data.getPatientByCURP(curp); }
+export async function bulkInsertPatients(patients: any[]) { 
+    const res = await data.bulkInsertPatients(patients);
+    revalidatePath('/', 'layout');
+    return res;
+}
 
 // --- CITAS ---
 export async function getAppointments() { return data.getAppointmentsData(); }
@@ -166,7 +151,7 @@ export async function saveNewVaccineAppointment(appointment: any, patient: any) 
     return res;
 }
 
-// --- CLÍNICAS Y COLONIAS ---
+// --- CLÍNICAS Y SEGURIDAD ---
 export async function getClinics() { return data.getClinicsData(); }
 export async function updateClinics(clinics: Clinic[]) { 
     const res = await data.updateClinics(clinics);
@@ -178,6 +163,25 @@ export async function deleteClinic(id: string) {
     revalidatePath('/', 'layout');
     return res;
 }
+export async function bulkInsertDoctors(doctors: any[]) { 
+    const res = await data.bulkInsertDoctors(doctors);
+    revalidatePath('/', 'layout');
+    return res;
+}
+
+// --- CATÁLOGOS ---
+export async function getServiceTypes() { return data.getServiceTypesData(); }
+export async function updateServiceTypes(t: any[]) { 
+    const res = await data.updateServiceTypes(t);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function getSpecialties() { return data.getSpecialtiesData(); }
+export async function updateSpecialties(t: any[]) { 
+    const res = await data.updateSpecialties(t);
+    revalidatePath('/', 'layout');
+    return res;
+}
 export async function getColonias() { return data.getColoniasData(); }
 export async function updateColonias(colonias: Colonia[]) { 
     const res = await data.updateColonias(colonias);
@@ -186,30 +190,30 @@ export async function updateColonias(colonias: Colonia[]) {
 }
 
 // --- MANTENIMIENTO ---
-export async function bulkInsertPatients(patients: any[]) { 
-    const res = await data.bulkInsertPatients(patients);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function bulkInsertDoctors(doctors: any[]) { 
-    const res = await data.bulkInsertDoctors(doctors);
-    revalidatePath('/', 'layout');
-    return res;
-}
 export async function downloadBackupAction() { return data.downloadBackupAction(); }
 export async function cleanupOldRecords() { 
     const res = await data.cleanupOldRecords();
     revalidatePath('/', 'layout');
     return res;
 }
+export async function normalizeExpedientesAction() { return data.normalizeExpedientesAction(); }
+export async function applyStatusUpdateChunk(exp: string[], status: any) { return data.applyStatusUpdateChunk(exp, status); }
+export async function scanDuplicates(criteria: any) { return data.scanDuplicates(criteria); }
 
-// --- SEGURIDAD ---
+// --- CONFIGURACIONES ESPECÍFICAS ---
+export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
+export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
+export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
+export async function getBISettings() { return data.getBISettingsData(); }
+export async function getAdminSettings() { return data.getAdminSettingsData(); }
+
 export async function updateAdminSettings(settings: AdminSettings) { return data.updateAdminSettings(settings); }
 export async function updateArchiveSettings(settings: ArchiveSettings) { return data.updateArchiveSettings(settings); }
 export async function updatePharmacySettings(settings: PharmacySettings) { return data.updatePharmacySettings(settings); }
 export async function updateWarehouseSettings(settings: WarehouseSettings) { return data.updateWarehouseSettings(settings); }
 export async function updateBISettings(settings: BISettings) { return data.updateBISettings(settings); }
 
+// --- VERIFICACIONES ---
 export async function verifyAdminPassword(p: string) { const s = await data.getAdminSettingsData(); return { success: s.password === p }; }
 export async function verifyArchivePassword(p: string) { const s = await data.getArchiveSettingsData(); return { success: s.password === p }; }
 export async function verifyPharmacyPassword(p: string) { const s = await data.getPharmacySettingsData(); return { success: s.password === p }; }
@@ -259,11 +263,6 @@ export async function createPrescription(p: any) {
 }
 export async function dispensePrescription(id: string, items: any[]) { 
     const res = await data.dispensePrescription(id, items);
-    revalidatePath('/', 'layout');
-    return res;
-}
-export async function deletePrescription(id: string) { 
-    const res = await data.deletePrescription(id);
     revalidatePath('/', 'layout');
     return res;
 }
@@ -350,3 +349,4 @@ export async function bulkInsertMedications(p: any[]) { return data.bulkInsertMe
 export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSupplies(p); }
 export async function deleteAllMedications() { return data.deleteAllMedications(); }
 export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
+export async function searchCie10(t: string) { return data.searchCie10(t); }

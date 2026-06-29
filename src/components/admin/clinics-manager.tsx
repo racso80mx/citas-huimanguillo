@@ -463,6 +463,16 @@ export function ClinicsManager() {
     });
   };
 
+  const handleBulkSave = () => {
+      startSavingTransition(async () => {
+          const result = await updateClinics(clinics);
+          if (result.success) {
+              toast({ title: 'Catálogo Sincronizado Exitosamente' });
+              fetchData();
+          }
+      });
+  };
+
   const handleDeleteClinic = async (id: string) => {
       startSavingTransition(async () => {
           const res = await deleteClinic(id);
@@ -548,7 +558,7 @@ export function ClinicsManager() {
             </div>
         </CardContent>
         <CardFooter className="bg-muted/5 border-t py-4">
-             <Button onClick={() => handleDialogSave(clinics[0])} disabled={isSaving || clinics.length === 0} className="w-full h-12 font-black uppercase shadow-lg">
+             <Button onClick={handleBulkSave} disabled={isSaving || clinics.length === 0} className="w-full h-12 font-black uppercase shadow-lg bg-primary hover:bg-primary/90">
                 <Save className="mr-2 h-5 w-5" /> GUARDAR CATÁLOGO DE UNIDADES
              </Button>
         </CardFooter>
