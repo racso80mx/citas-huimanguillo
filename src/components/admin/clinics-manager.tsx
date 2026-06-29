@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useTransition, useMemo, useCallback } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
   Card,
@@ -125,14 +125,11 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
             handleFieldChange('unavailableDates', []);
             return;
         }
-
         const currentDateStrings = editedClinic.unavailableDates || [];
         const newDate = dates.find(d => !currentDateStrings.includes(format(d, 'yyyy-MM-dd')));
-
         if (newDate) {
             const dateStr = format(newDate, 'yyyy-MM-dd');
             const count = await getAppointmentCountOnDate(editedClinic.id, dateStr);
-            
             if (count > 0) {
                 setConflictInfo({ date: format(newDate, 'dd/MM/yyyy'), count });
                 setPendingDates(dates);
@@ -140,7 +137,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                 return;
             }
         }
-
         const newDateStrings = Array.from(new Set(dates.map(d => format(d, 'yyyy-MM-dd'))));
         handleFieldChange('unavailableDates', newDateStrings);
     };
@@ -164,7 +160,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
         const dateStr = format(newScheduleDate, 'yyyy-MM-dd');
         const existing = editedClinic.customSchedules || [];
         if (existing.some(s => s.date === dateStr)) return;
-        
         handleFieldChange('customSchedules', [...existing, { date: dateStr, endTime: newScheduleEndTime, reason: 'Salida Temprana' }]);
         setNewScheduleDate(undefined);
     };
@@ -243,9 +238,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                             <div className='space-y-2'><Label className="font-black text-[10px] uppercase opacity-60 tracking-tighter">Cédula Profesional</Label><Input value={editedClinic.professionalLicense || ''} onChange={(e) => handleFieldChange('professionalLicense', e.target.value.toUpperCase())} className="h-12" /></div>
                         </div>
                     </div>
-
                     <Separator />
-
                     <div className="space-y-6">
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><Timer className="h-5 w-5" /> 2. Control de Agenda y Turnos</h4>
                         <div className='grid grid-cols-2 md:grid-cols-6 gap-6 bg-primary/5 p-6 rounded-3xl border border-primary/10'>
@@ -257,9 +250,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                             <div className='space-y-2'><Label className="text-[10px] font-black uppercase text-primary">Hora Comida</Label><Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}><SelectTrigger className="h-11 font-bold bg-orange-50 border-orange-200"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">No</SelectItem>{dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
                         </div>
                     </div>
-
                     <Separator />
-
                     <div className="grid lg:grid-cols-2 gap-10">
                         <div className="space-y-4">
                             <Label className="text-sm font-black text-primary uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 3. Días Administrativos (Bloqueados)</Label>
@@ -275,9 +266,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                             </div>
                         </div>
                     </div>
-
                     <Separator />
-
                     <div className="space-y-6">
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><Timer className="h-5 w-5" /> 4. Horarios Especiales (Salidas Tempranas)</h4>
                         <div className="grid sm:grid-cols-3 gap-6 items-end bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
@@ -302,7 +291,6 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                              </div>
                              <Button onClick={addCustomSchedule} disabled={!newScheduleDate} className="h-11 font-black bg-blue-600 hover:bg-blue-700">PROGRAMAR CIERRE</Button>
                         </div>
-                        
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {editedClinic.customSchedules?.length ? editedClinic.customSchedules.map(sched => (
                                 <div key={sched.date} className="flex items-center justify-between p-4 bg-background border-2 border-blue-100 rounded-2xl shadow-sm animate-in zoom-in-95">
@@ -316,9 +304,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                             )) : <div className="col-span-full py-8 text-center border-2 border-dashed rounded-3xl opacity-30 font-black text-[10px] uppercase">No hay cierres anticipados programados</div>}
                         </div>
                     </div>
-
                     <Separator />
-
                     <div className='space-y-6'>
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 5. Vacaciones y Bloqueos Totales</h4>
                         <div className="flex gap-4 items-center">
@@ -351,9 +337,8 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                                     Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
                                 </div>
                                 <div>
-                                    Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas. Se recomienda reprogramar a estos pacientes antes de aplicar el bloqueo total.
+                                    Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas.
                                 </div>
-                                <div className="font-black uppercase text-[10px]">¿Deseas asignar esta fecha como bloqueada de todos modos?</div>
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -377,7 +362,6 @@ export function ClinicsManager() {
   const [sortConfig, setSortConfig] = useState<{ key: keyof Clinic; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
-  
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -420,7 +404,6 @@ export function ClinicsManager() {
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       c.doctorName.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
     if (sortConfig) {
       result.sort((a, b) => {
         const valA = String((a as any)[sortConfig.key] || '').toLowerCase();
@@ -430,7 +413,6 @@ export function ClinicsManager() {
         return 0;
       });
     }
-
     return result;
   }, [clinics, searchTerm, sortConfig]);
 
@@ -463,18 +445,16 @@ export function ClinicsManager() {
   const handleDialogSave = (updatedClinic: Clinic) => {
     const isNew = updatedClinic.id.startsWith('new');
     let finalClinics: Clinic[];
-    
     if (isNew) {
         const newId = uuidv4();
         finalClinics = [...clinics, { ...updatedClinic, id: newId }];
     } else {
         finalClinics = clinics.map(c => c.id === updatedClinic.id ? updatedClinic : c);
     }
-    
     startSavingTransition(async () => {
         const result = await updateClinics(finalClinics);
         if (result.success) {
-            toast({ title: 'Unidad Guardada', description: 'La configuración se ha sincronizado correctamente.' });
+            toast({ title: 'Unidad Guardada' });
             setIsDialogOpen(false);
             setSelectedClinic(null);
             fetchData();
@@ -504,7 +484,7 @@ export function ClinicsManager() {
             <CardTitle className="text-2xl font-bold font-headline flex items-center gap-2">
               <Hospital className="h-6 w-6 text-primary" /> Gestión de Consultorios y Núcleos
             </CardTitle>
-            <CardDescription>Configura los horarios, personal médico y disponibilidad de cada unidad.</CardDescription>
+            <CardDescription>Configura los horarios y disponibilidad de cada unidad.</CardDescription>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={fetchData} className="h-10"><RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /></Button>
@@ -526,7 +506,7 @@ export function ClinicsManager() {
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('name')}>
-                                <div className="flex items-center">Consultorio / Núcleo {getSortIcon('name')}</div>
+                                <div className="flex items-center">Consultorio {getSortIcon('name')}</div>
                             </TableHead>
                             <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('doctorName')}>
                                 <div className="flex items-center">Médico {getSortIcon('doctorName')}</div>

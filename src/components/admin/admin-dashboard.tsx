@@ -23,13 +23,8 @@ import {
   Filter,
   Check,
   Calendar as CalendarIcon,
-  MapPin,
+  Hospital,
   LayoutGrid,
-  ShieldCheck,
-  Package,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ClinicsManager } from './clinics-manager';
@@ -69,7 +64,7 @@ import { Calendar } from '../ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { Label } from '../ui/label';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '../ui/command';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
 import { cn } from '@/lib/utils';
 
 function ServiceTypesManager() {
@@ -105,7 +100,7 @@ function ServiceTypesManager() {
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="flex items-center gap-2 text-primary font-black uppercase"><LayoutList /> Catálogo de Servicios</CardTitle>
-          <CardDescription>Define las categorías generales de atención (Consulta Externa, etc).</CardDescription>
+          <CardDescription>Define las categorías generales de atención.</CardDescription>
         </div>
         <Button onClick={handleAdd} variant="outline" className="font-bold border-primary/20"><Plus className="mr-2 h-4 w-4" /> Agregar Servicio</Button>
       </CardHeader>
@@ -252,7 +247,6 @@ function AppointmentsViewer() {
                                     <Button variant={dateFilter === 'week' ? 'default' : 'ghost'} onClick={() => setDateFilter('week')} size="sm">Semana</Button>
                                     <Button variant={dateFilter === 'month' ? 'default' : 'ghost'} onClick={() => setDateFilter('month')} size="sm">Mes</Button>
                                 </div>
-
                                 <div className="flex items-center gap-2 bg-background p-2 rounded-xl border border-dashed border-primary/20 shadow-sm">
                                     <div className="flex flex-col gap-1">
                                         <Label className="text-[10px] font-black uppercase text-primary h-3">Día/Mes</Label>
@@ -267,7 +261,6 @@ function AppointmentsViewer() {
                                         <Input type="number" value={manualYear} onChange={e => handleManualDateChange(manualDayMonth, e.target.value.substring(0,4))} className="h-8 w-16 text-center font-bold text-xs" />
                                     </div>
                                 </div>
-
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant="outline" size="sm" className="h-9 min-w-[160px]">
@@ -281,7 +274,6 @@ function AppointmentsViewer() {
                                 </Popover>
                             </div>
                         </div>
-
                         <div className="flex flex-wrap items-center gap-4">
                             <div className="flex items-center gap-2">
                                 <Label className="text-xs font-bold uppercase text-muted-foreground">Categoría:</Label>
@@ -295,7 +287,6 @@ function AppointmentsViewer() {
                                     </SelectContent>
                                 </Select>
                             </div>
-
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="h-9 border-dashed bg-background">
@@ -321,12 +312,10 @@ function AppointmentsViewer() {
                                     </Command>
                                 </PopoverContent>
                             </Popover>
-
                             <div className="relative flex-1 min-w-[250px]">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11 bg-background" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                             </div>
-
                             <Button variant="outline" size="icon" onClick={fetchData} className="h-11 w-11"><RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} /></Button>
                         </div>
                     </div>
@@ -373,7 +362,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           <TabsTrigger value="citas" className="py-3 font-bold flex items-center gap-2"><ClipboardList className="h-4 w-4" /> 3. Registro de Citas</TabsTrigger>
           <TabsTrigger value="modulos" className="py-3 font-bold flex items-center gap-2 text-primary"><LayoutGrid className="h-4 w-4" /> 4. Módulos</TabsTrigger>
         </TabsList>
-
         <TabsContent value="configuracion" className="space-y-8 animate-in fade-in">
             <div className="grid lg:grid-cols-2 gap-8">
                 <ClinicsManager />
@@ -386,7 +374,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </div>
             <ActivityLogViewer />
         </TabsContent>
-
         <TabsContent value="catalogos" className="animate-in fade-in space-y-8">
             <Tabs defaultValue="service-types" className="w-full">
                 <TabsList className="flex flex-wrap w-fit gap-2 bg-transparent mb-6 border-b rounded-none pb-px h-auto">
@@ -401,11 +388,9 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                 <TabsContent value="medicos"><DoctorsCatalog /></TabsContent>
             </Tabs>
         </TabsContent>
-
         <TabsContent value="citas" className="animate-in fade-in">
             <AppointmentsViewer />
         </TabsContent>
-
         <TabsContent value="modulos" className="animate-in fade-in space-y-8">
             <div className="grid lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-8 space-y-8">

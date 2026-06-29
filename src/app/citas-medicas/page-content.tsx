@@ -94,7 +94,6 @@ export default function PageContent({
       const startDate = startOfToday();
       const endDate = addDays(startDate, 31);
       
-      // MEJORA: Filtro robusto que considera ID y Nombre para evitar pérdida de datos (Nucleo 5)
       const clinicAppointments = allAppointments.filter(app => 
           app.clinicId === clinic.id || 
           (app.clinicName && app.clinicName.toUpperCase() === clinic.name.toUpperCase())

@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState } from 'react';
 import Image from 'next/image';
@@ -16,7 +15,7 @@ import type { DailyAvailability, LabStudy, LabSettings, Holiday } from '@/lib/de
 import { PatientType } from '@/lib/definitions';
 import { getLabAppointments, getHolidays, verifyLabPassword } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell, Info, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { FlaskConical, CalendarDays, Microscope, UserCheck, Bell, Info, CheckCircle2, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import {
   format,
   startOfMonth,
@@ -38,6 +37,7 @@ import {
 import { ModuleLoginForm } from '@/components/shared/module-login-form';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 type LabPageContentProps = {
   initialStudies: LabStudy[];
@@ -181,6 +181,7 @@ export default function LabPageContent({
         } else {
             setSelectedTime(undefined);
         }
+        toast({ title: 'Agenda Sincronizada', description: 'Se han actualizado los horarios disponibles.' });
       } catch (error) {
         console.error('Failed to refresh data:', error);
         toast({
@@ -242,9 +243,11 @@ export default function LabPageContent({
           <div className="grid md:grid-cols-2 gap-8 items-start">
             <div className="flex flex-col gap-8">
               <div>
-                <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center gap-2">
-                  <CalendarDays className="h-6 w-6" />
-                  1. Selecciona un día
+                <h3 className="text-2xl font-semibold font-headline text-foreground mb-4 flex items-center justify-between">
+                  <span className="flex items-center gap-2"><CalendarDays className="h-6 w-6" /> 1. Selecciona un día</span>
+                  <Button variant="ghost" size="icon" onClick={() => refreshData(false)} disabled={isPending}>
+                      <RefreshCw className={cn("h-5 w-5 text-primary", isPending && "animate-spin")} />
+                  </Button>
                 </h3>
                 <AvailabilityCalendar
                   selectedDate={selectedDate}
