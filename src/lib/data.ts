@@ -144,6 +144,46 @@ export async function updateAdminSettings(settings: AdminSettings) {
     return { success: true }; 
 }
 
+export async function getArchiveSettingsData(): Promise<ArchiveSettings> {
+    const password = await getPasswordFromStore('archive', '2026');
+    return { password };
+}
+
+export async function updateArchiveSettings(settings: ArchiveSettings) {
+    if (settings.password) await setPasswordInStore('archive', settings.password);
+    return { success: true };
+}
+
+export async function getPharmacySettingsData(): Promise<PharmacySettings> {
+    const password = await getPasswordFromStore('pharmacy', 'farmacia2026');
+    return { password };
+}
+
+export async function updatePharmacySettings(settings: PharmacySettings) {
+    if (settings.password) await setPasswordInStore('pharmacy', settings.password);
+    return { success: true };
+}
+
+export async function getWarehouseSettingsData(): Promise<WarehouseSettings> {
+    const password = await getPasswordFromStore('warehouse', 'almacen2026');
+    return { password };
+}
+
+export async function updateWarehouseSettings(settings: WarehouseSettings) {
+    if (settings.password) await setPasswordInStore('warehouse', settings.password);
+    return { success: true };
+}
+
+export async function getBISettingsData(): Promise<BISettings> {
+    const password = await getPasswordFromStore('bi', 'bi2026');
+    return { password };
+}
+
+export async function updateBISettings(settings: BISettings) {
+    if (settings.password) await setPasswordInStore('bi', settings.password);
+    return { success: true };
+}
+
 // PACIENTES
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const colRef = collection(adminDb, 'patients');
@@ -181,14 +221,17 @@ export async function getPatientByCURP(curp: string) { const q = query(collectio
 
 // CITAS
 export async function getAppointmentsData() {
-    const apps = await getRawCollection('appointments', 5000);
+    const apps = await getRawCollection('appointments', 10000); 
     const pats = await getPatientsForApps(apps);
     const clinics = await getClinicsData();
-    return apps.map(a => ({ 
-        ...a, 
-        patient: pats.find(p => p.id === a.patientId), 
-        clinicName: clinics.find(c => c.id === a.clinicId)?.name || 'N/A' 
-    }));
+    return apps.map(a => {
+        const clinic = clinics.find(c => c.id === a.clinicId) || clinics.find(c => c.name.toUpperCase() === (a.clinicName || '').toUpperCase());
+        return { 
+            ...a, 
+            patient: pats.find(p => p.id === a.patientId), 
+            clinicName: clinic?.name || a.clinicName || 'N/A' 
+        };
+    });
 }
 export async function getLabAppointmentsData() { const apps = await getRawCollection('labAppointments', 1000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
 export async function getXRayAppointmentsData() { const apps = await getRawCollection('xrayAppointments', 1000); const pats = await getPatientsForApps(apps); return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); }
@@ -310,7 +353,7 @@ export async function getAvailableSlotsForDate(clinicId: string, date: string) {
     }
 }
 
-// CLÍNICAS Y CONFIGURACIÓN BLINDADA (Colección clinic_settings)
+// CLÍNICAS Y CONFIGURACIÓN BLINDADA
 export async function getClinicsData(): Promise<Clinic[]> { 
     const [clinicsSnap, settingsSnap] = await Promise.all([
         getDocs(collection(adminDb, 'clinics')),
@@ -325,9 +368,7 @@ export async function updateClinics(clinics: Clinic[]) {
     const batch = writeBatch(adminDb); 
     clinics.forEach(c => {
         const { id, unavailableDates, customSchedules, daysOfAction, password, ...baseInfo } = c;
-        // Solo guardamos datos básicos en 'clinics'
         batch.set(doc(adminDb, 'clinics', id), { ...baseInfo, id }, { merge: true });
-        // Guardamos seguridad y bloqueos en 'clinic_settings' para que NUNCA se borren por accidente
         batch.set(doc(adminDb, 'clinic_settings', id), { 
             unavailableDates: unavailableDates || [], 
             customSchedules: customSchedules || [], 
@@ -346,16 +387,6 @@ export async function getServiceTypesData() { return getRawCollection('serviceTy
 export async function updateServiceTypes(types: ServiceType[]) { const batch = writeBatch(adminDb); types.forEach(t => batch.set(doc(adminDb, 'serviceTypes', t.id), t)); await batch.commit(); return { success: true }; }
 export async function getSpecialtiesData() { return getRawCollection('specialties') as Promise<Specialty[]>; }
 export async function updateSpecialties(s: Specialty[]) { const batch = writeBatch(adminDb); s.forEach(x => batch.set(doc(adminDb, 'specialties', x.id), x)); await batch.commit(); return { success: true }; }
-
-// SEGURIDAD INDEPENDIENTE
-export async function getArchiveSettingsData() { return { password: await getPasswordFromStore('archive', '1234') }; }
-export async function updateArchiveSettings(s: ArchiveSettings) { if (s.password) await setPasswordInStore('archive', s.password); return { success: true }; }
-export async function getPharmacySettingsData() { return { password: await getPasswordFromStore('pharmacy', '1234') }; }
-export async function updatePharmacySettings(s: PharmacySettings) { if (s.password) await setPasswordInStore('pharmacy', s.password); return { success: true }; }
-export async function getWarehouseSettingsData() { return { password: await getPasswordFromStore('warehouse', '1234') }; }
-export async function updateWarehouseSettings(s: WarehouseSettings) { if (s.password) await setPasswordInStore('warehouse', s.password); return { success: true }; }
-export async function getBISettingsData() { return { password: await getPasswordFromStore('bi', '1234') }; }
-export async function updateBISettings(s: BISettings) { if (s.password) await setPasswordInStore('bi', s.password); return { success: true }; }
 
 // OTROS
 export async function getAnnouncementsData() { const snap = await getDoc(doc(adminDb, 'settings', 'announcements')); return snap.exists() ? snap.data().messages : []; }
@@ -427,11 +458,26 @@ export async function deleteMedicalConsultation(id: string) { await deleteDoc(do
 export async function updatePrescription(id: string, p: any) { await updateDoc(doc(adminDb, 'prescriptions', id), p); return { success: true }; }
 export async function logActivity(action: string, details: string) { await addDoc(collection(adminDb, 'activityLog'), { timestamp: Timestamp.now(), action, details }); return { success: true }; }
 
+function mapInsumo(item: any) {
+  // Motor de mapeo inteligente para normalizar encabezados de Excel
+  return {
+    claveCuadroBasico: item.Clave || item.CLAVE || item['Clave de Cuadro Básico'] || item.claveCuadroBasico || 'S/C',
+    descripcion: item.Descripción || item.DESCRIPCION || item.Nombre || item.nombre || item.descripcion || 'SIN DESCRIPCIÓN',
+    existencia: Number(item.Existencia || item.EXISTENCIA || item.Stock || item.STOCK || item.stock || item.existencia || 0),
+    fechaCaducidad: item.Caducidad || item.CADUCIDAD || item.Vencimiento || item['Fecha Caducidad'] || item.fechaCaducidad || '',
+    lote: item.Lote || item.LOTE || item.lote || 'N/A',
+    grupo: item.Grupo || item.grupo || '',
+    precioUnitario: Number(item.Precio || item['Precio Unitario'] || item.precioUnitario || 0),
+    almacen: item.Almacen || item.ALMACEN || item.almacen || ''
+  };
+}
+
 export async function bulkInsertMedications(p: any[]) { 
     const batch = writeBatch(adminDb); 
     p.forEach(item => {
         const id = uuidv4();
-        batch.set(doc(adminDb, 'medications', id), { ...item, id, updatedAt: new Date().toISOString() });
+        const mapped = mapInsumo(item);
+        batch.set(doc(adminDb, 'medications', id), { ...mapped, id, updatedAt: new Date().toISOString() });
     });
     await batch.commit(); 
     return { success: true, processedCount: p.length }; 
@@ -440,7 +486,8 @@ export async function bulkInsertSupplies(p: any[]) {
     const batch = writeBatch(adminDb); 
     p.forEach(item => {
         const id = uuidv4();
-        batch.set(doc(adminDb, 'supplies', id), { ...item, id, updatedAt: new Date().toISOString() });
+        const mapped = mapInsumo(item);
+        batch.set(doc(adminDb, 'supplies', id), { ...mapped, id, updatedAt: new Date().toISOString() });
     });
     await batch.commit(); 
     return { success: true, processedCount: p.length }; 
@@ -459,3 +506,5 @@ export async function deleteAllSupplies() {
     await batch.commit();
     return { success: true };
 }
+
+function startOfDay(d: Date) { const res = new Date(d); res.setHours(0,0,0,0); return res; }
