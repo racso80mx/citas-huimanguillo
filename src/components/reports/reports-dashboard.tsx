@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Patient, MedicalConsultation, Prescription, Colonia } from '@/lib/definitions';
@@ -627,6 +628,3 @@ function GlobalArchiveSearch({ onSelectPatient }: { onSelectPatient: (p: Patient
         </Card>
     );
 }
-
-function startOfDay(date: Date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
-function endOfDay(date: Date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59); }

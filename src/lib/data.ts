@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   doc, 
@@ -94,10 +95,11 @@ function fuzzyMapInsumo(item: any) {
     };
 }
 
-async function getRawCollection(name: string, limitNum: number = 40000) {
+async function getRawCollection(name: string, limitNum: number = 10000) {
     try {
         const colRef = collection(adminDb, name);
-        const q = query(colRef, limit(limitNum));
+        // Firestore limit max is 10000 for structured queries in some environments
+        const q = query(colRef, limit(Math.min(limitNum, 10000)));
         const snap = await getDocs(q);
         return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
     } catch (e) {
@@ -299,7 +301,7 @@ export async function bulkInsertPatients(patients: any[]) {
 
 // --- CITAS ---
 export async function getAppointmentsData() {
-    const apps = await getRawCollection('appointments', 40000); 
+    const apps = await getRawCollection('appointments', 10000); 
     const pats = await getPatientsForApps(apps);
     const clinics = await getClinicsData();
     return apps.map(a => ({ 
@@ -309,22 +311,22 @@ export async function getAppointmentsData() {
     }));
 }
 export async function getLabAppointmentsData() { 
-    const apps = await getRawCollection('labAppointments', 40000); 
+    const apps = await getRawCollection('labAppointments', 10000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
 export async function getXRayAppointmentsData() { 
-    const apps = await getRawCollection('xrayAppointments', 20000); 
+    const apps = await getRawCollection('xrayAppointments', 10000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
 export async function getUltrasoundAppointmentsData() { 
-    const apps = await getRawCollection('ultrasoundAppointments', 20000); 
+    const apps = await getRawCollection('ultrasoundAppointments', 10000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
 export async function getVaccineAppointmentsData() { 
-    const apps = await getRawCollection('vaccineAppointments', 20000); 
+    const apps = await getRawCollection('vaccineAppointments', 10000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
@@ -342,7 +344,7 @@ export async function updateAppointmentStatus(aid: string, s: string, type: stri
 }
 
 export async function getAppointmentsForClinic(cid: string) {
-    const apps = await getRawCollection('appointments', 40000);
+    const apps = await getRawCollection('appointments', 10000);
     const clinics = await getClinicsData();
     const target = clinics.find(c => c.id === cid);
     const pats = await getPatientsForApps(apps);
@@ -527,8 +529,8 @@ export async function getLabStudies() { return getRawCollection('labStudies'); }
 export async function getXRayStudies() { return getRawCollection('xrayStudies'); }
 export async function getUltrasoundStudies() { return getRawCollection('ultrasoundStudies'); }
 export async function getVaccines() { return getRawCollection('vaccines'); }
-export async function getMedications() { return getRawCollection('medications', 40000); }
-export async function getSupplies() { return getRawCollection('supplies', 40000); }
+export async function getMedications() { return getRawCollection('medications', 10000); }
+export async function getSupplies() { return getRawCollection('supplies', 10000); }
 
 export async function updateLabStudies(s: LabStudy[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'labStudies')); snap.docs.forEach(d => batch.delete(d.ref)); s.forEach(x => batch.set(doc(adminDb, 'labStudies', x.id), x)); await batch.commit(); return { success: true }; }
 export async function updateXRayStudies(s: XRayStudy[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'xrayStudies')); snap.docs.forEach(d => batch.delete(d.ref)); s.forEach(x => batch.set(doc(adminDb, 'xrayStudies', x.id), x)); await batch.commit(); return { success: true }; }
