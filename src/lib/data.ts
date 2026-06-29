@@ -71,12 +71,16 @@ export function serializeData(data: any): any {
   return data;
 }
 
+/**
+ * Motor de Mapeo Inteligente para Insumos (Almacén y Farmacia)
+ * Reconoce encabezados de Excel de forma flexible ignorando mayúsculas, acentos y espacios.
+ */
 function fuzzyMapInsumo(item: any) {
     const keys = Object.keys(item);
     const normalize = (s: string) => String(s || '').toLowerCase().trim()
-        .replace(/[\s\._\-]/g, '')
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+        .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
+        .replace(/[\s\._\-]/g, ''); // Eliminar espacios y caracteres especiales
         
     const findValue = (options: string[]) => {
         const normalizedOptions = options.map(normalize);
@@ -85,14 +89,14 @@ function fuzzyMapInsumo(item: any) {
     };
 
     return {
-        claveCuadroBasico: String(findValue(['clave', 'clavedecuadrobasico', 'articulo', 'codigo', 'cod', 'idinsumo', 'clv', 'clavebasica']) || 'S/C'),
-        descripcion: String(findValue(['descripcion', 'nombre', 'insumo', 'producto', 'articulo', 'desc', 'sustancia']) || 'SIN DESCRIPCIÓN'),
-        existencia: Number(findValue(['existencia', 'stock', 'cantidad', 'actual', 'total', 'cant', 'stockactual']) || 0),
-        fechaCaducidad: String(findValue(['caducidad', 'vencimiento', 'fechadecaducidad', 'vence', 'fecha', 'venc', 'f.caducidad']) || ''),
-        lote: String(findValue(['lote', 'numerodelote', 'loteo', 'n.lote', 'lot', 'num.lote']) || 'N/A'),
-        grupo: String(findValue(['grupo', 'categoria', 'familia', 'tipo']) || ''),
-        precioUnitario: Number(findValue(['precio', 'preciounitario', 'costo']) || 0),
-        almacen: String(findValue(['almacen', 'deposito', 'bodega']) || '')
+        claveCuadroBasico: String(findValue(['clave', 'clavedecuadrobasico', 'articulo', 'codigo', 'cod', 'idinsumo', 'clv', 'clavebasica', 'cve']) || 'S/C'),
+        descripcion: String(findValue(['descripcion', 'nombre', 'insumo', 'producto', 'articulo', 'desc', 'sustancia', 'descripciondelarticulo']) || 'SIN DESCRIPCIÓN'),
+        existencia: Number(findValue(['existencia', 'stock', 'cantidad', 'actual', 'total', 'cant', 'stockactual', 'disponible', 'existencias']) || 0),
+        fechaCaducidad: String(findValue(['caducidad', 'vencimiento', 'fechadecaducidad', 'vence', 'fecha', 'venc', 'f.caducidad', 'expiracion', 'vencimientolote']) || ''),
+        lote: String(findValue(['lote', 'numerodelote', 'loteo', 'n.lote', 'lot', 'num.lote', 'batch']) || 'N/A'),
+        grupo: String(findValue(['grupo', 'categoria', 'familia', 'tipo', 'clasificacion']) || ''),
+        precioUnitario: Number(findValue(['precio', 'preciounitario', 'costo', 'valor']) || 0),
+        almacen: String(findValue(['almacen', 'deposito', 'bodega', 'unidad']) || '')
     };
 }
 
@@ -654,16 +658,16 @@ export async function getBIData() {
   return { appointments, labAppointments, xRayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias };
 }
 
-export async function getAvailableSlotsForDate(clinicId: string, dateStr: string) {
+export async function getAvailableSlotsForDate(cid: string, date: string) {
     const clinics = await getClinicsData();
-    const clinic = clinics.find(c => c.id === clinicId);
+    const clinic = clinics.find(c => c.id === cid);
     if (!clinic) return { timeSlots: [] };
     
-    const dayDate = new Date(dateStr);
+    const dayDate = new Date(date);
     const dateOnly = dayDate.toISOString().split('T')[0];
     
     const apps = await getRawCollection('appointments');
-    const dayApps = apps.filter(a => a.clinicId === clinicId && a.date.split('T')[0] === dateOnly);
+    const dayApps = apps.filter(a => a.clinicId === cid && a.date.split('T')[0] === dateOnly);
     const bookedTimes = dayApps.map(a => a.time);
 
     if (clinic.bookingMode === BookingMode.Token) {

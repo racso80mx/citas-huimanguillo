@@ -315,8 +315,8 @@ export async function updateVaccineSettings(s: VaccineSettings) {
     return res;
 }
 export async function getLabStudies() { return data.getLabStudies(); }
-export async function getXRayStudies() { return data.getXRayStudies(); }
-export async function getUltrasoundStudies() { return data.getUltrasoundStudies(); }
+export async function getXRayStudies() { return getRawCollection('xrayStudies'); }
+export async function getUltrasoundStudies() { return getRawCollection('ultrasoundStudies'); }
 export async function getVaccines() { return data.getVaccines(); }
 export async function getMedications() { return data.getMedications(); }
 export async function getSupplies() { return data.getSupplies(); }
@@ -347,3 +347,7 @@ export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
 export async function searchCie10(t: string) { return data.searchCie10(t); }
 export async function getBIData() { return data.getBIData(); }
 export async function getAvailableSlotsForDate(cid: string, date: string) { return data.getAvailableSlotsForDate(cid, date); }
+
+async function getRawCollection(name: string) {
+    return data.getRawCollection(name);
+}
