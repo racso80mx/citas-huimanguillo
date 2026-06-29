@@ -25,7 +25,8 @@ import type {
     Clinic,
     Colonia,
     ServiceType,
-    Specialty
+    Specialty,
+    PatientStatus
 } from './definitions';
 
 // --- ACTIVIDAD Y LOGS ---
@@ -52,10 +53,6 @@ export async function verifyUltrasoundPassword(p: string) { return data.verifyMo
 export async function verifyVaccinePassword(p: string) { return data.verifyModulePassword('vaccine', p); }
 export async function verifyAdminPassword(p: string) { return data.verifyModulePassword('superadmin', p); }
 export async function verifyClinicPassword(id: string, p: string) { return data.verifyClinicPassword(id, p); }
-export async function verifyLabBookingPassword(p: string) { return data.verifyModulePassword('lab', p); }
-export async function verifyXRayBookingPassword(p: string) { return data.verifyModulePassword('xray', p); }
-export async function verifyUltrasoundBookingPassword(p: string) { return data.verifyModulePassword('ultrasound', p); }
-export async function verifyVaccineBookingPassword(p: string) { return data.verifyModulePassword('vaccine', p); }
 
 // --- PACIENTES ---
 export async function getPatients(options?: any) { return data.getPatientsData(options); }
@@ -214,7 +211,7 @@ export async function cleanupOldRecords() {
     return res;
 }
 export async function normalizeExpedientesAction() { return data.normalizeExpedientesAction(); }
-export async function applyStatusUpdateChunk(exp: string[], status: any) { return data.applyStatusUpdateChunk(exp, status); }
+export async function applyStatusUpdateChunk(exp: string[], status: PatientStatus) { return data.applyStatusUpdateChunk(exp, status); }
 export async function scanDuplicates(criteria: any) { return data.scanDuplicates(criteria); }
 
 // --- CONFIGURACIONES ---
@@ -265,6 +262,11 @@ export async function getAppointmentCountOnDate(clinicId: string, date: string) 
 export async function getAttendedPatientsForClinic(clinicId: string) { return data.getAttendedPatientsForClinic(clinicId); }
 export async function updatePrescription(id: string, p: any) { 
     const res = await data.updatePrescription(id, p);
+    revalidatePath('/', 'layout');
+    return res;
+}
+export async function deletePrescription(id: string) { 
+    const res = await data.deletePrescription(id);
     revalidatePath('/', 'layout');
     return res;
 }

@@ -88,7 +88,7 @@ import { ScheduleAppointmentDialog } from '../archivo/schedule-appointment-dialo
 import { CreatePrescriptionDialog } from './create-prescription-dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { downloadExcel } from '@/lib/report-helpers';
