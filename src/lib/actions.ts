@@ -361,7 +361,7 @@ export async function bulkInsertSupplies(p: any[]) { return data.bulkInsertSuppl
 export async function deleteAllMedications() { return data.deleteAllMedications(); }
 export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
 export async function verifyClinicPassword(id: string, p: string) { 
-    const snap = await data.getClinicsData();
-    const clinic = snap.find(c => c.id === id);
+    const clinics = await data.getClinicsData();
+    const clinic = clinics.find(c => c.id === id);
     return { success: clinic?.password === p };
 }
