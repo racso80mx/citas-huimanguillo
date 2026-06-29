@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   doc, 
@@ -72,12 +71,17 @@ export function serializeData(data: any): any {
 
 function fuzzyMapInsumo(item: any) {
     const keys = Object.keys(item);
-    const normalize = (s: string) => String(s || '').toLowerCase().trim().replace(/[\s\._\-]/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const normalize = (s: string) => String(s || '').toLowerCase().trim()
+        .replace(/[\s\._\-]/g, '')
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+        
     const findValue = (options: string[]) => {
         const normalizedOptions = options.map(normalize);
         const foundKey = keys.find(k => normalizedOptions.includes(normalize(k)));
         return foundKey ? item[foundKey] : undefined;
     };
+
     return {
         claveCuadroBasico: String(findValue(['clave', 'clavedecuadrobasico', 'articulo', 'codigo', 'cod', 'idinsumo', 'clv', 'clavebasica']) || 'S/C'),
         descripcion: String(findValue(['descripcion', 'nombre', 'insumo', 'producto', 'articulo', 'desc', 'sustancia']) || 'SIN DESCRIPCIÓN'),
@@ -131,7 +135,15 @@ export async function logActivity(action: string, details: string) {
     } catch (e) {}
     return { success: true }; 
 }
-export async function getLogsData() { return getRawCollection('activityLog', 500); }
+
+export async function getLogsData() {
+  const colRef = collection(adminDb, 'activityLog');
+  const q = query(colRef, limit(500));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map(d => ({ ...serializeData(d.data()), id: d.id }))
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
 
 // --- MÓDULOS ---
 export async function getModuleSettings(): Promise<ModuleSettings> {
@@ -155,6 +167,31 @@ export async function updateModuleSettings(settings: ModuleSettings) {
     return { success: true };
 }
 
+export async function verifyModulePassword(id: string, p: string) {
+    const pass = await getPasswordFromStore(id, ''); 
+    const defaults: Record<string, string> = {
+        medical: 'citas2026',
+        archive: '2026',
+        archiveInquiry: '2026',
+        pharmacy: 'farmacia2026',
+        warehouse: 'almacen2026',
+        bi: 'bi2026',
+        lab: 'lab2026',
+        xray: 'rx2026',
+        ultrasound: 'us2026',
+        vaccine: 'vac2026',
+        superadmin: 'Hu1m4ngu1ll0'
+    };
+    const targetPass = pass || defaults[id] || '123';
+    return { success: targetPass === p, message: targetPass !== p ? 'Contraseña incorrecta' : undefined };
+}
+
+export async function verifyClinicPassword(id: string, p: string) {
+    const snap = await getDoc(doc(adminDb, 'clinic_settings', id));
+    const pass = snap.exists() ? snap.data().password : '123';
+    return { success: pass === p, message: pass !== p ? 'Contraseña incorrecta' : undefined };
+}
+
 // --- PACIENTES ---
 export async function getPatientsData(options?: any): Promise<Patient[]> {
   const colRef = collection(adminDb, 'patients');
@@ -169,7 +206,7 @@ export async function getPatientsData(options?: any): Promise<Patient[]> {
       const t = options.searchName.toUpperCase();
       results = results.filter(p => `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase().includes(t));
   }
-  return results.sort((a,b) => a.paternalLastName.localeCompare(b.paternalLastName));
+  return results.sort((a,b) => (a.paternalLastName || '').localeCompare(b.paternalLastName || ''));
 }
 
 export async function getPatientCounts(): Promise<ArchiveCounts> {
@@ -222,28 +259,28 @@ export async function bulkInsertPatients(patients: any[]) {
     let added = 0;
     let updated = 0;
     for (const p of patients) {
-        const curp = String(p.CURP || '').toUpperCase().trim();
+        const curp = String(p.CURP || p.curp || '').toUpperCase().trim();
         if (!curp) continue;
         const patientData = {
-            expediente: String(p['No.Expediente'] || ''),
-            name: String(p.Nombre || '').toUpperCase(),
-            paternalLastName: String(p.Apaterno || '').toUpperCase(),
-            maternalLastName: String(p.Amaterno || '').toUpperCase(),
+            expediente: String(p['No.Expediente'] || p.expediente || ''),
+            name: String(p.Nombre || p.name || '').toUpperCase(),
+            paternalLastName: String(p.Apaterno || p.paternalLastName || '').toUpperCase(),
+            maternalLastName: String(p.Amaterno || p.maternalLastName || '').toUpperCase(),
             curp: curp,
-            birthDate: String(p.FNacimiento || ''),
-            age: Number(p.Edad || 0),
-            sex: String(p.Sexo || 'Hombre') as 'Hombre' | 'Mujer',
-            birthState: String(p.Estado || 'TABASCO').toUpperCase(),
-            address: String(p.Domicilio || '').toUpperCase(),
-            coloniaName: String(p.Colonia || '').toUpperCase(),
-            phoneNumber: String(p.Telefono || ''),
-            status: (p.Estatus || PatientStatus.Vigente) as PatientStatus,
-            fatherName: String(p.NombrePadre || '').toUpperCase() || null,
-            motherName: String(p.NombreMadre || '').toUpperCase() || null,
-            fatherAge: Number(p.EdadPadre || 0) || null,
-            motherAge: Number(p.EdadMadre || 0) || null,
-            registrationDate: String(p.FechaApertura || ''),
-            derechoAbiencia: String(p.DerechoAbiencia || '').toUpperCase() || null
+            birthDate: String(p.FNacimiento || p.birthDate || ''),
+            age: Number(p.Edad || p.age || 0),
+            sex: String(p.Sexo || p.sex || 'Hombre') as 'Hombre' | 'Mujer',
+            birthState: String(p.Estado || p.birthState || 'TABASCO').toUpperCase(),
+            address: String(p.Domicilio || p.address || '').toUpperCase(),
+            coloniaName: String(p.Colonia || p.coloniaName || '').toUpperCase(),
+            phoneNumber: String(p.Telefono || p.phoneNumber || ''),
+            status: (p.Estatus || p.status || PatientStatus.Vigente) as PatientStatus,
+            fatherName: String(p.NombrePadre || p.fatherName || '').toUpperCase() || null,
+            motherName: String(p.NombreMadre || p.motherName || '').toUpperCase() || null,
+            fatherAge: Number(p.EdadPadre || p.fatherAge || 0) || null,
+            motherAge: Number(p.EdadMadre || p.motherAge || 0) || null,
+            registrationDate: String(p.FechaApertura || p.registrationDate || ''),
+            derechoAbiencia: String(p.DerechoAbiencia || p.derechoAbiencia || '').toUpperCase() || null
         };
         const q = query(collection(adminDb, 'patients'), where('curp', '==', curp), limit(1));
         const snap = await getDocs(q);
@@ -384,7 +421,7 @@ export async function saveNewVaccineAppointment(appointment: any, patient: any) 
     return { success: true, data: { ...appointment, patient } };
 }
 
-// --- CLÍNICAS Y SEGURIDAD ---
+// --- CLÍNICAS ---
 export async function getClinicsData(): Promise<Clinic[]> { 
     const [clinicsSnap, settingsSnap] = await Promise.all([getDocs(collection(adminDb, 'clinics')), getDocs(collection(adminDb, 'clinic_settings'))]);
     const settingsMap = new Map();
@@ -422,7 +459,7 @@ export async function bulkInsertDoctors(doctors: any[]) {
     return { success: true, processedCount: doctors.length }; 
 }
 
-// --- OTROS CATÁLOGOS ---
+// --- CATÁLOGOS ---
 export async function getServiceTypesData() { return getRawCollection('serviceTypes'); }
 export async function updateServiceTypes(t: any[]) { const batch = writeBatch(adminDb); t.forEach(x => batch.set(doc(adminDb, 'serviceTypes', x.id), x)); await batch.commit(); return { success: true }; }
 export async function getSpecialtiesData() { return getRawCollection('specialties'); }
@@ -546,10 +583,10 @@ export async function getPrescriptionHistory(f: any) {
     return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id })) as Prescription[];
 }
 export async function getPrescriptionsByPatientId(pid: string) { const q = query(collection(adminDb, 'prescriptions'), where('patientId', '==', pid), limit(50)); const snap = await getDocs(q); return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id })) as Prescription[]; }
-export async function getPatientPrescriptionsCountTodayAction(pid: string) { const start = startOfDay(new Date()).toISOString(); const q = query(collection(adminDb, 'prescriptions'), where('patientId', '==', pid), where('date', '>=', start)); const snap = await getCountFromServer(q); return snap.data().count; }
+export async function getPatientPrescriptionsCountTodayAction(pid: string) { const start = startOfDay(new Date()); const q = query(collection(adminDb, 'prescriptions'), where('patientId', '==', pid), where('date', '>=', start)); const snap = await getCountFromServer(q); return snap.data().count; }
 export async function updatePrescription(id: string, p: any) { await updateDoc(doc(adminDb, 'prescriptions', id), p); return { success: true }; }
 
-export async function getAppointmentCountOnDate(cid: string, d: string) { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid), where('date', '>=', startOfDay(new Date(d + 'T00:00:00')).toISOString()), where('date', '<=', endOfDay(new Date(d + 'T23:59:59')).toISOString())); const snap = await getCountFromServer(q); return snap.data().count; }
+export async function getAppointmentCountOnDate(cid: string, d: string) { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid), where('date', '>=', startOfDay(new Date(d + 'T00:00:00'))), where('date', '<=', endOfDay(new Date(d + 'T23:59:59')))); const snap = await getCountFromServer(q); return snap.data().count; }
 export async function getAttendedPatientsForClinic(cid: string) { const q = query(collection(adminDb, 'appointments'), where('clinicId', '==', cid), where('status', '==', 'Atendido'), limit(100)); const snap = await getDocs(q); const pIds = Array.from(new Set(snap.docs.map(d => d.data().patientId))); if (pIds.length === 0) return []; const pats: any[] = []; for (let i = 0; i < pIds.length; i += 30) { const chunk = pIds.slice(i, i + 30); const pq = query(collection(adminDb, 'patients'), where('__name__', 'in', chunk)); const psnap = await getDocs(pq); pats.push(...psnap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }))); } return pats; }
 
 export async function rescheduleAppointment(id: string, date: string, type: string) {
@@ -646,4 +683,52 @@ export async function scanDuplicates(criteria: 'expediente' | 'curp' | 'name') {
         }
     });
     return Object.values(groups).filter(g => g.length > 1);
+}
+
+export async function getBIData() {
+  const [appointments, labAppointments, xRayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias] = await Promise.all([
+    getRawCollection('appointments'),
+    getRawCollection('labAppointments'),
+    getRawCollection('xrayAppointments'),
+    getRawCollection('ultrasoundAppointments'),
+    getRawCollection('vaccineAppointments'),
+    getClinicsData(),
+    getRawCollection('colonias')
+  ]);
+  return { appointments, labAppointments, xRayAppointments, ultrasoundAppointments, vaccineAppointments, clinics, colonias };
+}
+
+export async function getAvailableSlotsForDate(clinicId: string, dateStr: string) {
+    const clinics = await getClinicsData();
+    const clinic = clinics.find(c => c.id === clinicId);
+    if (!clinic) return { timeSlots: [] };
+    
+    const dayDate = new Date(dateStr);
+    const dateOnly = dayDate.toISOString().split('T')[0];
+    
+    const apps = await getRawCollection('appointments');
+    const dayApps = apps.filter(a => a.clinicId === clinicId && a.date.split('T')[0] === dateOnly);
+    const bookedTimes = dayApps.map(a => a.time);
+
+    if (clinic.bookingMode === BookingMode.Token) {
+        const total = (clinic.dailySlots || 15) + (clinic.waitlistSlots || 0);
+        const tokens = Array.from({ length: total }, (_, i) => i + 1)
+            .filter(t => !bookedTimes.includes(`Ficha ${t}`));
+        return { tokens };
+    } else {
+        const custom = clinic.customSchedules?.find(s => s.date === dateOnly);
+        const endTime = custom ? custom.endTime : clinic.endTime;
+        
+        // Manual range generation for time slots
+        const slots: string[] = [];
+        const start = new Date(`1970-01-01T${clinic.startTime}:00`);
+        const end = new Date(`1970-01-01T${endTime}:00`);
+        let curr = start;
+        while (curr < end) {
+            const t = curr.toTimeString().substring(0, 5);
+            if (t !== clinic.breakTime && !bookedTimes.includes(t)) slots.push(t);
+            curr = new Date(curr.getTime() + (clinic.consultationDuration || 30) * 60000);
+        }
+        return { timeSlots: slots };
+    }
 }

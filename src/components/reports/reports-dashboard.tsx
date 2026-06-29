@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import type { Appointment, Clinic, LabAppointment, XRayAppointment, UltrasoundAppointment, VaccineAppointment, Patient, MedicalConsultation, Prescription, Colonia } from '@/lib/definitions';
@@ -88,7 +87,7 @@ import { ScheduleAppointmentDialog } from '../archivo/schedule-appointment-dialo
 import { CreatePrescriptionDialog } from './create-prescription-dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@radix-ui/react-tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { downloadExcel } from '@/lib/report-helpers';
@@ -206,89 +205,54 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     }
   };
 
-  const loadPatientDetail = async (patientId: string) => {
-      setSelectedPatientId(patientId);
-      setIsLoadingHistory(true);
-      try {
-          const [consultations, prescriptions] = await Promise.all([
-              getConsultationsByPatientId(patientId),
-              getPrescriptionsByPatientId(patientId)
-          ]);
-          setPatientHistory(consultations);
-          setPatientPrescriptions(prescriptions);
-      } catch (e) {
-          toast({ title: "Error al cargar historial", variant: "destructive" });
-      } finally {
-          setIsLoadingHistory(false);
-      }
-  };
-
-  const handleGlobalSearch = async () => {
-    if (!historySearchTerm.trim()) {
-        fetchData(); 
-        return;
-    }
-    setIsSearchingArchive(true);
-    try {
-        const term = historySearchTerm.toUpperCase().trim();
-        const searchOptions: any = {};
-        if (term.length === 18) searchOptions.searchCurp = term;
-        else if (/^\d+$/.test(term)) searchOptions.searchExpediente = term;
-        else searchOptions.searchName = term;
-        const results = await getPatients(searchOptions);
-        setAttendedPatients(results);
-    } finally {
-        setIsSearchingArchive(false);
-    }
-  };
-
   const appointmentsToDisplay = useMemo(() => {
     if (!isClient || !appointments || appointments.length === 0) return [];
-    let filterFn: (app: any) => boolean;
-    const now = new Date();
-    switch (activeFilter) {
-      case 'week':
-        const wStart = startOfWeek(now, { weekStartsOn: 1 });
-        const wEnd = endOfWeek(now, { weekStartsOn: 1 });
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: wStart, end: wEnd });
-        break;
-      case 'month':
-        const mStart = startOfMonth(now);
-        const mEnd = endOfMonth(now);
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: mStart, end: mEnd });
-        break;
-      case 'range':
-        if (dateRange?.from) {
-          const rStart = startOfDay(dateRange.from);
-          const rEnd = endOfDay(dateRange.to || dateRange.from);
-          filterFn = (app) => {
-            const d = parseISO(app.date);
-            return d >= rStart && d <= rEnd;
-          };
-        } else return () => true;
-        break;
-      case 'today':
-      default:
-        filterFn = (app) => isWithinInterval(parseISO(app.date), { start: startOfDay(now), end: endOfDay(now) });
-        break;
-    }
-    let res = appointments.filter(filterFn);
+    const nowStr = format(new Date(), 'yyyy-MM-dd');
+    
+    let filtered = appointments.filter(app => {
+        const appDateStr = app.date.split('T')[0];
+        
+        switch (activeFilter) {
+            case 'week':
+                const now = new Date();
+                return isWithinInterval(parseISO(app.date), { 
+                    start: startOfWeek(now, { weekStartsOn: 1 }), 
+                    end: endOfWeek(now, { weekStartsOn: 1 }) 
+                });
+            case 'month':
+                const mNow = new Date();
+                return isWithinInterval(parseISO(app.date), { 
+                    start: startOfMonth(mNow), 
+                    end: endOfMonth(mNow) 
+                });
+            case 'range':
+                if (dateRange?.from) {
+                    const start = startOfDay(dateRange.from);
+                    const end = endOfDay(dateRange.to || dateRange.from);
+                    return isWithinInterval(parseISO(app.date), { start, end });
+                }
+                return true;
+            case 'today':
+            default:
+                return appDateStr === nowStr;
+        }
+    });
+
     if (searchTerm) {
         const t = searchTerm.toUpperCase();
-        res = res.filter(a => {
+        filtered = filtered.filter(a => {
             const n = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
             return n.includes(t) || (a.patient?.curp || '').toUpperCase().includes(t) || (a.appointmentNumber || '').toUpperCase().includes(t);
         });
     }
-    return res.sort((a, b) => a.time.localeCompare(b.time));
+
+    return filtered.sort((a, b) => a.time.localeCompare(b.time));
   }, [isClient, appointments, activeFilter, dateRange, searchTerm]);
 
   const summaryCounts = useMemo(() => {
     if (!isClient) return { total: 0, attended: 0, pending: 0, notAttended: 0 };
-    const now = new Date();
-    const tStart = startOfDay(now);
-    const tEnd = endOfDay(now);
-    const todayApps = appointments.filter(a => isWithinInterval(parseISO(a.date), { start: tStart, end: tEnd }));
+    const nowStr = format(new Date(), 'yyyy-MM-dd');
+    const todayApps = appointments.filter(a => a.date.split('T')[0] === nowStr);
     return {
       total: todayApps.length,
       attended: todayApps.filter(a => a.status === 'Atendido').length,
@@ -319,6 +283,33 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     downloadExcel(appointmentsToDisplay, `reporte_${reportType}_${activeFilter}_${format(new Date(), 'dd-MM-yyyy')}`);
   }
 
+  const loadPatientHistory = async (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setIsLoadingHistory(true);
+    try {
+        const [history, prescriptions] = await Promise.all([
+            getConsultationsByPatientId(patientId),
+            getPrescriptionsByPatientId(patientId)
+        ]);
+        setPatientHistory(history);
+        setPatientPrescriptions(prescriptions);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsLoadingHistory(false);
+    }
+  };
+
+  const filteredAttendedPatients = useMemo(() => {
+    if (!historySearchTerm) return attendedPatients;
+    const t = historySearchTerm.toUpperCase();
+    return attendedPatients.filter(p => 
+        `${p.name} ${p.paternalLastName} ${p.maternalLastName}`.toUpperCase().includes(t) ||
+        p.curp.toUpperCase().includes(t) ||
+        (p.expediente || '').includes(t)
+    );
+  }, [attendedPatients, historySearchTerm]);
+
   return (
     <div className="space-y-8 container mx-auto px-0 py-8">
       <Card className="shadow-lg border-primary/10 mx-4 sm:mx-0">
@@ -342,10 +333,10 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-4 sm:px-0">
         {[
-            { label: 'Total Hoy', val: summaryCounts.total, icon: UserCheck, color: 'text-primary' },
+            { label: 'Agenda Hoy', val: summaryCounts.total, icon: UserCheck, color: 'text-primary' },
             { label: 'Atendidos', val: summaryCounts.attended, icon: CheckCircle2, color: 'text-green-600' },
             { label: 'Pendientes', val: summaryCounts.pending, icon: Clock, color: 'text-yellow-600' },
-            { label: 'Inasistencias', val: summaryCounts.notAttended, icon: UserX, color: 'text-red-600' }
+            { label: 'No Asistió', val: summaryCounts.notAttended, icon: UserX, color: 'text-red-600' }
         ].map(s => (
             <Card key={s.label} className="shadow-sm">
                 <CardContent className="pt-6">
@@ -400,75 +391,185 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
         <CardContent className="pt-6">
             {isClinicReport ? (
                 <Tabs defaultValue="listado" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 max-w-md h-auto p-1 bg-muted/20 mb-6">
-                        <TabsTrigger value="listado" className="py-2.5 font-bold">Agenda del Consultorio</TabsTrigger>
-                        <TabsTrigger value="pacientes" className="py-2.5 font-bold">Pacientes Atendidos</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2 max-w-md h-auto p-1 bg-muted/20 mb-6 rounded-lg">
+                        <TabsTrigger value="listado" className="py-2.5 font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all">Agenda del Consultorio</TabsTrigger>
+                        <TabsTrigger value="pacientes" className="py-2.5 font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md transition-all">Pacientes Atendidos</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="listado">{renderAppointmentListContent()}</TabsContent>
-                    <TabsContent value="pacientes">
-                        <div className="grid lg:grid-cols-12 gap-8">
-                            <div className="lg:col-span-4">
-                                <Card className="h-[500px] flex flex-col border-primary/10">
-                                    <CardHeader className="bg-muted/10">
-                                        <div className="flex gap-2">
-                                            <Input placeholder="Buscar por nombre..." value={historySearchTerm} onChange={e => setHistorySearchTerm(e.target.value.toUpperCase())} className="uppercase h-10" onKeyDown={e => e.key === 'Enter' && handleGlobalSearch()} />
-                                            <Button size="icon" onClick={handleGlobalSearch} disabled={isSearchingArchive}><Search className="h-4 w-4"/></Button>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-0 flex-1 overflow-hidden">
-                                        <ScrollArea className="h-full">
-                                            {attendedPatients.map(p => (
-                                                <button key={p.id} onClick={() => loadPatientDetail(p.id)} className={cn("w-full text-left p-4 border-b hover:bg-primary/5 transition-all", selectedPatientId === p.id && "bg-primary/10 border-l-4 border-primary shadow-inner")}>
-                                                    <div>
-                                                        <p className="font-bold text-sm uppercase text-foreground">{p.name} {p.paternalLastName}</p>
-                                                        <p className="text-[9px] font-mono text-muted-foreground mt-0.5">{p.curp}</p>
-                                                    </div>
-                                                </button>
-                                            ))}
-                                            {attendedPatients.length === 0 && !isSearchingArchive && (
-                                                <div className="p-10 text-center text-muted-foreground italic text-xs">No hay pacientes atendidos recientemente.</div>
-                                            )}
-                                        </ScrollArea>
-                                    </CardContent>
-                                </Card>
+                    <TabsContent value="listado" className="mt-0">{renderAppointmentListContent()}</TabsContent>
+                    <TabsContent value="pacientes" className="mt-0">
+                        <div className="space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-4 items-end">
+                                <div className="flex-1 space-y-2">
+                                    <Label className="text-xs font-bold uppercase opacity-60">Buscar en historial de {entity.name}</Label>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input placeholder="Nombre, CURP o Expediente..." className="pl-9 h-11" value={historySearchTerm} onChange={e => setHistorySearchTerm(e.target.value)} />
+                                    </div>
+                                </div>
+                                <Button variant="outline" className="h-11" onClick={() => setIsSearchingArchive(!isSearchingArchive)}>
+                                    {isSearchingArchive ? <X className="mr-2 h-4 w-4" /> : <Search className="mr-2 h-4 w-4" />}
+                                    {isSearchingArchive ? 'Cerrar Búsqueda Global' : 'Buscar en Padrón General'}
+                                </Button>
                             </div>
-                            <div className="lg:col-span-8">
-                                {selectedPatientId ? (
-                                    <div className="space-y-4">
-                                        {isLoadingHistory ? (
-                                            <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin h-10 w-10 text-primary" /><p className="text-xs font-bold uppercase tracking-widest animate-pulse">Cargando Historial Clínico...</p></div>
-                                        ) : (
-                                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                                                {patientHistory.map(c => (
-                                                    <Card key={c.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-                                                        <CardHeader className="py-3 bg-muted/5 flex flex-row items-center justify-between">
-                                                            <CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{format(parseISO(c.date), "dd 'de' MMMM, yyyy", { locale: es })}</CardTitle>
-                                                            <Badge variant="outline" className="text-[9px] font-bold bg-background">{c.service}</Badge>
-                                                        </CardHeader>
-                                                        <CardContent className="pt-4">
-                                                            <div className="space-y-3">
-                                                                <div>
-                                                                    <p className="text-[9px] font-black uppercase text-primary mb-1">Diagnóstico Principal:</p>
-                                                                    <p className="text-sm font-bold uppercase">{c.diagnosis1}</p>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-dashed">
-                                                                    <div className="flex items-center gap-2"><UserRound className="h-3 w-3 text-muted-foreground" /><span className="text-[10px] font-medium uppercase text-muted-foreground">Médico: <span className="text-foreground font-bold">{c.doctorName}</span></span></div>
-                                                                    {c.imc && <div className="flex items-center gap-2"><Activity className="h-3 w-3 text-muted-foreground" /><span className="text-[10px] font-medium uppercase text-muted-foreground">IMC: <span className="text-foreground font-bold">{c.imc}</span></span></div>}
-                                                                </div>
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                ))}
-                                                {patientHistory.length === 0 && <div className="p-20 text-center opacity-40 italic flex flex-col items-center gap-3"><History className="h-12 w-12" /><p>No hay notas médicas registradas para este paciente.</p></div>}
+
+                            {isSearchingArchive && <GlobalArchiveSearch onSelectPatient={(p) => loadPatientHistory(p.id)} />}
+
+                            <div className="grid lg:grid-cols-12 gap-8">
+                                <div className="lg:col-span-4 border rounded-xl overflow-hidden bg-card">
+                                    <div className="p-4 bg-muted/30 border-b font-black text-[10px] uppercase tracking-widest text-primary flex items-center justify-between">
+                                        Lista de Pacientes Atendidos
+                                        <Badge className="bg-primary/10 text-primary">{filteredAttendedPatients.length}</Badge>
+                                    </div>
+                                    <ScrollArea className="h-[500px]">
+                                        {filteredAttendedPatients.map(p => (
+                                            <button 
+                                                key={p.id} 
+                                                onClick={() => loadPatientHistory(p.id)}
+                                                className={cn(
+                                                    "w-full text-left p-4 border-b hover:bg-primary/5 transition-all flex items-center justify-between group",
+                                                    selectedPatientId === p.id ? "bg-primary/10 border-r-4 border-r-primary" : ""
+                                                )}
+                                            >
+                                                <div>
+                                                    <p className="font-bold text-xs uppercase leading-tight group-hover:text-primary">{p.name} {p.paternalLastName}</p>
+                                                    <p className="text-[10px] text-muted-foreground font-mono mt-1">{p.curp}</p>
+                                                </div>
+                                                <ArrowRight className={cn("h-4 w-4 text-primary opacity-0 transition-opacity", selectedPatientId === p.id ? "opacity-100" : "group-hover:opacity-40")} />
+                                            </button>
+                                        ))}
+                                        {filteredAttendedPatients.length === 0 && <div className="p-10 text-center text-xs text-muted-foreground italic">No hay pacientes que coincidan con la búsqueda.</div>}
+                                    </ScrollArea>
+                                </div>
+
+                                <div className="lg:col-span-8">
+                                    {selectedPatientId ? (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+                                            <div className="flex items-center justify-between bg-primary/5 p-4 rounded-xl border border-primary/10">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="bg-primary/10 p-3 rounded-full"><UserRound className="h-6 w-6 text-primary" /></div>
+                                                    <div>
+                                                        <h3 className="font-black text-lg uppercase leading-none">
+                                                            {attendedPatients.find(p => p.id === selectedPatientId)?.name || 'PACIENTE'}
+                                                        </h3>
+                                                        <p className="text-xs text-muted-foreground font-bold mt-1 uppercase">Historial Clínico Consolidado</p>
+                                                    </div>
+                                                </div>
+                                                <Button className="font-bold bg-primary hover:bg-primary/90 h-11 px-6 shadow-lg" onClick={() => {
+                                                    const p = attendedPatients.find(x => x.id === selectedPatientId);
+                                                    if (p) {
+                                                        setSelectedPatientForPrescription(p);
+                                                        setEditingPrescription(null);
+                                                        setIsPrescriptionOpen(true);
+                                                    }
+                                                }}>
+                                                    <FileText className="mr-2 h-4 w-4" /> Nueva Receta Digital
+                                                </Button>
                                             </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="h-[500px] flex flex-col items-center justify-center opacity-20 border-2 border-dashed rounded-3xl bg-muted/5">
-                                        <Users className="h-20 w-20 mb-4" />
-                                        <p className="font-black uppercase tracking-widest text-lg">Selecciona un paciente del listado</p>
-                                    </div>
-                                )}
+
+                                            <Tabs defaultValue="notas" className="w-full">
+                                                <TabsList className="bg-muted/40 p-1 rounded-md mb-4 flex gap-2">
+                                                    <TabsTrigger value="notas" className="font-bold px-4 py-2 data-[state=active]:bg-background rounded-sm">Notas Médicas ({patientHistory.length})</TabsTrigger>
+                                                    <TabsTrigger value="recetas" className="font-bold px-4 py-2 data-[state=active]:bg-background rounded-sm">Recetas Generadas ({patientPrescriptions.length})</TabsTrigger>
+                                                </TabsList>
+                                                
+                                                <TabsContent value="notas" className="mt-0">
+                                                    {isLoadingHistory ? (
+                                                        <div className="py-20 flex justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
+                                                    ) : patientHistory.length > 0 ? (
+                                                        <div className="grid gap-4">
+                                                            {patientHistory.sort((a,b) => b.date.localeCompare(a.date)).map(note => (
+                                                                <Card key={note.id} className="hover:border-primary/30 transition-colors shadow-sm">
+                                                                    <CardContent className="p-5">
+                                                                        <div className="flex justify-between items-start mb-4">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><History className="h-4 w-4" /></div>
+                                                                                <div>
+                                                                                    <p className="text-[10px] font-black uppercase text-muted-foreground">{format(parseISO(note.date), "eeee dd 'de' MMMM, yyyy", { locale: es })}</p>
+                                                                                    <p className="font-bold text-sm text-primary uppercase">{note.diagnosis1}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <Badge variant="outline" className="text-[10px] font-mono bg-muted/20">Dr. {note.doctorName}</Badge>
+                                                                        </div>
+                                                                        <div className="grid sm:grid-cols-3 gap-4 text-[10px] font-bold text-muted-foreground uppercase border-t pt-4">
+                                                                            <div className="flex items-center gap-2"><Activity className="h-3 w-3" /> IMC: <span className="text-foreground">{note.imc || 'N/A'}</span></div>
+                                                                            <div className="flex items-center gap-2"><Stethoscope className="h-3 w-3" /> SERVICIO: <span className="text-foreground">{note.service}</span></div>
+                                                                            <div className="flex items-center gap-2"><CheckCircle2 className="h-3 w-3" /> TIPO: <span className="text-foreground">{note.motiveRelation}</span></div>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="py-20 text-center border-2 border-dashed rounded-2xl opacity-40">Sin notas registradas.</div>
+                                                    )}
+                                                </TabsContent>
+
+                                                <TabsContent value="recetas" className="mt-0">
+                                                    {isLoadingHistory ? (
+                                                        <div className="py-20 flex justify-center"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>
+                                                    ) : patientPrescriptions.length > 0 ? (
+                                                        <div className="grid gap-4">
+                                                            {patientPrescriptions.sort((a,b) => b.date.localeCompare(a.date)).map(rx => (
+                                                                <Card key={rx.id} className="hover:border-green-300 transition-colors shadow-sm">
+                                                                    <CardContent className="p-5 flex items-center justify-between">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="bg-green-50 p-3 rounded-xl text-green-600"><FileText className="h-5 w-5" /></div>
+                                                                            <div>
+                                                                                <p className="font-black text-sm text-green-700">{rx.folio}</p>
+                                                                                <p className="text-[10px] font-bold text-muted-foreground uppercase">{format(parseISO(rx.date), 'dd/MM/yyyy HH:mm')} hrs</p>
+                                                                                <div className="flex gap-1 mt-1">
+                                                                                    {rx.items.slice(0, 3).map((item, idx) => (
+                                                                                        <Badge key={idx} variant="outline" className="text-[8px] px-1 h-4">{item.name}</Badge>
+                                                                                    ))}
+                                                                                    {rx.items.length > 3 && <span className="text-[8px] font-bold">+{rx.items.length - 3} más</span>}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex gap-2">
+                                                                            <Button variant="outline" size="sm" className="h-9" onClick={() => {
+                                                                                setEditingPrescription(rx);
+                                                                                setSelectedPatientForPrescription(attendedPatients.find(p => p.id === selectedPatientId) || null);
+                                                                                setIsPrescriptionOpen(true);
+                                                                            }}>
+                                                                                <Pencil className="h-3 w-3 mr-1" /> Editar
+                                                                            </Button>
+                                                                            <AlertDialog>
+                                                                                <AlertDialogTrigger asChild>
+                                                                                    <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                                                                </AlertDialogTrigger>
+                                                                                <AlertDialogContent>
+                                                                                    <AlertDialogHeader>
+                                                                                        <AlertDialogTitle>¿Eliminar Receta?</AlertDialogTitle>
+                                                                                        <AlertDialogDescription>Esta acción cancelará el folio {rx.folio} y no podrá ser surtida en farmacia.</AlertDialogDescription>
+                                                                                    </AlertDialogHeader>
+                                                                                    <AlertDialogFooter>
+                                                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                                                        <AlertDialogAction className="bg-destructive" onClick={async () => {
+                                                                                            await deletePrescription(rx.id);
+                                                                                            loadPatientHistory(selectedPatientId!);
+                                                                                        }}>Eliminar Permanentemente</AlertDialogAction>
+                                                                                    </AlertDialogFooter>
+                                                                                </AlertDialogContent>
+                                                                            </AlertDialog>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="py-20 text-center border-2 border-dashed rounded-2xl opacity-40">Sin recetas previas.</div>
+                                                    )}
+                                                </TabsContent>
+                                            </Tabs>
+                                        </div>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center border-2 border-dashed rounded-3xl opacity-30 p-20 text-center">
+                                            <History className="h-16 w-16 mb-4" />
+                                            <p className="font-black text-lg uppercase tracking-widest">Esperando Selección</p>
+                                            <p className="text-sm">Selecciona un paciente del listado izquierdo para ver su historial médico y recetas.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </TabsContent>
@@ -487,6 +588,44 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
       {isPrescriptionOpen && <CreatePrescriptionDialog isOpen={isPrescriptionOpen} onClose={() => setIsPrescriptionOpen(false)} clinic={entity} initialPatient={selectedPatientForPrescription} initialPrescription={editingPrescription} onPrescriptionCreated={fetchData} />}
     </div>
   );
+}
+
+function GlobalArchiveSearch({ onSelectPatient }: { onSelectPatient: (p: Patient) => void }) {
+    const [q, setQ] = useState('');
+    const [results, setResults] = useState<Patient[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    const handleSearch = async () => {
+        if (q.length < 3) return;
+        setLoading(true);
+        try {
+            const data = await getPatients({ searchName: q, limitNum: 10 });
+            setResults(data);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Card className="border-blue-200 bg-blue-50/50 shadow-inner animate-in slide-in-from-top-4 rounded-xl">
+            <CardContent className="pt-6 space-y-4">
+                <div className="flex gap-2">
+                    <Input placeholder="Buscar en todo el hospital..." value={q} onChange={e => setQ(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && handleSearch()} className="bg-background h-11 font-bold" />
+                    <Button onClick={handleSearch} disabled={loading} className="h-11 font-bold px-6">{loading ? <Loader2 className="animate-spin" /> : 'Buscar Global'}</Button>
+                </div>
+                {results.length > 0 && (
+                    <div className="grid sm:grid-cols-2 gap-2">
+                        {results.map(p => (
+                            <button key={p.id} onClick={() => onSelectPatient(p)} className="p-3 bg-background border rounded-lg hover:border-primary transition-all text-left flex flex-col gap-0.5 shadow-sm group">
+                                <span className="font-bold text-xs uppercase group-hover:text-primary">{p.name} {p.paternalLastName}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono">{p.curp}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
 }
 
 function startOfDay(date: Date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
