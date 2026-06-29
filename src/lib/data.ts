@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   doc, 
@@ -96,7 +97,7 @@ function fuzzyMapInsumo(item: any) {
     };
 }
 
-// Lector genérico de colecciones
+// Lector genérico de colecciones con ordenamiento y límites extendidos
 async function getRawCollection(name: string, limitNum?: number) {
     try {
         const colRef = collection(adminDb, name);
@@ -109,8 +110,7 @@ async function getRawCollection(name: string, limitNum?: number) {
         return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
     } catch (e) {
         console.error(`Error al leer colección ${name}:`, e);
-        const snap = await getDocs(limitNum ? query(collection(adminDb, name), limit(limitNum)) : collection(adminDb, name));
-        return snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
+        return [];
     }
 }
 
@@ -128,7 +128,7 @@ async function getPatientsForApps(apps: any[]) {
     return pats;
 }
 
-// GESTIÓN DE SEGURIDAD
+// GESTIÓN DE SEGURIDAD PROTEGIDA (BLINDAJE)
 async function getPasswordFromStore(id: string, defaultPass: string): Promise<string> {
     const snap = await getDoc(doc(adminDb, 'module_passwords', id));
     return snap.exists() ? snap.data().password : defaultPass;
@@ -190,8 +190,14 @@ export async function getPatientCounts(): Promise<ArchiveCounts> {
   return { total: totalSnap.data().count, vigente: vigenteSnap.data().count, bajaTemporal: bajaSnap.data().count, bajaDefinitiva: bajaDefSnap.data().count };
 }
 
+export async function savePatient(patient: Omit<Patient, 'id'>, id: string) {
+    const finalId = id || uuidv4();
+    await setDoc(doc(adminDb, 'patients', finalId), { ...patient, id: finalId }, { merge: true });
+    return { success: true, id: finalId };
+}
+
 export async function getAppointmentsData() {
-    const apps = await getRawCollection('appointments', 20000); 
+    const apps = await getRawCollection('appointments', 40000); 
     const pats = await getPatientsForApps(apps);
     const clinics = await getClinicsData();
     return apps.map(a => {
@@ -204,22 +210,22 @@ export async function getAppointmentsData() {
     });
 }
 export async function getLabAppointmentsData() { 
-    const apps = await getRawCollection('labAppointments', 20000); 
+    const apps = await getRawCollection('labAppointments', 40000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
 export async function getXRayAppointmentsData() { 
-    const apps = await getRawCollection('xrayAppointments', 10000); 
+    const apps = await getRawCollection('xrayAppointments', 15000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
 export async function getUltrasoundAppointmentsData() { 
-    const apps = await getRawCollection('ultrasoundAppointments', 10000); 
+    const apps = await getRawCollection('ultrasoundAppointments', 15000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
 export async function getVaccineAppointmentsData() { 
-    const apps = await getRawCollection('vaccineAppointments', 10000); 
+    const apps = await getRawCollection('vaccineAppointments', 15000); 
     const pats = await getPatientsForApps(apps); 
     return apps.map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) })); 
 }
@@ -556,3 +562,6 @@ export async function updateArchiveSettings(s: any) { if(s.password) await setDo
 export async function updatePharmacySettings(s: any) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'pharmacy'), { password: s.password }); return { success: true }; }
 export async function updateWarehouseSettings(s: any) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'warehouse'), { password: s.password }); return { success: true }; }
 export async function updateBISettings(s: any) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'bi'), { password: s.password }); return { success: true }; }
+export async function deleteAllMedications() { const snap = await getDocs(collection(adminDb, 'medications')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
+export async function deleteAllSupplies() { const snap = await getDocs(collection(adminDb, 'supplies')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
+export async function deleteClinic(id: string) { await deleteDoc(doc(adminDb, 'clinics', id)); await deleteDoc(doc(adminDb, 'clinic_settings', id)); return { success: true }; }

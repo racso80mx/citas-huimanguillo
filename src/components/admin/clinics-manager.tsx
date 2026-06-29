@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useTransition, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -198,7 +199,9 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                 <div className="flex items-center justify-between">
                     <div>
                         <DialogTitle className="text-2xl font-black uppercase">Configuración Avanzada de Unidad</DialogTitle>
-                        <DialogDescription className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</DialogDescription>
+                        <DialogDescription asChild>
+                            <div className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</div>
+                        </DialogDescription>
                     </div>
                     {onDelete && clinic.id && !clinic.id.startsWith('new') && (
                         <AlertDialog>
@@ -247,7 +250,10 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                             <div className='space-y-2'><Label className="text-[10px] font-black uppercase text-primary">Duración (min)</Label><Input type="number" value={editedClinic.consultationDuration || ''} onChange={(e) => handleFieldChange('consultationDuration', parseInt(e.target.value,10) || 0)} className="h-11 font-black text-center" /></div>
                             <div className='space-y-2'><Label className="text-[10px] font-black uppercase text-primary">Entrada</Label><Select value={editedClinic.startTime} onValueChange={(v) => handleFieldChange('startTime', v)}><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger><SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
                             <div className='space-y-2'><Label className="text-[10px] font-black uppercase text-primary">Salida</Label><Select value={editedClinic.endTime} onValueChange={(v) => handleFieldChange('endTime', v)}><SelectTrigger className="h-11 font-bold"><SelectValue /></SelectTrigger><SelectContent>{timeSlots30Min.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select></div>
-                            <div className='space-y-2'><Label className="text-[10px] font-black uppercase text-primary">Hora Comida</Label><Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}><SelectTrigger className="h-11 font-bold bg-orange-50 border-orange-200"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">No</SelectItem>{dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
+                            <div className='space-y-2'><Label className="text-[10px] font-black uppercase text-primary">Hora Comida</Label><Select value={editedClinic.breakTime || ''} onValueChange={(v) => handleFieldChange('breakTime', v === 'none' ? '' : v)}>
+                                <SelectTrigger className="h-11 font-bold bg-orange-50 border-orange-200"><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="none">No</SelectItem>{dynamicBreakSlots.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                            </Select></div>
                         </div>
                     </div>
                     <Separator />
