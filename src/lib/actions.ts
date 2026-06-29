@@ -214,13 +214,13 @@ export async function cleanupOldRecords() {
 // --- SEGURIDAD ---
 export async function getAdminSettingsData() { return data.getAdminSettingsData(); }
 export async function updateAdminSettings(settings: AdminSettings) { return data.updateAdminSettings(settings); }
-export async function getArchiveSettings() { return data.getArchiveSettingsData(); }
+export async function getArchiveSettingsData() { return data.getArchiveSettingsData(); }
 export async function updateArchiveSettings(settings: ArchiveSettings) { return data.updateArchiveSettings(settings); }
-export async function getPharmacySettings() { return data.getPharmacySettingsData(); }
+export async function getPharmacySettingsData() { return data.getPharmacySettingsData(); }
 export async function updatePharmacySettings(settings: PharmacySettings) { return data.updatePharmacySettings(settings); }
-export async function getWarehouseSettings() { return data.getWarehouseSettingsData(); }
+export async function getWarehouseSettingsData() { return data.getWarehouseSettingsData(); }
 export async function updateWarehouseSettings(settings: WarehouseSettings) { return data.updateWarehouseSettings(settings); }
-export async function getBISettings() { return data.getBISettingsData(); }
+export async function getBISettingsData() { return data.getBISettingsData(); }
 export async function updateBISettings(settings: BISettings) { return data.updateBISettings(settings); }
 
 export async function verifyAdminPassword(p: string) { const s = await data.getAdminSettingsData(); return { success: s.password === p }; }

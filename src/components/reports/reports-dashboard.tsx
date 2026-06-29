@@ -375,7 +375,10 @@ export function ReportsDashboard({ entity, onLogout, reportType }: ReportsDashbo
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
 
-    const todaysAppointments = appointments.filter(app => isWithinInterval(parseISO(app.date), { start: todayStart, end: todayEnd }));
+    const todaysAppointments = appointments.filter(app => {
+        const d = parseISO(app.date);
+        return d >= todayStart && d <= todayEnd;
+    });
 
     return {
       total: todaysAppointments.length,
