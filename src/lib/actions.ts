@@ -313,7 +313,7 @@ export async function updateXRaySettings(s: XRaySettings) {
 }
 export async function getUltrasoundSettings() { return data.getUltrasoundSettings(); }
 export async function updateUltrasoundSettings(s: UltrasoundSettings) { 
-    const res = await data.getUltrasoundSettings(s);
+    const res = await data.updateUltrasoundSettings(s);
     revalidatePath('/', 'layout');
     return res;
 }

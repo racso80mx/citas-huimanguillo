@@ -35,9 +35,9 @@ export default async function RootLayout({
         <FirebaseClientProvider>
           <SidebarProvider defaultOpen={false}>
             <AppSidebar moduleSettings={moduleSettings} />
-            <SidebarInset className="flex flex-col m-0 p-0 rounded-none border-none shadow-none">
+            <SidebarInset className="flex flex-col m-0 p-0 rounded-none border-none shadow-none bg-background">
               <SiteHeader moduleSettings={moduleSettings} />
-              <main className="flex-1 overflow-x-hidden p-0 m-0">
+              <main className="flex-1 w-full p-0 m-0 overflow-x-hidden">
                 {children}
               </main>
               <SiteFooter />

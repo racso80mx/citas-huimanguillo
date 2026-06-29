@@ -76,19 +76,19 @@ export default function HomePageContent({ moduleSettings }: { moduleSettings: Mo
   const enabledModules = allModules.filter(mod => mod.enabled);
 
   return (
-    <div className="w-full p-0">
-      <div className="text-center mb-6 flex flex-col items-center pt-6">
+    <div className="w-full p-0 m-0">
+      <div className="text-center mb-6 flex flex-col items-center pt-8">
         <div className="text-primary mb-4">
           <Image
             src={logoBase64}
             alt="Logo Hospital"
-            width={240}
-            height={240}
+            width={270}
+            height={270}
             className="rounded-xl shadow-lg"
             priority
           />
         </div>
-        <h1 className="text-4xl font-bold font-headline text-foreground tracking-tighter uppercase">
+        <h1 className="text-4xl font-bold font-headline text-foreground tracking-tighter uppercase px-4">
           Bienvenido al Portal Hospitalario
         </h1>
         <p className="text-muted-foreground mt-1 max-w-2xl mx-auto font-medium px-4">
