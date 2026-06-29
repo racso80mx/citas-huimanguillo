@@ -199,9 +199,7 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                 <div className="flex items-center justify-between">
                     <div>
                         <DialogTitle className="text-2xl font-black uppercase">Configuración Avanzada de Unidad</DialogTitle>
-                        <DialogDescription asChild>
-                            <div className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</div>
-                        </DialogDescription>
+                        <div className="font-bold text-primary">{editedClinic.name || "Nueva Unidad"}</div>
                     </div>
                     {onDelete && clinic.id && !clinic.id.startsWith('new') && (
                         <AlertDialog>
@@ -337,16 +335,14 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                         <AlertDialogTitle className="flex items-center gap-2 text-destructive">
                             <AlertTriangle className="h-6 w-6" /> ADVERTENCIA: CITAS EXISTENTES
                         </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-4 pt-2 text-sm text-muted-foreground">
-                                <div className="font-bold text-foreground">
-                                    Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
-                                </div>
-                                <div>
-                                    Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas.
-                                </div>
+                        <div className="space-y-4 pt-2 text-sm text-muted-foreground">
+                            <div className="font-bold text-foreground">
+                                Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
                             </div>
-                        </AlertDialogDescription>
+                            <div>
+                                Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas.
+                            </div>
+                        </div>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => { setIsConfirmingBlock(false); setConflictInfo(null); setPendingDates(undefined); }}>No, elegir otra fecha</AlertDialogCancel>

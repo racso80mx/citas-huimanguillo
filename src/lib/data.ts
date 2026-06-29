@@ -71,7 +71,7 @@ export function serializeData(data: any): any {
   return data;
 }
 
-// Motor de normalización de encabezados Excel (Requerido para Almacén/Farmacia)
+// Motor de normalización de encabezados Excel (Mapeo Inteligente)
 function fuzzyMapInsumo(item: any) {
     const keys = Object.keys(item);
     const find = (options: string[]) => {
@@ -97,7 +97,7 @@ function fuzzyMapInsumo(item: any) {
     };
 }
 
-// Lector genérico de colecciones con ordenamiento y límites extendidos
+// Lector genérico de colecciones
 async function getRawCollection(name: string, limitNum?: number) {
     try {
         const colRef = collection(adminDb, name);
@@ -114,7 +114,7 @@ async function getRawCollection(name: string, limitNum?: number) {
     }
 }
 
-// Motor de Vinculación de Pacientes eficiente
+// Vinculación de Pacientes
 async function getPatientsForApps(apps: any[]) {
     const pIds = Array.from(new Set(apps.map(a => a.patientId).filter(id => !!id)));
     if (pIds.length === 0) return [];
@@ -128,7 +128,6 @@ async function getPatientsForApps(apps: any[]) {
     return pats;
 }
 
-// GESTIÓN DE SEGURIDAD PROTEGIDA (BLINDAJE)
 async function getPasswordFromStore(id: string, defaultPass: string): Promise<string> {
     const snap = await getDoc(doc(adminDb, 'module_passwords', id));
     return snap.exists() ? snap.data().password : defaultPass;
@@ -522,7 +521,9 @@ export async function getPatientByCURP(curp: string) {
 export async function getAnnouncementsData() { const d = await getDoc(doc(adminDb, 'settings', 'announcements')); return d.exists() ? d.data().messages : []; }
 export async function updateAnnouncements(m: string[]) { await setDoc(doc(adminDb, 'settings', 'announcements'), { messages: m }); return { success: true }; }
 export async function getHolidaysData() { return getRawCollection('holidays') as Promise<Holiday[]>; }
+export async function updateHolidays(h: Holiday[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'holidays')); snap.docs.forEach(d => batch.delete(d.ref)); h.forEach(x => batch.set(doc(adminDb, 'holidays', uuidv4()), x)); await batch.commit(); return { success: true }; }
 export async function getSpecialActionDaysData() { return getRawCollection('specialActionDays') as Promise<SpecialActionDay[]>; }
+export async function updateSpecialActionDays(items: SpecialActionDay[]) { const batch = writeBatch(adminDb); const snap = await getDocs(collection(adminDb, 'specialActionDays')); snap.docs.forEach(d => batch.delete(d.ref)); items.forEach(i => batch.set(doc(adminDb, 'specialActionDays', uuidv4()), i)); await batch.commit(); return { success: true }; }
 export async function getLabStudies() { return getRawCollection('labStudies') as Promise<LabStudy[]>; }
 export async function getXRayStudies() { return getRawCollection('xrayStudies') as Promise<XRayStudy[]>; }
 export async function getUltrasoundStudies() { return getRawCollection('ultrasoundStudies') as Promise<UltrasoundStudy[]>; }
