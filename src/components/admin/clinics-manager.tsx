@@ -24,13 +24,10 @@ import {
     Save, 
     Calendar as CalendarIcon, 
     X, 
-    Pencil, 
-    RefreshCw, 
     Clock,
     CalendarDays,
     Search,
     Fingerprint,
-    ShieldCheck,
     Timer,
     CalendarPlus,
     ArrowUpDown,
@@ -38,7 +35,8 @@ import {
     ArrowDown,
     Trash2,
     AlertTriangle,
-    Settings2
+    Settings2,
+    RefreshCw
 } from 'lucide-react';
 import type { Clinic, Specialty, ServiceType } from '@/lib/definitions';
 import { BookingMode } from '@/lib/definitions';
@@ -67,7 +65,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -104,16 +101,9 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
     const [conflictInfo, setConflictInfo] = useState<{ date: string, count: number } | null>(null);
 
     useEffect(() => {
-        const rawDates = clinic.unavailableDates || [];
-        const normalizedDates = Array.from(new Set(rawDates.map(d => {
-            if (typeof d === 'string') return d;
-            if (d && typeof d === 'object' && 'seconds' in d) return new Date((d as any).seconds * 1000).toISOString().split('T')[0];
-            return String(d);
-        }).filter(d => !!d && d !== "[object Object]")));
-
         setEditedClinic({ 
             ...clinic, 
-            unavailableDates: normalizedDates, 
+            unavailableDates: clinic.unavailableDates || [], 
             daysOfAction: clinic.daysOfAction || [],
             customSchedules: clinic.customSchedules || [],
             waitlistSlots: clinic.waitlistSlots || 0
@@ -183,12 +173,11 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
         handleFieldChange('customSchedules', editedClinic.customSchedules?.filter(s => s.date !== dateStr) || []);
     };
 
-    const formatBadgeDate = (d: any) => {
+    const formatBadgeDate = (d: string) => {
         try {
-            const dateStr = typeof d === 'string' ? d : (d.seconds ? new Date(d.seconds * 1000).toISOString().split('T')[0] : String(d));
-            const dateObj = new Date(dateStr + 'T12:00:00');
-            return isValid(dateObj) ? format(dateObj, 'dd/MM/yy', { locale: es }) : dateStr;
-        } catch (e) { return String(d); }
+            const dateObj = new Date(d + 'T12:00:00');
+            return isValid(dateObj) ? format(dateObj, 'dd/MM/yy', { locale: es }) : d;
+        } catch (e) { return d; }
     };
 
     const dynamicBreakSlots = useMemo(() => {
@@ -333,13 +322,13 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
                     <div className='space-y-6'>
                         <h4 className="text-sm font-black text-primary uppercase tracking-widest flex items-center gap-2"><CalendarDays className="h-5 w-5" /> 5. Vacaciones y Bloqueos Totales</h4>
                         <div className="flex gap-4 items-center">
-                            <Popover><PopoverTrigger asChild><Button variant="outline" className='flex-1 h-12 font-black bg-destructive/5 text-destructive border-destructive/20'><CalendarPlus className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS DE BLOQUEO EN CALENDARIO</Button></PopoverTrigger><PopoverContent className='w-auto p-0' align="start"><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00')).filter(isValid)} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent></Popover>
+                            <Popover><PopoverTrigger asChild><Button variant="outline" className='flex-1 h-12 font-black bg-destructive/5 text-destructive border-destructive/20'><CalendarPlus className="mr-2 h-5 w-5" /> SELECCIONAR DÍAS DE BLOQUEO EN CALENDARIO</Button></PopoverTrigger><PopoverContent className='w-auto p-0' align="start"><Calendar mode="multiple" selected={editedClinic.unavailableDates?.map(d => new Date(d + 'T12:00:00'))} onSelect={handleDateSelection} locale={es} disabled={{ before: new Date() }} /></PopoverContent></Popover>
                         </div>
                         <ScrollArea className="h-[250px] border-2 border-dashed rounded-3xl bg-muted/5 p-6">
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                 {editedClinic.unavailableDates?.length ? editedClinic.unavailableDates.map(d => (
                                     <div key={String(d)} className="flex items-center justify-between p-3 bg-background border rounded-xl shadow-sm hover:border-destructive/40 transition-colors">
-                                        <span className="text-xs font-bold uppercase">{formatBadgeDate(d)}</span>
+                                        <span className="text-xs font-bold uppercase">{formatBadgeDate(String(d))}</span>
                                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveUnavailableDate(String(d))}><X className="h-3 w-3 text-destructive" /></Button>
                                     </div>
                                 )) : <div className="col-span-full text-center py-20 opacity-30 uppercase font-black text-xs">Sin días bloqueados por vacaciones</div>}

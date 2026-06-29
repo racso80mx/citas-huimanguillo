@@ -369,3 +369,6 @@ export async function verifyClinicPassword(id: string, p: string) {
     const clinic = clinics.find(c => c.id === id);
     return { success: clinic?.password === p };
 }
+export async function logActivity(action: string, details: string) {
+    return data.logActivity(action, details);
+}

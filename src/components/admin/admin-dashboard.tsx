@@ -223,7 +223,7 @@ function AppointmentsViewer() {
 
         if (searchTerm) {
             const t = searchTerm.toUpperCase();
-            results = results.filter(a => {
+            results = list.filter(a => {
                 const name = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
                 const curp = (a.patient?.curp || '').toUpperCase();
                 const folio = (a.appointmentNumber || '').toUpperCase();
