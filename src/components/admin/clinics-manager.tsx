@@ -76,7 +76,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
@@ -330,25 +329,25 @@ function ClinicEditDialog({ clinic, specialties, serviceTypes, onSave, onDelete,
             <DialogFooter className="p-6 border-t bg-muted/10 shrink-0"><Button onClick={() => onSave(editedClinic)} className="h-14 px-12 text-lg font-black uppercase shadow-2xl bg-primary hover:bg-primary/90 rounded-2xl"><Save className="mr-2 h-6 w-6" /> GUARDAR TODA LA CONFIGURACIÓN</Button></DialogFooter>
 
             <AlertDialog open={isConfirmingBlock} onOpenChange={setIsConfirmingBlock}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
                             <AlertTriangle className="h-6 w-6" /> ADVERTENCIA: CITAS EXISTENTES
-                        </AlertDialogTitle>
+                        </DialogTitle>
                         <div className="space-y-4 pt-2 text-sm text-muted-foreground">
                             <div className="font-bold text-foreground">
                                 Se han detectado <span className="text-primary text-lg">{conflictInfo?.count}</span> pacientes agendados para el día <span className="text-primary">{conflictInfo?.date}</span>.
                             </div>
-                            <div>
+                            <div className="text-xs">
                                 Si bloqueas este día, las citas actuales permanecerán registradas pero no se permitirán nuevas reservas.
                             </div>
                         </div>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => { setIsConfirmingBlock(false); setConflictInfo(null); setPendingDates(undefined); }}>No, elegir otra fecha</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmBlockage} className="bg-destructive hover:bg-destructive/90 font-bold">SÍ, ASIGNAR BLOQUEO</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setIsConfirmingBlock(false); setConflictInfo(null); setPendingDates(undefined); }}>No, elegir otra fecha</Button>
+                        <Button onClick={confirmBlockage} className="bg-destructive hover:bg-destructive/90 font-bold">SÍ, ASIGNAR BLOQUEO</Button>
+                    </DialogFooter>
+                </DialogContent>
             </AlertDialog>
         </DialogContent>
     );

@@ -179,7 +179,7 @@ function AppointmentsViewer() {
         }
     };
 
-    const filterList = (list: any[]) => {
+    const filterList = (list: any[], isMedicalTab: boolean = false) => {
         let results = [...list];
         const now = new Date();
 
@@ -209,12 +209,15 @@ function AppointmentsViewer() {
         }
         results = list.filter(dateFilterFn);
 
-        if (selectedServiceType !== 'all') {
-            results = results.filter(a => a.clinicId && data.clinics.find((c: any) => c.id === a.clinicId)?.serviceTypeId === selectedServiceType);
-        }
+        // Los filtros de unidad y categoría SOLO aplican a la pestaña de Cita Médica
+        if (isMedicalTab) {
+            if (selectedServiceType !== 'all') {
+                results = results.filter(a => a.clinicId && data.clinics.find((c: any) => c.id === a.clinicId)?.serviceTypeId === selectedServiceType);
+            }
 
-        if (selectedClinics.length > 0) {
-            results = results.filter(a => selectedClinics.includes(a.clinicId));
+            if (selectedClinics.length > 0) {
+                results = results.filter(a => a.clinicId && selectedClinics.includes(a.clinicId));
+            }
         }
 
         if (searchTerm) {
@@ -331,11 +334,11 @@ function AppointmentsViewer() {
                   <TabsTrigger value="us" className="py-2.5 px-6 font-bold">Ultrasonidos</TabsTrigger>
                   <TabsTrigger value="vac" className="py-2.5 px-6 font-bold">Vacunación</TabsTrigger>
                 </TabsList>
-                <TabsContent value="medical"><AppointmentList appointments={filterList(data.apps)} clinics={data.clinics} isAdmin onDelete={(id) => handlePatientDelete(id, 'medical')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="lab"><LabAppointmentList appointments={filterList(data.lab)} isAdmin onDelete={(id) => handlePatientDelete(id, 'lab')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="xr"><XRayAppointmentList appointments={filterList(data.xr)} isAdmin onDelete={(id) => handlePatientDelete(id, 'xr')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="us"><UltrasoundAppointmentList appointments={filterList(data.us)} isAdmin onDelete={(id) => handlePatientDelete(id, 'us')} onEditSuccess={fetchData} /></TabsContent>
-                <TabsContent value="vac"><VaccineAppointmentList appointments={filterList(data.vac)} isAdmin onDelete={(id) => handlePatientDelete(id, 'vac')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="medical"><AppointmentList appointments={filterList(data.apps, true)} clinics={data.clinics} isAdmin onDelete={(id) => handlePatientDelete(id, 'medical')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="lab"><LabAppointmentList appointments={filterList(data.lab, false)} isAdmin onDelete={(id) => handlePatientDelete(id, 'lab')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="xr"><XRayAppointmentList appointments={filterList(data.xr, false)} isAdmin onDelete={(id) => handlePatientDelete(id, 'xr')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="us"><UltrasoundAppointmentList appointments={filterList(data.us, false)} isAdmin onDelete={(id) => handlePatientDelete(id, 'us')} onEditSuccess={fetchData} /></TabsContent>
+                <TabsContent value="vac"><VaccineAppointmentList appointments={filterList(data.vac, false)} isAdmin onDelete={(id) => handlePatientDelete(id, 'vac')} onEditSuccess={fetchData} /></TabsContent>
             </Tabs>
         </div>
     );

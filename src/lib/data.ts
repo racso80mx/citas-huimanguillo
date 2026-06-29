@@ -70,33 +70,35 @@ export function serializeData(data: any): any {
   return data;
 }
 
-// Motor de normalización de encabezados Excel (Mapeo Inteligente)
+/**
+ * MOTOR DE MAPEO INTELIGENTE (FUZZY MAPPING)
+ * Normaliza automáticamente los encabezados de Excel para que coincidan con la base de datos.
+ * Resuelve el problema de "Filas Vacías" en la carga de Almacén.
+ */
 function fuzzyMapInsumo(item: any) {
     const keys = Object.keys(item);
-    const find = (options: string[]) => {
-        const found = keys.find(k => {
-            const cleanK = k.toLowerCase().trim().replace(/\s/g, '').replace(/[áéíóú]/g, (m) => ({'á':'a','é':'e','í':'i','ó':'o','ú':'u'}[m] || m));
-            return options.some(opt => {
-                const cleanOpt = opt.toLowerCase().trim().replace(/\s/g, '');
-                return cleanK === cleanOpt;
-            });
-        });
-        return found ? item[found] : undefined;
+    // Normalizador de texto: minúsculas, sin espacios, sin acentos
+    const normalize = (s: string) => String(s || '').toLowerCase().trim().replace(/[\s\._\-]/g, '').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    const findValue = (options: string[]) => {
+        const normalizedOptions = options.map(normalize);
+        const foundKey = keys.find(k => normalizedOptions.includes(normalize(k)));
+        return foundKey ? item[foundKey] : undefined;
     };
 
     return {
-        claveCuadroBasico: String(find(['clave', 'clavedecuadrobasico', 'articulo', 'codigo']) || 'S/C'),
-        descripcion: String(find(['descripcion', 'nombre', 'insumo', 'producto']) || 'SIN DESCRIPCIÓN'),
-        existencia: Number(find(['existencia', 'stock', 'cantidad', 'actual', 'cantidadenexistencia']) || 0),
-        fechaCaducidad: String(find(['caducidad', 'vencimiento', 'fechadecaducidad', 'fechavencimiento']) || ''),
-        lote: String(find(['lote', 'numerodelote', 'loteo']) || 'N/A'),
-        grupo: String(find(['grupo', 'categoria', 'familia']) || ''),
-        precioUnitario: Number(find(['precio', 'preciounitario', 'costo']) || 0),
-        almacen: String(find(['almacen', 'deposito', 'bodega']) || '')
+        claveCuadroBasico: String(findValue(['clave', 'clavedecuadrobasico', 'articulo', 'codigo', 'cod', 'idinsumo', 'clv']) || 'S/C'),
+        descripcion: String(findValue(['descripcion', 'nombre', 'insumo', 'producto', 'articulo', 'desc', 'sustancia']) || 'SIN DESCRIPCIÓN'),
+        existencia: Number(findValue(['existencia', 'stock', 'cantidad', 'actual', 'total', 'cant', 'stockactual']) || 0),
+        fechaCaducidad: String(findValue(['caducidad', 'vencimiento', 'fechadecaducidad', 'vence', 'fecha', 'venc', 'f.caducidad']) || ''),
+        lote: String(findValue(['lote', 'numerodelote', 'loteo', 'n.lote', 'lot', 'num.lote']) || 'N/A'),
+        grupo: String(findValue(['grupo', 'categoria', 'familia', 'tipo']) || ''),
+        precioUnitario: Number(findValue(['precio', 'preciounitario', 'costo']) || 0),
+        almacen: String(findValue(['almacen', 'deposito', 'bodega']) || '')
     };
 }
 
-// Lector genérico de colecciones (Ordenamiento en memoria para evitar errores de índice)
+// Lector genérico de colecciones con ordenamiento en memoria para estabilidad
 async function getRawCollection(name: string, limitNum: number = 40000) {
     try {
         const colRef = collection(adminDb, name);
@@ -104,12 +106,12 @@ async function getRawCollection(name: string, limitNum: number = 40000) {
         const snap = await getDocs(q);
         const results = snap.docs.map(d => ({ ...serializeData(d.data()), id: d.id }));
         
-        // Ordenar en memoria para garantizar estabilidad total
+        // Ordenamiento seguro en memoria
         if (name.includes('Appointment') || name === 'appointments') {
-            return results.sort((a, b) => b.date.localeCompare(a.date));
+            return results.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         }
         if (name === 'activityLog' || name === 'prescriptions') {
-            return results.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            return results.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
         }
         return results;
     } catch (e) {
@@ -247,7 +249,7 @@ export async function getAppointmentsData() {
     const pats = await getPatientsForApps(apps);
     const clinics = await getClinicsData();
     return apps.map(a => {
-        const clinic = clinics.find(c => c.id === a.clinicId) || clinics.find(c => c.name.toUpperCase() === (a.clinicName || '').toUpperCase());
+        const clinic = clinics.find(c => c.id === a.clinicId) || clinics.find(c => (c.name || '').toUpperCase() === (a.clinicName || '').toUpperCase());
         return { 
             ...a, 
             patient: pats.find(p => p.id === a.patientId), 
@@ -310,6 +312,7 @@ export async function getAppointmentsForClinic(cid: string) {
     const clinics = await getClinicsData();
     const target = clinics.find(c => c.id === cid);
     const pats = await getPatientsForApps(apps);
+    // Vinculación por ID y por Nombre para integridad total
     return apps.filter(a => a.clinicId === cid || (target && (a.clinicName || '').toUpperCase() === target.name.toUpperCase()))
                .map(a => ({ ...a, patient: pats.find(p => p.id === a.patientId) }));
 }
@@ -551,13 +554,13 @@ export async function updatePrescription(id: string, p: any) { await updateDoc(d
 export async function getAdminSettingsData(): Promise<AdminSettings> { const password = await getPasswordFromStore('superadmin', 'Hu1m4ngu1ll0'); return { password }; }
 export async function updateAdminSettings(s: AdminSettings) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'superadmin'), { password: s.password }); return { success: true }; }
 export async function getArchiveSettingsData(): Promise<ArchiveSettings> { const password = await getPasswordFromStore('archive', '2026'); return { password }; }
-export async function updateArchiveSettings(s: ArchiveSettings) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'archive'), { password: s.password }); return { success: true }; }
+export async function updateArchiveSettings(settings: ArchiveSettings) { if(settings.password) await setDoc(doc(adminDb, 'module_passwords', 'archive'), { password: settings.password }); return { success: true }; }
 export async function getPharmacySettingsData(): Promise<PharmacySettings> { const password = await getPasswordFromStore('pharmacy', 'farmacia2026'); return { password }; }
-export async function updatePharmacySettings(s: PharmacySettings) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'pharmacy'), { password: s.password }); return { success: true }; }
+export async function updatePharmacySettings(settings: PharmacySettings) { if(settings.password) await setDoc(doc(adminDb, 'module_passwords', 'pharmacy'), { password: settings.password }); return { success: true }; }
 export async function getWarehouseSettingsData(): Promise<WarehouseSettings> { const password = await getPasswordFromStore('warehouse', 'almacen2026'); return { password }; }
-export async function updateWarehouseSettings(s: WarehouseSettings) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'warehouse'), { password: s.password }); return { success: true }; }
+export async function updateWarehouseSettings(settings: WarehouseSettings) { if(settings.password) await setDoc(doc(adminDb, 'module_passwords', 'warehouse'), { password: settings.password }); return { success: true }; }
 export async function getBISettingsData(): Promise<BISettings> { const password = await getPasswordFromStore('bi', 'bi2026'); return { password }; }
-export async function updateBISettings(s: BISettings) { if(s.password) await setDoc(doc(adminDb, 'module_passwords', 'bi'), { password: s.password }); return { success: true }; }
+export async function updateBISettings(settings: BISettings) { if(settings.password) await setDoc(doc(adminDb, 'module_passwords', 'bi'), { password: settings.password }); return { success: true }; }
 
 // --- CONFIGURACIÓN POR SERVICIO ---
 export async function getLabSettings() { const d = await getDoc(doc(adminDb, 'settings', 'labSettings')); const p = await getPasswordFromStore('lab', 'lab2026'); return d.exists() ? { ...serializeData(d.data()), password: p } : { dailySlots: 20, waitlistSlots: 5, weekendBookingEnabled: false, password: p }; }
@@ -583,7 +586,7 @@ export async function updateUltrasoundStudies(s: UltrasoundStudy[]) { const batc
 export async function getVaccines() { return getRawCollection('vaccines') as Promise<Vaccine[]>; }
 export async function updateVaccines(v: Vaccine[]) { const batch = writeBatch(adminDb); v.forEach(x => batch.set(doc(adminDb, 'vaccines', x.id), x)); await batch.commit(); return { success: true }; }
 
-export async function getMedications() { return getRawCollection('medications') as Promise<Medication[]>; }
+export async function getMedications() { return getRawCollection('medications', 40000) as Promise<Medication[]>; }
 export async function bulkInsertMedications(p: any[]) { 
     const batch = writeBatch(adminDb); 
     p.forEach(item => {
@@ -596,7 +599,7 @@ export async function bulkInsertMedications(p: any[]) {
 }
 export async function deleteAllMedications() { const snap = await getDocs(collection(adminDb, 'medications')); const batch = writeBatch(adminDb); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit(); return { success: true }; }
 
-export async function getSupplies() { return getRawCollection('supplies') as Promise<Supply[]>; }
+export async function getSupplies() { return getRawCollection('supplies', 40000) as Promise<Supply[]>; }
 export async function bulkInsertSupplies(p: any[]) { 
     const batch = writeBatch(adminDb); 
     p.forEach(item => {
