@@ -1,4 +1,3 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -270,6 +269,7 @@ export async function deletePrescription(id: string) {
     revalidatePath('/', 'layout');
     return res;
 }
+export async function getPrescriptionHistory(filters: any) { return data.getPrescriptionHistory(filters); }
 
 // --- OTROS ---
 export async function getAnnouncements() { return data.getAnnouncementsData(); }
@@ -347,7 +347,3 @@ export async function deleteAllSupplies() { return data.deleteAllSupplies(); }
 export async function searchCie10(t: string) { return data.searchCie10(t); }
 export async function getBIData() { return data.getBIData(); }
 export async function getAvailableSlotsForDate(cid: string, date: string) { return data.getAvailableSlotsForDate(cid, date); }
-
-export async function getRawCollection(name: string) {
-    return data.getRawCollection(name);
-}

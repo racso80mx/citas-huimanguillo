@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
@@ -31,7 +30,7 @@ import {
   FileText,
   Filter,
   CalendarSearch,
-  ArrowRight
+  Plus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -69,7 +68,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
 } from '@/components/ui/command';
 import {
   Popover,
@@ -77,7 +75,6 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -114,7 +111,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [patients, setPatients] = useState<Patient[]>([]);
   const [counts, setCounts] = useState<ArchiveCounts>({ total: 0, vigente: 0, bajaTemporal: 0, bajaDefinitiva: 0 });
   
-  // Search fields
+  // Search fields for patients
   const [searchName, setSearchName] = useState('');
   const [searchCurp, setSearchCurp] = useState('');
   const [searchExpediente, setSearchExpediente] = useState('');
@@ -130,7 +127,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   
-  // Common items states
+  // Appointment states
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [colonias, setColonias] = useState<Colonia[]>([]);
@@ -139,6 +136,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('Consulta Externa Especializada');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Manual jump to date
   const [manualDayMonth, setManualDayMonth] = useState('');
@@ -309,6 +307,8 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
   const appointmentsToDisplay = useMemo(() => {
     let filtered = [...allAppointments];
+    
+    // 1. Filtrado por tipo de clínica (Especialista por defecto)
     if (selectedClinicType !== 'all') {
         const clinicsOfType = clinics.filter(c => {
             const sType = serviceTypes.find(st => st.id === c.serviceTypeId || st.name === c.serviceTypeId);
@@ -316,9 +316,13 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
         }).map(c => c.id);
         filtered = filtered.filter(app => clinicsOfType.includes(app.clinicId));
     }
+    
+    // 2. Filtrado por clínicas seleccionadas manualmente
     if (selectedClinics.length > 0) {
         filtered = filtered.filter(app => selectedClinics.includes(app.clinicId));
     }
+    
+    // 3. Filtrado por fecha
     const now = new Date();
     let filterFn: (app: any) => boolean;
     switch (dateFilter) {
@@ -355,8 +359,20 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
         break;
     }
     filtered = filtered.filter(filterFn);
+
+    // 4. Filtrado por término de búsqueda (Nombre, CURP, Folio)
+    if (searchTerm) {
+        const term = searchTerm.toUpperCase();
+        filtered = filtered.filter(a => {
+            const fullName = `${a.patient?.name || ''} ${a.patient?.paternalLastName || ''} ${a.patient?.maternalLastName || ''}`.toUpperCase();
+            const curp = (a.patient?.curp || '').toUpperCase();
+            const folio = (a.appointmentNumber || '').toUpperCase();
+            return fullName.includes(term) || curp.includes(term) || folio.includes(term);
+        });
+    }
+
     return filtered.sort((a, b) => a.time.localeCompare(b.time));
-  }, [allAppointments, selectedClinics, selectedClinicType, dateFilter, dateRange, clinics, serviceTypes]);
+  }, [allAppointments, selectedClinics, selectedClinicType, dateFilter, dateRange, clinics, serviceTypes, searchTerm]);
 
   const handleDownloadPDF = async () => {
       if (appointmentsToDisplay.length === 0) {
@@ -526,15 +542,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
             <CardContent className="relative min-h-[400px]">
               {isDataLoading && (
                 <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-[2px] flex flex-col items-center justify-center rounded-lg">
-                    <div className="bg-card border shadow-2xl p-8 rounded-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
-                        <Loader2 className="h-16 w-12 animate-spin text-primary" />
-                        <div className="text-center">
-                            <p className="text-xl font-black text-primary animate-pulse tracking-widest uppercase">
-                                CONSULTANDO PACIENTES
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1 font-medium">Buscando en los registros del hospital...</p>
-                        </div>
-                    </div>
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
               )}
 
@@ -644,7 +652,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="h-10 border-dashed bg-background border-primary/20 font-bold text-xs">
-                                        <PlusCircle className="mr-2 h-4 w-4 text-primary" />
+                                        <Plus className="mr-2 h-4 w-4 text-primary" />
                                         Filtrar Consultorio
                                         {selectedClinics.length > 0 && <Badge className="ml-2 px-1 bg-primary text-white">{selectedClinics.length}</Badge>}
                                     </Button>
@@ -672,7 +680,12 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
                             </Popover>
                             <div className="relative flex-1 min-w-[250px]">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11 border-primary/20 bg-background" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                <Input 
+                                    placeholder="Buscar por Nombre, CURP o Folio..." 
+                                    className="pl-9 h-11 border-primary/20 bg-background" 
+                                    value={searchTerm} 
+                                    onChange={e => setSearchTerm(e.target.value)} 
+                                />
                             </div>
                         </div>
                     </div>
