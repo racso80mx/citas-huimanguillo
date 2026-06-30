@@ -30,7 +30,8 @@ import {
   Calendar as CalendarIcon,
   FileText,
   Filter,
-  CalendarSearch
+  CalendarSearch,
+  ArrowRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -96,7 +97,7 @@ import {
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '../ui/calendar';
-import { downloadExcel, generateArchiveListPDF } from '@/lib/report-helpers';
+import { generateArchiveListPDF } from '@/lib/report-helpers';
 import { Label } from '../ui/label';
 
 type ArchiveDashboardProps = {
@@ -135,7 +136,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   const [colonias, setColonias] = useState<Colonia[]>([]);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [selectedClinics, setSelectedClinics] = useState<string[]>([]);
-  const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('all');
+  const [selectedClinicType, setSelectedClinicType] = useState<string | 'all'>('Consulta Externa Especializada');
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
@@ -151,7 +152,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
 
   const loadData = useCallback(async () => {
     setIsDataLoading(true);
-    setCurrentPage(1); // RESET PAGE ON EVERY LOAD
+    setCurrentPage(1); 
     
     try {
       const searchOptions = { 
@@ -191,7 +192,7 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
   
   useEffect(() => {
     loadData();
-  }, [statusFilter]); 
+  }, [loadData, statusFilter]); 
 
   const handleClearSearch = () => {
       setSearchName('');
@@ -356,6 +357,16 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
     filtered = filtered.filter(filterFn);
     return filtered.sort((a, b) => a.time.localeCompare(b.time));
   }, [allAppointments, selectedClinics, selectedClinicType, dateFilter, dateRange, clinics, serviceTypes]);
+
+  const handleDownloadPDF = async () => {
+      if (appointmentsToDisplay.length === 0) {
+          toast({ title: 'No hay citas para exportar', variant: 'destructive' });
+          return;
+      }
+      const title = `LISTADO DE CITAS - ${selectedClinicType.toUpperCase()}`;
+      const subtitle = `Filtro: ${dateFilter.toUpperCase()} | Registros: ${appointmentsToDisplay.length}`;
+      await generateArchiveListPDF(appointmentsToDisplay, title, subtitle);
+  };
 
   const onSearchNameChange = (val: string) => {
       setSearchName(val.toUpperCase());
@@ -573,7 +584,116 @@ export function ArchiveDashboard({ onLogout, isReadOnly = false }: ArchiveDashbo
         </TabsContent>
 
         <TabsContent value="appointments" className="pt-4 space-y-4">
-           {/* APPOINTMENTS TAB CONTENT OMITTED FOR BREVITY BUT RETAINED IN ACTUAL FILE */}
+           <Card className="shadow-md border-primary/10">
+                <CardHeader className="pb-4 bg-muted/10">
+                    <div className="flex flex-col space-y-6">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                            <CardTitle className="flex items-center gap-2">
+                                <Filter className="h-5 w-5 text-primary" /> Filtros de Agenda
+                            </CardTitle>
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex items-center gap-1 bg-background p-1 border rounded-lg shadow-sm">
+                                    <Button variant={dateFilter === 'today' ? 'default' : 'ghost'} onClick={() => setDateFilter('today')} size="sm">Hoy</Button>
+                                    <Button variant={dateFilter === 'tomorrow' ? 'default' : 'ghost'} onClick={() => setDateFilter('tomorrow')} size="sm">Mañana</Button>
+                                    <Button variant={dateFilter === 'week' ? 'default' : 'ghost'} onClick={() => setDateFilter('week')} size="sm">Semana</Button>
+                                    <Button variant={dateFilter === 'month' ? 'default' : 'ghost'} onClick={() => setDateFilter('month')} size="sm">Mes</Button>
+                                </div>
+                                <div className="flex items-center gap-2 bg-background p-2 rounded-xl border border-dashed border-primary/20 shadow-sm">
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-[10px] font-black uppercase text-primary h-3">Día/Mes</Label>
+                                        <Input placeholder="11/07" value={manualDayMonth} onChange={e => {
+                                            let v = e.target.value.replace(/\D/g, '');
+                                            if (v.length > 2) v = v.substring(0,2) + '/' + v.substring(2,4);
+                                            handleManualDateChange(v.substring(0,5), manualYear);
+                                        }} className="h-8 w-20 text-center font-bold text-xs" maxLength={5} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <Label className="text-[10px] font-black uppercase text-primary h-3">Año</Label>
+                                        <Input type="number" value={manualYear} onChange={e => handleManualDateChange(manualDayMonth, e.target.value.substring(0,4))} className="h-8 w-16 text-center font-bold text-xs" />
+                                    </div>
+                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-10 min-w-[160px] border-primary/20">
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (dateRange.to ? `${format(dateRange.from, 'dd/MM')} - ${format(dateRange.to, 'dd/MM')}` : format(dateRange.from, 'dd/MM')) : "Selector Rango"}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="end">
+                                        <Calendar mode="range" selected={dateRange} onSelect={r => { setDateRange(r); setDateFilter('range'); }} numberOfMonths={2} locale={es} />
+                                    </PopoverContent>
+                                </Popover>
+                                <Button onClick={handleDownloadPDF} variant="secondary" size="sm" className="h-10 px-4 font-bold border-primary/20">
+                                    <FileText className="mr-2 h-4 w-4" /> Descargar Listado (PDF)
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4 border-t pt-4">
+                            <div className="flex items-center gap-2">
+                                <Label className="text-xs font-black uppercase text-muted-foreground">Categoría:</Label>
+                                <Select value={selectedClinicType} onValueChange={v => { setSelectedClinicType(v); setSelectedClinics([]); }}>
+                                    <SelectTrigger className="h-10 w-[220px] bg-background border-primary/40 font-bold uppercase text-xs">
+                                        <SelectValue placeholder="Todas" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todas las Categorías</SelectItem>
+                                        {serviceTypes.map(s => <SelectItem key={s.id} value={s.name} className="text-xs font-bold uppercase">{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="h-10 border-dashed bg-background border-primary/20 font-bold text-xs">
+                                        <PlusCircle className="mr-2 h-4 w-4 text-primary" />
+                                        Filtrar Consultorio
+                                        {selectedClinics.length > 0 && <Badge className="ml-2 px-1 bg-primary text-white">{selectedClinics.length}</Badge>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[300px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar consultorio..." />
+                                        <CommandList>
+                                            <CommandEmpty>No hay resultados.</CommandEmpty>
+                                            <CommandGroup>
+                                                {clinics.filter(c => {
+                                                    if (selectedClinicType === 'all') return true;
+                                                    const sType = serviceTypes.find(st => st.id === c.serviceTypeId || st.name === c.serviceTypeId);
+                                                    return sType?.name === selectedClinicType || c.serviceTypeId === selectedClinicType;
+                                                }).map(c => (
+                                                    <CommandItem key={c.id} onSelect={() => handleClinicSelect(c.id)} className="cursor-pointer">
+                                                        <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary", selectedClinics.includes(c.id) ? "bg-primary text-white" : "opacity-50 [&_svg]:invisible")}><Check className="h-4 w-4" /></div>
+                                                        <span className="text-xs uppercase font-bold">{c.name}</span>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                            <div className="relative flex-1 min-w-[250px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="Buscar por Nombre, CURP o Folio..." className="pl-9 h-11 border-primary/20 bg-background" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    {isDataLoading ? (
+                        <div className="py-20 flex flex-col items-center gap-4">
+                            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground animate-pulse">Sincronizando Agenda...</p>
+                        </div>
+                    ) : (
+                        <AppointmentList 
+                          appointments={appointmentsToDisplay} 
+                          clinics={clinics} 
+                          isAdmin={!isReadOnly} 
+                          onDelete={handleAppointmentDelete} 
+                          onEditSuccess={loadData} 
+                        />
+                    )}
+                </CardContent>
+           </Card>
         </TabsContent>
       </Tabs>
 

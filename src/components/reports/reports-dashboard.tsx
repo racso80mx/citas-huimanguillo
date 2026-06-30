@@ -43,7 +43,6 @@ import {
   CalendarDays,
   Search,
   FileText,
-  CalendarSearch,
   CheckCircle2,
   Users,
   History,
@@ -52,7 +51,8 @@ import {
   Stethoscope,
   X,
   Trash2,
-  Pencil
+  Pencil,
+  FlaskConical
 } from 'lucide-react';
 import {
   startOfDay,
@@ -627,4 +627,9 @@ function GlobalArchiveSearch({ onSelectPatient }: { onSelectPatient: (p: Patient
             </CardContent>
         </Card>
     );
+}
+
+function ReadOnlyInventory({ type }: { type: 'pharmacy' | 'warehouse' }) {
+    // This sub-component is used for read-only inventory lookup
+    return null; // Placeholder as logic is handled by dialogs
 }

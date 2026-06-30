@@ -71,16 +71,12 @@ export function serializeData(data: any): any {
   return data;
 }
 
-/**
- * Motor de Mapeo Inteligente para Insumos (Almacén y Farmacia)
- * Reconoce encabezados de Excel de forma flexible ignorando mayúsculas, acentos y espacios.
- */
 function fuzzyMapInsumo(item: any) {
     const keys = Object.keys(item);
     const normalize = (s: string) => String(s || '').toLowerCase().trim()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
-        .replace(/[\s\._\-]/g, ''); // Eliminar espacios y caracteres especiales
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, '');
         
     const findValue = (options: string[]) => {
         const normalizedOptions = options.map(normalize);
@@ -91,7 +87,7 @@ function fuzzyMapInsumo(item: any) {
     return {
         claveCuadroBasico: String(findValue(['clave', 'clavedecuadrobasico', 'articulo', 'codigo', 'cod', 'idinsumo', 'clv', 'clavebasica', 'cve']) || 'S/C'),
         descripcion: String(findValue(['descripcion', 'nombre', 'insumo', 'producto', 'articulo', 'desc', 'sustancia', 'descripciondelarticulo']) || 'SIN DESCRIPCIÓN'),
-        existencia: Number(findValue(['existencia', 'stock', 'cantidad', 'actual', 'total', 'cant', 'stockactual', 'disponible', 'existencias']) || 0),
+        existencia: Number(findValue(['existencia', 'stock', 'cantidad', 'actual', 'total', 'cant', 'stockactual', 'disponible', 'existencias', 'entradas', 'salidas']) || 0),
         fechaCaducidad: String(findValue(['caducidad', 'vencimiento', 'fechadecaducidad', 'vence', 'fecha', 'venc', 'f.caducidad', 'expiracion', 'vencimientolote']) || ''),
         lote: String(findValue(['lote', 'numerodelote', 'loteo', 'n.lote', 'lot', 'num.lote', 'batch']) || 'N/A'),
         grupo: String(findValue(['grupo', 'categoria', 'familia', 'tipo', 'clasificacion']) || ''),
@@ -100,7 +96,7 @@ function fuzzyMapInsumo(item: any) {
     };
 }
 
-async function getRawCollection(name: string, limitNum: number = 10000) {
+export async function getRawCollection(name: string, limitNum: number = 10000) {
     try {
         const colRef = collection(adminDb, name);
         const q = query(colRef, limit(Math.min(limitNum, 10000)));
