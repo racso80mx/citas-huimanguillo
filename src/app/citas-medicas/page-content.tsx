@@ -93,7 +93,7 @@ export default function PageContent({
 
   const calculateForClinic = useCallback((clinic: Clinic, allAppointments: any[], holidaySet: Set<string>, freshSpecialActionDays: SpecialActionDay[]): DailyAvailability[] => {
       const startDate = startOfToday();
-      const endDate = addDays(startDate, 31);
+      const endDate = addDays(startDate, 180); // Ampliado a 6 meses para cubrir agosto y fechas posteriores
       
       const clinicAppointments = allAppointments.filter(app => 
           app.clinicId === clinic.id || 
